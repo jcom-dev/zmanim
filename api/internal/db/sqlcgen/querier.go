@@ -109,6 +109,8 @@ type Querier interface {
 	// These queries handle publisher registration requests (public submissions and admin review)
 	// Check if there's already a pending or approved request for this email
 	CheckExistingPublisherRequest(ctx context.Context, lower string) (int64, error)
+	// Checks if a zman has event or behavior tags (simpler than subquery in main query)
+	CheckIfEventZman(ctx context.Context, id int32) (bool, error)
 	CheckMasterZmanInUse(ctx context.Context, masterZmanID *int32) (bool, error)
 	// Publisher Existence and Basic Info --
 	CheckPublisherExists(ctx context.Context, id int32) (bool, error)
@@ -121,6 +123,8 @@ type Querier interface {
 	CheckSystemConfigTableExists(ctx context.Context) (bool, error)
 	// Check if a zman_key already exists for a publisher
 	CheckZmanKeyExists(ctx context.Context, arg CheckZmanKeyExistsParams) (bool, error)
+	// Marks an action as completed with result data
+	CompleteAction(ctx context.Context, arg CompleteActionParams) error
 	CopyPublicAlgorithm(ctx context.Context, arg CopyPublicAlgorithmParams) (int32, error)
 	CountCities(ctx context.Context, arg CountCitiesParams) (int64, error)
 	CountCityBoundaries(ctx context.Context) (int64, error)
@@ -236,6 +240,10 @@ type Querier interface {
 	GetAIAuditLogs(ctx context.Context, arg GetAIAuditLogsParams) ([]AiAuditLog, error)
 	GetAccessiblePublishersByClerkUserID(ctx context.Context, clerkUserID *string) (GetAccessiblePublishersByClerkUserIDRow, error)
 	GetAccessiblePublishersByIDs(ctx context.Context, dollar_1 []string) ([]GetAccessiblePublishersByIDsRow, error)
+	// Retrieves causal chain for an action (parent → child actions)
+	GetActionChain(ctx context.Context, id string) ([]GetActionChainRow, error)
+	// Retrieves all actions for a given request ID (for debugging/audit)
+	GetActionsByRequest(ctx context.Context, requestID string) ([]Action, error)
 	GetAlgorithmByID(ctx context.Context, arg GetAlgorithmByIDParams) (GetAlgorithmByIDRow, error)
 	GetAlgorithmStatusByID(ctx context.Context, id int16) (GetAlgorithmStatusByIDRow, error)
 	GetAlgorithmStatusByKey(ctx context.Context, key string) (GetAlgorithmStatusByKeyRow, error)
@@ -397,6 +405,8 @@ type Querier interface {
 	// ============================================================================
 	GetDistrictsByRegion(ctx context.Context, regionID int32) ([]GetDistrictsByRegionRow, error)
 	GetDistrictsWithoutBoundaries(ctx context.Context, code string) ([]GetDistrictsWithoutBoundariesRow, error)
+	// Retrieves all actions for a specific entity (e.g., all actions on publisher_zman #123)
+	GetEntityActionHistory(ctx context.Context, arg GetEntityActionHistoryParams) ([]GetEntityActionHistoryRow, error)
 	// Get an event category by its ID
 	GetEventCategoryByID(ctx context.Context, id int32) (EventCategory, error)
 	// Get an event category by its key
@@ -502,47 +512,6 @@ type Querier interface {
 	GetPublisherFullProfileByID(ctx context.Context, id int32) (GetPublisherFullProfileByIDRow, error)
 	// Version History SQL Queries
 	// SQLc will generate type-safe Go code from these queries
-	//
-	// NOTE: These queries reference the 'algorithm_version_history' and
-	// 'algorithm_rollback_audit' tables which DO NOT currently exist in the schema.
-	// These tables need to be added via migration before these queries can be used.
-	//
-	// Required table schema (to be added in migration):
-	//
-	// CREATE TABLE algorithm_version_history (
-	//     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-	//     algorithm_id INTEGER NOT NULL REFERENCES algorithms(id) ON DELETE CASCADE,
-	//     version_number INTEGER NOT NULL,
-	//     status TEXT NOT NULL,
-	//     description TEXT,
-	//     config_snapshot JSONB NOT NULL,
-	//     created_by TEXT,
-	//     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-	//     published_at TIMESTAMP WITH TIME ZONE,
-	//     UNIQUE(algorithm_id, version_number)
-	// );
-	//
-	// CREATE TABLE algorithm_rollback_audit (
-	//     id SERIAL PRIMARY KEY,
-	//     algorithm_id INTEGER NOT NULL REFERENCES algorithms(id) ON DELETE CASCADE,
-	//     source_version INTEGER NOT NULL,
-	//     target_version INTEGER NOT NULL,
-	//     new_version INTEGER NOT NULL,
-	//     reason TEXT,
-	//     rolled_back_by TEXT,
-	//     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-	// );
-	//
-	// CREATE OR REPLACE FUNCTION get_next_algorithm_version(p_algorithm_id INTEGER)
-	// RETURNS INTEGER AS $$
-	// BEGIN
-	//     RETURN COALESCE((
-	//         SELECT MAX(version_number) + 1
-	//         FROM algorithm_version_history
-	//         WHERE algorithm_id = p_algorithm_id
-	//     ), 1);
-	// END;
-	// $$ LANGUAGE plpgsql;
 	// Get publisher ID by clerk user ID --
 	GetPublisherIDByClerkUserID(ctx context.Context, clerkUserID *string) (int32, error)
 	// Get publisher info (logo_data is the base64 embedded logo)
@@ -580,6 +549,8 @@ type Querier interface {
 	// Get a specific zman by ID (for linking validation)
 	GetPublisherZmanByID(ctx context.Context, id int32) (GetPublisherZmanByIDRow, error)
 	GetPublisherZmanByKey(ctx context.Context, arg GetPublisherZmanByKeyParams) (GetPublisherZmanByKeyRow, error)
+	// Simplified version of GetPublisherZmanByKey without tag aggregation
+	GetPublisherZmanByKeySimplified(ctx context.Context, arg GetPublisherZmanByKeySimplifiedParams) (GetPublisherZmanByKeySimplifiedRow, error)
 	// Get a specific zman by key for comparison during restore
 	GetPublisherZmanForSnapshotCompare(ctx context.Context, arg GetPublisherZmanForSnapshotCompareParams) (GetPublisherZmanForSnapshotCompareRow, error)
 	// ============================================================================
@@ -608,6 +579,15 @@ type Querier interface {
 	// ============================================
 	// Get all active (non-deleted) zmanim for snapshot export
 	GetPublisherZmanimForSnapshot(ctx context.Context, publisherID int32) ([]GetPublisherZmanimForSnapshotRow, error)
+	// File: zmanim_simplified.sql
+	// Purpose: Simplified publisher zmanim queries (tags fetched separately)
+	// Pattern: query-decomposition
+	// Complexity: medium (5 concepts: publisher_zmanim, publishers, master_registry, lookup tables)
+	// Used by: publisher_zmanim.go handlers
+	// Note: This is a cleaner alternative to the complex GetPublisherZmanim query
+	// Simplified version without tag aggregation (tags fetched separately via GetZmanTags)
+	// Still includes linked source resolution and master registry fallbacks
+	GetPublisherZmanimSimplified(ctx context.Context, publisherID int32) ([]GetPublisherZmanimSimplifiedRow, error)
 	// ============================================
 	// PUBLISHER ZMANIM WITH REGISTRY (new model)
 	// ============================================
@@ -715,6 +695,14 @@ type Querier interface {
 	GetZmanSourceTypeByKey(ctx context.Context, key string) (GetZmanSourceTypeByKeyRow, error)
 	// Zman Source Types --
 	GetZmanSourceTypes(ctx context.Context) ([]GetZmanSourceTypesRow, error)
+	// File: zmanim_tags.sql
+	// Purpose: Separate tag fetching queries (extracted from complex GetPublisherZmanim)
+	// Pattern: query-decomposition
+	// Complexity: low (single concept with lookup tables)
+	// Used by: publisher_zmanim.go handlers
+	// Fetches all tags for a specific publisher zman
+	// Combines master zman tags (if linked to master registry) with publisher-specific tags
+	GetZmanTags(ctx context.Context, id int32) ([]GetZmanTagsRow, error)
 	GetZmanVersion(ctx context.Context, arg GetZmanVersionParams) (GetZmanVersionRow, error)
 	// ============================================
 	// VERSION HISTORY QUERIES
@@ -784,6 +772,14 @@ type Querier interface {
 	// Bulk publish/unpublish zmanim --
 	PublishAllZmanim(ctx context.Context, publisherID int32) error
 	PublishZmanimByKeys(ctx context.Context, arg PublishZmanimByKeysParams) error
+	// File: actions.sql
+	// Purpose: Action reification queries for provenance tracking
+	// Pattern: action-reification
+	// Complexity: low (single concept - provenance)
+	// Used by: All services that create/update state
+	// Records a new action in the actions table (starts with 'pending' status)
+	// Returns the action_id for tracking
+	RecordAction(ctx context.Context, arg RecordActionParams) (string, error)
 	// Mark a publisher request as rejected
 	RejectPublisherRequest(ctx context.Context, arg RejectPublisherRequestParams) error
 	// Reject a new tag request by deleting it from zman_request_tags

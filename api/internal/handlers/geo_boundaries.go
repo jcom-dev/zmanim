@@ -1,3 +1,10 @@
+// File: geo_boundaries.go
+// Purpose: PostGIS geographic queries - country/region/city boundary lookup
+// Pattern: 6-step-handler
+// Dependencies: Queries: geo_boundaries.sql (PostGIS ST_Contains)
+// Frequency: high - 781 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

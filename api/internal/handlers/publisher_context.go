@@ -1,3 +1,10 @@
+// File: publisher_context.go
+// Purpose: Publisher resolver - extracts publisher ID from X-Publisher-Id header with auth
+// Pattern: publisher-resolver
+// Dependencies: middleware.GetUserID, Clerk metadata
+// Frequency: high - used by 11 handler files
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

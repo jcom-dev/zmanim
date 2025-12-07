@@ -1,3 +1,10 @@
+// File: master_registry.go
+// Purpose: Master zmanim registry CRUD - canonical zman definitions for all publishers
+// Pattern: 6-step-handler
+// Dependencies: Queries: master_zmanim.sql, tags.sql | Services: ClerkService
+// Frequency: critical - 3,255 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

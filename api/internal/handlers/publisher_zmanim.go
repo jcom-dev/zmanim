@@ -1,3 +1,10 @@
+// File: publisher_zmanim.go
+// Purpose: Publisher zmanim CRUD, linking, versioning, soft delete, restore
+// Pattern: 6-step-handler
+// Dependencies: Queries: zmanim.sql, algorithms.sql | Services: Cache
+// Frequency: critical - 1,901 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

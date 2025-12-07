@@ -1,3 +1,10 @@
+// File: utils.go
+// Purpose: ID conversion helpers (int32 ↔ string, validation)
+// Pattern: utility
+// Dependencies: Used by all handlers for type safety
+// Frequency: critical
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import "strconv"

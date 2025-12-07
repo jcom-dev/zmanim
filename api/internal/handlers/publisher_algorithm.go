@@ -1,3 +1,10 @@
+// File: publisher_algorithm.go
+// Purpose: Algorithm lifecycle - draft/publish/archive with versioning and rollback
+// Pattern: 6-step-handler-transactional
+// Dependencies: Queries: algorithms.sql | Services: Cache, SnapshotService
+// Frequency: high - 716 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

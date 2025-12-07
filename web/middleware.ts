@@ -1,3 +1,12 @@
+/**
+ * @file middleware.ts
+ * @purpose Next.js middleware - auth routing, public/protected route logic
+ * @pattern next-middleware
+ * @dependencies Clerk auth(), publicRoutes matcher
+ * @frequency critical - authentication flow
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 

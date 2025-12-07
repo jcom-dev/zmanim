@@ -1,3 +1,10 @@
+// File: snapshot_service.go
+// Purpose: Publisher snapshot export/import - algorithm versioning and backups
+// Pattern: service
+// Dependencies: JSON serialization, algorithm history
+// Frequency: medium - 419 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package services
 
 import (

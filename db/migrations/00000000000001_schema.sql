@@ -318,6 +318,144 @@ $$;
 
 
 --
+-- Name: record_action; Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_action(
+    p_action_type text,
+    p_concept text,
+    p_user_id text,
+    p_publisher_id integer,
+    p_request_id uuid,
+    p_entity_type text,
+    p_entity_id text,
+    p_payload jsonb,
+    p_parent_action_id uuid DEFAULT NULL
+) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_action_id uuid;
+BEGIN
+    INSERT INTO public.actions (
+        action_type,
+        concept,
+        user_id,
+        publisher_id,
+        request_id,
+        entity_type,
+        entity_id,
+        payload,
+        parent_action_id,
+        status
+    ) VALUES (
+        p_action_type,
+        p_concept,
+        p_user_id,
+        p_publisher_id,
+        p_request_id,
+        p_entity_type,
+        p_entity_id,
+        p_payload,
+        p_parent_action_id,
+        'pending'
+    ) RETURNING id INTO v_action_id;
+
+    RETURN v_action_id;
+END;
+$$;
+
+
+--
+-- Name: complete_action; Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.complete_action(
+    p_action_id uuid,
+    p_result jsonb,
+    p_status text DEFAULT 'completed',
+    p_error_message text DEFAULT NULL
+) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    UPDATE public.actions
+    SET
+        status = p_status,
+        result = p_result,
+        error_message = p_error_message,
+        completed_at = now(),
+        duration_ms = EXTRACT(EPOCH FROM (now() - started_at))::integer * 1000
+    WHERE id = p_action_id;
+END;
+$$;
+
+
+--
+-- Name: find_or_create_geo_location; Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.find_or_create_geo_location(
+    p_coverage_level_id smallint,
+    p_continent_id smallint DEFAULT NULL,
+    p_country_id smallint DEFAULT NULL,
+    p_region_id integer DEFAULT NULL,
+    p_district_id integer DEFAULT NULL,
+    p_city_id integer DEFAULT NULL
+) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_location_id uuid;
+BEGIN
+    SELECT id INTO v_location_id
+    FROM public.geo_location_references
+    WHERE
+        coverage_level_id = p_coverage_level_id
+        AND (continent_id = p_continent_id OR (continent_id IS NULL AND p_continent_id IS NULL))
+        AND (country_id = p_country_id OR (country_id IS NULL AND p_country_id IS NULL))
+        AND (region_id = p_region_id OR (region_id IS NULL AND p_region_id IS NULL))
+        AND (district_id = p_district_id OR (district_id IS NULL AND p_district_id IS NULL))
+        AND (city_id = p_city_id OR (city_id IS NULL AND p_city_id IS NULL))
+    LIMIT 1;
+
+    IF v_location_id IS NULL THEN
+        INSERT INTO public.geo_location_references (
+            coverage_level_id,
+            continent_id,
+            country_id,
+            region_id,
+            district_id,
+            city_id
+        ) VALUES (
+            p_coverage_level_id,
+            p_continent_id,
+            p_country_id,
+            p_region_id,
+            p_district_id,
+            p_city_id
+        ) RETURNING id INTO v_location_id;
+    END IF;
+
+    RETURN v_location_id;
+END;
+$$;
+
+
+--
+-- Name: refresh_geo_locations_view; Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_geo_locations_view() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW public.geo_locations_resolved;
+END;
+$$;
+
+
+--
 -- Name: get_publishers_for_city(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -934,6 +1072,32 @@ CREATE TABLE public.ai_audit_logs (
 
 
 --
+-- Name: actions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.actions (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    action_type character varying(50) NOT NULL,
+    concept character varying(50) NOT NULL,
+    user_id text,
+    publisher_id integer,
+    request_id uuid NOT NULL,
+    parent_action_id uuid,
+    entity_type character varying(50),
+    entity_id text,
+    payload jsonb,
+    result jsonb,
+    status character varying(20) DEFAULT 'pending',
+    error_message text,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    duration_ms integer,
+    metadata jsonb,
+    CONSTRAINT fk_parent_action FOREIGN KEY (parent_action_id) REFERENCES public.actions(id)
+);
+
+
+--
 -- Name: ai_indexes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -981,6 +1145,8 @@ CREATE TABLE public.algorithms (
     forked_from integer,
     attribution_text text,
     fork_count integer DEFAULT 0,
+    created_by_action_id uuid,
+    updated_by_action_id uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -991,7 +1157,7 @@ CREATE TABLE public.algorithms (
 --
 
 CREATE TABLE public.algorithm_version_history (
-    id text DEFAULT (gen_random_uuid())::text NOT NULL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     algorithm_id integer NOT NULL,
     version_number integer NOT NULL,
     status text NOT NULL,
@@ -1682,6 +1848,9 @@ CREATE TABLE public.publisher_coverage (
     continent_id smallint,
     is_active boolean DEFAULT true NOT NULL,
     priority integer DEFAULT 0,
+    geo_location_id uuid,
+    created_by_action_id uuid,
+    updated_by_action_id uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -1856,6 +2025,8 @@ CREATE TABLE public.publisher_zmanim (
     dependencies text[] DEFAULT '{}'::text[],
     linked_publisher_zman_id integer,
     current_version integer DEFAULT 1,
+    created_by_action_id uuid,
+    updated_by_action_id uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     deleted_at timestamp with time zone,
@@ -2058,6 +2229,28 @@ CREATE TABLE public.coverage_levels (
     description text,
     sort_order smallint NOT NULL,
     created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: geo_location_references; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.geo_location_references (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    continent_id smallint,
+    country_id smallint,
+    region_id integer,
+    district_id integer,
+    city_id integer,
+    coverage_level_id smallint NOT NULL,
+    display_name_english text,
+    display_name_hebrew text,
+    display_hierarchy_english text,
+    display_hierarchy_hebrew text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    FOREIGN KEY (coverage_level_id) REFERENCES public.coverage_levels(id)
 );
 
 
@@ -2279,6 +2472,47 @@ CREATE TABLE public.zman_tags (
 
 
 --
+-- Name: geo_locations_resolved; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.geo_locations_resolved AS
+SELECT
+    glr.id,
+    glr.continent_id,
+    glr.country_id,
+    glr.region_id,
+    glr.district_id,
+    glr.city_id,
+    cl.key AS coverage_level,
+    COALESCE(ct.name, co.name, r.name, d.name, c.name) AS primary_name,
+    ct.name AS continent_name,
+    co.name AS country_name,
+    co.code AS country_code,
+    r.name AS region_name,
+    d.name AS district_name,
+    c.name AS city_name,
+    c.latitude AS city_latitude,
+    c.longitude AS city_longitude,
+    CASE
+        WHEN cl.key = 'city' THEN c.name || ' > ' || COALESCE(d.name || ' > ', '') || COALESCE(r.name || ' > ', '') || co.name || ' > ' || ct.name
+        WHEN cl.key = 'district' THEN d.name || ' > ' || COALESCE(r.name || ' > ', '') || co.name || ' > ' || ct.name
+        WHEN cl.key = 'region' THEN r.name || ' > ' || co.name || ' > ' || ct.name
+        WHEN cl.key = 'country' THEN co.name || ' > ' || ct.name
+        WHEN cl.key = 'continent' THEN ct.name
+        ELSE 'Unknown'
+    END AS hierarchy_english,
+    glr.created_at,
+    glr.updated_at
+FROM public.geo_location_references glr
+JOIN public.coverage_levels cl ON glr.coverage_level_id = cl.id
+LEFT JOIN public.geo_continents ct ON glr.continent_id = ct.id
+LEFT JOIN public.geo_countries co ON glr.country_id = co.id
+LEFT JOIN public.geo_regions r ON glr.region_id = r.id
+LEFT JOIN public.geo_districts d ON glr.district_id = d.id
+LEFT JOIN public.geo_cities c ON glr.city_id = c.id;
+
+
+--
 -- Name: geo_boundary_imports id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2298,16 +2532,11 @@ ALTER TABLE ONLY public.geo_name_mappings ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
--- Name: ai_index_status ai_index_status_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: ai_indexes ai_indexes_source_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-
---
--- Name: ai_index_status ai_index_status_source_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ai_index_status
-    ADD CONSTRAINT ai_index_status_source_key UNIQUE (source_id);
+ALTER TABLE ONLY public.ai_indexes
+    ADD CONSTRAINT ai_indexes_source_key UNIQUE (source_id);
 
 
 --
@@ -2949,6 +3178,55 @@ CREATE INDEX idx_ai_audit_type ON public.ai_audit_logs USING btree (request_type
 --
 
 CREATE INDEX idx_ai_audit_user ON public.ai_audit_logs USING btree (user_id);
+
+
+--
+-- Name: idx_actions_request_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_actions_request_id ON public.actions USING btree (request_id);
+
+
+--
+-- Name: idx_actions_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_actions_user_id ON public.actions USING btree (user_id);
+
+
+--
+-- Name: idx_actions_publisher_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_actions_publisher_id ON public.actions USING btree (publisher_id);
+
+
+--
+-- Name: idx_actions_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_actions_entity ON public.actions USING btree (entity_type, entity_id);
+
+
+--
+-- Name: idx_actions_action_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_actions_action_type ON public.actions USING btree (action_type);
+
+
+--
+-- Name: idx_actions_started_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_actions_started_at ON public.actions USING btree (started_at DESC);
+
+
+--
+-- Name: idx_actions_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_actions_parent ON public.actions USING btree (parent_action_id) WHERE (parent_action_id IS NOT NULL);
 
 
 --
@@ -3988,6 +4266,62 @@ CREATE INDEX idx_region_boundaries_simplified ON public.geo_region_boundaries US
 
 
 --
+-- Name: idx_geo_location_refs_city; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_location_refs_city ON public.geo_location_references USING btree (city_id) WHERE (city_id IS NOT NULL);
+
+
+--
+-- Name: idx_geo_location_refs_country; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_location_refs_country ON public.geo_location_references USING btree (country_id) WHERE (country_id IS NOT NULL);
+
+
+--
+-- Name: idx_geo_location_refs_region; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_location_refs_region ON public.geo_location_references USING btree (region_id) WHERE (region_id IS NOT NULL);
+
+
+--
+-- Name: idx_geo_location_refs_district; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_location_refs_district ON public.geo_location_references USING btree (district_id) WHERE (district_id IS NOT NULL);
+
+
+--
+-- Name: idx_geo_location_refs_continent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_location_refs_continent ON public.geo_location_references USING btree (continent_id) WHERE (continent_id IS NOT NULL);
+
+
+--
+-- Name: idx_geo_location_refs_level; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_location_refs_level ON public.geo_location_references USING btree (coverage_level_id);
+
+
+--
+-- Name: idx_geo_locations_resolved_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_geo_locations_resolved_id ON public.geo_locations_resolved USING btree (id);
+
+
+--
+-- Name: idx_geo_locations_resolved_level; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_locations_resolved_level ON public.geo_locations_resolved USING btree (coverage_level);
+
+
+--
 -- Name: idx_system_config_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4093,10 +4427,10 @@ CREATE INDEX idx_zman_tags_type ON public.zman_tags USING btree (tag_type_id);
 
 
 --
--- Name: ai_index_status ai_index_status_updated_at; Type: TRIGGER; Schema: public; Owner: -
+-- Name: ai_indexes ai_indexes_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER ai_index_status_updated_at BEFORE UPDATE ON public.ai_index_status FOR EACH ROW EXECUTE FUNCTION public.update_embeddings_updated_at();
+CREATE TRIGGER ai_indexes_updated_at BEFORE UPDATE ON public.ai_indexes FOR EACH ROW EXECUTE FUNCTION public.update_embeddings_updated_at();
 
 
 --
@@ -4284,6 +4618,54 @@ ALTER TABLE ONLY public.algorithm_version_history
 
 ALTER TABLE ONLY public.algorithm_rollback_audit
     ADD CONSTRAINT fk_rollback_audit_algorithm FOREIGN KEY (algorithm_id) REFERENCES public.algorithms(id) ON DELETE CASCADE;
+
+
+--
+-- Name: algorithms fk_created_by_action_algo; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.algorithms
+    ADD CONSTRAINT fk_created_by_action_algo FOREIGN KEY (created_by_action_id) REFERENCES public.actions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: algorithms fk_updated_by_action_algo; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.algorithms
+    ADD CONSTRAINT fk_updated_by_action_algo FOREIGN KEY (updated_by_action_id) REFERENCES public.actions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: publisher_zmanim fk_created_by_action; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publisher_zmanim
+    ADD CONSTRAINT fk_created_by_action FOREIGN KEY (created_by_action_id) REFERENCES public.actions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: publisher_zmanim fk_updated_by_action; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publisher_zmanim
+    ADD CONSTRAINT fk_updated_by_action FOREIGN KEY (updated_by_action_id) REFERENCES public.actions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: publisher_coverage fk_created_by_action_cov; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_created_by_action_cov FOREIGN KEY (created_by_action_id) REFERENCES public.actions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: publisher_coverage fk_updated_by_action_cov; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_updated_by_action_cov FOREIGN KEY (updated_by_action_id) REFERENCES public.actions(id) ON DELETE SET NULL;
 
 
 --
@@ -4759,19 +5141,19 @@ ALTER TABLE ONLY public.algorithms
 
 
 --
--- Name: ai_index_status ai_index_status_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ai_indexes ai_indexes_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.ai_index_status
-    ADD CONSTRAINT ai_index_status_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.ai_content_sources(id);
+ALTER TABLE ONLY public.ai_indexes
+    ADD CONSTRAINT ai_indexes_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.ai_content_sources(id);
 
 
 --
--- Name: ai_index_status ai_index_status_status_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: ai_indexes ai_indexes_status_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.ai_index_status
-    ADD CONSTRAINT ai_index_status_status_id_fkey FOREIGN KEY (status_id) REFERENCES public.ai_index_statuses(id);
+ALTER TABLE ONLY public.ai_indexes
+    ADD CONSTRAINT ai_indexes_status_id_fkey FOREIGN KEY (status_id) REFERENCES public.ai_index_statuses(id);
 
 
 --

@@ -1,3 +1,12 @@
+/**
+ * @file layout.tsx
+ * @purpose Root layout - Clerk, React Query, Theme, PublisherContext providers
+ * @pattern next-layout
+ * @dependencies ClerkProvider, QueryClient, ThemeProvider
+ * @frequency critical - app initialization
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 import type { Metadata, Viewport } from 'next';
 import { Inter, Noto_Sans_Hebrew } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';

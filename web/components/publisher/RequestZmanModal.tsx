@@ -1,3 +1,12 @@
+/**
+ * @file RequestZmanModal.tsx
+ * @purpose Multi-step zman registry request flow - form wizard with validation
+ * @pattern client-component-complex
+ * @dependencies useApi, Form (shadcn), DSL editor
+ * @frequency critical - 967 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';

@@ -1,3 +1,10 @@
+// File: admin.go
+// Purpose: Admin-only endpoints - publisher/user management, metadata updates
+// Pattern: 6-step-handler-admin
+// Dependencies: Queries: admin.sql, publishers.sql | Services: ClerkService, EmailService
+// Frequency: high - 1,416 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

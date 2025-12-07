@@ -1,3 +1,10 @@
+// File: clerk_service.go
+// Purpose: Clerk API integration - user metadata, role updates, user sync
+// Pattern: service
+// Dependencies: Clerk SDK for auth management
+// Frequency: critical - used by all protected routes
+// Compliance: Check docs/adr/ for pattern rationale
+
 package services
 
 import (

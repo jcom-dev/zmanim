@@ -1,3 +1,10 @@
+// File: response.go
+// Purpose: Standard API response format (RespondJSON, APIResponse, error helpers)
+// Pattern: response-helpers
+// Dependencies: Used by all 32 handler files
+// Frequency: critical
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

@@ -144,9 +144,16 @@ func run() error {
 	runtime.GC()
 	logMemory("after disk write")
 
+	// Look up glo90 source ID once for reuse
+	var glo90SourceID int32
+	err = pgPool.QueryRow(ctx, `SELECT id FROM geo_data_sources WHERE key = 'glo90'`).Scan(&glo90SourceID)
+	if err != nil {
+		return fmt.Errorf("lookup glo90 source ID: %w", err)
+	}
+
 	// Phase 3: Stream from disk, lookup elevation, update DB
 	fmt.Println("Phase 3: Processing elevations...")
-	updated, failed, err := processFromDisk(ctx, pgPool, tmpPath, totalCities)
+	updated, failed, err := processFromDisk(ctx, pgPool, tmpPath, totalCities, glo90SourceID)
 	if err != nil {
 		return fmt.Errorf("process elevations: %w", err)
 	}
@@ -178,13 +185,13 @@ type cityRecord struct {
 	ID          int64   `json:"i"`
 	Lat         float64 `json:"a"`
 	Lng         float64 `json:"o"`
-	CoordSource string  `json:"c"`
+	CoordSource int32   `json:"c"`
 }
 
 // cityUpdate for batch DB updates
 type cityUpdate struct {
 	id          int64
-	coordSource string
+	coordSource int32
 	elevation   int32
 }
 
@@ -243,7 +250,7 @@ func streamCitiesToDisk(ctx context.Context, pgPool *pgxpool.Pool) (string, int,
 	return tmpPath, count, nil
 }
 
-func processFromDisk(ctx context.Context, pgPool *pgxpool.Pool, tmpPath string, totalCities int) (int, int, error) {
+func processFromDisk(ctx context.Context, pgPool *pgxpool.Pool, tmpPath string, totalCities int, glo90SourceID int32) (int, int, error) {
 	file, err := os.Open(tmpPath)
 	if err != nil {
 		return 0, 0, fmt.Errorf("open temp file: %w", err)
@@ -305,7 +312,7 @@ func processFromDisk(ctx context.Context, pgPool *pgxpool.Pool, tmpPath string, 
 				batch = batch[:0]
 				mu.Unlock()
 
-				if err := flushBatchBulk(ctx, pgPool, batchToFlush); err != nil {
+				if err := flushBatchBulk(ctx, pgPool, batchToFlush, glo90SourceID); err != nil {
 					fmt.Printf("Warning: batch update failed: %v\n", err)
 				} else {
 					mu.Lock()
@@ -362,7 +369,7 @@ func processFromDisk(ctx context.Context, pgPool *pgxpool.Pool, tmpPath string, 
 	mu.Unlock()
 
 	if len(remainingBatch) > 0 {
-		if err := flushBatchBulk(ctx, pgPool, remainingBatch); err != nil {
+		if err := flushBatchBulk(ctx, pgPool, remainingBatch, glo90SourceID); err != nil {
 			fmt.Printf("Warning: final batch update failed: %v\n", err)
 		} else {
 			totalUpdated += len(remainingBatch)
@@ -374,14 +381,14 @@ func processFromDisk(ctx context.Context, pgPool *pgxpool.Pool, tmpPath string, 
 
 // flushBatchBulk updates geo_cities using a single UPDATE with VALUES clause
 // Much faster than individual updates or even pgx.Batch
-func flushBatchBulk(ctx context.Context, pgPool *pgxpool.Pool, updates []cityUpdate) error {
+func flushBatchBulk(ctx context.Context, pgPool *pgxpool.Pool, updates []cityUpdate, sourceID int32) error {
 	if len(updates) == 0 {
 		return nil
 	}
 
 	// Build arrays for bulk insert
 	ids := make([]int64, len(updates))
-	coordSources := make([]string, len(updates))
+	coordSources := make([]int32, len(updates))
 	elevations := make([]int32, len(updates))
 	for i, u := range updates {
 		ids[i] = u.id
@@ -392,11 +399,11 @@ func flushBatchBulk(ctx context.Context, pgPool *pgxpool.Pool, updates []cityUpd
 	// Insert into geo_city_elevations with ON CONFLICT to update existing
 	_, err := pgPool.Exec(ctx, `
 		INSERT INTO geo_city_elevations (city_id, coordinate_source_id, source_id, elevation_m)
-		SELECT v.id, v.coord_source, 'glo90', v.elevation
-		FROM unnest($1::bigint[], $2::text[], $3::int[]) AS v(id, coord_source, elevation)
-		ON CONFLICT (city_id, coordinate_source_id, source_id, COALESCE(publisher_id, '00000000-0000-0000-0000-000000000000'::uuid))
+		SELECT v.id, v.coord_source, $4, v.elevation
+		FROM unnest($1::bigint[], $2::int[], $3::int[]) AS v(id, coord_source, elevation)
+		ON CONFLICT (city_id, coordinate_source_id, source_id, COALESCE(publisher_id, 0))
 		DO UPDATE SET elevation_m = EXCLUDED.elevation_m, updated_at = now()
-	`, ids, coordSources, elevations)
+	`, ids, coordSources, elevations, sourceID)
 
 	return err
 }

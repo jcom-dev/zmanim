@@ -28,7 +28,7 @@ type CreateVersionSnapshotParams struct {
 }
 
 type CreateVersionSnapshotRow struct {
-	ID            string `json:"id"`
+	ID            int32  `json:"id"`
 	VersionNumber int32  `json:"version_number"`
 	Status        string `json:"status"`
 }
@@ -97,53 +97,6 @@ SELECT id FROM publishers WHERE clerk_user_id = $1
 
 // Version History SQL Queries
 // SQLc will generate type-safe Go code from these queries
-//
-// NOTE: These queries reference the 'algorithm_version_history' and
-// 'algorithm_rollback_audit' tables which DO NOT currently exist in the schema.
-// These tables need to be added via migration before these queries can be used.
-//
-// Required table schema (to be added in migration):
-//
-// CREATE TABLE algorithm_version_history (
-//
-//	id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-//	algorithm_id INTEGER NOT NULL REFERENCES algorithms(id) ON DELETE CASCADE,
-//	version_number INTEGER NOT NULL,
-//	status TEXT NOT NULL,
-//	description TEXT,
-//	config_snapshot JSONB NOT NULL,
-//	created_by TEXT,
-//	created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-//	published_at TIMESTAMP WITH TIME ZONE,
-//	UNIQUE(algorithm_id, version_number)
-//
-// );
-//
-// CREATE TABLE algorithm_rollback_audit (
-//
-//	id SERIAL PRIMARY KEY,
-//	algorithm_id INTEGER NOT NULL REFERENCES algorithms(id) ON DELETE CASCADE,
-//	source_version INTEGER NOT NULL,
-//	target_version INTEGER NOT NULL,
-//	new_version INTEGER NOT NULL,
-//	reason TEXT,
-//	rolled_back_by TEXT,
-//	created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-//
-// );
-//
-// CREATE OR REPLACE FUNCTION get_next_algorithm_version(p_algorithm_id INTEGER)
-// RETURNS INTEGER AS $$
-// BEGIN
-//
-//	RETURN COALESCE((
-//	    SELECT MAX(version_number) + 1
-//	    FROM algorithm_version_history
-//	    WHERE algorithm_id = p_algorithm_id
-//	), 1);
-//
-// END;
-// $$ LANGUAGE plpgsql;
 // Get publisher ID by clerk user ID --
 func (q *Queries) GetPublisherIDByClerkUserID(ctx context.Context, clerkUserID *string) (int32, error) {
 	row := q.db.QueryRow(ctx, getPublisherIDByClerkUserID, clerkUserID)
@@ -186,7 +139,7 @@ type GetVersionDetailParams struct {
 }
 
 type GetVersionDetailRow struct {
-	ID             string             `json:"id"`
+	ID             int32              `json:"id"`
 	VersionNumber  int32              `json:"version_number"`
 	Status         string             `json:"status"`
 	Description    string             `json:"description"`
@@ -222,7 +175,7 @@ ORDER BY version_number DESC
 `
 
 type ListVersionHistoryRow struct {
-	ID            string             `json:"id"`
+	ID            int32              `json:"id"`
 	VersionNumber int32              `json:"version_number"`
 	Status        string             `json:"status"`
 	Description   string             `json:"description"`

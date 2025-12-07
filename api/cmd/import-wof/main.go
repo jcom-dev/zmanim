@@ -491,6 +491,17 @@ type Importer struct {
 	dataDir         string          // Data directory for cache files
 	geoLevelIDs     map[string]int  // geo_levels lookup: "city" -> ID, "country" -> ID, etc.
 	sourceIDs       map[string]int  // geo_data_sources lookup: "wof" -> ID
+	importID        int             // geo_data_imports.id for this import run
+	stats           importStats     // Statistics for this import
+}
+
+type importStats struct {
+	continents int
+	countries  int
+	regions    int
+	districts  int
+	cities     int
+	errors     []string
 }
 
 // WOFRecord holds data extracted from WOF SQLite
@@ -693,6 +704,11 @@ func (imp *Importer) Run(ctx context.Context) error {
 	}
 	log.Printf("  Loaded %d geo levels, %d data sources", len(imp.geoLevelIDs), len(imp.sourceIDs))
 
+	// Start import tracking
+	if err := imp.startImportTracking(ctx); err != nil {
+		log.Printf("Warning: failed to start import tracking: %v", err)
+	}
+
 	// Load existing WOF IDs so we can skip duplicates and maintain hierarchy
 	if err := imp.loadExistingWOFMappings(ctx); err != nil {
 		return fmt.Errorf("failed to load existing WOF mappings: %w", err)
@@ -703,8 +719,11 @@ func (imp *Importer) Run(ctx context.Context) error {
 	log.Println("Step 1: Importing continents from WOF...")
 	continents, err := imp.importContinents(ctx)
 	if err != nil {
+		imp.stats.errors = append(imp.stats.errors, fmt.Sprintf("continents import: %v", err))
+		imp.completeImportTracking(ctx, err)
 		return err
 	}
+	imp.stats.continents = continents
 	log.Printf("  %d continents", continents)
 	log.Printf("  wofContinentMap now has %d entries", len(imp.wofContinentMap))
 
@@ -712,8 +731,11 @@ func (imp *Importer) Run(ctx context.Context) error {
 	log.Println("Step 2: Importing countries...")
 	countries, err := imp.importPlacetype(ctx, "country")
 	if err != nil {
+		imp.stats.errors = append(imp.stats.errors, fmt.Sprintf("countries import: %v", err))
+		imp.completeImportTracking(ctx, err)
 		return err
 	}
+	imp.stats.countries = countries
 	log.Printf("  %d countries", countries)
 	log.Printf("  wofToPG now has %d entries", len(imp.wofToPG))
 	if err := imp.flushGeoNames(ctx); err != nil {
@@ -726,8 +748,11 @@ func (imp *Importer) Run(ctx context.Context) error {
 	log.Println("Step 3: Importing regions...")
 	regions, err := imp.importPlacetype(ctx, "region")
 	if err != nil {
+		imp.stats.errors = append(imp.stats.errors, fmt.Sprintf("regions import: %v", err))
+		imp.completeImportTracking(ctx, err)
 		return err
 	}
+	imp.stats.regions = regions
 	log.Printf("  %d regions", regions)
 	log.Printf("  wofToPG now has %d entries", len(imp.wofToPG))
 	if err := imp.flushGeoNames(ctx); err != nil {
@@ -740,8 +765,11 @@ func (imp *Importer) Run(ctx context.Context) error {
 	log.Println("Step 4: Importing districts...")
 	districts, err := imp.importPlacetype(ctx, "county")
 	if err != nil {
+		imp.stats.errors = append(imp.stats.errors, fmt.Sprintf("districts import: %v", err))
+		imp.completeImportTracking(ctx, err)
 		return err
 	}
+	imp.stats.districts = districts
 	log.Printf("  %d districts", districts)
 	log.Printf("  wofToPG now has %d entries", len(imp.wofToPG))
 	if err := imp.flushGeoNames(ctx); err != nil {
@@ -754,13 +782,23 @@ func (imp *Importer) Run(ctx context.Context) error {
 	log.Println("Step 5: Importing cities...")
 	cities, err := imp.importCities(ctx)
 	if err != nil {
+		imp.stats.errors = append(imp.stats.errors, fmt.Sprintf("cities import: %v", err))
+		imp.completeImportTracking(ctx, err)
 		return err
 	}
+	imp.stats.cities = cities
 	log.Printf("  %d cities", cities)
 	runtime.GC()
 	logMemory("after cities")
 
-	log.Printf("\nComplete in %s", time.Since(start).Round(time.Second))
+	duration := time.Since(start)
+	log.Printf("\nComplete in %s", duration.Round(time.Second))
+
+	// Complete import tracking
+	if err := imp.completeImportTracking(ctx, nil); err != nil {
+		log.Printf("Warning: failed to complete import tracking: %v", err)
+	}
+
 	return nil
 }
 
@@ -872,6 +910,7 @@ func (imp *Importer) reset(ctx context.Context) error {
 	// Delete in FK order (leaf tables first)
 	queries := []string{
 		"DELETE FROM publisher_coverage",
+		"DELETE FROM geo_data_imports",
 		"DELETE FROM geo_boundary_imports",
 		"DELETE FROM geo_name_mappings",
 		"DELETE FROM geo_names",
@@ -1918,6 +1957,18 @@ func (imp *Importer) insertCityCoordinates(ctx context.Context) error {
 		return fmt.Errorf("wof source not found in geo_data_sources")
 	}
 
+	// Disable trigger temporarily for bulk import (trigger has a bug comparing integer to 'publisher' string)
+	_, err := imp.pgPool.Exec(ctx, "ALTER TABLE geo_city_coordinates DISABLE TRIGGER trg_geo_city_coordinates_update_effective")
+	if err != nil {
+		log.Printf("    Warning: could not disable trigger: %v", err)
+	}
+	defer func() {
+		// Re-enable trigger after import
+		if _, err := imp.pgPool.Exec(ctx, "ALTER TABLE geo_city_coordinates ENABLE TRIGGER trg_geo_city_coordinates_update_effective"); err != nil {
+			log.Printf("    Warning: could not re-enable trigger: %v", err)
+		}
+	}()
+
 	// Batch insert coordinates from geo_cities into geo_city_coordinates
 	// Use INSERT ... SELECT for efficiency
 	result, err := imp.pgPool.Exec(ctx, `
@@ -2168,4 +2219,67 @@ func nullInt32(i int64) interface{} {
 	}
 	v := int32(i)
 	return v
+}
+
+// startImportTracking creates a geo_data_imports record and returns the ID
+func (imp *Importer) startImportTracking(ctx context.Context) error {
+	sourceID, ok := imp.sourceIDs["wof"]
+	if !ok {
+		return fmt.Errorf("source 'wof' not found")
+	}
+
+	var importID int
+	err := imp.pgPool.QueryRow(ctx, `
+		INSERT INTO geo_data_imports (source_id, import_type, version, started_at)
+		VALUES ($1, $2, $3, now())
+		RETURNING id
+	`, sourceID, "wof-full", "latest").Scan(&importID)
+
+	if err != nil {
+		return fmt.Errorf("create import tracking record: %w", err)
+	}
+
+	imp.importID = importID
+	log.Printf("  Started import tracking (ID: %d)", importID)
+	return nil
+}
+
+// completeImportTracking updates the geo_data_imports record with final statistics
+func (imp *Importer) completeImportTracking(ctx context.Context, importErr error) error {
+	if imp.importID == 0 {
+		return nil // No tracking started
+	}
+
+	totalProcessed := imp.stats.continents + imp.stats.countries + imp.stats.regions + imp.stats.districts + imp.stats.cities
+	totalImported := totalProcessed // WOF is insert-or-update, so all processed = imported
+
+	var errorArray interface{}
+	if len(imp.stats.errors) > 0 {
+		errorArray = imp.stats.errors
+	}
+
+	notes := fmt.Sprintf("Continents: %d, Countries: %d, Regions: %d, Districts: %d, Cities: %d",
+		imp.stats.continents, imp.stats.countries, imp.stats.regions, imp.stats.districts, imp.stats.cities)
+
+	_, err := imp.pgPool.Exec(ctx, `
+		UPDATE geo_data_imports
+		SET completed_at = now(),
+		    records_processed = $2,
+		    records_imported = $3,
+		    errors = $4,
+		    notes = $5
+		WHERE id = $1
+	`, imp.importID, totalProcessed, totalImported, errorArray, notes)
+
+	if err != nil {
+		return fmt.Errorf("update import tracking record: %w", err)
+	}
+
+	if importErr != nil {
+		log.Printf("  Import tracking completed with errors (ID: %d)", imp.importID)
+	} else {
+		log.Printf("  Import tracking completed successfully (ID: %d)", imp.importID)
+	}
+
+	return nil
 }

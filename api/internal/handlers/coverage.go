@@ -1,3 +1,10 @@
+// File: coverage.go
+// Purpose: Publisher coverage area CRUD - manages geographic service areas
+// Pattern: 6-step-handler
+// Dependencies: Queries: coverage.sql, geo_boundaries.sql
+// Frequency: high - 777 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

@@ -1,3 +1,10 @@
+// File: auth.go
+// Purpose: JWT verification, role enforcement (RequireAuth, RequireRole)
+// Pattern: middleware
+// Dependencies: Clerk JWT verification
+// Frequency: critical - protects all authenticated routes
+// Compliance: Check docs/adr/ for pattern rationale
+
 package middleware
 
 import (

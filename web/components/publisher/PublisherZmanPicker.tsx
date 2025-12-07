@@ -1,3 +1,12 @@
+/**
+ * @file PublisherZmanPicker.tsx
+ * @purpose Publisher zman search - link/copy workflow
+ * @pattern client-component
+ * @dependencies useApi, Command (shadcn), publisher filtering
+ * @frequency medium - 389 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useState, useMemo } from 'react';

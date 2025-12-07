@@ -1,3 +1,10 @@
+// File: calendar.go
+// Purpose: Hebrew/Gregorian calendar conversion and date utilities
+// Pattern: utility-handler
+// Dependencies: hdate package for Jewish calendar calculations
+// Frequency: medium - 674 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (

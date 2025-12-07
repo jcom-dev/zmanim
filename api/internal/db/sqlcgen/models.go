@@ -8,6 +8,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Action struct {
+	ID             string             `json:"id"`
+	ActionType     string             `json:"action_type"`
+	Concept        string             `json:"concept"`
+	UserID         *string            `json:"user_id"`
+	PublisherID    *int32             `json:"publisher_id"`
+	RequestID      string             `json:"request_id"`
+	ParentActionID pgtype.UUID        `json:"parent_action_id"`
+	EntityType     *string            `json:"entity_type"`
+	EntityID       *string            `json:"entity_id"`
+	Payload        []byte             `json:"payload"`
+	Result         []byte             `json:"result"`
+	Status         *string            `json:"status"`
+	ErrorMessage   *string            `json:"error_message"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	DurationMs     *int32             `json:"duration_ms"`
+	Metadata       []byte             `json:"metadata"`
+}
+
 type AiAuditLog struct {
 	ID             int32              `json:"id"`
 	PublisherID    *int32             `json:"publisher_id"`
@@ -57,21 +77,22 @@ type AiIndexStatus struct {
 }
 
 type Algorithm struct {
-	ID              int32              `json:"id"`
-	PublisherID     int32              `json:"publisher_id"`
-	Name            string             `json:"name"`
-	Description     *string            `json:"description"`
-	Configuration   []byte             `json:"configuration"`
-	StatusID        *int16             `json:"status_id"`
-	IsPublic        *bool              `json:"is_public"`
-	ForkedFrom      *int32             `json:"forked_from"`
-	AttributionText *string            `json:"attribution_text"`
-	ForkCount       *int32             `json:"fork_count"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID                int32              `json:"id"`
+	PublisherID       int32              `json:"publisher_id"`
+	Name              string             `json:"name"`
+	Description       *string            `json:"description"`
+	Configuration     []byte             `json:"configuration"`
+	StatusID          *int16             `json:"status_id"`
+	IsPublic          *bool              `json:"is_public"`
+	ForkedFrom        *int32             `json:"forked_from"`
+	AttributionText   *string            `json:"attribution_text"`
+	ForkCount         *int32             `json:"fork_count"`
+	CreatedByActionID pgtype.UUID        `json:"created_by_action_id"`
+	UpdatedByActionID pgtype.UUID        `json:"updated_by_action_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
-// Audit log for algorithm rollback operations
 type AlgorithmRollbackAudit struct {
 	ID            int32              `json:"id"`
 	AlgorithmID   int32              `json:"algorithm_id"`
@@ -106,9 +127,8 @@ type AlgorithmTemplate struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
-// Stores version snapshots of algorithm configurations for tracking changes and enabling rollback
 type AlgorithmVersionHistory struct {
-	ID             string             `json:"id"`
+	ID             int32              `json:"id"`
 	AlgorithmID    int32              `json:"algorithm_id"`
 	VersionNumber  int32              `json:"version_number"`
 	Status         string             `json:"status"`
@@ -416,6 +436,44 @@ type GeoLevel struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
+type GeoLocationReference struct {
+	ID                      string             `json:"id"`
+	ContinentID             *int16             `json:"continent_id"`
+	CountryID               *int16             `json:"country_id"`
+	RegionID                *int32             `json:"region_id"`
+	DistrictID              *int32             `json:"district_id"`
+	CityID                  *int32             `json:"city_id"`
+	CoverageLevelID         int16              `json:"coverage_level_id"`
+	DisplayNameEnglish      *string            `json:"display_name_english"`
+	DisplayNameHebrew       *string            `json:"display_name_hebrew"`
+	DisplayHierarchyEnglish *string            `json:"display_hierarchy_english"`
+	DisplayHierarchyHebrew  *string            `json:"display_hierarchy_hebrew"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GeoLocationsResolved struct {
+	ID               string             `json:"id"`
+	ContinentID      *int16             `json:"continent_id"`
+	CountryID        *int16             `json:"country_id"`
+	RegionID         *int32             `json:"region_id"`
+	DistrictID       *int32             `json:"district_id"`
+	CityID           *int32             `json:"city_id"`
+	CoverageLevel    string             `json:"coverage_level"`
+	PrimaryName      string             `json:"primary_name"`
+	ContinentName    *string            `json:"continent_name"`
+	CountryName      *string            `json:"country_name"`
+	CountryCode      *string            `json:"country_code"`
+	RegionName       *string            `json:"region_name"`
+	DistrictName     *string            `json:"district_name"`
+	CityName         *string            `json:"city_name"`
+	CityLatitude     *float64           `json:"city_latitude"`
+	CityLongitude    *float64           `json:"city_longitude"`
+	HierarchyEnglish string             `json:"hierarchy_english"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type GeoName struct {
 	ID           int32              `json:"id"`
 	EntityTypeID int16              `json:"entity_type_id"`
@@ -581,18 +639,21 @@ type Publisher struct {
 }
 
 type PublisherCoverage struct {
-	ID              int32              `json:"id"`
-	PublisherID     int32              `json:"publisher_id"`
-	CoverageLevelID int16              `json:"coverage_level_id"`
-	CityID          *int32             `json:"city_id"`
-	DistrictID      *int32             `json:"district_id"`
-	RegionID        *int32             `json:"region_id"`
-	CountryID       *int16             `json:"country_id"`
-	ContinentID     *int16             `json:"continent_id"`
-	IsActive        bool               `json:"is_active"`
-	Priority        *int32             `json:"priority"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID                int32              `json:"id"`
+	PublisherID       int32              `json:"publisher_id"`
+	CoverageLevelID   int16              `json:"coverage_level_id"`
+	CityID            *int32             `json:"city_id"`
+	DistrictID        *int32             `json:"district_id"`
+	RegionID          *int32             `json:"region_id"`
+	CountryID         *int16             `json:"country_id"`
+	ContinentID       *int16             `json:"continent_id"`
+	IsActive          bool               `json:"is_active"`
+	Priority          *int32             `json:"priority"`
+	GeoLocationID     pgtype.UUID        `json:"geo_location_id"`
+	CreatedByActionID pgtype.UUID        `json:"created_by_action_id"`
+	UpdatedByActionID pgtype.UUID        `json:"updated_by_action_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublisherInvitation struct {
@@ -737,6 +798,8 @@ type PublisherZmanim struct {
 	Dependencies          []string           `json:"dependencies"`
 	LinkedPublisherZmanID *int32             `json:"linked_publisher_zman_id"`
 	CurrentVersion        *int32             `json:"current_version"`
+	CreatedByActionID     pgtype.UUID        `json:"created_by_action_id"`
+	UpdatedByActionID     pgtype.UUID        `json:"updated_by_action_id"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`

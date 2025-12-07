@@ -1,0 +1,108 @@
+version: 1.0.0
+last_updated: "2025-12-07T10:30:00Z"
+codebase_hash: "9b8cd4c"
+
+metrics:
+  backend:
+    total_handlers: 32
+    total_queries: 20
+    total_services: 25
+
+    pattern_compliance:
+      publisher_resolver: { adopted: 28, total: 32, percentage: 88 }
+      sqlc_queries: { adopted: 32, total: 32, percentage: 100 }
+      slog_logging: { adopted: 31, total: 32, percentage: 97 }
+      error_wrapping: { adopted: 32, total: 32, percentage: 100 }
+
+    violations:
+      raw_sql: 11
+      log_printf: 2
+
+  frontend:
+    total_components: 100
+    total_pages: 30
+    total_hooks: 6
+
+    pattern_compliance:
+      use_api: { adopted: 98, total: 100, percentage: 98 }
+      design_tokens: { adopted: 100, total: 100, percentage: 100 }
+      clerk_isloaded: { adopted: 95, total: 100, percentage: 95 }
+      react_query: { adopted: 60, total: 100, percentage: 60 }
+
+    violations:
+      raw_fetch: 2
+      hardcoded_colors: 0
+
+  testing:
+    total_e2e_tests: 30
+    parallel_mode_adoption: { adopted: 29, total: 30, percentage: 97 }
+    shared_fixtures: { adopted: 25, total: 30, percentage: 83 }
+
+violations:
+  critical:
+    - file: web/components/shared/CoverageMapView/CoverageMapViewGL.tsx
+      line: 404
+      issue: Raw fetch() instead of useApi()
+      pattern: use_api
+      fix: |
+        const api = useApi();
+        const data = await api.get('/endpoint');
+      effort: 15min
+
+    - file: web/components/publisher/LogoUpload.tsx
+      line: 150
+      issue: Raw fetch() for file upload
+      pattern: use_api
+      fix: |
+        const api = useApi();
+        const formData = new FormData();
+        await api.post('/upload', formData);
+      effort: 15min
+
+  high:
+    - file: api/internal/handlers/handlers.go
+      line: 45
+      issue: fmt.Printf instead of slog.Warn
+      pattern: slog_logging
+      fix: |
+        slog.Warn("clerk service initialization failed", "error", err)
+      effort: 5min
+
+  medium:
+    - file: api/internal/handlers/
+      issue: Raw SQL queries in 11 locations (likely in utility/migration code)
+      pattern: sqlc_queries
+      fix: Move queries to SQLc files in api/internal/db/queries/
+      effort: 2h
+
+technical_debt:
+  estimated_total_hours: 3.0
+
+  by_priority:
+    critical: 0.5h   # 2 fetch violations
+    high: 0.25h      # 1 logging violation
+    medium: 2h       # 11 raw SQL queries
+    low: 0.25h       # Documentation gaps
+
+  by_category:
+    raw_fetch: { count: 2, effort_hours: 0.5 }
+    logging: { count: 2, effort_hours: 0.25 }
+    raw_sql: { count: 11, effort_hours: 2.0 }
+    documentation: { count: 1, effort_hours: 0.25 }
+
+architecture:
+  handler_query_map:
+    publisher_zmanim.go: [zmanim.sql, algorithms.sql]
+    coverage.go: [coverage.sql, geo_boundaries.sql]
+    master_registry.go: [master_registry.sql]
+    admin.go: [admin.sql, publishers.sql]
+    cities.go: [cities.sql]
+    onboarding.go: [onboarding.sql]
+    user.go: [user.sql]
+    calendar.go: [calendar.sql]
+
+  component_api_map:
+    WeeklyPreviewDialog.tsx: [GET /zmanim/preview, GET /publisher/coverage]
+    CoverageMapView.tsx: [GET /geo/boundaries]
+    LocationPicker.tsx: [GET /cities/search, POST /geo/select]
+    ZmanCard.tsx: [GET /publisher/zmanim/:id, PUT /publisher/zmanim/:id]

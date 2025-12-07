@@ -1,3 +1,12 @@
+/**
+ * @file CoverageSelector.tsx
+ * @purpose Multi-level geographic selection - continent → country → region → city
+ * @pattern client-component-complex
+ * @dependencies useApi, Select (shadcn), cascading dropdowns
+ * @frequency high - 622 lines, used by 5 pages
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
