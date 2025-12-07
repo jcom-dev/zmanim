@@ -14,34 +14,146 @@ import (
 const archiveActiveAlgorithms = `-- name: ArchiveActiveAlgorithms :exec
 
 UPDATE algorithms
-SET status = 'deprecated', updated_at = NOW()
-WHERE publisher_id = $1 AND status = 'published'
+SET status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'archived'),
+    updated_at = NOW()
+WHERE publisher_id = $1
+  AND status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'active')
 `
 
 // Publish algorithm --
-func (q *Queries) ArchiveActiveAlgorithms(ctx context.Context, publisherID string) error {
+func (q *Queries) ArchiveActiveAlgorithms(ctx context.Context, publisherID int32) error {
 	_, err := q.db.Exec(ctx, archiveActiveAlgorithms, publisherID)
 	return err
+}
+
+const browsePublicAlgorithms = `-- name: BrowsePublicAlgorithms :many
+
+
+SELECT
+    a.id, a.name, COALESCE(a.description, '') as description,
+    a.publisher_id, p.name as publisher_name,
+    COALESCE(p.logo_url, '') as publisher_logo,
+    COALESCE(a.fork_count, 0) as fork_count,
+    a.created_at
+FROM algorithms a
+JOIN publishers p ON p.id = a.publisher_id
+WHERE a.is_public = true AND a.is_active = true
+    AND ($1::text = '' OR a.name ILIKE '%' || $1 || '%' OR p.name ILIKE '%' || $1 || '%')
+ORDER BY a.fork_count DESC, a.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type BrowsePublicAlgorithmsParams struct {
+	Column1 string `json:"column_1"`
+	Limit   int32  `json:"limit"`
+	Offset  int32  `json:"offset"`
+}
+
+type BrowsePublicAlgorithmsRow struct {
+	ID            int32              `json:"id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	PublisherID   int32              `json:"publisher_id"`
+	PublisherName string             `json:"publisher_name"`
+	PublisherLogo string             `json:"publisher_logo"`
+	ForkCount     int32              `json:"fork_count"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+// Note: Onboarding queries moved to onboarding.sql
+// Algorithm Collaboration Queries --
+func (q *Queries) BrowsePublicAlgorithms(ctx context.Context, arg BrowsePublicAlgorithmsParams) ([]BrowsePublicAlgorithmsRow, error) {
+	rows, err := q.db.Query(ctx, browsePublicAlgorithms, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []BrowsePublicAlgorithmsRow{}
+	for rows.Next() {
+		var i BrowsePublicAlgorithmsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.PublisherID,
+			&i.PublisherName,
+			&i.PublisherLogo,
+			&i.ForkCount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const copyPublicAlgorithm = `-- name: CopyPublicAlgorithm :one
+INSERT INTO algorithms (
+    publisher_id, name, description, configuration, version,
+    formula_definition, calculation_type,
+    is_active, is_public, created_at, updated_at
+) VALUES (
+    $1, $2 || ' (Copy)', $3, $4, '1.0',
+    '{}', 'custom',
+    false, false, NOW(), NOW()
+)
+RETURNING id
+`
+
+type CopyPublicAlgorithmParams struct {
+	PublisherID   int32   `json:"publisher_id"`
+	Column2       *string `json:"column_2"`
+	Description   *string `json:"description"`
+	Configuration []byte  `json:"configuration"`
+}
+
+func (q *Queries) CopyPublicAlgorithm(ctx context.Context, arg CopyPublicAlgorithmParams) (int32, error) {
+	row := q.db.QueryRow(ctx, copyPublicAlgorithm,
+		arg.PublisherID,
+		arg.Column2,
+		arg.Description,
+		arg.Configuration,
+	)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
+}
+
+const countPublicAlgorithms = `-- name: CountPublicAlgorithms :one
+SELECT COUNT(*)
+FROM algorithms
+WHERE is_public = true AND is_active = true
+`
+
+func (q *Queries) CountPublicAlgorithms(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countPublicAlgorithms)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const createAlgorithm = `-- name: CreateAlgorithm :one
 
 INSERT INTO algorithms (
-    publisher_id, name, description, configuration, status, is_public
+    publisher_id, name, description, configuration, status_id, is_public
 )
-VALUES ($1, $2, $3, $4, 'draft', false)
+VALUES ($1, $2, $3, $4, (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'draft'), false)
 RETURNING id, created_at, updated_at
 `
 
 type CreateAlgorithmParams struct {
-	PublisherID   string  `json:"publisher_id"`
+	PublisherID   int32   `json:"publisher_id"`
 	Name          string  `json:"name"`
 	Description   *string `json:"description"`
 	Configuration []byte  `json:"configuration"`
 }
 
 type CreateAlgorithmRow struct {
-	ID        string             `json:"id"`
+	ID        int32              `json:"id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
@@ -59,39 +171,16 @@ func (q *Queries) CreateAlgorithm(ctx context.Context, arg CreateAlgorithmParams
 	return i, err
 }
 
-const createOnboardingState = `-- name: CreateOnboardingState :one
-INSERT INTO publisher_onboarding (publisher_id)
-VALUES ($1)
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at
-`
-
-func (q *Queries) CreateOnboardingState(ctx context.Context, publisherID string) (PublisherOnboarding, error) {
-	row := q.db.QueryRow(ctx, createOnboardingState, publisherID)
-	var i PublisherOnboarding
-	err := row.Scan(
-		&i.ID,
-		&i.PublisherID,
-		&i.ProfileComplete,
-		&i.AlgorithmSelected,
-		&i.ZmanimConfigured,
-		&i.CoverageSet,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const deprecateAlgorithmVersion = `-- name: DeprecateAlgorithmVersion :execrows
 UPDATE algorithms
-SET status = 'deprecated',
+SET status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'archived'),
     updated_at = NOW()
-WHERE id = $1 AND publisher_id = $2
+WHERE algorithms.id = $1 AND algorithms.publisher_id = $2
 `
 
 type DeprecateAlgorithmVersionParams struct {
-	ID          string `json:"id"`
-	PublisherID string `json:"publisher_id"`
+	ID          int32 `json:"id"`
+	PublisherID int32 `json:"publisher_id"`
 }
 
 func (q *Queries) DeprecateAlgorithmVersion(ctx context.Context, arg DeprecateAlgorithmVersionParams) (int64, error) {
@@ -102,29 +191,74 @@ func (q *Queries) DeprecateAlgorithmVersion(ctx context.Context, arg DeprecateAl
 	return result.RowsAffected(), nil
 }
 
+const forkPublicAlgorithm = `-- name: ForkPublicAlgorithm :one
+INSERT INTO algorithms (
+    publisher_id, name, description, configuration, version,
+    formula_definition, calculation_type,
+    is_active, is_public, forked_from, attribution_text,
+    created_at, updated_at
+) VALUES (
+    $1, $2 || ' (Fork)', $3, $4, '1.0',
+    '{}', 'custom',
+    false, false, $5, $6, NOW(), NOW()
+)
+RETURNING id
+`
+
+type ForkPublicAlgorithmParams struct {
+	PublisherID     int32   `json:"publisher_id"`
+	Column2         *string `json:"column_2"`
+	Description     *string `json:"description"`
+	Configuration   []byte  `json:"configuration"`
+	ForkedFrom      *int32  `json:"forked_from"`
+	AttributionText *string `json:"attribution_text"`
+}
+
+func (q *Queries) ForkPublicAlgorithm(ctx context.Context, arg ForkPublicAlgorithmParams) (int32, error) {
+	row := q.db.QueryRow(ctx, forkPublicAlgorithm,
+		arg.PublisherID,
+		arg.Column2,
+		arg.Description,
+		arg.Configuration,
+		arg.ForkedFrom,
+		arg.AttributionText,
+	)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getAlgorithmByID = `-- name: GetAlgorithmByID :one
-SELECT id, name, COALESCE(description, '') as description,
-       COALESCE(configuration::text, '{}')::jsonb as configuration,
-       status, is_public,
-       created_at, updated_at
-FROM algorithms
-WHERE id = $1 AND publisher_id = $2
+SELECT a.id, a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at, a.updated_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.id = $1 AND a.publisher_id = $2
 `
 
 type GetAlgorithmByIDParams struct {
-	ID          string `json:"id"`
-	PublisherID string `json:"publisher_id"`
+	ID          int32 `json:"id"`
+	PublisherID int32 `json:"publisher_id"`
 }
 
 type GetAlgorithmByIDRow struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	Description   string             `json:"description"`
-	Configuration []byte             `json:"configuration"`
-	Status        *string            `json:"status"`
-	IsPublic      *bool              `json:"is_public"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	Name                 string             `json:"name"`
+	Description          string             `json:"description"`
+	Configuration        []byte             `json:"configuration"`
+	StatusID             *int16             `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	IsPublic             *bool              `json:"is_public"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetAlgorithmByID(ctx context.Context, arg GetAlgorithmByIDParams) (GetAlgorithmByIDRow, error) {
@@ -135,7 +269,10 @@ func (q *Queries) GetAlgorithmByID(ctx context.Context, arg GetAlgorithmByIDPara
 		&i.Name,
 		&i.Description,
 		&i.Configuration,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -143,95 +280,34 @@ func (q *Queries) GetAlgorithmByID(ctx context.Context, arg GetAlgorithmByIDPara
 	return i, err
 }
 
-const getAlgorithmTemplateByKey = `-- name: GetAlgorithmTemplateByKey :one
-SELECT
-    id, template_key, name, description,
-    configuration, sort_order, is_active,
-    created_at, updated_at
-FROM algorithm_templates
-WHERE template_key = $1 AND is_active = true
-`
-
-func (q *Queries) GetAlgorithmTemplateByKey(ctx context.Context, templateKey string) (AlgorithmTemplate, error) {
-	row := q.db.QueryRow(ctx, getAlgorithmTemplateByKey, templateKey)
-	var i AlgorithmTemplate
-	err := row.Scan(
-		&i.ID,
-		&i.TemplateKey,
-		&i.Name,
-		&i.Description,
-		&i.Configuration,
-		&i.SortOrder,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getAlgorithmTemplates = `-- name: GetAlgorithmTemplates :many
-
-SELECT
-    id, template_key, name, description,
-    configuration, sort_order, is_active,
-    created_at, updated_at
-FROM algorithm_templates
-WHERE is_active = true
-ORDER BY sort_order ASC
-`
-
-// Algorithm Templates --
-func (q *Queries) GetAlgorithmTemplates(ctx context.Context) ([]AlgorithmTemplate, error) {
-	rows, err := q.db.Query(ctx, getAlgorithmTemplates)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []AlgorithmTemplate{}
-	for rows.Next() {
-		var i AlgorithmTemplate
-		if err := rows.Scan(
-			&i.ID,
-			&i.TemplateKey,
-			&i.Name,
-			&i.Description,
-			&i.Configuration,
-			&i.SortOrder,
-			&i.IsActive,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getAlgorithmVersions = `-- name: GetAlgorithmVersions :many
 
-SELECT id, name,
-       status,
-       is_public,
-       created_at
-FROM algorithms
-WHERE publisher_id = $1
-ORDER BY created_at DESC
+SELECT a.id, a.name,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.publisher_id = $1
+ORDER BY a.created_at DESC
 `
 
 type GetAlgorithmVersionsRow struct {
-	ID        string             `json:"id"`
-	Name      string             `json:"name"`
-	Status    *string            `json:"status"`
-	IsPublic  *bool              `json:"is_public"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID                   int32              `json:"id"`
+	Name                 string             `json:"name"`
+	StatusID             *int16             `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	IsPublic             *bool              `json:"is_public"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 // Algorithm versions --
-func (q *Queries) GetAlgorithmVersions(ctx context.Context, publisherID string) ([]GetAlgorithmVersionsRow, error) {
+func (q *Queries) GetAlgorithmVersions(ctx context.Context, publisherID int32) ([]GetAlgorithmVersionsRow, error) {
 	rows, err := q.db.Query(ctx, getAlgorithmVersions, publisherID)
 	if err != nil {
 		return nil, err
@@ -243,7 +319,10 @@ func (q *Queries) GetAlgorithmVersions(ctx context.Context, publisherID string) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Status,
+			&i.StatusID,
+			&i.StatusKey,
+			&i.StatusDisplayHebrew,
+			&i.StatusDisplayEnglish,
 			&i.IsPublic,
 			&i.CreatedAt,
 		); err != nil {
@@ -257,56 +336,125 @@ func (q *Queries) GetAlgorithmVersions(ctx context.Context, publisherID string) 
 	return items, nil
 }
 
-const getOnboardingState = `-- name: GetOnboardingState :one
-
+const getPublicAlgorithmByID = `-- name: GetPublicAlgorithmByID :one
 SELECT
-    id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at
-FROM publisher_onboarding
-WHERE publisher_id = $1
+    a.id, a.name, COALESCE(a.description, '') as description,
+    a.publisher_id, p.name as publisher_name,
+    COALESCE(p.logo_url, '') as publisher_logo,
+    COALESCE(a.fork_count, 0) as fork_count,
+    a.created_at, COALESCE(a.configuration::text, '{}')::jsonb as configuration
+FROM algorithms a
+JOIN publishers p ON p.id = a.publisher_id
+WHERE a.id = $1 AND a.is_public = true AND a.is_active = true
 `
 
-// Onboarding related --
-// Schema: id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set, created_at, updated_at
-func (q *Queries) GetOnboardingState(ctx context.Context, publisherID string) (PublisherOnboarding, error) {
-	row := q.db.QueryRow(ctx, getOnboardingState, publisherID)
-	var i PublisherOnboarding
+type GetPublicAlgorithmByIDRow struct {
+	ID            int32              `json:"id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	PublisherID   int32              `json:"publisher_id"`
+	PublisherName string             `json:"publisher_name"`
+	PublisherLogo string             `json:"publisher_logo"`
+	ForkCount     int32              `json:"fork_count"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Configuration []byte             `json:"configuration"`
+}
+
+func (q *Queries) GetPublicAlgorithmByID(ctx context.Context, id int32) (GetPublicAlgorithmByIDRow, error) {
+	row := q.db.QueryRow(ctx, getPublicAlgorithmByID, id)
+	var i GetPublicAlgorithmByIDRow
 	err := row.Scan(
 		&i.ID,
+		&i.Name,
+		&i.Description,
 		&i.PublisherID,
-		&i.ProfileComplete,
-		&i.AlgorithmSelected,
-		&i.ZmanimConfigured,
-		&i.CoverageSet,
+		&i.PublisherName,
+		&i.PublisherLogo,
+		&i.ForkCount,
 		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.Configuration,
+	)
+	return i, err
+}
+
+const getPublicAlgorithmConfig = `-- name: GetPublicAlgorithmConfig :one
+SELECT name, COALESCE(description, '') as description, COALESCE(configuration::text, '{}')::jsonb as configuration
+FROM algorithms
+WHERE id = $1 AND is_public = true AND is_active = true
+`
+
+type GetPublicAlgorithmConfigRow struct {
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Configuration []byte `json:"configuration"`
+}
+
+func (q *Queries) GetPublicAlgorithmConfig(ctx context.Context, id int32) (GetPublicAlgorithmConfigRow, error) {
+	row := q.db.QueryRow(ctx, getPublicAlgorithmConfig, id)
+	var i GetPublicAlgorithmConfigRow
+	err := row.Scan(&i.Name, &i.Description, &i.Configuration)
+	return i, err
+}
+
+const getPublicAlgorithmWithPublisher = `-- name: GetPublicAlgorithmWithPublisher :one
+SELECT a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       p.name as publisher_name
+FROM algorithms a
+JOIN publishers p ON p.id = a.publisher_id
+WHERE a.id = $1 AND a.is_public = true AND a.is_active = true
+`
+
+type GetPublicAlgorithmWithPublisherRow struct {
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Configuration []byte `json:"configuration"`
+	PublisherName string `json:"publisher_name"`
+}
+
+func (q *Queries) GetPublicAlgorithmWithPublisher(ctx context.Context, id int32) (GetPublicAlgorithmWithPublisherRow, error) {
+	row := q.db.QueryRow(ctx, getPublicAlgorithmWithPublisher, id)
+	var i GetPublicAlgorithmWithPublisherRow
+	err := row.Scan(
+		&i.Name,
+		&i.Description,
+		&i.Configuration,
+		&i.PublisherName,
 	)
 	return i, err
 }
 
 const getPublisherActiveAlgorithm = `-- name: GetPublisherActiveAlgorithm :one
-SELECT id, name, COALESCE(description, '') as description,
-       COALESCE(configuration::text, '{}')::jsonb as configuration,
-       status, is_public,
-       created_at, updated_at
-FROM algorithms
-WHERE publisher_id = $1 AND status = 'published'
-ORDER BY created_at DESC
+SELECT a.id, a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at, a.updated_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.publisher_id = $1 AND astatus.key = 'active'
+ORDER BY a.created_at DESC
 LIMIT 1
 `
 
 type GetPublisherActiveAlgorithmRow struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	Description   string             `json:"description"`
-	Configuration []byte             `json:"configuration"`
-	Status        *string            `json:"status"`
-	IsPublic      *bool              `json:"is_public"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	Name                 string             `json:"name"`
+	Description          string             `json:"description"`
+	Configuration        []byte             `json:"configuration"`
+	StatusID             *int16             `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	IsPublic             *bool              `json:"is_public"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) GetPublisherActiveAlgorithm(ctx context.Context, publisherID string) (GetPublisherActiveAlgorithmRow, error) {
+func (q *Queries) GetPublisherActiveAlgorithm(ctx context.Context, publisherID int32) (GetPublisherActiveAlgorithmRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherActiveAlgorithm, publisherID)
 	var i GetPublisherActiveAlgorithmRow
 	err := row.Scan(
@@ -314,7 +462,10 @@ func (q *Queries) GetPublisherActiveAlgorithm(ctx context.Context, publisherID s
 		&i.Name,
 		&i.Description,
 		&i.Configuration,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -325,31 +476,39 @@ func (q *Queries) GetPublisherActiveAlgorithm(ctx context.Context, publisherID s
 const getPublisherDraftAlgorithm = `-- name: GetPublisherDraftAlgorithm :one
 
 
-SELECT id, name, COALESCE(description, '') as description,
-       COALESCE(configuration::text, '{}')::jsonb as configuration,
-       status, is_public,
-       created_at, updated_at
-FROM algorithms
-WHERE publisher_id = $1 AND status = 'draft'
-ORDER BY created_at DESC
+SELECT a.id, a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at, a.updated_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.publisher_id = $1 AND astatus.key = 'draft'
+ORDER BY a.created_at DESC
 LIMIT 1
 `
 
 type GetPublisherDraftAlgorithmRow struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	Description   string             `json:"description"`
-	Configuration []byte             `json:"configuration"`
-	Status        *string            `json:"status"`
-	IsPublic      *bool              `json:"is_public"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	Name                 string             `json:"name"`
+	Description          string             `json:"description"`
+	Configuration        []byte             `json:"configuration"`
+	StatusID             *int16             `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	IsPublic             *bool              `json:"is_public"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Algorithms SQL Queries
 // SQLc will generate type-safe Go code from these queries
 // Get algorithm for publisher --
-func (q *Queries) GetPublisherDraftAlgorithm(ctx context.Context, publisherID string) (GetPublisherDraftAlgorithmRow, error) {
+func (q *Queries) GetPublisherDraftAlgorithm(ctx context.Context, publisherID int32) (GetPublisherDraftAlgorithmRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherDraftAlgorithm, publisherID)
 	var i GetPublisherDraftAlgorithmRow
 	err := row.Scan(
@@ -357,7 +516,10 @@ func (q *Queries) GetPublisherDraftAlgorithm(ctx context.Context, publisherID st
 		&i.Name,
 		&i.Description,
 		&i.Configuration,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -365,19 +527,94 @@ func (q *Queries) GetPublisherDraftAlgorithm(ctx context.Context, publisherID st
 	return i, err
 }
 
+const getPublisherForks = `-- name: GetPublisherForks :many
+SELECT
+    a.id, a.name, a.attribution_text,
+    source.id as source_id, source.name as source_name,
+    p.name as source_publisher
+FROM algorithms a
+JOIN algorithms source ON source.id = a.forked_from
+JOIN publishers p ON p.id = source.publisher_id
+WHERE a.publisher_id = $1 AND a.forked_from IS NOT NULL
+ORDER BY a.created_at DESC
+`
+
+type GetPublisherForksRow struct {
+	ID              int32   `json:"id"`
+	Name            string  `json:"name"`
+	AttributionText *string `json:"attribution_text"`
+	SourceID        int32   `json:"source_id"`
+	SourceName      string  `json:"source_name"`
+	SourcePublisher string  `json:"source_publisher"`
+}
+
+func (q *Queries) GetPublisherForks(ctx context.Context, publisherID int32) ([]GetPublisherForksRow, error) {
+	rows, err := q.db.Query(ctx, getPublisherForks, publisherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPublisherForksRow{}
+	for rows.Next() {
+		var i GetPublisherForksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.AttributionText,
+			&i.SourceID,
+			&i.SourceName,
+			&i.SourcePublisher,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const incrementAlgorithmForkCount = `-- name: IncrementAlgorithmForkCount :exec
+UPDATE algorithms
+SET fork_count = COALESCE(fork_count, 0) + 1
+WHERE id = $1
+`
+
+func (q *Queries) IncrementAlgorithmForkCount(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, incrementAlgorithmForkCount, id)
+	return err
+}
+
 const publishAlgorithm = `-- name: PublishAlgorithm :one
 UPDATE algorithms
-SET status = 'published',
+SET status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'active'),
     updated_at = NOW()
-WHERE id = $1
+WHERE algorithms.id = $1
 RETURNING updated_at
 `
 
-func (q *Queries) PublishAlgorithm(ctx context.Context, id string) (pgtype.Timestamptz, error) {
+func (q *Queries) PublishAlgorithm(ctx context.Context, id int32) (pgtype.Timestamptz, error) {
 	row := q.db.QueryRow(ctx, publishAlgorithm, id)
 	var updated_at pgtype.Timestamptz
 	err := row.Scan(&updated_at)
 	return updated_at, err
+}
+
+const setAlgorithmVisibility = `-- name: SetAlgorithmVisibility :exec
+UPDATE algorithms
+SET is_public = $1, updated_at = NOW()
+WHERE publisher_id = $2
+`
+
+type SetAlgorithmVisibilityParams struct {
+	IsPublic    *bool `json:"is_public"`
+	PublisherID int32 `json:"publisher_id"`
+}
+
+func (q *Queries) SetAlgorithmVisibility(ctx context.Context, arg SetAlgorithmVisibilityParams) error {
+	_, err := q.db.Exec(ctx, setAlgorithmVisibility, arg.IsPublic, arg.PublisherID)
+	return err
 }
 
 const updateAlgorithmDraft = `-- name: UpdateAlgorithmDraft :one
@@ -394,11 +631,11 @@ type UpdateAlgorithmDraftParams struct {
 	Configuration []byte      `json:"configuration"`
 	Column2       interface{} `json:"column_2"`
 	Column3       interface{} `json:"column_3"`
-	ID            string      `json:"id"`
+	ID            int32       `json:"id"`
 }
 
 type UpdateAlgorithmDraftRow struct {
-	ID        string             `json:"id"`
+	ID        int32              `json:"id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
@@ -412,121 +649,5 @@ func (q *Queries) UpdateAlgorithmDraft(ctx context.Context, arg UpdateAlgorithmD
 	)
 	var i UpdateAlgorithmDraftRow
 	err := row.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt)
-	return i, err
-}
-
-const updateOnboardingAlgorithmSelected = `-- name: UpdateOnboardingAlgorithmSelected :one
-UPDATE publisher_onboarding
-SET algorithm_selected = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at
-`
-
-type UpdateOnboardingAlgorithmSelectedParams struct {
-	PublisherID       string `json:"publisher_id"`
-	AlgorithmSelected *bool  `json:"algorithm_selected"`
-}
-
-func (q *Queries) UpdateOnboardingAlgorithmSelected(ctx context.Context, arg UpdateOnboardingAlgorithmSelectedParams) (PublisherOnboarding, error) {
-	row := q.db.QueryRow(ctx, updateOnboardingAlgorithmSelected, arg.PublisherID, arg.AlgorithmSelected)
-	var i PublisherOnboarding
-	err := row.Scan(
-		&i.ID,
-		&i.PublisherID,
-		&i.ProfileComplete,
-		&i.AlgorithmSelected,
-		&i.ZmanimConfigured,
-		&i.CoverageSet,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const updateOnboardingCoverageSet = `-- name: UpdateOnboardingCoverageSet :one
-UPDATE publisher_onboarding
-SET coverage_set = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at
-`
-
-type UpdateOnboardingCoverageSetParams struct {
-	PublisherID string `json:"publisher_id"`
-	CoverageSet *bool  `json:"coverage_set"`
-}
-
-func (q *Queries) UpdateOnboardingCoverageSet(ctx context.Context, arg UpdateOnboardingCoverageSetParams) (PublisherOnboarding, error) {
-	row := q.db.QueryRow(ctx, updateOnboardingCoverageSet, arg.PublisherID, arg.CoverageSet)
-	var i PublisherOnboarding
-	err := row.Scan(
-		&i.ID,
-		&i.PublisherID,
-		&i.ProfileComplete,
-		&i.AlgorithmSelected,
-		&i.ZmanimConfigured,
-		&i.CoverageSet,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const updateOnboardingProfileComplete = `-- name: UpdateOnboardingProfileComplete :one
-UPDATE publisher_onboarding
-SET profile_complete = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at
-`
-
-type UpdateOnboardingProfileCompleteParams struct {
-	PublisherID     string `json:"publisher_id"`
-	ProfileComplete *bool  `json:"profile_complete"`
-}
-
-func (q *Queries) UpdateOnboardingProfileComplete(ctx context.Context, arg UpdateOnboardingProfileCompleteParams) (PublisherOnboarding, error) {
-	row := q.db.QueryRow(ctx, updateOnboardingProfileComplete, arg.PublisherID, arg.ProfileComplete)
-	var i PublisherOnboarding
-	err := row.Scan(
-		&i.ID,
-		&i.PublisherID,
-		&i.ProfileComplete,
-		&i.AlgorithmSelected,
-		&i.ZmanimConfigured,
-		&i.CoverageSet,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const updateOnboardingZmanimConfigured = `-- name: UpdateOnboardingZmanimConfigured :one
-UPDATE publisher_onboarding
-SET zmanim_configured = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at
-`
-
-type UpdateOnboardingZmanimConfiguredParams struct {
-	PublisherID      string `json:"publisher_id"`
-	ZmanimConfigured *bool  `json:"zmanim_configured"`
-}
-
-func (q *Queries) UpdateOnboardingZmanimConfigured(ctx context.Context, arg UpdateOnboardingZmanimConfiguredParams) (PublisherOnboarding, error) {
-	row := q.db.QueryRow(ctx, updateOnboardingZmanimConfigured, arg.PublisherID, arg.ZmanimConfigured)
-	var i PublisherOnboarding
-	err := row.Scan(
-		&i.ID,
-		&i.PublisherID,
-		&i.ProfileComplete,
-		&i.AlgorithmSelected,
-		&i.ZmanimConfigured,
-		&i.CoverageSet,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
 	return i, err
 }

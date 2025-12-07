@@ -1,138 +1,128 @@
-> **ARCHIVED DOCUMENT**: This file is historical and references outdated technology (Supabase).
-> The project now uses Xata for PostgreSQL hosting. See `docs/README.md` for current documentation.
+# Archived Documentation Index
 
-# Zmanim Lab Documentation
+This directory contains historical documentation that is no longer actively maintained but preserved for reference.
 
-> **Halachic Zmanim Publishing Platform** - A portal for rabbinic authorities to publish customized Jewish prayer times with full algorithm control.
-
-## Project Overview
-
-| Attribute | Value |
-|-----------|-------|
-| **Project Name** | Zmanim Lab (Alos Hashachar Calculator) |
-| **Repository Type** | Multi-part (Web + API) |
-| **Domain** | Jewish Prayer Times (Zmanim) Calculation |
-| **Primary Users** | Rabbinic/Halachic authorities (publishers) |
-| **Secondary Users** | End users consuming published zmanim |
-
-## Architecture Summary
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Zmanim Lab                                │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
-│  │   Web Frontend  │───▶│   Go Backend    │───▶│  Supabase   │ │
-│  │   (Next.js)     │    │   (Chi Router)  │    │ (PostgreSQL)│ │
-│  │   Port: 3000    │    │   Port: 8080    │    │   + PostGIS │ │
-│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
-│         │                       │                     │         │
-│         ▼                       ▼                     ▼         │
-│      Vercel               Fly.io                Supabase.com    │
-│     (planned)            (deployed)              (hosted)       │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Documentation Index
-
-### Core Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Architecture](./ARCHITECTURE.md) | Comprehensive system design, database schema, API design |
-| [API Reference](./api-reference.md) | REST API endpoints and usage |
-| [Data Models](./data-models.md) | Database tables and Go/TypeScript models |
-| [Frontend Components](./frontend-components.md) | React components and UI patterns |
-| [Deployment Guide](./deployment.md) | Fly.io, Vercel, and local development setup |
-
-### Quick Links
-
-| Resource | Location |
-|----------|----------|
-| Frontend README | [/README.md](../README.md) |
-| Backend README | [/backend/README.md](../backend/README.md) |
-| Database Setup | [/setup-database.md](../setup-database.md) |
-| DB Migrations | [/supabase/migrations/](../supabase/migrations/) |
-
-## Technology Stack
-
-### Web Frontend (Root Directory)
-
-| Category | Technology | Purpose |
-|----------|------------|---------|
-| Framework | Next.js 16 | React framework with App Router |
-| Language | TypeScript | Type-safe JavaScript |
-| UI | React 19 | Component library |
-| Styling | Tailwind CSS | Utility-first CSS |
-| Date/Time | Luxon | DateTime manipulation |
-| Zmanim | kosher-zmanim | Astronomical calculations |
-| Testing | Playwright, Jest | E2E and unit tests |
-
-### Backend API (backend/ Directory)
-
-| Category | Technology | Purpose |
-|----------|------------|---------|
-| Language | Go 1.21 | High-performance API |
-| Router | Chi v5 | HTTP routing |
-| Database | pgx v5 | PostgreSQL driver |
-| Config | godotenv | Environment management |
-| Container | Docker | Deployment packaging |
-
-### Database (Supabase)
-
-| Feature | Technology | Purpose |
-|---------|------------|---------|
-| Database | PostgreSQL | Primary data store |
-| Geospatial | PostGIS | Coverage area queries |
-| API | Supabase Client | Direct DB access (frontend) |
-
-### Authentication (Clerk)
-
-| Feature | Technology | Purpose |
-|---------|------------|---------|
-| Auth Provider | Clerk | User authentication & management |
-| Session | Clerk Session | JWT-based sessions |
-| UI Components | Clerk React | Sign-in/sign-up flows |
-
-## Key Features
-
-1. **Multi-Publisher Support** - Multiple halachic authorities can publish their own zmanim calculations
-2. **Algorithm DSL** - JSON-based formula definitions for customizable calculations
-3. **Geographic Coverage** - PostGIS-powered coverage areas per publisher
-4. **Calculation Caching** - 24-hour cache for performance optimization
-5. **Verification System** - Publisher verification workflow
-
-## Project Structure
-
-```
-zmanim-lab/
-├── app/                    # Next.js App Router pages
-├── components/             # React components
-├── lib/                    # Frontend utilities
-├── backend/
-│   ├── cmd/api/           # Go entry point
-│   └── internal/          # Go packages
-│       ├── config/        # Environment config
-│       ├── db/            # Database connection
-│       ├── handlers/      # HTTP handlers
-│       ├── middleware/    # HTTP middleware
-│       ├── models/        # Domain models
-│       └── services/      # Business logic
-├── supabase/
-│   └── migrations/        # SQL migrations
-├── docs/                   # Documentation
-└── public/                # Static assets
-```
-
-## Planned Changes
-
-| Change | Description | Status |
-|--------|-------------|--------|
-| Repo Restructure | Separate `web/` and `api/` directories | Planned |
-| Vercel Deployment | Auto-deploy frontend from GitHub | Planned |
-| GitHub Actions CI/CD | Automated testing and deployment | Planned |
-| Coder/Devcontainer | Local development environment | Planned |
+**Last Updated:** December 7, 2025
 
 ---
 
-*Generated by BMAD Document Project Workflow - 2025-11-25*
+## Archive Organization
+
+```
+archive/
+├── index.md                          # This file
+├── plans/                            # Completed implementation plans
+├── api/                              # API migration/conversion reports
+└── [root files]                      # Status reports, audits, completion summaries
+```
+
+---
+
+## Archived: December 7, 2025
+
+### Implementation Plans (→ `plans/`)
+All completed plans moved from `docs/plans/`:
+
+- `geo-data-accuracy-enhancement.md` - Geo data accuracy improvements
+- `jewish-day-tags-plan.md` - Jewish day tagging system
+- `lookup-table-normalization.md` - Lookup table normalization
+- `plan-coverage-map-view.md` - Coverage map visualization
+- `plan-geo-hierarchy-redesign.md` - Geographic hierarchy redesign
+- `plan-negated-tags.md` - Negated tags implementation
+- `tag-system-implementation-plan.md` - Tag system architecture
+- `tag-ui-redesign-plan.md` - Tag UI improvements
+- `e2e-ci-plan.md` - E2E testing CI integration
+- `plan-cache-invalidation.md` - Cache invalidation strategy
+- `plan-publisher-version-control.md` - Publisher version control
+
+### Status Reports & Audits (from root `/`)
+
+**SQL Migration & Refactoring:**
+- `RAW_SQL_ELIMINATION_COMPLETE.md` - Raw SQL elimination completion
+- `RAW_SQL_ELIMINATION_FINAL_STATUS.md` - Final status report
+- `REMAINING_RAW_SQL_STATUS.md` - Remaining violations tracking
+- `VERSION_HISTORY_RAW_SQL_VIOLATIONS_FIXED.md` - Version history fixes
+- `MASTER_REGISTRY_SQL_QUERIES.md` - Master registry SQL queries
+- `REFACTOR_COMPLETE.md` - Refactoring completion report
+- `TRANSFORMATION_SUMMARY.txt` - Overall transformation summary
+
+**Migration & Data Import:**
+- `SIMPLEMAPS_CITY_CREATION_CHANGES.md` - SimpleMaps city import changes
+- `SIMPLEMAPS_TIMEZONE_REQUIREMENT.md` - Timezone requirements
+- `SIMPLEMAPS_TIMEZONE_SUPPORT.md` - Timezone support implementation
+- `MIGRATION_FIX_PLAN.md` - Migration fix planning
+- `GEO_TABLES_AUDIT.md` - Geographic tables audit
+
+**Quality & Standards:**
+- `COLOR_AUDIT_REPORT.md` - Color usage audit
+- `FIX_STATUS.md` - General fix status tracking
+
+### Implementation Reports (from `docs/`)
+
+**AI & Refactoring:**
+- `AI_REFACTOR_IMPLEMENTATION_SUMMARY.md` - AI-assisted refactor summary
+- `AI_REFACTOR_PLAN.md` - AI refactoring plan
+- `IMPLEMENTATION_COMPLETE.md` - Implementation completion report
+- `RAW_SQL_ELIMINATION_COMPLETE.md` - SQL elimination (duplicate)
+
+**Code Quality:**
+- `CODING_STANDARDS_AUDIT_REPORT.md` - Coding standards audit
+- `backwards-compat-removal-plan.md` - Backwards compatibility cleanup
+- `cleanup-plan.md` - General cleanup planning
+- `version-history-refactor-summary.md` - Version history refactoring
+
+**Feature Implementation:**
+- `database-driven-zmanim-plan.md` - Database-driven zmanim
+- `design-token-remediation-plan.md` - Design token standardization
+- `hardcoded-data-remediation.md` - Hardcoded data removal
+- `publisher-coordinate-override-implementation.md` - Publisher coordinate overrides
+- `zmanim-ordering-audit-plan.md` - Zmanim ordering improvements
+
+**Artifacts:**
+- `ux-advanced-dsl-editor-mockup.html` - Old DSL editor mockup
+- `project-scan-report.json` - Historical project scan
+- `bmm-workflow-status.yaml` - BMM workflow status
+
+### API Migration Reports (→ `api/`)
+Moved from `api/` directory:
+
+- `MASTER_REGISTRY_CONVERSION_STATUS.md` - Master registry conversion status
+- `MASTER_REGISTRY_SQL_CONVERSION_SUMMARY.md` - SQL conversion summary
+- `ONBOARDING_CONVERSION_GUIDE.md` - Onboarding conversion guide
+- `ONBOARDING_FIX_SUMMARY.md` - Onboarding fixes summary
+- `ONBOARDING_RAW_SQL_FIX_COMPLETE.md` - Raw SQL fix completion
+- `ONBOARDING_SCHEMA_MISMATCH.md` - Schema mismatch resolution
+
+---
+
+## Pre-December 7, 2025 Archives
+
+These were archived before the December 7 consolidation:
+
+- `ARCHITECTURE-old.md` - Old architecture (pre-Xata, Supabase-based)
+- `CONSOLIDATION-SUMMARY.md` - Previous consolidation effort
+- `accessibility.md` - Accessibility guidelines (historical)
+- `code-review-recommendations-2025-11-28.md` - Code review snapshot
+- `codebase-audit.md` - Codebase audit (historical snapshot)
+- `database-index-optimization-report.md` - DB index optimization
+- `dev-tasks-2025-11-28.md` - Development tasks snapshot
+- `e2e-testing-plan.md` - E2E testing planning
+- `frontend-components.md` - Frontend components (superseded)
+- `implementation-readiness-report-2025-11-25.md` - Implementation readiness
+- `testing-instructions.md` - Testing instructions (historical)
+- `ux-advanced-dsl-editor-spec.md` - Old UX spec
+- `ux-design-specification.md` - Original UX design spec
+
+---
+
+## Notes
+
+- All archived documentation represents **completed** work or **superseded** specifications
+- For current documentation, see `docs/README.md`
+- These files are preserved for historical reference and audit trails
+- If you need to reference implementation details from past work, search this archive
+
+---
+
+**Archive Maintained By:** Development Team
+**Archive Policy:** Keep all completed plans, status reports, and implementation summaries for audit trail

@@ -253,7 +253,7 @@ fi
 
 # Step 8d: Install network utilities (ping, nslookup, telnet)
 print_status "Installing network utilities..."
-sudo apt-get update -qq && sudo apt-get install -y iputils-ping dnsutils telnet net-tools iproute2 > /dev/null 2>&1
+sudo apt-get update -qq && sudo apt-get install -y iputils-ping dnsutils telnet net-tools iproute2 file > /dev/null 2>&1
 print_success "Network utilities installed (ping, nslookup, telnet)"
 
 # Step 9: Install tmux for service management
@@ -330,17 +330,36 @@ else
     print_success "Claude Code already installed"
 fi
 
-# Step 12: Add claude alias to skip permissions
-print_status "Adding claude alias to skip permissions..."
-echo "alias claude='claude --dangerously-skip-permissions'" >> ~/.bashrc
-print_success "Claude alias added"
+# Step 11b: Configure npm global path
+print_status "Configuring npm global directory..."
+mkdir -p "$HOME/.npm-global"
+npm config set prefix "$HOME/.npm-global"
+print_success "npm global directory set to $HOME/.npm-global"
 
-# Step 12b: Copy Claude Code config if included in template
-if [ -f "/home/coder/workspace/zmanim-lab/.coder/claude.json" ]; then
-    print_status "Copying Claude Code config..."
-    cp /home/coder/workspace/zmanim-lab/.coder/claude.json ~/.claude.json
-    print_success "~/.claude.json copied from template"
-fi
+# Step 12: Add PATH exports and claude alias
+print_status "Adding PATH exports and aliases to .bashrc..."
+cat >> ~/.bashrc << 'PATHEOF'
+
+# npm global binaries
+export PATH="$HOME/.npm-global/bin:$PATH"
+
+# Go binaries
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# Local binaries (uv, etc.)
+export PATH="$HOME/.local/bin:$PATH"
+
+# Claude alias to skip permissions
+alias claude='claude --dangerously-skip-permissions'
+PATHEOF
+
+# Export for current session
+export PATH="$HOME/.npm-global/bin:$PATH"
+export PATH=$PATH:$(go env GOPATH)/bin
+export PATH="$HOME/.local/bin:$PATH"
+
+print_success "PATH exports and claude alias added"
+
 
 # Step 12c: Copy API key env files from Coder secrets
 print_status "Setting up API key environment files..."

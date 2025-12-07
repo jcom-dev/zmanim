@@ -4,13 +4,17 @@
 
 set -e
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+
 # Check if we're in Coder environment
-if [[ -d "/home/coder" ]] && [[ -f "/home/daniel/repos/zmanim-lab/api/.env" ]]; then
+if [[ -d "/home/coder" ]] && [[ -f "$SCRIPT_DIR/../api/.env" ]]; then
     echo "Running database migrations..."
+
 
     # Use DATABASE_URL from environment, or fall back to .env file
     if [[ -z "$DATABASE_URL" ]]; then
-        source /home/daniel/repos/zmanim-lab/api/.env
+        source $SCRIPT_DIR/../api/.env
     fi
 
     # Parse DATABASE_URL
@@ -32,7 +36,7 @@ if [[ -d "/home/coder" ]] && [[ -f "/home/daniel/repos/zmanim-lab/api/.env" ]]; 
         exit 1
     fi
 
-    MIGRATIONS_DIR="/home/daniel/repos/zmanim-lab/db/migrations"
+    MIGRATIONS_DIR="$SCRIPT_DIR/../db/migrations"
 
     # Create schema_migrations table if it doesn't exist
     PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \

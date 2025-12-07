@@ -1,3 +1,12 @@
+/**
+ * @file MasterZmanPicker.tsx
+ * @purpose Registry zman search and selection - autocomplete with metadata
+ * @pattern client-component
+ * @dependencies useApi, Command (shadcn), search/filter
+ * @frequency medium - 418 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useState, useMemo } from 'react';

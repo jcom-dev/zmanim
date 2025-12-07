@@ -50,25 +50,31 @@ LIMIT 1;
 -- name: GetPublisherZmanimForSnapshot :many
 -- Get all active (non-deleted) zmanim for snapshot export
 SELECT
-    zman_key,
-    hebrew_name,
-    english_name,
-    transliteration,
-    description,
-    formula_dsl,
-    ai_explanation,
-    publisher_comment,
-    is_enabled,
-    is_visible,
-    is_published,
-    is_beta,
-    is_custom,
-    category,
-    master_zman_id,
-    linked_publisher_zman_id,
-    source_type
-FROM publisher_zmanim
-WHERE publisher_id = $1 AND deleted_at IS NULL;
+    pz.zman_key,
+    pz.hebrew_name,
+    pz.english_name,
+    pz.transliteration,
+    pz.description,
+    pz.formula_dsl,
+    pz.ai_explanation,
+    pz.publisher_comment,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.is_published,
+    pz.is_beta,
+    pz.is_custom,
+    pz.time_category_id,
+    tc.key AS category,
+    tc.display_name_hebrew AS category_display_hebrew,
+    tc.display_name_english AS category_display_english,
+    pz.master_zman_id,
+    pz.linked_publisher_zman_id,
+    pz.source_type_id,
+    zst.key AS source_type
+FROM publisher_zmanim pz
+JOIN time_categories tc ON tc.id = pz.time_category_id
+LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
+WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL;
 
 -- name: GetAllPublisherZmanimKeys :many
 -- Get all active zman keys for a publisher (for diff comparison)
@@ -79,27 +85,33 @@ WHERE publisher_id = $1 AND deleted_at IS NULL;
 -- name: GetPublisherZmanForSnapshotCompare :one
 -- Get a specific zman by key for comparison during restore
 SELECT
-    id,
-    zman_key,
-    hebrew_name,
-    english_name,
-    transliteration,
-    description,
-    formula_dsl,
-    ai_explanation,
-    publisher_comment,
-    is_enabled,
-    is_visible,
-    is_published,
-    is_beta,
-    is_custom,
-    category,
-    master_zman_id,
-    linked_publisher_zman_id,
-    source_type,
-    current_version
-FROM publisher_zmanim
-WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL;
+    pz.id,
+    pz.zman_key,
+    pz.hebrew_name,
+    pz.english_name,
+    pz.transliteration,
+    pz.description,
+    pz.formula_dsl,
+    pz.ai_explanation,
+    pz.publisher_comment,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.is_published,
+    pz.is_beta,
+    pz.is_custom,
+    pz.time_category_id,
+    tc.key AS category,
+    tc.display_name_hebrew AS category_display_hebrew,
+    tc.display_name_english AS category_display_english,
+    pz.master_zman_id,
+    pz.linked_publisher_zman_id,
+    pz.source_type_id,
+    zst.key AS source_type,
+    pz.current_version
+FROM publisher_zmanim pz
+JOIN time_categories tc ON tc.id = pz.time_category_id
+LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
+WHERE pz.publisher_id = $1 AND pz.zman_key = $2 AND pz.deleted_at IS NULL;
 
 -- ============================================
 -- SNAPSHOT RESTORE QUERIES
@@ -133,10 +145,10 @@ SET
     is_published = $12,
     is_beta = $13,
     is_custom = $14,
-    category = $15,
+    time_category_id = $15,
     master_zman_id = $16,
     linked_publisher_zman_id = $17,
-    source_type = $18,
+    source_type_id = $18,
     updated_at = NOW()
 WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL;
 
@@ -157,10 +169,10 @@ INSERT INTO publisher_zmanim (
     is_published,
     is_beta,
     is_custom,
-    category,
+    time_category_id,
     master_zman_id,
     linked_publisher_zman_id,
-    source_type
+    source_type_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 );

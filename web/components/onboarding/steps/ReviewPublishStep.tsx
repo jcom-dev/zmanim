@@ -27,20 +27,10 @@ function isZmanEnabled(z: ZmanCustomization | SelectedZmanCustomization): boolea
   return true;
 }
 
-const TEMPLATE_NAMES: Record<string, { en: string; he: string }> = {
-  default: { en: 'Standard Defaults', he: 'ברירות מחדל סטנדרטיות' },
-  copy_publisher: { en: 'Copied from Publisher', he: 'הועתק ממפרסם' },
-  gra: { en: 'GRA Standard', he: 'גר"א סטנדרטי' },
-  mga: { en: 'Magen Avraham', he: 'מגן אברהם' },
-  rabbeinu_tam: { en: 'Rabbeinu Tam', he: 'רבינו תם' },
-  custom: { en: 'Custom', he: 'מותאם אישית' },
-};
-
 export function ReviewPublishStep({ state, onBack, onComplete, onDismiss }: ReviewPublishStepProps) {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
 
-  const template = state.data.template || 'custom';
   const customizations = state.data.customizations || [];
   const coverage = state.data.coverage || [];
 
@@ -119,16 +109,6 @@ export function ReviewPublishStep({ state, onBack, onComplete, onDismiss }: Revi
 
       {/* Summary sections */}
       <div className="space-y-4">
-        {/* Template */}
-        <SummarySection title="Template">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{TEMPLATE_NAMES[template]?.en}</span>
-            <span className="text-muted-foreground" dir="rtl">
-              {TEMPLATE_NAMES[template]?.he}
-            </span>
-          </div>
-        </SummarySection>
-
         {/* Zmanim */}
         <SummarySection title="Zmanim">
           <div className="grid grid-cols-2 gap-2 text-sm">

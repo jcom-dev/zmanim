@@ -20,7 +20,10 @@ WHERE 1=1
   AND (sqlc.narg('country_code')::text IS NULL OR co.code = sqlc.narg('country_code'))
   AND (sqlc.narg('region_code')::text IS NULL OR r.code = sqlc.narg('region_code'))
   AND (sqlc.narg('search_name')::text IS NULL OR c.name ILIKE '%' || sqlc.narg('search_name') || '%')
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY
+  CASE WHEN COALESCE(sqlc.narg('order_by_country')::boolean, false) THEN co.name ELSE c.name END,
+  CASE WHEN COALESCE(sqlc.narg('order_by_country')::boolean, false) THEN c.name ELSE co.name END,
+  c.population DESC NULLS LAST
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: CountCities :one
@@ -82,7 +85,10 @@ JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 LEFT JOIN geo_districts d ON c.district_id = d.id
 WHERE co.code = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY
+  CASE WHEN COALESCE(sqlc.narg('order_by_region')::boolean, false) THEN r.name ELSE c.name END,
+  CASE WHEN COALESCE(sqlc.narg('order_by_region')::boolean, false) THEN c.name ELSE r.name END,
+  c.population DESC NULLS LAST
 LIMIT $2;
 
 -- name: ListCitiesByRegion :many
@@ -100,7 +106,10 @@ JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 LEFT JOIN geo_districts d ON c.district_id = d.id
 WHERE r.id = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY
+  CASE WHEN COALESCE(sqlc.narg('order_by_district')::boolean, false) THEN COALESCE(d.name, '') ELSE c.name END,
+  CASE WHEN COALESCE(sqlc.narg('order_by_district')::boolean, false) THEN c.name ELSE COALESCE(d.name, '') END,
+  c.population DESC NULLS LAST
 LIMIT $2;
 
 -- name: ListCitiesByDistrict :many
@@ -118,7 +127,7 @@ JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 JOIN geo_districts d ON c.district_id = d.id
 WHERE d.id = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY c.name, c.population DESC NULLS LAST
 LIMIT $2;
 
 -- name: ListCitiesByContinent :many
@@ -134,7 +143,10 @@ JOIN geo_regions r ON c.region_id = r.id
 JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 WHERE ct.code = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY
+  CASE WHEN COALESCE(sqlc.narg('order_by_country')::boolean, false) THEN co.name ELSE c.name END,
+  CASE WHEN COALESCE(sqlc.narg('order_by_country')::boolean, false) THEN c.name ELSE co.name END,
+  c.population DESC NULLS LAST
 LIMIT $2 OFFSET $3;
 
 -- ============================================================================
@@ -413,7 +425,17 @@ ORDER BY
     CASE WHEN c.name_ascii ILIKE sqlc.arg('search') || '%' THEN 0
          WHEN c.name ILIKE sqlc.arg('search') || '%' THEN 1
          ELSE 2 END,
+    CASE WHEN COALESCE(sqlc.narg('order_by_country')::boolean, false) THEN co.name ELSE c.name END,
+    CASE WHEN COALESCE(sqlc.narg('order_by_country')::boolean, false) THEN c.name ELSE co.name END,
     similarity(c.name_ascii, sqlc.arg('search')) DESC,
-    c.population DESC NULLS LAST,
-    c.name ASC
+    c.population DESC NULLS LAST
 LIMIT sqlc.arg('limit');
+
+-- name: GetTopCitiesAsLocations :many
+-- Get top cities ordered by population for location picker
+SELECT
+    c.id, c.name,
+    c.latitude, c.longitude, c.timezone
+FROM geo_cities c
+ORDER BY c.population DESC NULLS LAST, c.name
+LIMIT $1;

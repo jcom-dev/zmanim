@@ -1,3 +1,12 @@
+/**
+ * @file CodeMirrorDSLEditor.tsx
+ * @purpose Syntax-highlighted DSL editor - autocomplete, validation, linting
+ * @pattern client-component-editor
+ * @dependencies CodeMirror 6, custom DSL language mode
+ * @frequency critical - 779 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useRef, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef, useState } from 'react';

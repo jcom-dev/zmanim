@@ -1,3 +1,10 @@
+// File: sun.go
+// Purpose: Astronomical calculations - sunrise, sunset, solar angles
+// Pattern: calculation-primitive
+// Dependencies: NOAA solar equations
+// Frequency: critical - foundation for DSL primitives
+// Compliance: Check docs/adr/ for pattern rationale
+
 // Package astro provides astronomical calculations for zmanim times
 // Based on NOAA Solar Calculator algorithms
 // Reference: https://gml.noaa.gov/grad/solcalc/calcdetails.html

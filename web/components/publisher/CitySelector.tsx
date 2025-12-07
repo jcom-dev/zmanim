@@ -1,3 +1,12 @@
+/**
+ * @file CitySelector.tsx
+ * @purpose City/region search for coverage - hierarchical search
+ * @pattern client-component
+ * @dependencies useApi, Command (shadcn), geo API
+ * @frequency medium - 408 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 import { useApi } from '@/lib/api-client';
 

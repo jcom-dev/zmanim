@@ -1,3 +1,10 @@
+// File: publisher_context.go
+// Purpose: Publisher resolver - extracts publisher ID from X-Publisher-Id header with auth
+// Pattern: publisher-resolver
+// Dependencies: middleware.GetUserID, Clerk metadata
+// Frequency: high - used by 11 handler files
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (
@@ -63,16 +70,12 @@ func (pr *PublisherResolver) Resolve(ctx context.Context, r *http.Request) (*Pub
 		return nil, fmt.Errorf("no user ID in context")
 	}
 
-	err := pr.db.Pool.QueryRow(ctx,
-		"SELECT id FROM publishers WHERE clerk_user_id = $1",
-		userID,
-	).Scan(&publisherID)
-
+	publisherIDInt, err := pr.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 	if err != nil {
 		return nil, fmt.Errorf("publisher not found for user %s: %w", userID, err)
 	}
 
-	pc.PublisherID = publisherID
+	pc.PublisherID = int32ToString(publisherIDInt)
 	return pc, nil
 }
 
@@ -132,12 +135,9 @@ func (pr *PublisherResolver) ResolveOptional(ctx context.Context, r *http.Reques
 
 	// 3. Try database lookup if we have DB connection and user ID
 	if pr != nil && pr.db != nil && userID != "" {
-		err := pr.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		publisherIDInt, err := pr.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err == nil {
-			pc.PublisherID = publisherID
+			pc.PublisherID = int32ToString(publisherIDInt)
 		}
 	}
 

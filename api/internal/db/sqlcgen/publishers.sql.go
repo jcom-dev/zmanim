@@ -8,6 +8,7 @@ package sqlcgen
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -25,39 +26,52 @@ func (q *Queries) CountPublishers(ctx context.Context, dollar_1 string) (int64, 
 }
 
 const createPublisher = `-- name: CreatePublisher :one
-INSERT INTO publishers (name, email, status, clerk_user_id)
-VALUES ($1, $2, $3, $4)
-RETURNING id, clerk_user_id, name, email, description, bio,
-          website, logo_url, logo_data, status, created_at, updated_at
+WITH inserted AS (
+    INSERT INTO publishers (name, email, status_id, clerk_user_id)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, clerk_user_id, name, email, description, bio,
+              website, logo_url, logo_data, status_id, created_at, updated_at
+)
+SELECT i.id, i.clerk_user_id, i.name, i.email, i.description, i.bio,
+       i.website, i.logo_url, i.logo_data, i.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       i.created_at, i.updated_at
+FROM inserted i
+JOIN publisher_statuses ps ON ps.id = i.status_id
 `
 
 type CreatePublisherParams struct {
 	Name        string  `json:"name"`
 	Email       string  `json:"email"`
-	Status      string  `json:"status"`
+	StatusID    int16   `json:"status_id"`
 	ClerkUserID *string `json:"clerk_user_id"`
 }
 
 type CreatePublisherRow struct {
-	ID          string             `json:"id"`
-	ClerkUserID *string            `json:"clerk_user_id"`
-	Name        string             `json:"name"`
-	Email       string             `json:"email"`
-	Description *string            `json:"description"`
-	Bio         *string            `json:"bio"`
-	Website     *string            `json:"website"`
-	LogoUrl     *string            `json:"logo_url"`
-	LogoData    *string            `json:"logo_data"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	ClerkUserID          *string            `json:"clerk_user_id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	Description          *string            `json:"description"`
+	Bio                  *string            `json:"bio"`
+	Website              *string            `json:"website"`
+	LogoUrl              *string            `json:"logo_url"`
+	LogoData             *string            `json:"logo_data"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) CreatePublisher(ctx context.Context, arg CreatePublisherParams) (CreatePublisherRow, error) {
 	row := q.db.QueryRow(ctx, createPublisher,
 		arg.Name,
 		arg.Email,
-		arg.Status,
+		arg.StatusID,
 		arg.ClerkUserID,
 	)
 	var i CreatePublisherRow
@@ -71,11 +85,23 @@ func (q *Queries) CreatePublisher(ctx context.Context, arg CreatePublisherParams
 		&i.Website,
 		&i.LogoUrl,
 		&i.LogoData,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const deletePendingInvitation = `-- name: DeletePendingInvitation :execresult
+DELETE FROM publisher_invitations
+WHERE id = $1
+`
+
+func (q *Queries) DeletePendingInvitation(ctx context.Context, id int32) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, deletePendingInvitation, id)
 }
 
 const deletePublisher = `-- name: DeletePublisher :exec
@@ -83,70 +109,173 @@ DELETE FROM publishers
 WHERE id = $1
 `
 
-func (q *Queries) DeletePublisher(ctx context.Context, id string) error {
+func (q *Queries) DeletePublisher(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deletePublisher, id)
 	return err
 }
 
+const getAccessiblePublishersByClerkUserID = `-- name: GetAccessiblePublishersByClerkUserID :one
+SELECT id::text as id, name,
+       (SELECT key FROM publisher_statuses WHERE id = p.status_id) as status_key
+FROM publishers p
+WHERE clerk_user_id = $1
+`
+
+type GetAccessiblePublishersByClerkUserIDRow struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	StatusKey string `json:"status_key"`
+}
+
+func (q *Queries) GetAccessiblePublishersByClerkUserID(ctx context.Context, clerkUserID *string) (GetAccessiblePublishersByClerkUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getAccessiblePublishersByClerkUserID, clerkUserID)
+	var i GetAccessiblePublishersByClerkUserIDRow
+	err := row.Scan(&i.ID, &i.Name, &i.StatusKey)
+	return i, err
+}
+
+const getAccessiblePublishersByIDs = `-- name: GetAccessiblePublishersByIDs :many
+SELECT id::text as id, name,
+       (SELECT key FROM publisher_statuses WHERE id = p.status_id) as status_key
+FROM publishers p
+WHERE id = ANY($1::text[])
+ORDER BY name
+`
+
+type GetAccessiblePublishersByIDsRow struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	StatusKey string `json:"status_key"`
+}
+
+func (q *Queries) GetAccessiblePublishersByIDs(ctx context.Context, dollar_1 []string) ([]GetAccessiblePublishersByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getAccessiblePublishersByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAccessiblePublishersByIDsRow{}
+	for rows.Next() {
+		var i GetAccessiblePublishersByIDsRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.StatusKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getInvitationForResend = `-- name: GetInvitationForResend :one
+SELECT pi.publisher_id, pi.email, pi.token
+FROM publisher_invitations pi
+JOIN publishers p ON pi.publisher_id = p.id
+WHERE pi.id = $1
+`
+
+type GetInvitationForResendRow struct {
+	PublisherID int32  `json:"publisher_id"`
+	Email       string `json:"email"`
+	Token       string `json:"token"`
+}
+
+func (q *Queries) GetInvitationForResend(ctx context.Context, id int32) (GetInvitationForResendRow, error) {
+	row := q.db.QueryRow(ctx, getInvitationForResend, id)
+	var i GetInvitationForResendRow
+	err := row.Scan(&i.PublisherID, &i.Email, &i.Token)
+	return i, err
+}
+
 const getPublisherAlgorithmSummary = `-- name: GetPublisherAlgorithmSummary :one
 SELECT
-    CASE WHEN is_active THEN 'published' ELSE 'draft' END as status,
-    name,
-    TO_CHAR(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
-FROM algorithms
-WHERE publisher_id = $1
-ORDER BY updated_at DESC
+    astatus.key as status_key,
+    a.name,
+    TO_CHAR(a.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.publisher_id = $1
+ORDER BY a.updated_at DESC
 LIMIT 1
 `
 
 type GetPublisherAlgorithmSummaryRow struct {
-	Status    string `json:"status"`
+	StatusKey string `json:"status_key"`
 	Name      string `json:"name"`
 	UpdatedAt string `json:"updated_at"`
 }
 
-func (q *Queries) GetPublisherAlgorithmSummary(ctx context.Context, publisherID string) (GetPublisherAlgorithmSummaryRow, error) {
+func (q *Queries) GetPublisherAlgorithmSummary(ctx context.Context, publisherID int32) (GetPublisherAlgorithmSummaryRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherAlgorithmSummary, publisherID)
 	var i GetPublisherAlgorithmSummaryRow
-	err := row.Scan(&i.Status, &i.Name, &i.UpdatedAt)
+	err := row.Scan(&i.StatusKey, &i.Name, &i.UpdatedAt)
 	return i, err
 }
 
 const getPublisherBasic = `-- name: GetPublisherBasic :one
-SELECT id, name, status
-FROM publishers
-WHERE id = $1
+SELECT p.id, p.name, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.id = $1
 `
 
 type GetPublisherBasicRow struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	ID                   int32  `json:"id"`
+	Name                 string `json:"name"`
+	StatusID             int16  `json:"status_id"`
+	StatusKey            string `json:"status_key"`
+	StatusDisplayHebrew  string `json:"status_display_hebrew"`
+	StatusDisplayEnglish string `json:"status_display_english"`
 }
 
-func (q *Queries) GetPublisherBasic(ctx context.Context, id string) (GetPublisherBasicRow, error) {
+func (q *Queries) GetPublisherBasic(ctx context.Context, id int32) (GetPublisherBasicRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherBasic, id)
 	var i GetPublisherBasicRow
-	err := row.Scan(&i.ID, &i.Name, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
+	)
 	return i, err
 }
 
 const getPublisherBasicByClerkUserID = `-- name: GetPublisherBasicByClerkUserID :one
-SELECT id, name, status
-FROM publishers
-WHERE clerk_user_id = $1
+SELECT p.id, p.name, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.clerk_user_id = $1
 `
 
 type GetPublisherBasicByClerkUserIDRow struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	ID                   int32  `json:"id"`
+	Name                 string `json:"name"`
+	StatusID             int16  `json:"status_id"`
+	StatusKey            string `json:"status_key"`
+	StatusDisplayHebrew  string `json:"status_display_hebrew"`
+	StatusDisplayEnglish string `json:"status_display_english"`
 }
 
 func (q *Queries) GetPublisherBasicByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherBasicByClerkUserIDRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherBasicByClerkUserID, clerkUserID)
 	var i GetPublisherBasicByClerkUserIDRow
-	err := row.Scan(&i.ID, &i.Name, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
+	)
 	return i, err
 }
 
@@ -156,39 +285,47 @@ FROM publishers
 WHERE clerk_user_id = $1
 `
 
-func (q *Queries) GetPublisherByClerkUserID(ctx context.Context, clerkUserID *string) (string, error) {
+func (q *Queries) GetPublisherByClerkUserID(ctx context.Context, clerkUserID *string) (int32, error) {
 	row := q.db.QueryRow(ctx, getPublisherByClerkUserID, clerkUserID)
-	var id string
+	var id int32
 	err := row.Scan(&id)
 	return id, err
 }
 
 const getPublisherByID = `-- name: GetPublisherByID :one
 
-SELECT id, clerk_user_id, name, email, description, bio,
-       website, logo_url, logo_data, status, created_at, updated_at
-FROM publishers
-WHERE id = $1
+SELECT p.id, p.clerk_user_id, p.name, p.email, p.description, p.bio,
+       p.website, p.logo_url, p.logo_data, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       p.created_at, p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.id = $1
 `
 
 type GetPublisherByIDRow struct {
-	ID          string             `json:"id"`
-	ClerkUserID *string            `json:"clerk_user_id"`
-	Name        string             `json:"name"`
-	Email       string             `json:"email"`
-	Description *string            `json:"description"`
-	Bio         *string            `json:"bio"`
-	Website     *string            `json:"website"`
-	LogoUrl     *string            `json:"logo_url"`
-	LogoData    *string            `json:"logo_data"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	ClerkUserID          *string            `json:"clerk_user_id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	Description          *string            `json:"description"`
+	Bio                  *string            `json:"bio"`
+	Website              *string            `json:"website"`
+	LogoUrl              *string            `json:"logo_url"`
+	LogoData             *string            `json:"logo_data"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Publishers SQL Queries
 // SQLc will generate type-safe Go code from these queries
-func (q *Queries) GetPublisherByID(ctx context.Context, id string) (GetPublisherByIDRow, error) {
+func (q *Queries) GetPublisherByID(ctx context.Context, id int32) (GetPublisherByIDRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherByID, id)
 	var i GetPublisherByIDRow
 	err := row.Scan(
@@ -201,11 +338,44 @@ func (q *Queries) GetPublisherByID(ctx context.Context, id string) (GetPublisher
 		&i.Website,
 		&i.LogoUrl,
 		&i.LogoData,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getPublisherCitiesCovered = `-- name: GetPublisherCitiesCovered :one
+SELECT COALESCE(SUM(
+    CASE coverage_level
+        WHEN 'city' THEN 1
+        WHEN 'region' THEN (
+            SELECT COUNT(*) FROM geo_cities c
+            JOIN geo_regions r ON c.region_id = r.id
+            JOIN geo_countries co ON r.country_id = co.id
+            WHERE co.code = pc.country_code AND r.name = pc.region
+        )
+        WHEN 'country' THEN (
+            SELECT COUNT(*) FROM geo_cities c
+            JOIN geo_regions r ON c.region_id = r.id
+            JOIN geo_countries co ON r.country_id = co.id
+            WHERE co.code = pc.country_code
+        )
+        ELSE 0
+    END
+), 0)::bigint as cities_covered
+FROM publisher_coverage pc
+WHERE publisher_id = $1 AND is_active = true
+`
+
+func (q *Queries) GetPublisherCitiesCovered(ctx context.Context, publisherID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, getPublisherCitiesCovered, publisherID)
+	var cities_covered int64
+	err := row.Scan(&cities_covered)
+	return cities_covered, err
 }
 
 const getPublisherCoverageCount = `-- name: GetPublisherCoverageCount :one
@@ -214,7 +384,7 @@ FROM publisher_coverage
 WHERE publisher_id = $1 AND is_active = true
 `
 
-func (q *Queries) GetPublisherCoverageCount(ctx context.Context, publisherID string) (int64, error) {
+func (q *Queries) GetPublisherCoverageCount(ctx context.Context, publisherID int32) (int64, error) {
 	row := q.db.QueryRow(ctx, getPublisherCoverageCount, publisherID)
 	var count int64
 	err := row.Scan(&count)
@@ -224,45 +394,64 @@ func (q *Queries) GetPublisherCoverageCount(ctx context.Context, publisherID str
 const getPublisherDashboardSummary = `-- name: GetPublisherDashboardSummary :one
 SELECT
     p.name,
-    p.status = 'verified' as is_verified,
-    p.status
+    p.is_verified,
+    ps.key as status_key,
+    ps.display_name_hebrew as status_display_hebrew,
+    ps.display_name_english as status_display_english
 FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
 WHERE p.id = $1
 `
 
 type GetPublisherDashboardSummaryRow struct {
-	Name       string `json:"name"`
-	IsVerified bool   `json:"is_verified"`
-	Status     string `json:"status"`
+	Name                 string `json:"name"`
+	IsVerified           bool   `json:"is_verified"`
+	StatusKey            string `json:"status_key"`
+	StatusDisplayHebrew  string `json:"status_display_hebrew"`
+	StatusDisplayEnglish string `json:"status_display_english"`
 }
 
-func (q *Queries) GetPublisherDashboardSummary(ctx context.Context, id string) (GetPublisherDashboardSummaryRow, error) {
+func (q *Queries) GetPublisherDashboardSummary(ctx context.Context, id int32) (GetPublisherDashboardSummaryRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherDashboardSummary, id)
 	var i GetPublisherDashboardSummaryRow
-	err := row.Scan(&i.Name, &i.IsVerified, &i.Status)
+	err := row.Scan(
+		&i.Name,
+		&i.IsVerified,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
+	)
 	return i, err
 }
 
 const getPublisherFullByClerkUserID = `-- name: GetPublisherFullByClerkUserID :one
-SELECT id, clerk_user_id, name, email, description, bio,
-       website, logo_url, logo_data, status, created_at, updated_at
-FROM publishers
-WHERE clerk_user_id = $1
+SELECT p.id, p.clerk_user_id, p.name, p.email, p.description, p.bio,
+       p.website, p.logo_url, p.logo_data, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       p.created_at, p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.clerk_user_id = $1
 `
 
 type GetPublisherFullByClerkUserIDRow struct {
-	ID          string             `json:"id"`
-	ClerkUserID *string            `json:"clerk_user_id"`
-	Name        string             `json:"name"`
-	Email       string             `json:"email"`
-	Description *string            `json:"description"`
-	Bio         *string            `json:"bio"`
-	Website     *string            `json:"website"`
-	LogoUrl     *string            `json:"logo_url"`
-	LogoData    *string            `json:"logo_data"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	ClerkUserID          *string            `json:"clerk_user_id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	Description          *string            `json:"description"`
+	Bio                  *string            `json:"bio"`
+	Website              *string            `json:"website"`
+	LogoUrl              *string            `json:"logo_url"`
+	LogoData             *string            `json:"logo_data"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetPublisherFullByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherFullByClerkUserIDRow, error) {
@@ -278,18 +467,285 @@ func (q *Queries) GetPublisherFullByClerkUserID(ctx context.Context, clerkUserID
 		&i.Website,
 		&i.LogoUrl,
 		&i.LogoData,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const listPublishers = `-- name: ListPublishers :many
-SELECT id, name, status, created_at
+const getPublisherFullProfileByClerkUserID = `-- name: GetPublisherFullProfileByClerkUserID :one
+SELECT p.id, p.clerk_user_id, p.name, p.email,
+       COALESCE(p.description, '') as description,
+       COALESCE(p.bio, '') as bio,
+       p.website, p.logo_url, p.logo_data, p.status_id, p.is_verified,
+       ps.key as status_key,
+       p.created_at, p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.clerk_user_id = $1
+`
+
+type GetPublisherFullProfileByClerkUserIDRow struct {
+	ID          int32              `json:"id"`
+	ClerkUserID *string            `json:"clerk_user_id"`
+	Name        string             `json:"name"`
+	Email       string             `json:"email"`
+	Description string             `json:"description"`
+	Bio         string             `json:"bio"`
+	Website     *string            `json:"website"`
+	LogoUrl     *string            `json:"logo_url"`
+	LogoData    *string            `json:"logo_data"`
+	StatusID    int16              `json:"status_id"`
+	IsVerified  bool               `json:"is_verified"`
+	StatusKey   string             `json:"status_key"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetPublisherFullProfileByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherFullProfileByClerkUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getPublisherFullProfileByClerkUserID, clerkUserID)
+	var i GetPublisherFullProfileByClerkUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClerkUserID,
+		&i.Name,
+		&i.Email,
+		&i.Description,
+		&i.Bio,
+		&i.Website,
+		&i.LogoUrl,
+		&i.LogoData,
+		&i.StatusID,
+		&i.IsVerified,
+		&i.StatusKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPublisherFullProfileByID = `-- name: GetPublisherFullProfileByID :one
+SELECT p.id, p.clerk_user_id, p.name, p.email,
+       COALESCE(p.description, '') as description,
+       COALESCE(p.bio, '') as bio,
+       p.website, p.logo_url, p.logo_data, p.status_id, p.is_verified,
+       ps.key as status_key,
+       p.created_at, p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.id = $1
+`
+
+type GetPublisherFullProfileByIDRow struct {
+	ID          int32              `json:"id"`
+	ClerkUserID *string            `json:"clerk_user_id"`
+	Name        string             `json:"name"`
+	Email       string             `json:"email"`
+	Description string             `json:"description"`
+	Bio         string             `json:"bio"`
+	Website     *string            `json:"website"`
+	LogoUrl     *string            `json:"logo_url"`
+	LogoData    *string            `json:"logo_data"`
+	StatusID    int16              `json:"status_id"`
+	IsVerified  bool               `json:"is_verified"`
+	StatusKey   string             `json:"status_key"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetPublisherFullProfileByID(ctx context.Context, id int32) (GetPublisherFullProfileByIDRow, error) {
+	row := q.db.QueryRow(ctx, getPublisherFullProfileByID, id)
+	var i GetPublisherFullProfileByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClerkUserID,
+		&i.Name,
+		&i.Email,
+		&i.Description,
+		&i.Bio,
+		&i.Website,
+		&i.LogoUrl,
+		&i.LogoData,
+		&i.StatusID,
+		&i.IsVerified,
+		&i.StatusKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPublisherNameForTeam = `-- name: GetPublisherNameForTeam :one
+SELECT name
 FROM publishers
-WHERE ($1::text IS NULL OR region_id = $1)
-ORDER BY name
+WHERE id = $1
+`
+
+func (q *Queries) GetPublisherNameForTeam(ctx context.Context, id int32) (string, error) {
+	row := q.db.QueryRow(ctx, getPublisherNameForTeam, id)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
+const getPublisherOwnerID = `-- name: GetPublisherOwnerID :one
+
+SELECT clerk_user_id
+FROM publishers
+WHERE id = $1
+`
+
+// Team/Invitation Queries
+func (q *Queries) GetPublisherOwnerID(ctx context.Context, id int32) (*string, error) {
+	row := q.db.QueryRow(ctx, getPublisherOwnerID, id)
+	var clerk_user_id *string
+	err := row.Scan(&clerk_user_id)
+	return clerk_user_id, err
+}
+
+const getPublisherProfileByClerkUserID = `-- name: GetPublisherProfileByClerkUserID :one
+SELECT id, clerk_user_id, name, email,
+       COALESCE(description, '') as description, COALESCE(bio, '') as bio,
+       website, logo_url, logo_data, status_id, is_verified, created_at, updated_at
+FROM publishers
+WHERE clerk_user_id = $1
+`
+
+type GetPublisherProfileByClerkUserIDRow struct {
+	ID          int32              `json:"id"`
+	ClerkUserID *string            `json:"clerk_user_id"`
+	Name        string             `json:"name"`
+	Email       string             `json:"email"`
+	Description string             `json:"description"`
+	Bio         string             `json:"bio"`
+	Website     *string            `json:"website"`
+	LogoUrl     *string            `json:"logo_url"`
+	LogoData    *string            `json:"logo_data"`
+	StatusID    int16              `json:"status_id"`
+	IsVerified  bool               `json:"is_verified"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetPublisherProfileByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherProfileByClerkUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getPublisherProfileByClerkUserID, clerkUserID)
+	var i GetPublisherProfileByClerkUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClerkUserID,
+		&i.Name,
+		&i.Email,
+		&i.Description,
+		&i.Bio,
+		&i.Website,
+		&i.LogoUrl,
+		&i.LogoData,
+		&i.StatusID,
+		&i.IsVerified,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPublisherProfileByID = `-- name: GetPublisherProfileByID :one
+SELECT id, clerk_user_id, name, email,
+       COALESCE(description, '') as description, COALESCE(bio, '') as bio,
+       website, logo_url, logo_data, status_id, is_verified, created_at, updated_at
+FROM publishers
+WHERE id = $1
+`
+
+type GetPublisherProfileByIDRow struct {
+	ID          int32              `json:"id"`
+	ClerkUserID *string            `json:"clerk_user_id"`
+	Name        string             `json:"name"`
+	Email       string             `json:"email"`
+	Description string             `json:"description"`
+	Bio         string             `json:"bio"`
+	Website     *string            `json:"website"`
+	LogoUrl     *string            `json:"logo_url"`
+	LogoData    *string            `json:"logo_data"`
+	StatusID    int16              `json:"status_id"`
+	IsVerified  bool               `json:"is_verified"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetPublisherProfileByID(ctx context.Context, id int32) (GetPublisherProfileByIDRow, error) {
+	row := q.db.QueryRow(ctx, getPublisherProfileByID, id)
+	var i GetPublisherProfileByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClerkUserID,
+		&i.Name,
+		&i.Email,
+		&i.Description,
+		&i.Bio,
+		&i.Website,
+		&i.LogoUrl,
+		&i.LogoData,
+		&i.StatusID,
+		&i.IsVerified,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listPendingInvitationsByPublisher = `-- name: ListPendingInvitationsByPublisher :many
+SELECT id, email, expires_at, created_at
+FROM publisher_invitations
+WHERE publisher_id = $1
+ORDER BY created_at DESC
+`
+
+type ListPendingInvitationsByPublisherRow struct {
+	ID        int32              `json:"id"`
+	Email     string             `json:"email"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListPendingInvitationsByPublisher(ctx context.Context, publisherID int32) ([]ListPendingInvitationsByPublisherRow, error) {
+	rows, err := q.db.Query(ctx, listPendingInvitationsByPublisher, publisherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingInvitationsByPublisherRow{}
+	for rows.Next() {
+		var i ListPendingInvitationsByPublisherRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublishers = `-- name: ListPublishers :many
+SELECT p.id, p.name, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       p.created_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE ($1::text IS NULL OR p.region_id = $1)
+ORDER BY p.name
 LIMIT $2 OFFSET $3
 `
 
@@ -300,10 +756,13 @@ type ListPublishersParams struct {
 }
 
 type ListPublishersRow struct {
-	ID        string             `json:"id"`
-	Name      string             `json:"name"`
-	Status    string             `json:"status"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID                   int32              `json:"id"`
+	Name                 string             `json:"name"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) ListPublishers(ctx context.Context, arg ListPublishersParams) ([]ListPublishersRow, error) {
@@ -318,7 +777,10 @@ func (q *Queries) ListPublishers(ctx context.Context, arg ListPublishersParams) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Status,
+			&i.StatusID,
+			&i.StatusKey,
+			&i.StatusDisplayHebrew,
+			&i.StatusDisplayEnglish,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -332,16 +794,23 @@ func (q *Queries) ListPublishers(ctx context.Context, arg ListPublishersParams) 
 }
 
 const listPublishersByIDs = `-- name: ListPublishersByIDs :many
-SELECT id, name, status
-FROM publishers
-WHERE id = ANY($1::text[])
-ORDER BY name
+SELECT p.id, p.name, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.id = ANY($1::text[])
+ORDER BY p.name
 `
 
 type ListPublishersByIDsRow struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	ID                   int32  `json:"id"`
+	Name                 string `json:"name"`
+	StatusID             int16  `json:"status_id"`
+	StatusKey            string `json:"status_key"`
+	StatusDisplayHebrew  string `json:"status_display_hebrew"`
+	StatusDisplayEnglish string `json:"status_display_english"`
 }
 
 func (q *Queries) ListPublishersByIDs(ctx context.Context, dollar_1 []string) ([]ListPublishersByIDsRow, error) {
@@ -353,7 +822,132 @@ func (q *Queries) ListPublishersByIDs(ctx context.Context, dollar_1 []string) ([
 	items := []ListPublishersByIDsRow{}
 	for rows.Next() {
 		var i ListPublishersByIDsRow
-		if err := rows.Scan(&i.ID, &i.Name, &i.Status); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.StatusID,
+			&i.StatusKey,
+			&i.StatusDisplayHebrew,
+			&i.StatusDisplayEnglish,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchPublishersAll = `-- name: SearchPublishersAll :many
+SELECT
+    p.id::text as id, p.name, p.description, p.logo_url,
+    (p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'verified') OR
+     p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'active')) as is_verified,
+    0 as zmanim_count
+FROM publishers p
+WHERE (p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'verified') OR
+       p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'active'))
+  AND (p.name ILIKE $1 OR p.description ILIKE $1)
+ORDER BY p.name
+LIMIT $2 OFFSET $3
+`
+
+type SearchPublishersAllParams struct {
+	Name   string `json:"name"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
+}
+
+type SearchPublishersAllRow struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	LogoUrl     *string `json:"logo_url"`
+	IsVerified  *bool   `json:"is_verified"`
+	ZmanimCount int32   `json:"zmanim_count"`
+}
+
+func (q *Queries) SearchPublishersAll(ctx context.Context, arg SearchPublishersAllParams) ([]SearchPublishersAllRow, error) {
+	rows, err := q.db.Query(ctx, searchPublishersAll, arg.Name, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchPublishersAllRow{}
+	for rows.Next() {
+		var i SearchPublishersAllRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.LogoUrl,
+			&i.IsVerified,
+			&i.ZmanimCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchPublishersWithAlgorithm = `-- name: SearchPublishersWithAlgorithm :many
+SELECT DISTINCT
+    p.id::text as id, p.name, p.description, p.logo_url,
+    (p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'verified') OR
+     p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'active')) as is_verified,
+    COUNT(DISTINCT pz.id) as zmanim_count
+FROM publishers p
+JOIN publisher_zmanim pz ON pz.publisher_id = p.id
+    AND pz.is_published = true
+    AND pz.is_enabled = true
+    AND pz.deleted_at IS NULL
+WHERE (p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'verified') OR
+       p.status_id = (SELECT id FROM publisher_statuses WHERE key = 'active'))
+  AND (p.name ILIKE $1 OR p.description ILIKE $1)
+GROUP BY p.id, p.name, p.description, p.logo_url, p.status_id
+HAVING COUNT(DISTINCT pz.id) > 0
+ORDER BY p.name
+LIMIT $2 OFFSET $3
+`
+
+type SearchPublishersWithAlgorithmParams struct {
+	Name   string `json:"name"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
+}
+
+type SearchPublishersWithAlgorithmRow struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	LogoUrl     *string `json:"logo_url"`
+	IsVerified  *bool   `json:"is_verified"`
+	ZmanimCount int64   `json:"zmanim_count"`
+}
+
+func (q *Queries) SearchPublishersWithAlgorithm(ctx context.Context, arg SearchPublishersWithAlgorithmParams) ([]SearchPublishersWithAlgorithmRow, error) {
+	rows, err := q.db.Query(ctx, searchPublishersWithAlgorithm, arg.Name, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchPublishersWithAlgorithmRow{}
+	for rows.Next() {
+		var i SearchPublishersWithAlgorithmRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.LogoUrl,
+			&i.IsVerified,
+			&i.ZmanimCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -372,12 +966,12 @@ RETURNING id, logo_data
 `
 
 type UpdatePublisherLogoParams struct {
-	ID       string  `json:"id"`
+	ID       int32   `json:"id"`
 	LogoData *string `json:"logo_data"`
 }
 
 type UpdatePublisherLogoRow struct {
-	ID       string  `json:"id"`
+	ID       int32   `json:"id"`
 	LogoData *string `json:"logo_data"`
 }
 
@@ -390,26 +984,26 @@ func (q *Queries) UpdatePublisherLogo(ctx context.Context, arg UpdatePublisherLo
 
 const updatePublisherProfile = `-- name: UpdatePublisherProfile :one
 UPDATE publishers
-SET name = COALESCE($2, name),
-    email = COALESCE($3, email),
-    website = COALESCE($4, website),
-    bio = COALESCE($5, bio),
+SET name = COALESCE($1, name),
+    email = COALESCE($2, email),
+    website = COALESCE($3, website),
+    bio = COALESCE($4, bio),
     updated_at = NOW()
-WHERE id = $1
+WHERE id = $5
 RETURNING id, clerk_user_id, name, email, description, bio,
-          website, logo_url, logo_data, status, created_at, updated_at
+          website, logo_url, logo_data, status_id, created_at, updated_at
 `
 
 type UpdatePublisherProfileParams struct {
-	ID      string  `json:"id"`
-	Name    *string `json:"name"`
-	Email   *string `json:"email"`
-	Website *string `json:"website"`
-	Bio     *string `json:"bio"`
+	UpdateName    *string `json:"update_name"`
+	UpdateEmail   *string `json:"update_email"`
+	UpdateWebsite *string `json:"update_website"`
+	UpdateBio     *string `json:"update_bio"`
+	ID            int32   `json:"id"`
 }
 
 type UpdatePublisherProfileRow struct {
-	ID          string             `json:"id"`
+	ID          int32              `json:"id"`
 	ClerkUserID *string            `json:"clerk_user_id"`
 	Name        string             `json:"name"`
 	Email       string             `json:"email"`
@@ -418,18 +1012,18 @@ type UpdatePublisherProfileRow struct {
 	Website     *string            `json:"website"`
 	LogoUrl     *string            `json:"logo_url"`
 	LogoData    *string            `json:"logo_data"`
-	Status      string             `json:"status"`
+	StatusID    int16              `json:"status_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) UpdatePublisherProfile(ctx context.Context, arg UpdatePublisherProfileParams) (UpdatePublisherProfileRow, error) {
 	row := q.db.QueryRow(ctx, updatePublisherProfile,
+		arg.UpdateName,
+		arg.UpdateEmail,
+		arg.UpdateWebsite,
+		arg.UpdateBio,
 		arg.ID,
-		arg.Name,
-		arg.Email,
-		arg.Website,
-		arg.Bio,
 	)
 	var i UpdatePublisherProfileRow
 	err := row.Scan(
@@ -442,7 +1036,7 @@ func (q *Queries) UpdatePublisherProfile(ctx context.Context, arg UpdatePublishe
 		&i.Website,
 		&i.LogoUrl,
 		&i.LogoData,
-		&i.Status,
+		&i.StatusID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -451,26 +1045,26 @@ func (q *Queries) UpdatePublisherProfile(ctx context.Context, arg UpdatePublishe
 
 const updatePublisherProfileByClerkUserID = `-- name: UpdatePublisherProfileByClerkUserID :one
 UPDATE publishers
-SET name = COALESCE($2, name),
-    email = COALESCE($3, email),
-    website = COALESCE($4, website),
-    bio = COALESCE($5, bio),
+SET name = COALESCE($1, name),
+    email = COALESCE($2, email),
+    website = COALESCE($3, website),
+    bio = COALESCE($4, bio),
     updated_at = NOW()
-WHERE clerk_user_id = $1
+WHERE clerk_user_id = $5
 RETURNING id, clerk_user_id, name, email, description, bio,
-          website, logo_url, logo_data, status, created_at, updated_at
+          website, logo_url, logo_data, status_id, created_at, updated_at
 `
 
 type UpdatePublisherProfileByClerkUserIDParams struct {
-	ClerkUserID *string `json:"clerk_user_id"`
-	Name        *string `json:"name"`
-	Email       *string `json:"email"`
-	Website     *string `json:"website"`
-	Bio         *string `json:"bio"`
+	UpdateName    *string `json:"update_name"`
+	UpdateEmail   *string `json:"update_email"`
+	UpdateWebsite *string `json:"update_website"`
+	UpdateBio     *string `json:"update_bio"`
+	ClerkUserID   *string `json:"clerk_user_id"`
 }
 
 type UpdatePublisherProfileByClerkUserIDRow struct {
-	ID          string             `json:"id"`
+	ID          int32              `json:"id"`
 	ClerkUserID *string            `json:"clerk_user_id"`
 	Name        string             `json:"name"`
 	Email       string             `json:"email"`
@@ -479,18 +1073,18 @@ type UpdatePublisherProfileByClerkUserIDRow struct {
 	Website     *string            `json:"website"`
 	LogoUrl     *string            `json:"logo_url"`
 	LogoData    *string            `json:"logo_data"`
-	Status      string             `json:"status"`
+	StatusID    int16              `json:"status_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) UpdatePublisherProfileByClerkUserID(ctx context.Context, arg UpdatePublisherProfileByClerkUserIDParams) (UpdatePublisherProfileByClerkUserIDRow, error) {
 	row := q.db.QueryRow(ctx, updatePublisherProfileByClerkUserID,
+		arg.UpdateName,
+		arg.UpdateEmail,
+		arg.UpdateWebsite,
+		arg.UpdateBio,
 		arg.ClerkUserID,
-		arg.Name,
-		arg.Email,
-		arg.Website,
-		arg.Bio,
 	)
 	var i UpdatePublisherProfileByClerkUserIDRow
 	err := row.Scan(
@@ -503,7 +1097,7 @@ func (q *Queries) UpdatePublisherProfileByClerkUserID(ctx context.Context, arg U
 		&i.Website,
 		&i.LogoUrl,
 		&i.LogoData,
-		&i.Status,
+		&i.StatusID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -511,35 +1105,48 @@ func (q *Queries) UpdatePublisherProfileByClerkUserID(ctx context.Context, arg U
 }
 
 const updatePublisherStatus = `-- name: UpdatePublisherStatus :one
-UPDATE publishers
-SET status = $2, updated_at = NOW()
-WHERE id = $1
-RETURNING id, clerk_user_id, name, email, description, bio,
-          website, logo_url, logo_data, status, created_at, updated_at
+WITH updated AS (
+    UPDATE publishers
+    SET status_id = $2, updated_at = NOW()
+    WHERE publishers.id = $1
+    RETURNING id, clerk_user_id, name, email, description, bio,
+              website, logo_url, logo_data, status_id, created_at, updated_at
+)
+SELECT u.id, u.clerk_user_id, u.name, u.email, u.description, u.bio,
+       u.website, u.logo_url, u.logo_data, u.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       u.created_at, u.updated_at
+FROM updated u
+JOIN publisher_statuses ps ON ps.id = u.status_id
 `
 
 type UpdatePublisherStatusParams struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	ID       int32 `json:"id"`
+	StatusID int16 `json:"status_id"`
 }
 
 type UpdatePublisherStatusRow struct {
-	ID          string             `json:"id"`
-	ClerkUserID *string            `json:"clerk_user_id"`
-	Name        string             `json:"name"`
-	Email       string             `json:"email"`
-	Description *string            `json:"description"`
-	Bio         *string            `json:"bio"`
-	Website     *string            `json:"website"`
-	LogoUrl     *string            `json:"logo_url"`
-	LogoData    *string            `json:"logo_data"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	ClerkUserID          *string            `json:"clerk_user_id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	Description          *string            `json:"description"`
+	Bio                  *string            `json:"bio"`
+	Website              *string            `json:"website"`
+	LogoUrl              *string            `json:"logo_url"`
+	LogoData             *string            `json:"logo_data"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) UpdatePublisherStatus(ctx context.Context, arg UpdatePublisherStatusParams) (UpdatePublisherStatusRow, error) {
-	row := q.db.QueryRow(ctx, updatePublisherStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updatePublisherStatus, arg.ID, arg.StatusID)
 	var i UpdatePublisherStatusRow
 	err := row.Scan(
 		&i.ID,
@@ -551,7 +1158,10 @@ func (q *Queries) UpdatePublisherStatus(ctx context.Context, arg UpdatePublisher
 		&i.Website,
 		&i.LogoUrl,
 		&i.LogoData,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

@@ -1,3 +1,10 @@
+// File: executor.go
+// Purpose: DSL formula execution engine - primitives, solar angles, time arithmetic
+// Pattern: calculation-engine
+// Dependencies: astro/sun.go for solar calculations
+// Frequency: critical - used by all zmanim calculations
+// Compliance: Check docs/adr/ for pattern rationale
+
 package dsl
 
 import (

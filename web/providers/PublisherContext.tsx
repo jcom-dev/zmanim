@@ -1,3 +1,12 @@
+/**
+ * @file PublisherContext.tsx
+ * @purpose Publisher selection state - impersonation, multi-publisher routing
+ * @pattern react-context
+ * @dependencies useApi, useUser (Clerk), localStorage for persistence
+ * @frequency critical - used by all publisher pages
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef, Suspense } from 'react';

@@ -143,18 +143,19 @@ func (h *Handlers) PreviewDSLFormula(w http.ResponseWriter, r *http.Request) {
 
 	if hasLocation {
 		// Fetch location from database
-		cityQuery := `
-			SELECT latitude, longitude, timezone
-			FROM cities
-			WHERE id = $1
-		`
-		err := h.db.Pool.QueryRow(ctx, cityQuery, req.LocationID).Scan(
-			&latitude, &longitude, &timezone,
-		)
+		cityID, err := stringToInt32(req.LocationID)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid location_id format")
+			return
+		}
+		city, err := h.db.Queries.GetCityLocationByID(ctx, cityID)
 		if err != nil {
 			RespondNotFound(w, r, "Location not found")
 			return
 		}
+		latitude = city.Latitude
+		longitude = city.Longitude
+		timezone = city.Timezone
 	} else {
 		// Use provided coordinates
 		latitude = req.Latitude
@@ -299,18 +300,19 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 
 	if hasLocation {
 		// Fetch location from database
-		cityQuery := `
-			SELECT latitude, longitude, timezone
-			FROM cities
-			WHERE id = $1
-		`
-		err := h.db.Pool.QueryRow(ctx, cityQuery, req.LocationID).Scan(
-			&latitude, &longitude, &timezone,
-		)
+		cityID, err := stringToInt32(req.LocationID)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid location_id format")
+			return
+		}
+		city, err := h.db.Queries.GetCityLocationByID(ctx, cityID)
 		if err != nil {
 			RespondNotFound(w, r, "Location not found")
 			return
 		}
+		latitude = city.Latitude
+		longitude = city.Longitude
+		timezone = city.Timezone
 	} else {
 		// Use provided coordinates
 		latitude = req.Latitude

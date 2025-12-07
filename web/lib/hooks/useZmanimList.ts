@@ -71,19 +71,6 @@ export interface PublisherZman {
   source_formula_dsl?: string | null;
 }
 
-export interface ZmanimTemplate {
-  id: string;
-  zman_key: string;
-  hebrew_name: string;
-  english_name: string;
-  formula_dsl: string;
-  category: 'essential' | 'optional';
-  description: string | null;
-  is_required: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface CreateZmanRequest {
   zman_key: string;
   hebrew_name: string;
@@ -191,14 +178,6 @@ export const useZmanDetails = (zmanKey: string | null) =>
     `/publisher/zmanim/${zmanKey}`,
     { enabled: !!zmanKey }
   );
-
-/**
- * Hook: Get zmanim templates (global, not publisher-specific)
- */
-export const useZmanimTemplates = () =>
-  useGlobalQuery<ZmanimTemplate[]>('zmanim-templates', '/zmanim/templates', {
-    staleTime: 1000 * 60 * 60, // 1 hour - templates don't change often
-  });
 
 /**
  * Hook: Browse public zmanim with search

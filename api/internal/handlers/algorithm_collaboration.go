@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/middleware"
 )
 
@@ -55,54 +56,36 @@ func (h *Handlers) BrowsePublicAlgorithms(w http.ResponseWriter, r *http.Request
 
 	offset := (page - 1) * pageSize
 
-	// Build query - use algorithms table
-	query := `
-		SELECT
-			a.id, a.name, COALESCE(a.description, '') as description,
-			a.publisher_id, p.name as publisher_name,
-			COALESCE(p.logo_url, '') as publisher_logo,
-			COALESCE(a.fork_count, 0) as fork_count,
-			a.created_at
-		FROM algorithms a
-		JOIN publishers p ON p.id = a.publisher_id
-		WHERE a.is_public = true AND a.is_active = true
-	`
-	args := []interface{}{}
-	argCount := 1
-
+	// Use SQLc query
+	searchParam := ""
 	if search != "" {
-		query += ` AND (a.name ILIKE $` + string('0'+byte(argCount)) + ` OR p.name ILIKE $` + string('0'+byte(argCount)) + `)`
-		args = append(args, "%"+search+"%")
-		argCount++
+		searchParam = search
 	}
 
-	query += ` ORDER BY a.fork_count DESC, a.created_at DESC`
-	query += ` LIMIT $` + string('0'+byte(argCount)) + ` OFFSET $` + string('0'+byte(argCount+1))
-	args = append(args, pageSize, offset)
-
-	rows, err := h.db.Pool.Query(ctx, query, args...)
+	rows, err := h.db.Queries.BrowsePublicAlgorithms(ctx, sqlcgen.BrowsePublicAlgorithmsParams{
+		Column1: searchParam,
+		Limit:   int32(pageSize),
+		Offset:  int32(offset),
+	})
 	if err != nil {
 		RespondInternalError(w, r, "Failed to fetch algorithms")
 		return
 	}
-	defer rows.Close()
 
 	var algorithms []PublicAlgorithm
-	for rows.Next() {
-		var alg PublicAlgorithm
-		var createdAt time.Time
-
-		err := rows.Scan(
-			&alg.ID, &alg.Name, &alg.Description,
-			&alg.PublisherID, &alg.PublisherName, &alg.PublisherLogo,
-			&alg.ForkCount, &createdAt,
-		)
-		if err != nil {
-			continue
+	for _, row := range rows {
+		alg := PublicAlgorithm{
+			ID:            stringFromInt32(row.ID),
+			Name:          row.Name,
+			Description:   row.Description,
+			PublisherID:   stringFromInt32(row.PublisherID),
+			PublisherName: row.PublisherName,
+			PublisherLogo: row.PublisherLogo,
+			ForkCount:     int(row.ForkCount),
+			CreatedAt:     row.CreatedAt.Time.Format(time.RFC3339),
+			Template:      template,
+			ZmanimPreview: []ZmanPreview{}, // Would populate from configuration
 		}
-		alg.CreatedAt = createdAt.Format(time.RFC3339)
-		alg.Template = template
-		alg.ZmanimPreview = []ZmanPreview{} // Would populate from configuration
 		algorithms = append(algorithms, alg)
 	}
 
@@ -111,11 +94,10 @@ func (h *Handlers) BrowsePublicAlgorithms(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get total count
-	var total int
-	_ = h.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM algorithms
-		WHERE is_public = true AND is_active = true
-	`).Scan(&total)
+	total, err := h.db.Queries.CountPublicAlgorithms(ctx)
+	if err != nil {
+		total = 0
+	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"algorithms": algorithms,
@@ -131,37 +113,34 @@ func (h *Handlers) GetPublicAlgorithm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	algorithmID := chi.URLParam(r, "id")
 
-	var alg PublicAlgorithm
-	var createdAt time.Time
-	var configData []byte
+	algorithmIDInt, err := parseIntParam(algorithmID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid algorithm ID")
+		return
+	}
 
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT
-			a.id, a.name, COALESCE(a.description, '') as description,
-			a.publisher_id, p.name as publisher_name,
-			COALESCE(p.logo_url, '') as publisher_logo,
-			COALESCE(a.fork_count, 0) as fork_count,
-			a.created_at, COALESCE(a.configuration::text, '{}')::bytea
-		FROM algorithms a
-		JOIN publishers p ON p.id = a.publisher_id
-		WHERE a.id = $1 AND a.is_public = true AND a.is_active = true
-	`, algorithmID).Scan(
-		&alg.ID, &alg.Name, &alg.Description,
-		&alg.PublisherID, &alg.PublisherName, &alg.PublisherLogo,
-		&alg.ForkCount, &createdAt, &configData,
-	)
-
+	row, err := h.db.Queries.GetPublicAlgorithmByID(ctx, int32(algorithmIDInt))
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found or not public")
 		return
 	}
 
-	alg.CreatedAt = createdAt.Format(time.RFC3339)
+	alg := PublicAlgorithm{
+		ID:            stringFromInt32(row.ID),
+		Name:          row.Name,
+		Description:   row.Description,
+		PublisherID:   stringFromInt32(row.PublisherID),
+		PublisherName: row.PublisherName,
+		PublisherLogo: row.PublisherLogo,
+		ForkCount:     int(row.ForkCount),
+		CreatedAt:     row.CreatedAt.Time.Format(time.RFC3339),
+		ZmanimPreview: []ZmanPreview{},
+	}
 
 	// Parse configuration for zmanim preview
-	if configData != nil {
+	if row.Configuration != nil {
 		var data map[string]interface{}
-		if err := json.Unmarshal(configData, &data); err == nil {
+		if err := json.Unmarshal(row.Configuration, &data); err == nil {
 			if zmanim, ok := data["zmanim"].([]interface{}); ok {
 				for _, z := range zmanim {
 					if zm, ok := z.(map[string]interface{}); ok {
@@ -190,48 +169,46 @@ func (h *Handlers) CopyAlgorithm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sourceAlgorithmID := chi.URLParam(r, "id")
+	sourceAlgorithmIDInt, err := parseIntParam(sourceAlgorithmID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid algorithm ID")
+		return
+	}
 
 	// Get publisher ID
 	publisherID := r.Header.Get("X-Publisher-Id")
+	var publisherIDInt int32
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		publisherIDInt, err = h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+	} else {
+		pidInt, err := parseIntParam(publisherID)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherIDInt = int32(pidInt)
 	}
 
 	// Get the source algorithm (must be public)
-	var name, description string
-	var configData []byte
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT name, COALESCE(description, ''), COALESCE(configuration::text, '{}')::bytea
-		FROM algorithms
-		WHERE id = $1 AND is_public = true AND is_active = true
-	`, sourceAlgorithmID).Scan(&name, &description, &configData)
-
+	source, err := h.db.Queries.GetPublicAlgorithmConfig(ctx, int32(sourceAlgorithmIDInt))
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found or not public")
 		return
 	}
 
 	// Create the copy
-	var newAlgorithmID string
-	err = h.db.Pool.QueryRow(ctx, `
-		INSERT INTO algorithms (
-			publisher_id, name, description, configuration, version,
-			formula_definition, calculation_type,
-			is_active, is_public, created_at, updated_at
-		) VALUES (
-			$1, $2 || ' (Copy)', $3, $4, '1.0',
-			'{}', 'custom',
-			false, false, NOW(), NOW()
-		)
-		RETURNING id
-	`, publisherID, name, description, configData).Scan(&newAlgorithmID)
+	desc := source.Description
+	name := source.Name
+	newAlgorithmID, err := h.db.Queries.CopyPublicAlgorithm(ctx, sqlcgen.CopyPublicAlgorithmParams{
+		PublisherID:   publisherIDInt,
+		Column2:       &name,
+		Description:   &desc,
+		Configuration: source.Configuration,
+	})
 
 	if err != nil {
 		RespondInternalError(w, r, "Failed to copy algorithm")
@@ -239,7 +216,7 @@ func (h *Handlers) CopyAlgorithm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"new_algorithm_id": newAlgorithmID,
+		"new_algorithm_id": stringFromInt32(newAlgorithmID),
 		"message":          "Algorithm copied successfully",
 	})
 }
@@ -255,53 +232,51 @@ func (h *Handlers) ForkAlgorithm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sourceAlgorithmID := chi.URLParam(r, "id")
+	sourceAlgorithmIDInt, err := parseIntParam(sourceAlgorithmID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid algorithm ID")
+		return
+	}
 
 	// Get publisher ID
 	publisherID := r.Header.Get("X-Publisher-Id")
+	var publisherIDInt int32
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		publisherIDInt, err = h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+	} else {
+		pidInt, err := parseIntParam(publisherID)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherIDInt = int32(pidInt)
 	}
 
 	// Get the source algorithm and publisher name
-	var name, description, sourcePublisherName string
-	var configData []byte
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT a.name, COALESCE(a.description, ''), COALESCE(a.configuration::text, '{}')::bytea, p.name
-		FROM algorithms a
-		JOIN publishers p ON p.id = a.publisher_id
-		WHERE a.id = $1 AND a.is_public = true AND a.is_active = true
-	`, sourceAlgorithmID).Scan(&name, &description, &configData, &sourcePublisherName)
-
+	source, err := h.db.Queries.GetPublicAlgorithmWithPublisher(ctx, int32(sourceAlgorithmIDInt))
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found or not public")
 		return
 	}
 
 	// Create attribution text
-	attribution := "Based on " + sourcePublisherName + "'s algorithm"
+	attribution := "Based on " + source.PublisherName + "'s algorithm"
 
 	// Create the fork
-	var newAlgorithmID string
-	err = h.db.Pool.QueryRow(ctx, `
-		INSERT INTO algorithms (
-			publisher_id, name, description, configuration, version,
-			formula_definition, calculation_type,
-			is_active, is_public, forked_from, attribution_text,
-			created_at, updated_at
-		) VALUES (
-			$1, $2 || ' (Fork)', $3, $4, '1.0',
-			'{}', 'custom',
-			false, false, $5, $6, NOW(), NOW()
-		)
-		RETURNING id
-	`, publisherID, name, description, configData, sourceAlgorithmID, attribution).Scan(&newAlgorithmID)
+	desc := source.Description
+	name := source.Name
+	newAlgorithmID, err := h.db.Queries.ForkPublicAlgorithm(ctx, sqlcgen.ForkPublicAlgorithmParams{
+		PublisherID:     publisherIDInt,
+		Column2:         &name,
+		Description:     &desc,
+		Configuration:   source.Configuration,
+		ForkedFrom:      int32Ptr(int32(sourceAlgorithmIDInt)),
+		AttributionText: &attribution,
+	})
 
 	if err != nil {
 		RespondInternalError(w, r, "Failed to fork algorithm")
@@ -309,14 +284,10 @@ func (h *Handlers) ForkAlgorithm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Increment fork count on source
-	_, _ = h.db.Pool.Exec(ctx, `
-		UPDATE algorithms
-		SET fork_count = COALESCE(fork_count, 0) + 1
-		WHERE id = $1
-	`, sourceAlgorithmID)
+	_ = h.db.Queries.IncrementAlgorithmForkCount(ctx, int32(sourceAlgorithmIDInt))
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"new_algorithm_id": newAlgorithmID,
+		"new_algorithm_id": stringFromInt32(newAlgorithmID),
 		"attribution":      attribution,
 		"message":          "Algorithm forked successfully",
 	})
@@ -342,23 +313,28 @@ func (h *Handlers) SetAlgorithmVisibility(w http.ResponseWriter, r *http.Request
 
 	// Get publisher ID
 	publisherID := r.Header.Get("X-Publisher-Id")
+	var publisherIDInt int32
+	var err error
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		publisherIDInt, err = h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+	} else {
+		pidInt, err := parseIntParam(publisherID)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherIDInt = int32(pidInt)
 	}
 
 	// Update visibility
-	_, err := h.db.Pool.Exec(ctx, `
-		UPDATE algorithms
-		SET is_public = $1, updated_at = NOW()
-		WHERE publisher_id = $2
-	`, req.IsPublic, publisherID)
+	err = h.db.Queries.SetAlgorithmVisibility(ctx, sqlcgen.SetAlgorithmVisibilityParams{
+		IsPublic:    boolPtr(req.IsPublic),
+		PublisherID: publisherIDInt,
+	})
 
 	if err != nil {
 		RespondInternalError(w, r, "Failed to update visibility")
@@ -381,34 +357,28 @@ func (h *Handlers) GetMyForks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	publisherID := r.Header.Get("X-Publisher-Id")
+	var publisherIDInt int32
+	var err error
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		publisherIDInt, err = h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+	} else {
+		pidInt, err := parseIntParam(publisherID)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherIDInt = int32(pidInt)
 	}
 
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT
-			a.id, a.name, a.attribution_text,
-			source.id as source_id, source.name as source_name,
-			p.name as source_publisher
-		FROM algorithms a
-		JOIN algorithms source ON source.id = a.forked_from
-		JOIN publishers p ON p.id = source.publisher_id
-		WHERE a.publisher_id = $1 AND a.forked_from IS NOT NULL
-		ORDER BY a.created_at DESC
-	`, publisherID)
-
+	rows, err := h.db.Queries.GetPublisherForks(ctx, publisherIDInt)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to fetch forks")
 		return
 	}
-	defer rows.Close()
 
 	type Fork struct {
 		ID              string `json:"id"`
@@ -420,14 +390,14 @@ func (h *Handlers) GetMyForks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var forks []Fork
-	for rows.Next() {
-		var fork Fork
-		err := rows.Scan(
-			&fork.ID, &fork.Name, &fork.Attribution,
-			&fork.SourceID, &fork.SourceName, &fork.SourcePublisher,
-		)
-		if err != nil {
-			continue
+	for _, row := range rows {
+		fork := Fork{
+			ID:              stringFromInt32(row.ID),
+			Name:            row.Name,
+			Attribution:     stringFromStringPtr(row.AttributionText),
+			SourceID:        stringFromInt32(row.SourceID),
+			SourceName:      row.SourceName,
+			SourcePublisher: row.SourcePublisher,
 		}
 		forks = append(forks, fork)
 	}

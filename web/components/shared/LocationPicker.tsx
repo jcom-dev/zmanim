@@ -1,3 +1,12 @@
+/**
+ * @file LocationPicker.tsx
+ * @purpose City/location search - geolocation, autocomplete
+ * @pattern client-component
+ * @dependencies useApi, Geolocation API, Command (shadcn)
+ * @frequency high - 369 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 import { useApi } from '@/lib/api-client';
 

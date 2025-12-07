@@ -1,3 +1,12 @@
+/**
+ * @file dsl-reference-data.ts
+ * @purpose DSL syntax reference - primitives, operators, functions, examples
+ * @pattern reference-data
+ * @dependencies Used by DSL editor, formula builder
+ * @frequency high - 455 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 // DSL Reference Data for the Advanced DSL Editor
 // This file contains all the primitives, functions, operators, and examples
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/diff"
 	"github.com/jcom-dev/zmanim-lab/internal/middleware"
 )
@@ -59,59 +60,75 @@ func (h *Handlers) GetVersionHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get publisher ID
-	publisherID := r.Header.Get("X-Publisher-Id")
-	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+	var publisherID int32
+	publisherIDHeader := r.Header.Get("X-Publisher-Id")
+	if publisherIDHeader != "" {
+		pid, err := strconv.ParseInt(publisherIDHeader, 10, 32)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherID = int32(pid)
+	} else {
+		// Get publisher ID by clerk user ID
+		pid, err := h.db.Queries.GetPublisherIDByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = pid
 	}
 
 	// Get algorithm ID
-	var algorithmID string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM algorithms WHERE publisher_id = $1 ORDER BY updated_at DESC LIMIT 1",
-		publisherID,
-	).Scan(&algorithmID)
+	algorithmID, err := h.db.Queries.GetLatestAlgorithmByPublisher(ctx, publisherID)
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found")
 		return
 	}
 
 	// Get current version number
-	var currentVersion int
-	_ = h.db.Pool.QueryRow(ctx,
-		"SELECT COALESCE(MAX(version_number), 0) FROM algorithm_version_history WHERE algorithm_id = $1",
-		algorithmID,
-	).Scan(&currentVersion)
+	currentVersionRaw, err := h.db.Queries.GetCurrentVersionNumber(ctx, algorithmID)
+	if err != nil {
+		RespondInternalError(w, r, "Failed to get current version")
+		return
+	}
+
+	// Convert interface{} to int
+	currentVersion := 0
+	switch v := currentVersionRaw.(type) {
+	case int64:
+		currentVersion = int(v)
+	case int32:
+		currentVersion = int(v)
+	case int:
+		currentVersion = v
+	}
 
 	// Fetch version history
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT id, version_number, status, COALESCE(description, ''),
-		       COALESCE(created_by, ''), created_at
-		FROM algorithm_version_history
-		WHERE algorithm_id = $1
-		ORDER BY version_number DESC
-	`, algorithmID)
+	versionRows, err := h.db.Queries.ListVersionHistory(ctx, algorithmID)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to fetch version history")
 		return
 	}
-	defer rows.Close()
 
-	versions := []VersionHistoryEntry{}
-	for rows.Next() {
-		var v VersionHistoryEntry
-		err := rows.Scan(&v.ID, &v.VersionNumber, &v.Status, &v.Description, &v.CreatedBy, &v.CreatedAt)
-		if err != nil {
-			continue
+	versions := make([]VersionHistoryEntry, 0, len(versionRows))
+	for _, row := range versionRows {
+		var publishedAt *time.Time
+		if row.PublishedAt.Valid {
+			t := row.PublishedAt.Time
+			publishedAt = &t
 		}
-		v.IsCurrent = v.VersionNumber == currentVersion
-		versions = append(versions, v)
+
+		versions = append(versions, VersionHistoryEntry{
+			ID:            row.ID,
+			VersionNumber: int(row.VersionNumber),
+			Status:        row.Status,
+			Description:   row.Description,
+			CreatedBy:     row.CreatedBy,
+			CreatedAt:     row.CreatedAt.Time,
+			IsCurrent:     int(row.VersionNumber) == currentVersion,
+			PublishedAt:   publishedAt,
+		})
 	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
@@ -139,48 +156,51 @@ func (h *Handlers) GetVersionDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get publisher ID
-	publisherID := r.Header.Get("X-Publisher-Id")
-	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+	var publisherID int32
+	publisherIDHeader := r.Header.Get("X-Publisher-Id")
+	if publisherIDHeader != "" {
+		pid, err := strconv.ParseInt(publisherIDHeader, 10, 32)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherID = int32(pid)
+	} else {
+		// Get publisher ID by clerk user ID
+		pid, err := h.db.Queries.GetPublisherIDByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = pid
 	}
 
 	// Get algorithm ID
-	var algorithmID string
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM algorithms WHERE publisher_id = $1 ORDER BY updated_at DESC LIMIT 1",
-		publisherID,
-	).Scan(&algorithmID)
+	algorithmID, err := h.db.Queries.GetLatestAlgorithmByPublisher(ctx, publisherID)
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found")
 		return
 	}
 
 	// Fetch version detail
-	var detail VersionDetail
-	var configSnapshot []byte
-	err = h.db.Pool.QueryRow(ctx, `
-		SELECT id, version_number, status, COALESCE(description, ''),
-		       config_snapshot, COALESCE(created_by, ''), created_at
-		FROM algorithm_version_history
-		WHERE algorithm_id = $1 AND version_number = $2
-	`, algorithmID, version).Scan(
-		&detail.ID, &detail.VersionNumber, &detail.Status,
-		&detail.Description, &configSnapshot, &detail.CreatedBy, &detail.CreatedAt,
-	)
+	detail, err := h.db.Queries.GetVersionDetail(ctx, sqlcgen.GetVersionDetailParams{
+		AlgorithmID:   algorithmID,
+		VersionNumber: int32(version),
+	})
 	if err != nil {
 		RespondNotFound(w, r, "Version not found")
 		return
 	}
 
-	detail.Config = configSnapshot
-	RespondJSON(w, r, http.StatusOK, detail)
+	RespondJSON(w, r, http.StatusOK, VersionDetail{
+		ID:            detail.ID,
+		VersionNumber: int(detail.VersionNumber),
+		Status:        detail.Status,
+		Description:   detail.Description,
+		Config:        detail.ConfigSnapshot,
+		CreatedBy:     detail.CreatedBy,
+		CreatedAt:     detail.CreatedAt.Time,
+	})
 }
 
 // GetVersionDiff compares two versions and returns the diff
@@ -208,44 +228,46 @@ func (h *Handlers) GetVersionDiff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get publisher ID
-	publisherID := r.Header.Get("X-Publisher-Id")
-	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+	var publisherID int32
+	publisherIDHeader := r.Header.Get("X-Publisher-Id")
+	if publisherIDHeader != "" {
+		pid, err := strconv.ParseInt(publisherIDHeader, 10, 32)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherID = int32(pid)
+	} else {
+		// Get publisher ID by clerk user ID
+		pid, err := h.db.Queries.GetPublisherIDByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = pid
 	}
 
 	// Get algorithm ID
-	var algorithmID string
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM algorithms WHERE publisher_id = $1 ORDER BY updated_at DESC LIMIT 1",
-		publisherID,
-	).Scan(&algorithmID)
+	algorithmID, err := h.db.Queries.GetLatestAlgorithmByPublisher(ctx, publisherID)
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found")
 		return
 	}
 
 	// Get both version configs
-	var v1Config, v2Config []byte
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT config_snapshot FROM algorithm_version_history WHERE algorithm_id = $1 AND version_number = $2",
-		algorithmID, v1,
-	).Scan(&v1Config)
+	v1Config, err := h.db.Queries.GetVersionConfig(ctx, sqlcgen.GetVersionConfigParams{
+		AlgorithmID:   algorithmID,
+		VersionNumber: int32(v1),
+	})
 	if err != nil {
 		RespondNotFound(w, r, "Version v1 not found")
 		return
 	}
 
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT config_snapshot FROM algorithm_version_history WHERE algorithm_id = $1 AND version_number = $2",
-		algorithmID, v2,
-	).Scan(&v2Config)
+	v2Config, err := h.db.Queries.GetVersionConfig(ctx, sqlcgen.GetVersionConfigParams{
+		AlgorithmID:   algorithmID,
+		VersionNumber: int32(v2),
+	})
 	if err != nil {
 		RespondNotFound(w, r, "Version v2 not found")
 		return
@@ -295,46 +317,57 @@ func (h *Handlers) RollbackVersion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get publisher ID
-	publisherID := r.Header.Get("X-Publisher-Id")
-	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+	var publisherID int32
+	publisherIDHeader := r.Header.Get("X-Publisher-Id")
+	if publisherIDHeader != "" {
+		pid, err := strconv.ParseInt(publisherIDHeader, 10, 32)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherID = int32(pid)
+	} else {
+		// Get publisher ID by clerk user ID
+		pid, err := h.db.Queries.GetPublisherIDByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = pid
 	}
 
 	// Get algorithm ID
-	var algorithmID string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM algorithms WHERE publisher_id = $1 ORDER BY updated_at DESC LIMIT 1",
-		publisherID,
-	).Scan(&algorithmID)
+	algorithmID, err := h.db.Queries.GetLatestAlgorithmByPublisher(ctx, publisherID)
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found")
 		return
 	}
 
 	// Get current version number
-	var currentVersion int
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT COALESCE(MAX(version_number), 0) FROM algorithm_version_history WHERE algorithm_id = $1",
-		algorithmID,
-	).Scan(&currentVersion)
+	currentVersionRaw, err := h.db.Queries.GetCurrentVersionNumber(ctx, algorithmID)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to get current version")
 		return
 	}
 
+	// Convert interface{} to int32
+	var currentVersion int32
+	switch v := currentVersionRaw.(type) {
+	case int64:
+		currentVersion = int32(v)
+	case int32:
+		currentVersion = v
+	case int:
+		currentVersion = int32(v)
+	default:
+		currentVersion = 0
+	}
+
 	// Get target version config
-	var configSnapshot []byte
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT config_snapshot FROM algorithm_version_history WHERE algorithm_id = $1 AND version_number = $2",
-		algorithmID, req.TargetVersion,
-	).Scan(&configSnapshot)
+	configSnapshot, err := h.db.Queries.GetVersionConfig(ctx, sqlcgen.GetVersionConfigParams{
+		AlgorithmID:   algorithmID,
+		VersionNumber: int32(req.TargetVersion),
+	})
 	if err != nil {
 		RespondNotFound(w, r, "Target version not found")
 		return
@@ -347,39 +380,42 @@ func (h *Handlers) RollbackVersion(w http.ResponseWriter, r *http.Request) {
 		description = "Rolled back from v" + strconv.Itoa(req.TargetVersion)
 	}
 
-	var newVersionID string
-	err = h.db.Pool.QueryRow(ctx, `
-		INSERT INTO algorithm_version_history (
-			algorithm_id, version_number, status, config_snapshot, description, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id
-	`, algorithmID, newVersion, req.Status, configSnapshot, description, userID).Scan(&newVersionID)
+	result, err := h.db.Queries.CreateVersionSnapshot(ctx, sqlcgen.CreateVersionSnapshotParams{
+		AlgorithmID:    algorithmID,
+		VersionNumber:  newVersion,
+		Status:         req.Status,
+		ConfigSnapshot: configSnapshot,
+		Description:    &description,
+		CreatedBy:      &userID,
+	})
 	if err != nil {
 		RespondInternalError(w, r, "Failed to create new version")
 		return
 	}
 
 	// Update main algorithm with rolled-back config
-	_, err = h.db.Pool.Exec(ctx, `
-		UPDATE algorithms
-		SET configuration = $1, updated_at = NOW()
-		WHERE id = $2
-	`, configSnapshot, algorithmID)
+	err = h.db.Queries.UpdateAlgorithmConfiguration(ctx, sqlcgen.UpdateAlgorithmConfigurationParams{
+		Configuration: configSnapshot,
+		ID:            algorithmID,
+	})
 	if err != nil {
 		RespondInternalError(w, r, "Failed to update algorithm")
 		return
 	}
 
 	// Log the rollback
-	_, _ = h.db.Pool.Exec(ctx, `
-		INSERT INTO algorithm_rollback_audit (
-			algorithm_id, source_version, target_version, new_version, reason, rolled_back_by
-		) VALUES ($1, $2, $3, $4, $5, $6)
-	`, algorithmID, currentVersion, req.TargetVersion, newVersion, description, userID)
+	_ = h.db.Queries.LogRollback(ctx, sqlcgen.LogRollbackParams{
+		AlgorithmID:   algorithmID,
+		SourceVersion: currentVersion,
+		TargetVersion: int32(req.TargetVersion),
+		NewVersion:    newVersion,
+		Reason:        &description,
+		RolledBackBy:  &userID,
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"new_version":    newVersion,
-		"new_version_id": newVersionID,
+		"new_version":    int(newVersion),
+		"new_version_id": result.ID,
 		"message":        "Successfully rolled back to version " + strconv.Itoa(req.TargetVersion),
 	})
 }
@@ -409,56 +445,61 @@ func (h *Handlers) CreateVersionSnapshot(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Get publisher ID
-	publisherID := r.Header.Get("X-Publisher-Id")
-	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+	var publisherID int32
+	publisherIDHeader := r.Header.Get("X-Publisher-Id")
+	if publisherIDHeader != "" {
+		pid, err := strconv.ParseInt(publisherIDHeader, 10, 32)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+		publisherID = int32(pid)
+	} else {
+		// Get publisher ID by clerk user ID
+		pid, err := h.db.Queries.GetPublisherIDByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = pid
 	}
 
 	// Get algorithm ID
-	var algorithmID string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM algorithms WHERE publisher_id = $1 ORDER BY updated_at DESC LIMIT 1",
-		publisherID,
-	).Scan(&algorithmID)
+	algorithmID, err := h.db.Queries.GetLatestAlgorithmByPublisher(ctx, publisherID)
 	if err != nil {
 		RespondNotFound(w, r, "Algorithm not found")
 		return
 	}
 
 	// Get next version number
-	var nextVersion int
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT get_next_algorithm_version($1)",
-		algorithmID,
-	).Scan(&nextVersion)
+	nextVersion, err := h.db.Queries.GetNextVersionNumber(ctx, algorithmID)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to get next version number")
 		return
 	}
 
 	// Create version snapshot
-	var versionID string
-	err = h.db.Pool.QueryRow(ctx, `
-		INSERT INTO algorithm_version_history (
-			algorithm_id, version_number, status, config_snapshot, description, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id
-	`, algorithmID, nextVersion, req.Status, req.Config, req.Description, userID).Scan(&versionID)
+	var descPtr *string
+	if req.Description != "" {
+		descPtr = &req.Description
+	}
+
+	result, err := h.db.Queries.CreateVersionSnapshot(ctx, sqlcgen.CreateVersionSnapshotParams{
+		AlgorithmID:    algorithmID,
+		VersionNumber:  nextVersion,
+		Status:         req.Status,
+		ConfigSnapshot: []byte(req.Config),
+		Description:    descPtr,
+		CreatedBy:      &userID,
+	})
 	if err != nil {
 		RespondInternalError(w, r, "Failed to create version snapshot")
 		return
 	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"version_id":     versionID,
-		"version_number": nextVersion,
-		"status":         req.Status,
+		"version_id":     result.ID,
+		"version_number": int(result.VersionNumber),
+		"status":         result.Status,
 	})
 }

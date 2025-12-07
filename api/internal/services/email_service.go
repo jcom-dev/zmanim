@@ -1,3 +1,10 @@
+// File: email_service.go
+// Purpose: Email sending via SMTP - invitations, notifications, publisher requests
+// Pattern: service
+// Dependencies: net/smtp, email templates
+// Frequency: high - used by 6 handlers
+// Compliance: Check docs/adr/ for pattern rationale
+
 package services
 
 import (

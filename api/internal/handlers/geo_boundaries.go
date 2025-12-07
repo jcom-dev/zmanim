@@ -1,3 +1,10 @@
+// File: geo_boundaries.go
+// Purpose: PostGIS geographic queries - country/region/city boundary lookup
+// Pattern: 6-step-handler
+// Dependencies: Queries: geo_boundaries.sql (PostGIS ST_Contains)
+// Frequency: high - 781 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package handlers
 
 import (
@@ -85,7 +92,7 @@ type DistrictInfo struct {
 
 // NearestCity represents a nearby city in lookup response
 type NearestCity struct {
-	ID           string  `json:"id"`
+	ID           int32   `json:"id"`
 	Name         string  `json:"name"`
 	NameLocal    *string `json:"name_local,omitempty"`
 	CountryCode  string  `json:"country_code"`

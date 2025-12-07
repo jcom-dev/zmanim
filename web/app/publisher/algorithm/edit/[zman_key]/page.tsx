@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Save,
   Sparkles,
-  BookOpen,
   Calendar,
   Code2,
   GripVertical,
@@ -38,7 +37,6 @@ import { parseFormula, type ParseResult } from '@/components/formula-builder/typ
 import { BilingualInput } from '@/components/shared/BilingualInput';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
-import { BrowseTemplatesDialog } from '@/components/algorithm/BrowseTemplatesDialog';
 import { WeeklyPreviewDialog } from '@/components/algorithm/WeeklyPreviewDialog';
 import {
   useZmanDetails,
@@ -131,7 +129,6 @@ export default function ZmanEditorPage() {
   }, [selectedPublisher?.id]);
 
   // Dialog state
-  const [showBrowseTemplates, setShowBrowseTemplates] = useState(false);
   const [generatingExplanation, setGeneratingExplanation] = useState<'en' | 'he' | 'mixed' | null>(null);
 
   // API client
@@ -314,11 +311,6 @@ export default function ZmanEditorPage() {
     }
   };
 
-  // Handle template selection
-  const handleTemplateSelect = useCallback((selectedFormula: string) => {
-    setFormula(selectedFormula);
-  }, []);
-
   // Handle parse error from formula builder - no-op since useEffect already handles mode switching
   // Keep callback to satisfy FormulaBuilder's prop type, but don't double-switch modes
   const handleParseError = useCallback((_error: string) => {
@@ -378,12 +370,6 @@ export default function ZmanEditorPage() {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          {/* Browse Templates */}
-          <Button variant="outline" size="sm" onClick={() => setShowBrowseTemplates(true)}>
-            <BookOpen className="h-4 w-4 mr-2" />
-            Browse Templates
-          </Button>
-
           {/* Save */}
           <Button
             type="button"
@@ -925,14 +911,6 @@ export default function ZmanEditorPage() {
           )}
         </div>
       </div>
-
-      {/* Browse Templates Dialog */}
-      <BrowseTemplatesDialog
-        open={showBrowseTemplates}
-        onOpenChange={setShowBrowseTemplates}
-        onSelectFormula={handleTemplateSelect}
-        currentZmanKey={zmanKey}
-      />
 
       {/* Weekly Preview Dialog */}
       <WeeklyPreviewDialog

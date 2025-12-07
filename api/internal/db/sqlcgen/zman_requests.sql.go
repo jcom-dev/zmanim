@@ -7,7 +7,6 @@ package sqlcgen
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -23,18 +22,18 @@ RETURNING id, request_id, requested_tag_name, requested_tag_type, is_new_tag_req
 `
 
 type AddZmanRequestNewTagParams struct {
-	RequestID        string  `json:"request_id"`
+	RequestID        int32   `json:"request_id"`
 	RequestedTagName *string `json:"requested_tag_name"`
 	RequestedTagType *string `json:"requested_tag_type"`
 }
 
 type AddZmanRequestNewTagRow struct {
-	ID               string    `json:"id"`
-	RequestID        string    `json:"request_id"`
-	RequestedTagName *string   `json:"requested_tag_name"`
-	RequestedTagType *string   `json:"requested_tag_type"`
-	IsNewTagRequest  bool      `json:"is_new_tag_request"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID               int32              `json:"id"`
+	RequestID        int32              `json:"request_id"`
+	RequestedTagName *string            `json:"requested_tag_name"`
+	RequestedTagType *string            `json:"requested_tag_type"`
+	IsNewTagRequest  bool               `json:"is_new_tag_request"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 // Request a new tag for a zman request
@@ -62,16 +61,16 @@ RETURNING id, request_id, tag_id, is_new_tag_request, created_at
 `
 
 type AddZmanRequestTagParams struct {
-	RequestID string      `json:"request_id"`
-	TagID     pgtype.UUID `json:"tag_id"`
+	RequestID int32  `json:"request_id"`
+	TagID     *int32 `json:"tag_id"`
 }
 
 type AddZmanRequestTagRow struct {
-	ID              string      `json:"id"`
-	RequestID       string      `json:"request_id"`
-	TagID           pgtype.UUID `json:"tag_id"`
-	IsNewTagRequest bool        `json:"is_new_tag_request"`
-	CreatedAt       time.Time   `json:"created_at"`
+	ID              int32              `json:"id"`
+	RequestID       int32              `json:"request_id"`
+	TagID           *int32             `json:"tag_id"`
+	IsNewTagRequest bool               `json:"is_new_tag_request"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 // Add an existing tag to a zman request
@@ -94,15 +93,15 @@ INSERT INTO zman_tags (
     name,
     display_name_hebrew,
     display_name_english,
-    tag_type
+    tag_type_id
 ) VALUES (
     $1, -- tag_key (generated from requested_tag_name)
     $2, -- name (requested_tag_name)
     $3, -- display_name_hebrew (same as name for now)
     $4, -- display_name_english (same as name)
-    $5  -- tag_type (from requested_tag_type)
+    (SELECT tt.id FROM tag_types tt WHERE tt.key = $5)  -- tag_type_id (from requested_tag_type key)
 )
-RETURNING id, tag_key, name, display_name_hebrew, display_name_english, tag_type, created_at
+RETURNING id, tag_key, name, display_name_hebrew, display_name_english, tag_type_id, created_at
 `
 
 type ApproveTagRequestParams struct {
@@ -110,17 +109,17 @@ type ApproveTagRequestParams struct {
 	Name               string `json:"name"`
 	DisplayNameHebrew  string `json:"display_name_hebrew"`
 	DisplayNameEnglish string `json:"display_name_english"`
-	TagType            string `json:"tag_type"`
+	Key                string `json:"key"`
 }
 
 type ApproveTagRequestRow struct {
-	ID                 string    `json:"id"`
-	TagKey             string    `json:"tag_key"`
-	Name               string    `json:"name"`
-	DisplayNameHebrew  string    `json:"display_name_hebrew"`
-	DisplayNameEnglish string    `json:"display_name_english"`
-	TagType            string    `json:"tag_type"`
-	CreatedAt          time.Time `json:"created_at"`
+	ID                 int32              `json:"id"`
+	TagKey             string             `json:"tag_key"`
+	Name               string             `json:"name"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	TagTypeID          int32              `json:"tag_type_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 // Approve a new tag request - creates the tag and updates the request
@@ -132,7 +131,7 @@ func (q *Queries) ApproveTagRequest(ctx context.Context, arg ApproveTagRequestPa
 		arg.Name,
 		arg.DisplayNameHebrew,
 		arg.DisplayNameEnglish,
-		arg.TagType,
+		arg.Key,
 	)
 	var i ApproveTagRequestRow
 	err := row.Scan(
@@ -141,7 +140,7 @@ func (q *Queries) ApproveTagRequest(ctx context.Context, arg ApproveTagRequestPa
 		&i.Name,
 		&i.DisplayNameHebrew,
 		&i.DisplayNameEnglish,
-		&i.TagType,
+		&i.TagTypeID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -150,28 +149,30 @@ func (q *Queries) ApproveTagRequest(ctx context.Context, arg ApproveTagRequestPa
 const approveZmanRequest = `-- name: ApproveZmanRequest :one
 UPDATE zman_registry_requests
 SET
-    status = 'approved',
+    status_id = (SELECT rs.id FROM request_statuses rs WHERE rs.key = 'approved'),
     reviewed_by = $2,
     reviewed_at = NOW(),
     reviewer_notes = $3
-WHERE id = $1
-RETURNING id, status, reviewed_by, reviewed_at, reviewer_notes, auto_add_on_approval, publisher_id
+WHERE zman_registry_requests.id = $1
+RETURNING
+    id, status_id, reviewed_by, reviewed_at, reviewer_notes,
+    auto_add_on_approval, publisher_id
 `
 
 type ApproveZmanRequestParams struct {
-	ID            string  `json:"id"`
+	ID            int32   `json:"id"`
 	ReviewedBy    *string `json:"reviewed_by"`
 	ReviewerNotes *string `json:"reviewer_notes"`
 }
 
 type ApproveZmanRequestRow struct {
-	ID                string             `json:"id"`
-	Status            string             `json:"status"`
+	ID                int32              `json:"id"`
+	StatusID          int16              `json:"status_id"`
 	ReviewedBy        *string            `json:"reviewed_by"`
 	ReviewedAt        pgtype.Timestamptz `json:"reviewed_at"`
 	ReviewerNotes     *string            `json:"reviewer_notes"`
 	AutoAddOnApproval *bool              `json:"auto_add_on_approval"`
-	PublisherID       string             `json:"publisher_id"`
+	PublisherID       int32              `json:"publisher_id"`
 }
 
 // Approve a zman request
@@ -180,7 +181,7 @@ func (q *Queries) ApproveZmanRequest(ctx context.Context, arg ApproveZmanRequest
 	var i ApproveZmanRequestRow
 	err := row.Scan(
 		&i.ID,
-		&i.Status,
+		&i.StatusID,
 		&i.ReviewedBy,
 		&i.ReviewedAt,
 		&i.ReviewerNotes,
@@ -195,7 +196,7 @@ INSERT INTO publisher_zmanim (
     id, publisher_id, zman_key, hebrew_name, english_name,
     transliteration, description,
     formula_dsl, ai_explanation, publisher_comment,
-    is_enabled, is_visible, is_published, is_custom, category,
+    is_enabled, is_visible, is_published, is_custom, time_category_id,
     dependencies, current_version
 )
 SELECT
@@ -213,21 +214,22 @@ SELECT
     true AS is_visible,
     false AS is_published,
     true AS is_custom,
-    zrr.time_category AS category,
+    tc.id AS time_category_id,
     '{}'::text[] AS dependencies,
     1 AS current_version
 FROM zman_registry_requests zrr
+JOIN time_categories tc ON zrr.time_category_id = tc.id
 WHERE zrr.id = $1
 ON CONFLICT (publisher_id, zman_key) DO NOTHING
 RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
     transliteration, description, formula_dsl, ai_explanation, publisher_comment,
-    is_enabled, is_visible, is_published, is_custom, category,
+    is_enabled, is_visible, is_published, is_custom, time_category_id,
     dependencies, created_at, updated_at, current_version
 `
 
 type CreatePublisherZmanFromRequestRow struct {
-	ID               string             `json:"id"`
-	PublisherID      string             `json:"publisher_id"`
+	ID               int32              `json:"id"`
+	PublisherID      int32              `json:"publisher_id"`
 	ZmanKey          string             `json:"zman_key"`
 	HebrewName       string             `json:"hebrew_name"`
 	EnglishName      string             `json:"english_name"`
@@ -240,7 +242,7 @@ type CreatePublisherZmanFromRequestRow struct {
 	IsVisible        bool               `json:"is_visible"`
 	IsPublished      bool               `json:"is_published"`
 	IsCustom         bool               `json:"is_custom"`
-	Category         string             `json:"category"`
+	TimeCategoryID   *int32             `json:"time_category_id"`
 	Dependencies     []string           `json:"dependencies"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
@@ -249,7 +251,7 @@ type CreatePublisherZmanFromRequestRow struct {
 
 // Create a publisher_zman entry from an approved zman request
 // This is used when auto_add_on_approval is true
-func (q *Queries) CreatePublisherZmanFromRequest(ctx context.Context, id string) (CreatePublisherZmanFromRequestRow, error) {
+func (q *Queries) CreatePublisherZmanFromRequest(ctx context.Context, id int32) (CreatePublisherZmanFromRequestRow, error) {
 	row := q.db.QueryRow(ctx, createPublisherZmanFromRequest, id)
 	var i CreatePublisherZmanFromRequestRow
 	err := row.Scan(
@@ -267,7 +269,7 @@ func (q *Queries) CreatePublisherZmanFromRequest(ctx context.Context, id string)
 		&i.IsVisible,
 		&i.IsPublished,
 		&i.IsCustom,
-		&i.Category,
+		&i.TimeCategoryID,
 		&i.Dependencies,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -285,30 +287,33 @@ INSERT INTO zman_registry_requests (
     requested_english_name,
     transliteration,
     requested_formula_dsl,
-    time_category,
+    time_category_id,
     description,
     halachic_notes,
     halachic_source,
     publisher_email,
     publisher_name,
-    auto_add_on_approval
+    auto_add_on_approval,
+    status_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+    (SELECT rs.id FROM request_statuses rs WHERE rs.key = 'pending')
 )
-RETURNING id, publisher_id, requested_key, requested_hebrew_name, requested_english_name,
-    transliteration, requested_formula_dsl, time_category, description,
+RETURNING
+    id, publisher_id, requested_key, requested_hebrew_name, requested_english_name,
+    transliteration, requested_formula_dsl, time_category_id, description,
     halachic_notes, halachic_source, publisher_email, publisher_name, auto_add_on_approval,
-    status, created_at
+    status_id, created_at
 `
 
 type CreateZmanRequestParams struct {
-	PublisherID          string  `json:"publisher_id"`
+	PublisherID          int32   `json:"publisher_id"`
 	RequestedKey         string  `json:"requested_key"`
 	RequestedHebrewName  string  `json:"requested_hebrew_name"`
 	RequestedEnglishName string  `json:"requested_english_name"`
 	Transliteration      *string `json:"transliteration"`
 	RequestedFormulaDsl  *string `json:"requested_formula_dsl"`
-	TimeCategory         string  `json:"time_category"`
+	TimeCategoryID       int32   `json:"time_category_id"`
 	Description          *string `json:"description"`
 	HalachicNotes        *string `json:"halachic_notes"`
 	HalachicSource       *string `json:"halachic_source"`
@@ -318,22 +323,22 @@ type CreateZmanRequestParams struct {
 }
 
 type CreateZmanRequestRow struct {
-	ID                   string    `json:"id"`
-	PublisherID          string    `json:"publisher_id"`
-	RequestedKey         string    `json:"requested_key"`
-	RequestedHebrewName  string    `json:"requested_hebrew_name"`
-	RequestedEnglishName string    `json:"requested_english_name"`
-	Transliteration      *string   `json:"transliteration"`
-	RequestedFormulaDsl  *string   `json:"requested_formula_dsl"`
-	TimeCategory         string    `json:"time_category"`
-	Description          *string   `json:"description"`
-	HalachicNotes        *string   `json:"halachic_notes"`
-	HalachicSource       *string   `json:"halachic_source"`
-	PublisherEmail       *string   `json:"publisher_email"`
-	PublisherName        *string   `json:"publisher_name"`
-	AutoAddOnApproval    *bool     `json:"auto_add_on_approval"`
-	Status               string    `json:"status"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                   int32              `json:"id"`
+	PublisherID          int32              `json:"publisher_id"`
+	RequestedKey         string             `json:"requested_key"`
+	RequestedHebrewName  string             `json:"requested_hebrew_name"`
+	RequestedEnglishName string             `json:"requested_english_name"`
+	Transliteration      *string            `json:"transliteration"`
+	RequestedFormulaDsl  *string            `json:"requested_formula_dsl"`
+	TimeCategoryID       int32              `json:"time_category_id"`
+	Description          *string            `json:"description"`
+	HalachicNotes        *string            `json:"halachic_notes"`
+	HalachicSource       *string            `json:"halachic_source"`
+	PublisherEmail       *string            `json:"publisher_email"`
+	PublisherName        *string            `json:"publisher_name"`
+	AutoAddOnApproval    *bool              `json:"auto_add_on_approval"`
+	StatusID             int16              `json:"status_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 // Zman Request Queries
@@ -347,7 +352,7 @@ func (q *Queries) CreateZmanRequest(ctx context.Context, arg CreateZmanRequestPa
 		arg.RequestedEnglishName,
 		arg.Transliteration,
 		arg.RequestedFormulaDsl,
-		arg.TimeCategory,
+		arg.TimeCategoryID,
 		arg.Description,
 		arg.HalachicNotes,
 		arg.HalachicSource,
@@ -364,14 +369,14 @@ func (q *Queries) CreateZmanRequest(ctx context.Context, arg CreateZmanRequestPa
 		&i.RequestedEnglishName,
 		&i.Transliteration,
 		&i.RequestedFormulaDsl,
-		&i.TimeCategory,
+		&i.TimeCategoryID,
 		&i.Description,
 		&i.HalachicNotes,
 		&i.HalachicSource,
 		&i.PublisherEmail,
 		&i.PublisherName,
 		&i.AutoAddOnApproval,
-		&i.Status,
+		&i.StatusID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -382,26 +387,36 @@ DELETE FROM zman_request_tags WHERE request_id = $1
 `
 
 // Delete all tags for a zman request (used when updating request)
-func (q *Queries) DeleteZmanRequestTags(ctx context.Context, requestID string) error {
+func (q *Queries) DeleteZmanRequestTags(ctx context.Context, requestID int32) error {
 	_, err := q.db.Exec(ctx, deleteZmanRequestTags, requestID)
 	return err
 }
 
 const findTagByName = `-- name: FindTagByName :one
-SELECT id, tag_key, name, display_name_hebrew, display_name_english, tag_type, created_at
-FROM zman_tags
-WHERE LOWER(name) = LOWER($1)
+SELECT
+    zt.id,
+    zt.tag_key,
+    zt.name,
+    zt.display_name_hebrew,
+    zt.display_name_english,
+    zt.tag_type_id,
+    tt.key as tag_type,
+    zt.created_at
+FROM zman_tags zt
+JOIN tag_types tt ON zt.tag_type_id = tt.id
+WHERE LOWER(zt.name) = LOWER($1)
 LIMIT 1
 `
 
 type FindTagByNameRow struct {
-	ID                 string    `json:"id"`
-	TagKey             string    `json:"tag_key"`
-	Name               string    `json:"name"`
-	DisplayNameHebrew  string    `json:"display_name_hebrew"`
-	DisplayNameEnglish string    `json:"display_name_english"`
-	TagType            string    `json:"tag_type"`
-	CreatedAt          time.Time `json:"created_at"`
+	ID                 int32              `json:"id"`
+	TagKey             string             `json:"tag_key"`
+	Name               string             `json:"name"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	TagTypeID          int32              `json:"tag_type_id"`
+	TagType            string             `json:"tag_type"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 // Find an existing tag by name (case-insensitive match)
@@ -414,6 +429,7 @@ func (q *Queries) FindTagByName(ctx context.Context, lower string) (FindTagByNam
 		&i.Name,
 		&i.DisplayNameHebrew,
 		&i.DisplayNameEnglish,
+		&i.TagTypeID,
 		&i.TagType,
 		&i.CreatedAt,
 	)
@@ -428,32 +444,38 @@ SELECT
     zrr.requested_hebrew_name,
     zrr.requested_english_name,
     zrr.transliteration,
-    zrr.time_category,
-    zrr.status,
+    zrr.time_category_id,
+    tc.key as time_category,
+    zrr.status_id,
+    rs.key as status,
     zrr.reviewed_by,
     zrr.reviewed_at,
     zrr.created_at,
     p.name as publisher_name
 FROM zman_registry_requests zrr
 JOIN publishers p ON zrr.publisher_id = p.id
-WHERE ($1::text IS NULL OR zrr.status = $1)
+JOIN request_statuses rs ON zrr.status_id = rs.id
+JOIN time_categories tc ON zrr.time_category_id = tc.id
+WHERE ($1::text IS NULL OR rs.key = $1)
 ORDER BY
-    CASE WHEN zrr.status = 'pending' THEN 0 ELSE 1 END,
+    CASE WHEN rs.key = 'pending' THEN 0 ELSE 1 END,
     zrr.created_at DESC
 `
 
 type GetAllZmanRequestsRow struct {
-	ID                   string             `json:"id"`
-	PublisherID          string             `json:"publisher_id"`
+	ID                   int32              `json:"id"`
+	PublisherID          int32              `json:"publisher_id"`
 	RequestedKey         string             `json:"requested_key"`
 	RequestedHebrewName  string             `json:"requested_hebrew_name"`
 	RequestedEnglishName string             `json:"requested_english_name"`
 	Transliteration      *string            `json:"transliteration"`
+	TimeCategoryID       int32              `json:"time_category_id"`
 	TimeCategory         string             `json:"time_category"`
+	StatusID             int16              `json:"status_id"`
 	Status               string             `json:"status"`
 	ReviewedBy           *string            `json:"reviewed_by"`
 	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
-	CreatedAt            time.Time          `json:"created_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	PublisherName        string             `json:"publisher_name"`
 }
 
@@ -474,7 +496,9 @@ func (q *Queries) GetAllZmanRequests(ctx context.Context, dollar_1 string) ([]Ge
 			&i.RequestedHebrewName,
 			&i.RequestedEnglishName,
 			&i.Transliteration,
+			&i.TimeCategoryID,
 			&i.TimeCategory,
+			&i.StatusID,
 			&i.Status,
 			&i.ReviewedBy,
 			&i.ReviewedAt,
@@ -493,8 +517,9 @@ func (q *Queries) GetAllZmanRequests(ctx context.Context, dollar_1 string) ([]Ge
 
 const getPendingZmanRequestCount = `-- name: GetPendingZmanRequestCount :one
 SELECT COUNT(*) as count
-FROM zman_registry_requests
-WHERE status = 'pending'
+FROM zman_registry_requests zrr
+JOIN request_statuses rs ON zrr.status_id = rs.id
+WHERE rs.key = 'pending'
 `
 
 // Get count of pending zman requests (for admin dashboard)
@@ -507,38 +532,44 @@ func (q *Queries) GetPendingZmanRequestCount(ctx context.Context) (int64, error)
 
 const getPublisherZmanRequests = `-- name: GetPublisherZmanRequests :many
 SELECT
-    id,
-    publisher_id,
-    requested_key,
-    requested_hebrew_name,
-    requested_english_name,
-    transliteration,
-    time_category,
-    status,
-    reviewed_at,
-    reviewer_notes,
-    created_at
-FROM zman_registry_requests
-WHERE publisher_id = $1
-ORDER BY created_at DESC
+    zrr.id,
+    zrr.publisher_id,
+    zrr.requested_key,
+    zrr.requested_hebrew_name,
+    zrr.requested_english_name,
+    zrr.transliteration,
+    zrr.time_category_id,
+    tc.key as time_category,
+    zrr.status_id,
+    rs.key as status,
+    zrr.reviewed_at,
+    zrr.reviewer_notes,
+    zrr.created_at
+FROM zman_registry_requests zrr
+JOIN request_statuses rs ON zrr.status_id = rs.id
+JOIN time_categories tc ON zrr.time_category_id = tc.id
+WHERE zrr.publisher_id = $1
+ORDER BY zrr.created_at DESC
 `
 
 type GetPublisherZmanRequestsRow struct {
-	ID                   string             `json:"id"`
-	PublisherID          string             `json:"publisher_id"`
+	ID                   int32              `json:"id"`
+	PublisherID          int32              `json:"publisher_id"`
 	RequestedKey         string             `json:"requested_key"`
 	RequestedHebrewName  string             `json:"requested_hebrew_name"`
 	RequestedEnglishName string             `json:"requested_english_name"`
 	Transliteration      *string            `json:"transliteration"`
+	TimeCategoryID       int32              `json:"time_category_id"`
 	TimeCategory         string             `json:"time_category"`
+	StatusID             int16              `json:"status_id"`
 	Status               string             `json:"status"`
 	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
 	ReviewerNotes        *string            `json:"reviewer_notes"`
-	CreatedAt            time.Time          `json:"created_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 // Get all zman requests for a specific publisher
-func (q *Queries) GetPublisherZmanRequests(ctx context.Context, publisherID string) ([]GetPublisherZmanRequestsRow, error) {
+func (q *Queries) GetPublisherZmanRequests(ctx context.Context, publisherID int32) ([]GetPublisherZmanRequestsRow, error) {
 	rows, err := q.db.Query(ctx, getPublisherZmanRequests, publisherID)
 	if err != nil {
 		return nil, err
@@ -554,7 +585,9 @@ func (q *Queries) GetPublisherZmanRequests(ctx context.Context, publisherID stri
 			&i.RequestedHebrewName,
 			&i.RequestedEnglishName,
 			&i.Transliteration,
+			&i.TimeCategoryID,
 			&i.TimeCategory,
+			&i.StatusID,
 			&i.Status,
 			&i.ReviewedAt,
 			&i.ReviewerNotes,
@@ -579,14 +612,16 @@ SELECT
     zrr.requested_english_name,
     zrr.transliteration,
     zrr.requested_formula_dsl,
-    zrr.time_category,
+    zrr.time_category_id,
+    tc.key as time_category,
     zrr.description,
     zrr.halachic_notes,
     zrr.halachic_source,
     zrr.publisher_email,
     zrr.publisher_name,
     zrr.auto_add_on_approval,
-    zrr.status,
+    zrr.status_id,
+    rs.key as status,
     zrr.reviewed_by,
     zrr.reviewed_at,
     zrr.reviewer_notes,
@@ -594,17 +629,20 @@ SELECT
     p.name as submitter_name
 FROM zman_registry_requests zrr
 JOIN publishers p ON zrr.publisher_id = p.id
+JOIN request_statuses rs ON zrr.status_id = rs.id
+JOIN time_categories tc ON zrr.time_category_id = tc.id
 WHERE zrr.id = $1
 `
 
 type GetZmanRequestRow struct {
-	ID                   string             `json:"id"`
-	PublisherID          string             `json:"publisher_id"`
+	ID                   int32              `json:"id"`
+	PublisherID          int32              `json:"publisher_id"`
 	RequestedKey         string             `json:"requested_key"`
 	RequestedHebrewName  string             `json:"requested_hebrew_name"`
 	RequestedEnglishName string             `json:"requested_english_name"`
 	Transliteration      *string            `json:"transliteration"`
 	RequestedFormulaDsl  *string            `json:"requested_formula_dsl"`
+	TimeCategoryID       int32              `json:"time_category_id"`
 	TimeCategory         string             `json:"time_category"`
 	Description          *string            `json:"description"`
 	HalachicNotes        *string            `json:"halachic_notes"`
@@ -612,16 +650,17 @@ type GetZmanRequestRow struct {
 	PublisherEmail       *string            `json:"publisher_email"`
 	PublisherName        *string            `json:"publisher_name"`
 	AutoAddOnApproval    *bool              `json:"auto_add_on_approval"`
+	StatusID             int16              `json:"status_id"`
 	Status               string             `json:"status"`
 	ReviewedBy           *string            `json:"reviewed_by"`
 	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
 	ReviewerNotes        *string            `json:"reviewer_notes"`
-	CreatedAt            time.Time          `json:"created_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	SubmitterName        string             `json:"submitter_name"`
 }
 
 // Get a specific zman request by ID
-func (q *Queries) GetZmanRequest(ctx context.Context, id string) (GetZmanRequestRow, error) {
+func (q *Queries) GetZmanRequest(ctx context.Context, id int32) (GetZmanRequestRow, error) {
 	row := q.db.QueryRow(ctx, getZmanRequest, id)
 	var i GetZmanRequestRow
 	err := row.Scan(
@@ -632,6 +671,7 @@ func (q *Queries) GetZmanRequest(ctx context.Context, id string) (GetZmanRequest
 		&i.RequestedEnglishName,
 		&i.Transliteration,
 		&i.RequestedFormulaDsl,
+		&i.TimeCategoryID,
 		&i.TimeCategory,
 		&i.Description,
 		&i.HalachicNotes,
@@ -639,6 +679,7 @@ func (q *Queries) GetZmanRequest(ctx context.Context, id string) (GetZmanRequest
 		&i.PublisherEmail,
 		&i.PublisherName,
 		&i.AutoAddOnApproval,
+		&i.StatusID,
 		&i.Status,
 		&i.ReviewedBy,
 		&i.ReviewedAt,
@@ -663,7 +704,7 @@ WHERE zrt.id = $1
 `
 
 // Get a specific tag request by ID
-func (q *Queries) GetZmanRequestTag(ctx context.Context, id string) (ZmanRequestTag, error) {
+func (q *Queries) GetZmanRequestTag(ctx context.Context, id int32) (ZmanRequestTag, error) {
 	row := q.db.QueryRow(ctx, getZmanRequestTag, id)
 	var i ZmanRequestTag
 	err := row.Scan(
@@ -689,27 +730,30 @@ SELECT
     zrt.created_at,
     zt.tag_key as existing_tag_key,
     zt.name as existing_tag_name,
-    zt.tag_type as existing_tag_type
+    zt.tag_type_id as existing_tag_type_id,
+    tt.key as existing_tag_type
 FROM zman_request_tags zrt
 LEFT JOIN zman_tags zt ON zrt.tag_id = zt.id
+LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
 WHERE zrt.request_id = $1
 `
 
 type GetZmanRequestTagsRow struct {
-	ID               string      `json:"id"`
-	RequestID        string      `json:"request_id"`
-	TagID            pgtype.UUID `json:"tag_id"`
-	RequestedTagName *string     `json:"requested_tag_name"`
-	RequestedTagType *string     `json:"requested_tag_type"`
-	IsNewTagRequest  bool        `json:"is_new_tag_request"`
-	CreatedAt        time.Time   `json:"created_at"`
-	ExistingTagKey   *string     `json:"existing_tag_key"`
-	ExistingTagName  *string     `json:"existing_tag_name"`
-	ExistingTagType  *string     `json:"existing_tag_type"`
+	ID                int32              `json:"id"`
+	RequestID         int32              `json:"request_id"`
+	TagID             *int32             `json:"tag_id"`
+	RequestedTagName  *string            `json:"requested_tag_name"`
+	RequestedTagType  *string            `json:"requested_tag_type"`
+	IsNewTagRequest   bool               `json:"is_new_tag_request"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ExistingTagKey    *string            `json:"existing_tag_key"`
+	ExistingTagName   *string            `json:"existing_tag_name"`
+	ExistingTagTypeID *int32             `json:"existing_tag_type_id"`
+	ExistingTagType   *string            `json:"existing_tag_type"`
 }
 
 // Get all tags (existing and requested) for a zman request
-func (q *Queries) GetZmanRequestTags(ctx context.Context, requestID string) ([]GetZmanRequestTagsRow, error) {
+func (q *Queries) GetZmanRequestTags(ctx context.Context, requestID int32) ([]GetZmanRequestTagsRow, error) {
 	rows, err := q.db.Query(ctx, getZmanRequestTags, requestID)
 	if err != nil {
 		return nil, err
@@ -728,6 +772,7 @@ func (q *Queries) GetZmanRequestTags(ctx context.Context, requestID string) ([]G
 			&i.CreatedAt,
 			&i.ExistingTagKey,
 			&i.ExistingTagName,
+			&i.ExistingTagTypeID,
 			&i.ExistingTagType,
 		); err != nil {
 			return nil, err
@@ -751,8 +796,8 @@ WHERE id = $1
 `
 
 type LinkTagToRequestParams struct {
-	ID    string      `json:"id"`
-	TagID pgtype.UUID `json:"tag_id"`
+	ID    int32  `json:"id"`
+	TagID *int32 `json:"tag_id"`
 }
 
 // Update the tag request to link the newly created tag
@@ -768,7 +813,7 @@ WHERE id = $1 AND is_new_tag_request = true
 `
 
 // Reject a new tag request by deleting it from zman_request_tags
-func (q *Queries) RejectTagRequest(ctx context.Context, id string) error {
+func (q *Queries) RejectTagRequest(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, rejectTagRequest, id)
 	return err
 }
@@ -776,23 +821,23 @@ func (q *Queries) RejectTagRequest(ctx context.Context, id string) error {
 const rejectZmanRequest = `-- name: RejectZmanRequest :one
 UPDATE zman_registry_requests
 SET
-    status = 'rejected',
+    status_id = (SELECT rs.id FROM request_statuses rs WHERE rs.key = 'rejected'),
     reviewed_by = $2,
     reviewed_at = NOW(),
     reviewer_notes = $3
-WHERE id = $1
-RETURNING id, status, reviewed_by, reviewed_at, reviewer_notes
+WHERE zman_registry_requests.id = $1
+RETURNING id, status_id, reviewed_by, reviewed_at, reviewer_notes
 `
 
 type RejectZmanRequestParams struct {
-	ID            string  `json:"id"`
+	ID            int32   `json:"id"`
 	ReviewedBy    *string `json:"reviewed_by"`
 	ReviewerNotes *string `json:"reviewer_notes"`
 }
 
 type RejectZmanRequestRow struct {
-	ID            string             `json:"id"`
-	Status        string             `json:"status"`
+	ID            int32              `json:"id"`
+	StatusID      int16              `json:"status_id"`
 	ReviewedBy    *string            `json:"reviewed_by"`
 	ReviewedAt    pgtype.Timestamptz `json:"reviewed_at"`
 	ReviewerNotes *string            `json:"reviewer_notes"`
@@ -804,7 +849,7 @@ func (q *Queries) RejectZmanRequest(ctx context.Context, arg RejectZmanRequestPa
 	var i RejectZmanRequestRow
 	err := row.Scan(
 		&i.ID,
-		&i.Status,
+		&i.StatusID,
 		&i.ReviewedBy,
 		&i.ReviewedAt,
 		&i.ReviewerNotes,

@@ -1,3 +1,10 @@
+// File: validator.go
+// Purpose: DSL formula validation - syntax checking, reference resolution
+// Pattern: validation
+// Dependencies: Queries: zmanim.sql for @reference validation
+// Frequency: high - 507 lines
+// Compliance: Check docs/adr/ for pattern rationale
+
 package dsl
 
 import (

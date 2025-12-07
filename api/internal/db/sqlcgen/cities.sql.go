@@ -102,7 +102,7 @@ type GetCitiesForCoverageParams struct {
 }
 
 type GetCitiesForCoverageRow struct {
-	ID          string  `json:"id"`
+	ID          int32   `json:"id"`
 	Name        string  `json:"name"`
 	CountryCode string  `json:"country_code"`
 	Country     string  `json:"country"`
@@ -167,7 +167,7 @@ WHERE c.id = $1
 `
 
 type GetCityByIDRow struct {
-	ID            string  `json:"id"`
+	ID            int32   `json:"id"`
 	Name          string  `json:"name"`
 	NameAscii     *string `json:"name_ascii"`
 	CountryID     int16   `json:"country_id"`
@@ -189,7 +189,7 @@ type GetCityByIDRow struct {
 	Geonameid     *int32  `json:"geonameid"`
 }
 
-func (q *Queries) GetCityByID(ctx context.Context, id string) (GetCityByIDRow, error) {
+func (q *Queries) GetCityByID(ctx context.Context, id int32) (GetCityByIDRow, error) {
 	row := q.db.QueryRow(ctx, getCityByID, id)
 	var i GetCityByIDRow
 	err := row.Scan(
@@ -234,7 +234,7 @@ LIMIT 1
 `
 
 type GetCityByNameRow struct {
-	ID          string  `json:"id"`
+	ID          int32   `json:"id"`
 	Name        string  `json:"name"`
 	CountryCode string  `json:"country_code"`
 	Country     string  `json:"country"`
@@ -697,7 +697,7 @@ type GetNearestCityParams struct {
 }
 
 type GetNearestCityRow struct {
-	ID             string  `json:"id"`
+	ID             int32   `json:"id"`
 	Name           string  `json:"name"`
 	NameAscii      *string `json:"name_ascii"`
 	CountryCode    string  `json:"country_code"`
@@ -880,6 +880,50 @@ func (q *Queries) GetRegionsByCountryID(ctx context.Context, countryID *int16) (
 	return items, nil
 }
 
+const getTopCitiesAsLocations = `-- name: GetTopCitiesAsLocations :many
+SELECT
+    c.id, c.name,
+    c.latitude, c.longitude, c.timezone
+FROM geo_cities c
+ORDER BY c.population DESC NULLS LAST, c.name
+LIMIT $1
+`
+
+type GetTopCitiesAsLocationsRow struct {
+	ID        int32   `json:"id"`
+	Name      string  `json:"name"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Timezone  string  `json:"timezone"`
+}
+
+// Get top cities ordered by population for location picker
+func (q *Queries) GetTopCitiesAsLocations(ctx context.Context, limit int32) ([]GetTopCitiesAsLocationsRow, error) {
+	rows, err := q.db.Query(ctx, getTopCitiesAsLocations, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTopCitiesAsLocationsRow{}
+	for rows.Next() {
+		var i GetTopCitiesAsLocationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Timezone,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertCity = `-- name: InsertCity :one
 INSERT INTO geo_cities (region_id, district_id, name, name_ascii, latitude, longitude, timezone, elevation_m, population, geonameid)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -899,7 +943,7 @@ type InsertCityParams struct {
 	Geonameid  *int32  `json:"geonameid"`
 }
 
-func (q *Queries) InsertCity(ctx context.Context, arg InsertCityParams) (string, error) {
+func (q *Queries) InsertCity(ctx context.Context, arg InsertCityParams) (int32, error) {
 	row := q.db.QueryRow(ctx, insertCity,
 		arg.RegionID,
 		arg.DistrictID,
@@ -912,7 +956,7 @@ func (q *Queries) InsertCity(ctx context.Context, arg InsertCityParams) (string,
 		arg.Population,
 		arg.Geonameid,
 	)
-	var id string
+	var id int32
 	err := row.Scan(&id)
 	return id, err
 }
@@ -1021,18 +1065,22 @@ JOIN geo_regions r ON c.region_id = r.id
 JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 WHERE ct.code = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY
+  CASE WHEN COALESCE($4::boolean, false) THEN co.name ELSE c.name END,
+  CASE WHEN COALESCE($4::boolean, false) THEN c.name ELSE co.name END,
+  c.population DESC NULLS LAST
 LIMIT $2 OFFSET $3
 `
 
 type ListCitiesByContinentParams struct {
-	Code   string `json:"code"`
-	Limit  int32  `json:"limit"`
-	Offset int32  `json:"offset"`
+	Code           string `json:"code"`
+	Limit          int32  `json:"limit"`
+	Offset         int32  `json:"offset"`
+	OrderByCountry *bool  `json:"order_by_country"`
 }
 
 type ListCitiesByContinentRow struct {
-	ID          string  `json:"id"`
+	ID          int32   `json:"id"`
 	Name        string  `json:"name"`
 	CountryCode string  `json:"country_code"`
 	Country     string  `json:"country"`
@@ -1047,7 +1095,12 @@ type ListCitiesByContinentRow struct {
 }
 
 func (q *Queries) ListCitiesByContinent(ctx context.Context, arg ListCitiesByContinentParams) ([]ListCitiesByContinentRow, error) {
-	rows, err := q.db.Query(ctx, listCitiesByContinent, arg.Code, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listCitiesByContinent,
+		arg.Code,
+		arg.Limit,
+		arg.Offset,
+		arg.OrderByCountry,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1094,17 +1147,21 @@ JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 LEFT JOIN geo_districts d ON c.district_id = d.id
 WHERE co.code = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY
+  CASE WHEN COALESCE($3::boolean, false) THEN r.name ELSE c.name END,
+  CASE WHEN COALESCE($3::boolean, false) THEN c.name ELSE r.name END,
+  c.population DESC NULLS LAST
 LIMIT $2
 `
 
 type ListCitiesByCountryParams struct {
-	Code  string `json:"code"`
-	Limit int32  `json:"limit"`
+	Code          string `json:"code"`
+	Limit         int32  `json:"limit"`
+	OrderByRegion *bool  `json:"order_by_region"`
 }
 
 type ListCitiesByCountryRow struct {
-	ID          string  `json:"id"`
+	ID          int32   `json:"id"`
 	Name        string  `json:"name"`
 	CountryCode string  `json:"country_code"`
 	Country     string  `json:"country"`
@@ -1120,7 +1177,7 @@ type ListCitiesByCountryRow struct {
 }
 
 func (q *Queries) ListCitiesByCountry(ctx context.Context, arg ListCitiesByCountryParams) ([]ListCitiesByCountryRow, error) {
-	rows, err := q.db.Query(ctx, listCitiesByCountry, arg.Code, arg.Limit)
+	rows, err := q.db.Query(ctx, listCitiesByCountry, arg.Code, arg.Limit, arg.OrderByRegion)
 	if err != nil {
 		return nil, err
 	}
@@ -1168,7 +1225,7 @@ JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 JOIN geo_districts d ON c.district_id = d.id
 WHERE d.id = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY c.name, c.population DESC NULLS LAST
 LIMIT $2
 `
 
@@ -1178,7 +1235,7 @@ type ListCitiesByDistrictParams struct {
 }
 
 type ListCitiesByDistrictRow struct {
-	ID           string  `json:"id"`
+	ID           int32   `json:"id"`
 	Name         string  `json:"name"`
 	CountryCode  string  `json:"country_code"`
 	Country      string  `json:"country"`
@@ -1244,17 +1301,21 @@ JOIN geo_countries co ON r.country_id = co.id
 JOIN geo_continents ct ON co.continent_id = ct.id
 LEFT JOIN geo_districts d ON c.district_id = d.id
 WHERE r.id = $1
-ORDER BY c.population DESC NULLS LAST, c.name
+ORDER BY
+  CASE WHEN COALESCE($3::boolean, false) THEN COALESCE(d.name, '') ELSE c.name END,
+  CASE WHEN COALESCE($3::boolean, false) THEN c.name ELSE COALESCE(d.name, '') END,
+  c.population DESC NULLS LAST
 LIMIT $2
 `
 
 type ListCitiesByRegionParams struct {
-	ID    int32 `json:"id"`
-	Limit int32 `json:"limit"`
+	ID              int32 `json:"id"`
+	Limit           int32 `json:"limit"`
+	OrderByDistrict *bool `json:"order_by_district"`
 }
 
 type ListCitiesByRegionRow struct {
-	ID          string  `json:"id"`
+	ID          int32   `json:"id"`
 	Name        string  `json:"name"`
 	CountryCode string  `json:"country_code"`
 	Country     string  `json:"country"`
@@ -1271,7 +1332,7 @@ type ListCitiesByRegionRow struct {
 }
 
 func (q *Queries) ListCitiesByRegion(ctx context.Context, arg ListCitiesByRegionParams) ([]ListCitiesByRegionRow, error) {
-	rows, err := q.db.Query(ctx, listCitiesByRegion, arg.ID, arg.Limit)
+	rows, err := q.db.Query(ctx, listCitiesByRegion, arg.ID, arg.Limit, arg.OrderByDistrict)
 	if err != nil {
 		return nil, err
 	}
@@ -1325,21 +1386,25 @@ WHERE 1=1
   AND ($2::text IS NULL OR co.code = $2)
   AND ($3::text IS NULL OR r.code = $3)
   AND ($4::text IS NULL OR c.name ILIKE '%' || $4 || '%')
-ORDER BY c.population DESC NULLS LAST, c.name
-LIMIT $6 OFFSET $5
+ORDER BY
+  CASE WHEN COALESCE($5::boolean, false) THEN co.name ELSE c.name END,
+  CASE WHEN COALESCE($5::boolean, false) THEN c.name ELSE co.name END,
+  c.population DESC NULLS LAST
+LIMIT $7 OFFSET $6
 `
 
 type SearchCitiesParams struct {
-	ContinentCode *string `json:"continent_code"`
-	CountryCode   *string `json:"country_code"`
-	RegionCode    *string `json:"region_code"`
-	SearchName    *string `json:"search_name"`
-	Offset        int32   `json:"offset"`
-	Limit         int32   `json:"limit"`
+	ContinentCode  *string `json:"continent_code"`
+	CountryCode    *string `json:"country_code"`
+	RegionCode     *string `json:"region_code"`
+	SearchName     *string `json:"search_name"`
+	OrderByCountry *bool   `json:"order_by_country"`
+	Offset         int32   `json:"offset"`
+	Limit          int32   `json:"limit"`
 }
 
 type SearchCitiesRow struct {
-	ID            string  `json:"id"`
+	ID            int32   `json:"id"`
 	Name          string  `json:"name"`
 	NameAscii     *string `json:"name_ascii"`
 	CountryCode   string  `json:"country_code"`
@@ -1366,6 +1431,7 @@ func (q *Queries) SearchCities(ctx context.Context, arg SearchCitiesParams) ([]S
 		arg.CountryCode,
 		arg.RegionCode,
 		arg.SearchName,
+		arg.OrderByCountry,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1433,22 +1499,24 @@ ORDER BY
     CASE WHEN c.name_ascii ILIKE $4 || '%' THEN 0
          WHEN c.name ILIKE $4 || '%' THEN 1
          ELSE 2 END,
+    CASE WHEN COALESCE($5::boolean, false) THEN co.name ELSE c.name END,
+    CASE WHEN COALESCE($5::boolean, false) THEN c.name ELSE co.name END,
     similarity(c.name_ascii, $4) DESC,
-    c.population DESC NULLS LAST,
-    c.name ASC
-LIMIT $5
+    c.population DESC NULLS LAST
+LIMIT $6
 `
 
 type SearchCitiesFuzzyParams struct {
-	ContinentCode *string `json:"continent_code"`
-	CountryCode   *string `json:"country_code"`
-	RegionCode    *string `json:"region_code"`
-	Search        *string `json:"search"`
-	Limit         int32   `json:"limit"`
+	ContinentCode  *string `json:"continent_code"`
+	CountryCode    *string `json:"country_code"`
+	RegionCode     *string `json:"region_code"`
+	Search         *string `json:"search"`
+	OrderByCountry *bool   `json:"order_by_country"`
+	Limit          int32   `json:"limit"`
 }
 
 type SearchCitiesFuzzyRow struct {
-	ID            string  `json:"id"`
+	ID            int32   `json:"id"`
 	Name          string  `json:"name"`
 	NameAscii     *string `json:"name_ascii"`
 	CountryCode   string  `json:"country_code"`
@@ -1475,6 +1543,7 @@ func (q *Queries) SearchCitiesFuzzy(ctx context.Context, arg SearchCitiesFuzzyPa
 		arg.CountryCode,
 		arg.RegionCode,
 		arg.Search,
+		arg.OrderByCountry,
 		arg.Limit,
 	)
 	if err != nil {
@@ -1643,7 +1712,7 @@ WHERE id = $1
 `
 
 type UpdateCityHierarchyParams struct {
-	ID         string `json:"id"`
+	ID         int32  `json:"id"`
 	RegionID   *int32 `json:"region_id"`
 	DistrictID *int32 `json:"district_id"`
 }
@@ -1683,7 +1752,7 @@ type UpsertCityParams struct {
 	Geonameid  *int32  `json:"geonameid"`
 }
 
-func (q *Queries) UpsertCity(ctx context.Context, arg UpsertCityParams) (string, error) {
+func (q *Queries) UpsertCity(ctx context.Context, arg UpsertCityParams) (int32, error) {
 	row := q.db.QueryRow(ctx, upsertCity,
 		arg.RegionID,
 		arg.DistrictID,
@@ -1696,7 +1765,7 @@ func (q *Queries) UpsertCity(ctx context.Context, arg UpsertCityParams) (string,
 		arg.Population,
 		arg.Geonameid,
 	)
-	var id string
+	var id int32
 	err := row.Scan(&id)
 	return id, err
 }

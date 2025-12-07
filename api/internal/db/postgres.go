@@ -1,3 +1,10 @@
+// File: postgres.go
+// Purpose: Database connection initialization and query aggregation (SQLc integration)
+// Pattern: database-lifecycle
+// Dependencies: pgxpool, sqlcgen.Queries
+// Frequency: critical
+// Compliance: Check docs/adr/ for pattern rationale
+
 package db
 
 import (

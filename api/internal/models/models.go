@@ -196,29 +196,31 @@ type HealthResponse struct {
 }
 
 // PublisherCoverage represents a publisher's coverage area at continent, country, region, district, or city level
-// Uses hierarchical IDs: continent_code, country_id, region_id, district_id, city_id
+// Uses normalized integer IDs with lookups for display names
 type PublisherCoverage struct {
-	ID            string    `json:"id"`
-	PublisherID   string    `json:"publisher_id"`
-	CoverageLevel string    `json:"coverage_level"` // continent, country, region, district, city
-	ContinentCode *string   `json:"continent_code,omitempty"`
-	CountryID     *int16    `json:"country_id,omitempty"`
-	RegionID      *int32    `json:"region_id,omitempty"`
-	DistrictID    *int32    `json:"district_id,omitempty"`
-	CityID        *string   `json:"city_id,omitempty"` // UUID string
-	Priority      int       `json:"priority"`
-	IsActive      bool      `json:"is_active"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	// Computed fields for display (from joined geo tables)
-	ContinentName *string `json:"continent_name,omitempty"`
-	CountryCode   *string `json:"country_code,omitempty"`
-	CountryName   *string `json:"country_name,omitempty"`
-	RegionCode    *string `json:"region_code,omitempty"`
-	RegionName    *string `json:"region_name,omitempty"`
-	DistrictCode  *string `json:"district_code,omitempty"`
-	DistrictName  *string `json:"district_name,omitempty"`
-	CityName      *string `json:"city_name,omitempty"`
+	ID              int32     `json:"id"`
+	PublisherID     int32     `json:"publisher_id"`
+	CoverageLevelID int16     `json:"coverage_level_id"`
+	ContinentID     *int16    `json:"continent_id,omitempty"`
+	CountryID       *int16    `json:"country_id,omitempty"`
+	RegionID        *int32    `json:"region_id,omitempty"`
+	DistrictID      *int32    `json:"district_id,omitempty"`
+	CityID          *int32    `json:"city_id,omitempty"`
+	Priority        int       `json:"priority"`
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	// Computed fields for display (from joined geo tables and lookups)
+	CoverageLevelKey *string `json:"coverage_level_key,omitempty"` // "continent", "country", etc.
+	ContinentCode    *string `json:"continent_code,omitempty"`
+	ContinentName    *string `json:"continent_name,omitempty"`
+	CountryCode      *string `json:"country_code,omitempty"`
+	CountryName      *string `json:"country_name,omitempty"`
+	RegionCode       *string `json:"region_code,omitempty"`
+	RegionName       *string `json:"region_name,omitempty"`
+	DistrictCode     *string `json:"district_code,omitempty"`
+	DistrictName     *string `json:"district_name,omitempty"`
+	CityName         *string `json:"city_name,omitempty"`
 }
 
 // PublisherCoverageCreateRequest represents a request to create coverage
@@ -228,7 +230,7 @@ type PublisherCoverageCreateRequest struct {
 	CountryID     *int16  `json:"country_id,omitempty"`
 	RegionID      *int32  `json:"region_id,omitempty"`
 	DistrictID    *int32  `json:"district_id,omitempty"`
-	CityID        *string `json:"city_id,omitempty"` // UUID string
+	CityID        *int64  `json:"city_id,omitempty"`
 	Priority      *int    `json:"priority,omitempty"`
 }
 
@@ -257,7 +259,7 @@ type PublisherForCity struct {
 type PublishersForCityResponse struct {
 	Publishers []PublisherForCity `json:"publishers"`
 	Total      int                `json:"total"`
-	CityID     string             `json:"city_id"`
+	CityID     int64              `json:"city_id"`
 }
 
 // AlgorithmResponse represents an algorithm with its configuration

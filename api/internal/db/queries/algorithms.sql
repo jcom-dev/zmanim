@@ -4,40 +4,55 @@
 -- Get algorithm for publisher --
 
 -- name: GetPublisherDraftAlgorithm :one
-SELECT id, name, COALESCE(description, '') as description,
-       COALESCE(configuration::text, '{}')::jsonb as configuration,
-       status, is_public,
-       created_at, updated_at
-FROM algorithms
-WHERE publisher_id = $1 AND status = 'draft'
-ORDER BY created_at DESC
+SELECT a.id, a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at, a.updated_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.publisher_id = $1 AND astatus.key = 'draft'
+ORDER BY a.created_at DESC
 LIMIT 1;
 
 -- name: GetPublisherActiveAlgorithm :one
-SELECT id, name, COALESCE(description, '') as description,
-       COALESCE(configuration::text, '{}')::jsonb as configuration,
-       status, is_public,
-       created_at, updated_at
-FROM algorithms
-WHERE publisher_id = $1 AND status = 'published'
-ORDER BY created_at DESC
+SELECT a.id, a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at, a.updated_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.publisher_id = $1 AND astatus.key = 'active'
+ORDER BY a.created_at DESC
 LIMIT 1;
 
 -- name: GetAlgorithmByID :one
-SELECT id, name, COALESCE(description, '') as description,
-       COALESCE(configuration::text, '{}')::jsonb as configuration,
-       status, is_public,
-       created_at, updated_at
-FROM algorithms
-WHERE id = $1 AND publisher_id = $2;
+SELECT a.id, a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at, a.updated_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.id = $1 AND a.publisher_id = $2;
 
 -- Create or update algorithm --
 
 -- name: CreateAlgorithm :one
 INSERT INTO algorithms (
-    publisher_id, name, description, configuration, status, is_public
+    publisher_id, name, description, configuration, status_id, is_public
 )
-VALUES ($1, $2, $3, $4, 'draft', false)
+VALUES ($1, $2, $3, $4, (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'draft'), false)
 RETURNING id, created_at, updated_at;
 
 -- name: UpdateAlgorithmDraft :one
@@ -53,92 +68,128 @@ RETURNING id, created_at, updated_at;
 
 -- name: ArchiveActiveAlgorithms :exec
 UPDATE algorithms
-SET status = 'deprecated', updated_at = NOW()
-WHERE publisher_id = $1 AND status = 'published';
+SET status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'archived'),
+    updated_at = NOW()
+WHERE publisher_id = $1
+  AND status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'active');
 
 -- name: PublishAlgorithm :one
 UPDATE algorithms
-SET status = 'published',
+SET status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'active'),
     updated_at = NOW()
-WHERE id = $1
+WHERE algorithms.id = $1
 RETURNING updated_at;
 
 -- Algorithm versions --
 
 -- name: GetAlgorithmVersions :many
-SELECT id, name,
-       status,
-       is_public,
-       created_at
-FROM algorithms
-WHERE publisher_id = $1
-ORDER BY created_at DESC;
+SELECT a.id, a.name,
+       a.status_id,
+       astatus.key as status_key,
+       astatus.display_name_hebrew as status_display_hebrew,
+       astatus.display_name_english as status_display_english,
+       a.is_public,
+       a.created_at
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE a.publisher_id = $1
+ORDER BY a.created_at DESC;
 
 -- name: DeprecateAlgorithmVersion :execrows
 UPDATE algorithms
-SET status = 'deprecated',
+SET status_id = (SELECT astatus.id FROM algorithm_statuses astatus WHERE astatus.key = 'archived'),
     updated_at = NOW()
-WHERE id = $1 AND publisher_id = $2;
+WHERE algorithms.id = $1 AND algorithms.publisher_id = $2;
 
--- Onboarding related --
--- Schema: id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set, created_at, updated_at
+-- Note: Onboarding queries moved to onboarding.sql
 
--- name: GetOnboardingState :one
+-- Algorithm Collaboration Queries --
+
+-- name: BrowsePublicAlgorithms :many
 SELECT
-    id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at
-FROM publisher_onboarding
-WHERE publisher_id = $1;
+    a.id, a.name, COALESCE(a.description, '') as description,
+    a.publisher_id, p.name as publisher_name,
+    COALESCE(p.logo_url, '') as publisher_logo,
+    COALESCE(a.fork_count, 0) as fork_count,
+    a.created_at
+FROM algorithms a
+JOIN publishers p ON p.id = a.publisher_id
+WHERE a.is_public = true AND a.is_active = true
+    AND ($1::text = '' OR a.name ILIKE '%' || $1 || '%' OR p.name ILIKE '%' || $1 || '%')
+ORDER BY a.fork_count DESC, a.created_at DESC
+LIMIT $2 OFFSET $3;
 
--- name: CreateOnboardingState :one
-INSERT INTO publisher_onboarding (publisher_id)
-VALUES ($1)
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at;
+-- name: CountPublicAlgorithms :one
+SELECT COUNT(*)
+FROM algorithms
+WHERE is_public = true AND is_active = true;
 
--- name: UpdateOnboardingProfileComplete :one
-UPDATE publisher_onboarding
-SET profile_complete = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at;
-
--- name: UpdateOnboardingAlgorithmSelected :one
-UPDATE publisher_onboarding
-SET algorithm_selected = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at;
-
--- name: UpdateOnboardingZmanimConfigured :one
-UPDATE publisher_onboarding
-SET zmanim_configured = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at;
-
--- name: UpdateOnboardingCoverageSet :one
-UPDATE publisher_onboarding
-SET coverage_set = $2, updated_at = NOW()
-WHERE publisher_id = $1
-RETURNING id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set,
-    created_at, updated_at;
-
--- Algorithm Templates --
-
--- name: GetAlgorithmTemplates :many
+-- name: GetPublicAlgorithmByID :one
 SELECT
-    id, template_key, name, description,
-    configuration, sort_order, is_active,
-    created_at, updated_at
-FROM algorithm_templates
-WHERE is_active = true
-ORDER BY sort_order ASC;
+    a.id, a.name, COALESCE(a.description, '') as description,
+    a.publisher_id, p.name as publisher_name,
+    COALESCE(p.logo_url, '') as publisher_logo,
+    COALESCE(a.fork_count, 0) as fork_count,
+    a.created_at, COALESCE(a.configuration::text, '{}')::jsonb as configuration
+FROM algorithms a
+JOIN publishers p ON p.id = a.publisher_id
+WHERE a.id = $1 AND a.is_public = true AND a.is_active = true;
 
--- name: GetAlgorithmTemplateByKey :one
-SELECT
-    id, template_key, name, description,
-    configuration, sort_order, is_active,
+-- name: GetPublicAlgorithmConfig :one
+SELECT name, COALESCE(description, '') as description, COALESCE(configuration::text, '{}')::jsonb as configuration
+FROM algorithms
+WHERE id = $1 AND is_public = true AND is_active = true;
+
+-- name: CopyPublicAlgorithm :one
+INSERT INTO algorithms (
+    publisher_id, name, description, configuration, version,
+    formula_definition, calculation_type,
+    is_active, is_public, created_at, updated_at
+) VALUES (
+    $1, $2 || ' (Copy)', $3, $4, '1.0',
+    '{}', 'custom',
+    false, false, NOW(), NOW()
+)
+RETURNING id;
+
+-- name: ForkPublicAlgorithm :one
+INSERT INTO algorithms (
+    publisher_id, name, description, configuration, version,
+    formula_definition, calculation_type,
+    is_active, is_public, forked_from, attribution_text,
     created_at, updated_at
-FROM algorithm_templates
-WHERE template_key = $1 AND is_active = true;
+) VALUES (
+    $1, $2 || ' (Fork)', $3, $4, '1.0',
+    '{}', 'custom',
+    false, false, $5, $6, NOW(), NOW()
+)
+RETURNING id;
+
+-- name: GetPublicAlgorithmWithPublisher :one
+SELECT a.name, COALESCE(a.description, '') as description,
+       COALESCE(a.configuration::text, '{}')::jsonb as configuration,
+       p.name as publisher_name
+FROM algorithms a
+JOIN publishers p ON p.id = a.publisher_id
+WHERE a.id = $1 AND a.is_public = true AND a.is_active = true;
+
+-- name: IncrementAlgorithmForkCount :exec
+UPDATE algorithms
+SET fork_count = COALESCE(fork_count, 0) + 1
+WHERE id = $1;
+
+-- name: SetAlgorithmVisibility :exec
+UPDATE algorithms
+SET is_public = $1, updated_at = NOW()
+WHERE publisher_id = $2;
+
+-- name: GetPublisherForks :many
+SELECT
+    a.id, a.name, a.attribution_text,
+    source.id as source_id, source.name as source_name,
+    p.name as source_publisher
+FROM algorithms a
+JOIN algorithms source ON source.id = a.forked_from
+JOIN publishers p ON p.id = source.publisher_id
+WHERE a.publisher_id = $1 AND a.forked_from IS NOT NULL
+ORDER BY a.created_at DESC;

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 )
 
 const (
@@ -69,22 +71,30 @@ func (h *Handlers) UploadPublisherLogo(w http.ResponseWriter, r *http.Request) {
 	base64Data := base64.StdEncoding.EncodeToString(fileBytes)
 	dataURL := fmt.Sprintf("data:%s;base64,%s", contentType, base64Data)
 
+	// Convert publisherID string to int32
+	publisherIDInt, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
 	// Update publisher's logo_data in database
-	updateQuery := `
-		UPDATE publishers
-		SET logo_data = $1, updated_at = NOW()
-		WHERE id = $2
-		RETURNING logo_data
-	`
-	var updatedLogoData string
-	err = h.db.Pool.QueryRow(ctx, updateQuery, dataURL, publisherID).Scan(&updatedLogoData)
+	result, err := h.db.Queries.UpdatePublisherLogo(ctx, sqlcgen.UpdatePublisherLogoParams{
+		ID:       publisherIDInt,
+		LogoData: &dataURL,
+	})
 	if err != nil {
 		RespondInternalError(w, r, "Failed to update publisher profile")
 		return
 	}
 
+	logoData := ""
+	if result.LogoData != nil {
+		logoData = *result.LogoData
+	}
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"logo_data": updatedLogoData,
+		"logo_data": logoData,
 		"message":   "Logo uploaded successfully",
 	})
 }

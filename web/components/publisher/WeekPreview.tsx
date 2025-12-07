@@ -1,3 +1,12 @@
+/**
+ * @file WeekPreview.tsx
+ * @purpose 7-day zmanim preview - caching, date navigation
+ * @pattern client-component
+ * @dependencies useApi, DatePicker, Table (shadcn)
+ * @frequency high - 617 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useApi } from '@/lib/api-client';

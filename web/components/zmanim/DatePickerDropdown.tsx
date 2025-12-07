@@ -1,3 +1,12 @@
+/**
+ * @file DatePickerDropdown.tsx
+ * @purpose Date range picker - Hebrew calendar integration
+ * @pattern client-component
+ * @dependencies Calendar (shadcn), date-fns, Hebrew date conversion
+ * @frequency medium - 489 lines
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';

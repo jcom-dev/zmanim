@@ -1,3 +1,12 @@
+/**
+ * @file ZmanCard.tsx
+ * @purpose Individual zman display - versioning, aliasing, actions
+ * @pattern client-component
+ * @dependencies useApi, Badge, Dialog (shadcn)
+ * @frequency high - 884 lines, reused 30+ times
+ * @compliance Check docs/adr/ for pattern rationale
+ */
+
 'use client';
 
 import { useState } from 'react';

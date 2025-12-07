@@ -7,6 +7,8 @@ package sqlcgen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getAllDisplayGroups = `-- name: GetAllDisplayGroups :many
@@ -102,19 +104,29 @@ FROM tag_types
 ORDER BY sort_order
 `
 
+type GetAllTagTypesRow struct {
+	ID                 int32              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Color              *string            `json:"color"`
+	SortOrder          int32              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 // ============================================================================
 // TAG TYPES
 // ============================================================================
 // Get all tag types ordered by sort_order
-func (q *Queries) GetAllTagTypes(ctx context.Context) ([]TagType, error) {
+func (q *Queries) GetAllTagTypes(ctx context.Context) ([]GetAllTagTypesRow, error) {
 	rows, err := q.db.Query(ctx, getAllTagTypes)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []TagType{}
+	items := []GetAllTagTypesRow{}
 	for rows.Next() {
-		var i TagType
+		var i GetAllTagTypesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Key,
@@ -187,7 +199,7 @@ WHERE id = $1
 `
 
 // Get a display group by its ID
-func (q *Queries) GetDisplayGroupByID(ctx context.Context, id string) (DisplayGroup, error) {
+func (q *Queries) GetDisplayGroupByID(ctx context.Context, id int32) (DisplayGroup, error) {
 	row := q.db.QueryRow(ctx, getDisplayGroupByID, id)
 	var i DisplayGroup
 	err := row.Scan(
@@ -239,7 +251,7 @@ WHERE id = $1
 `
 
 // Get an event category by its ID
-func (q *Queries) GetEventCategoryByID(ctx context.Context, id string) (EventCategory, error) {
+func (q *Queries) GetEventCategoryByID(ctx context.Context, id int32) (EventCategory, error) {
 	row := q.db.QueryRow(ctx, getEventCategoryByID, id)
 	var i EventCategory
 	err := row.Scan(
@@ -282,39 +294,28 @@ func (q *Queries) GetEventCategoryByKey(ctx context.Context, key string) (EventC
 }
 
 const getTagTypeByID = `-- name: GetTagTypeByID :one
+
 SELECT id, key, display_name_hebrew, display_name_english,
        color, sort_order, created_at
 FROM tag_types
 WHERE id = $1
 `
 
-// Get a tag type by its ID
-func (q *Queries) GetTagTypeByID(ctx context.Context, id string) (TagType, error) {
-	row := q.db.QueryRow(ctx, getTagTypeByID, id)
-	var i TagType
-	err := row.Scan(
-		&i.ID,
-		&i.Key,
-		&i.DisplayNameHebrew,
-		&i.DisplayNameEnglish,
-		&i.Color,
-		&i.SortOrder,
-		&i.CreatedAt,
-	)
-	return i, err
+type GetTagTypeByIDRow struct {
+	ID                 int32              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Color              *string            `json:"color"`
+	SortOrder          int32              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
-const getTagTypeByKey = `-- name: GetTagTypeByKey :one
-SELECT id, key, display_name_hebrew, display_name_english,
-       color, sort_order, created_at
-FROM tag_types
-WHERE key = $1
-`
-
-// Get a tag type by its key
-func (q *Queries) GetTagTypeByKey(ctx context.Context, key string) (TagType, error) {
-	row := q.db.QueryRow(ctx, getTagTypeByKey, key)
-	var i TagType
+// Removed: Duplicate of GetTagTypeByKey in lookups.sql
+// Get a tag type by its ID
+func (q *Queries) GetTagTypeByID(ctx context.Context, id int32) (GetTagTypeByIDRow, error) {
+	row := q.db.QueryRow(ctx, getTagTypeByID, id)
+	var i GetTagTypeByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Key,
@@ -335,7 +336,7 @@ WHERE id = $1
 `
 
 // Get a time category by its ID
-func (q *Queries) GetTimeCategoryByID(ctx context.Context, id string) (TimeCategory, error) {
+func (q *Queries) GetTimeCategoryByID(ctx context.Context, id int32) (TimeCategory, error) {
 	row := q.db.QueryRow(ctx, getTimeCategoryByID, id)
 	var i TimeCategory
 	err := row.Scan(
