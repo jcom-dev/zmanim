@@ -356,8 +356,6 @@ type Querier interface {
 	// Get statistics on city hierarchy assignments
 	// Note: country derived via city.region_id → region.country_id (region_id is NOT NULL)
 	GetCityHierarchyStats(ctx context.Context) (GetCityHierarchyStatsRow, error)
-	// Get city coordinates and timezone for DSL calculations
-	GetCityLocationByID(ctx context.Context, id int32) (GetCityLocationByIDRow, error)
 	// Geo Lookups --
 	GetContinentByCode(ctx context.Context, code string) (GetContinentByCodeRow, error)
 	// ============================================================================

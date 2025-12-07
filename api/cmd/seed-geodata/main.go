@@ -5,9 +5,9 @@
 //
 // Features:
 //   - Downloads from S3 with progress tracking and retries
-//   - Streaming decompression (no temp disk space needed)
-//   - Parallel restore for 3-4x speed improvement
-//   - Pre-flight checks (disk space, connection, dependencies)
+//   - Fast zstd decompression with parallel restore
+//   - Parallel restore for 3-4x speed improvement (requires temp disk space)
+//   - Pre-flight checks (connection, dependencies)
 //   - Integrity verification (checksums)
 //
 // Usage:
@@ -18,7 +18,7 @@
 // Performance:
 //   - Typical 2-4GB compressed → ~5-10 minutes total
 //   - Parallel restore with --jobs=4 (default)
-//   - Streaming decompression saves disk I/O
+//   - Requires temp disk space (~3x compressed size)
 //
 // Environment:
 //   DATABASE_URL      PostgreSQL connection string (required)
@@ -395,46 +395,46 @@ func verifyChecksum(file string) error {
 
 func restoreDatabase(dumpFile, dbURL string, jobs int) error {
 	// Build pg_restore command
+	// Use --data-only since schema is managed by migrations
 	args := []string{
 		"--verbose",
+		"--data-only",     // Only restore data, not schema
 		"--no-owner",
 		"--no-acl",
+		"--disable-triggers",  // Disable triggers during restore for speed
 		fmt.Sprintf("--jobs=%d", jobs),
 		"--dbname=" + dbURL,
 	}
 
-	// If zstd compressed, decompress on the fly
+	// If zstd compressed, decompress to temp file first
+	// (pg_restore doesn't support --jobs with stdin)
 	if strings.HasSuffix(dumpFile, ".zst") {
 		log.Printf("Decompressing with zstd...")
 
-		// zstd -d -c file.zst | pg_restore
-		zstd := exec.Command("zstd", "-d", "-c", dumpFile)
-		pgRestore := exec.Command("pg_restore", append(args, "-")...)
+		// Create temp file for decompressed dump
+		tmpFile := dumpFile + ".tmp"
+		defer os.Remove(tmpFile)
 
-		pipe, err := zstd.StdoutPipe()
-		if err != nil {
-			return fmt.Errorf("failed to create pipe: %w", err)
-		}
+		// Decompress: zstd -d -f -o output.dump input.dump.zst
+		// -f forces overwrite if temp file exists from previous run
+		zstd := exec.Command("zstd", "-d", "-f", "-o", tmpFile, dumpFile)
+		zstd.Stdout = os.Stdout
+		zstd.Stderr = os.Stderr
 
-		pgRestore.Stdin = pipe
-		pgRestore.Stdout = os.Stdout
-		pgRestore.Stderr = os.Stderr
-
-		// Start both processes
-		if err := pgRestore.Start(); err != nil {
-			return fmt.Errorf("failed to start pg_restore: %w", err)
-		}
-
-		if err := zstd.Start(); err != nil {
-			return fmt.Errorf("failed to start zstd: %w", err)
-		}
-
-		// Wait for completion
-		if err := zstd.Wait(); err != nil {
+		if err := zstd.Run(); err != nil {
 			return fmt.Errorf("zstd decompression failed: %w", err)
 		}
 
-		if err := pgRestore.Wait(); err != nil {
+		log.Printf("✓ Decompression complete")
+		log.Printf("Running parallel restore with %d jobs...", jobs)
+
+		// Now restore from decompressed file with parallel jobs
+		args = append(args, tmpFile)
+		cmd := exec.Command("pg_restore", args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("pg_restore failed: %w", err)
 		}
 	} else {

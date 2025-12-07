@@ -4,6 +4,13 @@ set -e
 echo "=== Zmanim Lab Coding Standards Compliance ==="
 echo ""
 
+# Security checks
+echo "🔐 Security:"
+DB_CONN_STRINGS=$(grep -rE "postgresql://[^\"]*:[^\"]*@" api web --include="*.go" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules 2>/dev/null | grep -v ".env.example" | grep -v "docs/" | wc -l)
+API_KEYS=$(grep -rE "(sk_live_|sk_prod_|AKIA|AIza)" api web --include="*.go" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules 2>/dev/null | grep -v ".env.example" | grep -v "docs/" | wc -l)
+echo "  ⚠ Hardcoded DB connection strings: $DB_CONN_STRINGS (target: 0)"
+echo "  ⚠ Hardcoded API keys/secrets: $API_KEYS (target: 0)"
+
 # Backend checks
 echo "🔧 Backend:"
 RAW_SQL=$(grep -rE "db\.Pool\.Query|db\.Pool\.Exec" api/internal/handlers api/internal/services --include="*.go" 2>/dev/null | wc -l)
@@ -35,7 +42,7 @@ echo "  ⚠ Tests missing parallel mode: $MISSING_PARALLEL (target: 0)"
 
 # Summary
 echo ""
-TOTAL_VIOLATIONS=$((RAW_SQL + LOG_PRINTF + RAW_FETCH + HARDCODED_COLORS + VARCHAR_FKS + MISSING_PARALLEL))
+TOTAL_VIOLATIONS=$((DB_CONN_STRINGS + API_KEYS + RAW_SQL + LOG_PRINTF + RAW_FETCH + HARDCODED_COLORS + VARCHAR_FKS + MISSING_PARALLEL))
 if [ $TOTAL_VIOLATIONS -eq 0 ]; then
   echo "✅ All checks passed! Codebase is compliant."
   exit 0
@@ -43,6 +50,16 @@ else
   echo "⚠️  Total violations: $TOTAL_VIOLATIONS"
   echo ""
   echo "Details:"
+  if [ $DB_CONN_STRINGS -gt 0 ]; then
+    echo ""
+    echo "⚠️  CRITICAL: Hardcoded database connection strings found:"
+    grep -rn -E "postgresql://[^\"]*:[^\"]*@" api web --include="*.go" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules 2>/dev/null | grep -v ".env.example" | grep -v "docs/"
+  fi
+  if [ $API_KEYS -gt 0 ]; then
+    echo ""
+    echo "⚠️  CRITICAL: Hardcoded API keys/secrets found:"
+    grep -rn -E "(sk_live_|sk_prod_|AKIA|AIza)" api web --include="*.go" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules 2>/dev/null | grep -v ".env.example" | grep -v "docs/"
+  fi
   if [ $RAW_FETCH -gt 0 ]; then
     echo ""
     echo "Raw fetch() violations:"

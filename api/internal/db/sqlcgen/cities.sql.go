@@ -268,26 +268,6 @@ func (q *Queries) GetCityByName(ctx context.Context, name string) (GetCityByName
 	return i, err
 }
 
-const getCityLocationByID = `-- name: GetCityLocationByID :one
-SELECT latitude, longitude, timezone
-FROM geo_cities
-WHERE id = $1
-`
-
-type GetCityLocationByIDRow struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-	Timezone  string  `json:"timezone"`
-}
-
-// Get city coordinates and timezone for DSL calculations
-func (q *Queries) GetCityLocationByID(ctx context.Context, id int32) (GetCityLocationByIDRow, error) {
-	row := q.db.QueryRow(ctx, getCityLocationByID, id)
-	var i GetCityLocationByIDRow
-	err := row.Scan(&i.Latitude, &i.Longitude, &i.Timezone)
-	return i, err
-}
-
 const getContinents = `-- name: GetContinents :many
 
 SELECT ct.id, ct.code, ct.name, COUNT(c.id) as city_count

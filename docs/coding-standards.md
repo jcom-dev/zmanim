@@ -49,6 +49,84 @@ if (!isSignedIn) redirect('/sign-in');
 
 ---
 
+## Security - Secrets Management - ZERO TOLERANCE
+
+**FORBIDDEN - NEVER commit to repository:**
+- Passwords, API keys, tokens, secrets
+- Database connection strings (with credentials)
+- Private keys, certificates
+- AWS credentials, S3 bucket URLs with keys
+- OAuth client secrets
+- Session secrets, JWT signing keys
+- `.env` files with real credentials
+
+**REQUIRED patterns:**
+
+```bash
+# ✓ CORRECT - Use environment variables
+DATABASE_URL=postgresql://...         # In .env (gitignored)
+AWS_S3_BUCKET=my-bucket               # In .env (gitignored)
+CLERK_SECRET_KEY=sk_test_...          # In .env (gitignored)
+
+# ✓ CORRECT - Reference in code
+dbURL := os.Getenv("DATABASE_URL")
+apiKey := process.env.CLERK_SECRET_KEY
+```
+
+```go
+// ✗ FORBIDDEN - Hardcoded credentials
+const connStr = "postgresql://user:password@localhost/db"
+const apiKey = "sk_live_abc123..."
+
+// ✓ REQUIRED - Environment variables
+connStr := os.Getenv("DATABASE_URL")
+apiKey := os.Getenv("API_KEY")
+```
+
+```typescript
+// ✗ FORBIDDEN - Hardcoded secrets
+const apiKey = "sk_test_abc123...";
+const dbUrl = "postgresql://user:pass@host/db";
+
+// ✓ REQUIRED - Environment variables
+const apiKey = process.env.CLERK_SECRET_KEY;
+const dbUrl = process.env.DATABASE_URL;
+```
+
+**Configuration files:**
+- `.env` → MUST be in `.gitignore`
+- `.env.example` → Template with dummy values (safe to commit)
+- `.env.local`, `.env.production` → MUST be in `.gitignore`
+
+**Documentation:**
+```bash
+# .env.example (safe to commit)
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+CLERK_SECRET_KEY=sk_test_your_key_here
+AWS_S3_BUCKET=your-bucket-name
+```
+
+**Exceptions (extremely rare):**
+- Public API endpoints (but never with keys/tokens)
+- Well-known public constants (e.g., `EARTH_RADIUS_KM = 6371`)
+- Test fixtures with obviously fake data (`test@example.com`, `password123`)
+
+**Detection:**
+```bash
+# Check for common violations before commit
+./scripts/check-compliance.sh
+grep -r "postgresql://.*:.*@" --include="*.go" --include="*.ts"
+grep -r "sk_live_\|sk_prod_" --include="*.go" --include="*.ts"
+```
+
+**If accidentally committed:**
+1. Immediately rotate/revoke the exposed secret
+2. Remove from git history: `git filter-branch` or BFG Repo-Cleaner
+3. Force push (coordinate with team)
+4. Update all environments with new secrets
+
+---
+
 ## Clean Code Policy - ZERO TOLERANCE
 
 **FORBIDDEN patterns - delete, don't mark:**
@@ -468,6 +546,7 @@ Types: feat, fix, refactor, docs, test, chore
 
 ## PR Checklist
 
+- [ ] **Security:** No secrets, passwords, or credentials committed
 - [ ] Publisher zmanim linked (master_registry or linked_zman)
 - [ ] Service restarts via `./restart.sh`
 - [ ] No hardcoded colors

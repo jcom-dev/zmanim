@@ -431,12 +431,6 @@ ORDER BY
     c.population DESC NULLS LAST
 LIMIT sqlc.arg('limit');
 
--- name: GetCityLocationByID :one
--- Get city coordinates and timezone for DSL calculations
-SELECT latitude, longitude, timezone
-FROM geo_cities
-WHERE id = $1;
-
 -- name: GetTopCitiesAsLocations :many
 -- Get top cities ordered by population for location picker
 SELECT

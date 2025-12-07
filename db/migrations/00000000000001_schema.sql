@@ -1045,6 +1045,89 @@ END;
 $$;
 
 
+--
+-- Name: get_city_location(integer, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_city_location(p_city_id integer, p_publisher_id integer DEFAULT NULL) RETURNS TABLE(city_id integer, latitude double precision, longitude double precision, elevation_m integer, timezone text, coordinate_source_id integer, elevation_source_id integer, has_coordinate_override boolean, has_elevation_override boolean)
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+    v_coord_override RECORD;
+    v_elev_override RECORD;
+    v_baseline RECORD;
+BEGIN
+    -- Get baseline data from geo_cities
+    SELECT
+        c.id,
+        c.latitude,
+        c.longitude,
+        c.elevation_m,
+        c.timezone,
+        c.coordinate_source_id,
+        c.elevation_source_id
+    INTO v_baseline
+    FROM geo_cities c
+    WHERE c.id = p_city_id;
+
+    -- If city doesn't exist, return empty result
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    -- Check for publisher coordinate override (if publisher_id provided)
+    IF p_publisher_id IS NOT NULL THEN
+        SELECT
+            cc.latitude,
+            cc.longitude,
+            cc.source_id
+        INTO v_coord_override
+        FROM geo_city_coordinates cc
+        JOIN geo_data_sources s ON s.id = cc.source_id
+        WHERE cc.city_id = p_city_id
+          AND cc.publisher_id = p_publisher_id
+          AND s.is_active = true
+        ORDER BY s.priority, cc.verified_at DESC NULLS LAST
+        LIMIT 1;
+
+        -- Check for publisher elevation override
+        SELECT
+            ce.elevation_m,
+            ce.source_id
+        INTO v_elev_override
+        FROM geo_city_elevations ce
+        JOIN geo_data_sources s ON s.id = ce.source_id
+        WHERE ce.city_id = p_city_id
+          AND ce.publisher_id = p_publisher_id
+          AND s.is_active = true
+          -- Match coordinate source if we have an override
+          AND (v_coord_override.source_id IS NULL OR ce.coordinate_source_id = v_coord_override.source_id)
+        ORDER BY s.priority, ce.verified_at DESC NULLS LAST
+        LIMIT 1;
+    END IF;
+
+    -- Return combined result (override takes precedence over baseline)
+    RETURN QUERY SELECT
+        v_baseline.id,
+        COALESCE(v_coord_override.latitude, v_baseline.latitude),
+        COALESCE(v_coord_override.longitude, v_baseline.longitude),
+        COALESCE(v_elev_override.elevation_m, v_baseline.elevation_m),
+        v_baseline.timezone,
+        COALESCE(v_coord_override.source_id, v_baseline.coordinate_source_id),
+        COALESCE(v_elev_override.source_id, v_baseline.elevation_source_id),
+        (v_coord_override.latitude IS NOT NULL)::BOOLEAN,
+        (v_elev_override.elevation_m IS NOT NULL)::BOOLEAN;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_city_location(p_city_id integer, p_publisher_id integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_city_location(p_city_id integer, p_publisher_id integer) IS 'Returns effective city coordinates and elevation, with optional publisher overrides. Used for zmanim calculations.';
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -3545,10 +3628,10 @@ CREATE INDEX idx_geo_city_coordinates_priority_lookup ON public.geo_city_coordin
 
 
 --
--- Name: idx_geo_city_coordinates_publisher_override; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_geo_city_coordinates_publisher_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_geo_city_coordinates_publisher_override ON public.geo_city_coordinates USING btree (city_id, publisher_id) WHERE (source_id = 1);
+CREATE INDEX idx_geo_city_coordinates_publisher_lookup ON public.geo_city_coordinates USING btree (city_id, publisher_id) INCLUDE (latitude, longitude, source_id, verified_at) WHERE (publisher_id IS NOT NULL);
 
 
 --
@@ -3573,10 +3656,10 @@ CREATE INDEX idx_geo_city_elevations_priority_lookup ON public.geo_city_elevatio
 
 
 --
--- Name: idx_geo_city_elevations_publisher_override; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_geo_city_elevations_publisher_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_geo_city_elevations_publisher_override ON public.geo_city_elevations USING btree (city_id, publisher_id) WHERE (source_id = 1);
+CREATE INDEX idx_geo_city_elevations_publisher_lookup ON public.geo_city_elevations USING btree (city_id, publisher_id) INCLUDE (elevation_m, source_id, coordinate_source_id, verified_at) WHERE (publisher_id IS NOT NULL);
 
 
 --
@@ -3591,6 +3674,41 @@ CREATE INDEX idx_geo_city_elevations_source ON public.geo_city_elevations USING 
 --
 
 CREATE UNIQUE INDEX idx_geo_city_elevations_unique ON public.geo_city_elevations USING btree (city_id, coordinate_source_id, source_id, COALESCE(publisher_id, 0));
+
+
+--
+-- Name: idx_geo_city_coordinates_source_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_city_coordinates_source_active ON public.geo_city_coordinates USING btree (source_id) INCLUDE (city_id, publisher_id, latitude, longitude, verified_at);
+
+
+--
+-- Name: idx_geo_city_elevations_source_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_city_elevations_source_active ON public.geo_city_elevations USING btree (source_id) INCLUDE (city_id, publisher_id, elevation_m, verified_at);
+
+
+--
+-- Name: idx_geo_cities_id_location; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_geo_cities_id_location ON public.geo_cities USING btree (id) INCLUDE (latitude, longitude, elevation_m, timezone, coordinate_source_id, elevation_source_id);
+
+
+--
+-- Name: INDEXCOMMENT idx_geo_city_coordinates_publisher_lookup; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.idx_geo_city_coordinates_publisher_lookup IS 'Optimizes publisher-specific coordinate override lookups for zmanim calculations';
+
+
+--
+-- Name: INDEXCOMMENT idx_geo_city_elevations_publisher_lookup; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.idx_geo_city_elevations_publisher_lookup IS 'Optimizes publisher-specific elevation override lookups for zmanim calculations';
 
 
 --
