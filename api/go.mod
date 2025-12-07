@@ -3,8 +3,8 @@ module github.com/jcom-dev/zmanim-lab
 go 1.24.0
 
 require (
+	github.com/airbusgeo/godal v0.0.15
 	github.com/clerk/clerk-sdk-go/v2 v2.5.0
-	github.com/gden173/geotiff v0.0.0-20240912224008-f9783b944902
 	github.com/go-chi/chi/v5 v5.0.11
 	github.com/go-chi/cors v1.2.1
 	github.com/google/uuid v1.6.0

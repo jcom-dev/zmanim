@@ -244,8 +244,7 @@ func main() {
 			r.Get("/algorithms/public", h.BrowsePublicAlgorithms)
 			r.Get("/algorithms/{id}/public", h.GetPublicAlgorithm)
 
-			// Zmanim templates (Story 4-4) - public, no auth required
-			r.Get("/zmanim/templates", h.GetZmanimTemplates)
+			// Public zmanim browsing
 			r.Get("/zmanim/browse", h.BrowsePublicZmanim)
 
 			// Master Zmanim Registry (public)
@@ -296,7 +295,6 @@ func main() {
 			r.Get("/algorithm", h.GetPublisherAlgorithmHandler)
 			r.Put("/algorithm", h.UpdatePublisherAlgorithmHandler)
 			r.Post("/algorithm/preview", h.PreviewAlgorithm)
-			r.Get("/algorithm/templates", h.GetAlgorithmTemplates)
 			r.Get("/algorithm/methods", h.GetZmanMethods)
 			// Publisher zmanim management (Story 4-4)
 			r.Get("/zmanim", h.GetPublisherZmanim)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim-lab/internal/middleware"
@@ -49,14 +50,11 @@ func (h *Handlers) AdminListAllUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Get all publishers for name lookup
 	publisherMap := make(map[string]publisherBasic)
-	rows, err := h.db.Pool.Query(ctx, "SELECT id, name FROM publishers")
+	publishers, err := h.db.Queries.GetAllPublishersBasicInfo(ctx)
 	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var id, name string
-			if err := rows.Scan(&id, &name); err == nil {
-				publisherMap[id] = publisherBasic{ID: id, Name: name}
-			}
+		for _, pub := range publishers {
+			pubIDStr := strconv.Itoa(int(pub.ID))
+			publisherMap[pubIDStr] = publisherBasic{ID: pubIDStr, Name: pub.Name}
 		}
 	}
 
@@ -210,11 +208,11 @@ func (h *Handlers) AdminAddUser(w http.ResponseWriter, r *http.Request) {
 			pubID := pubID // Capture for goroutine
 			go func() {
 				// Get publisher name
-				var pubName string
-				_ = h.db.Pool.QueryRow(context.Background(),
-					"SELECT name FROM publishers WHERE id = $1", pubID).Scan(&pubName)
-				if pubName == "" {
-					pubName = "the publisher"
+				pubName := "the publisher"
+				if pubIDInt, err := strconv.Atoi(pubID); err == nil {
+					if name, err := h.db.Queries.GetPublisherNameByID(context.Background(), int32(pubIDInt)); err == nil {
+						pubName = name
+					}
 				}
 
 				if err := h.emailService.SendUserAddedToPublisher(req.Email, req.Name, pubName, addedByName, isNewUser); err != nil {
@@ -539,10 +537,14 @@ func (h *Handlers) AdminAddPublisherToUser(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Verify publisher exists
-	var publisherName string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT name FROM publishers WHERE id = $1", req.PublisherID).Scan(&publisherName)
+	// Verify publisher exists and get name
+	pubIDInt, err := strconv.Atoi(req.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
+	publisherName, err := h.db.Queries.GetPublisherNameByID(ctx, int32(pubIDInt))
 	if err != nil {
 		RespondNotFound(w, r, "Publisher not found")
 		return

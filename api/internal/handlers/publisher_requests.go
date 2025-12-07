@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/middleware"
 )
 
@@ -65,12 +66,7 @@ func (h *Handlers) SubmitPublisherRequest(w http.ResponseWriter, r *http.Request
 	}
 
 	// Check for duplicate pending/approved requests
-	var existingCount int
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM publisher_requests
-		WHERE LOWER(email) = LOWER($1) AND status IN ('pending', 'approved')
-	`, req.Email).Scan(&existingCount)
-
+	existingCount, err := h.db.Queries.CheckExistingPublisherRequest(ctx, req.Email)
 	if err != nil {
 		slog.Error("failed to check for existing requests", "error", err)
 		RespondInternalError(w, r, "Failed to process request")
@@ -83,20 +79,21 @@ func (h *Handlers) SubmitPublisherRequest(w http.ResponseWriter, r *http.Request
 	}
 
 	// Insert the request
-	query := `
-		INSERT INTO publisher_requests (name, email, website, description, status)
-		VALUES ($1, $2, $3, $4, 'pending')
-		RETURNING id, created_at
-	`
+	var organization *string
+	var message *string
+	if req.Website != nil {
+		organization = req.Website
+	}
+	if req.Description != "" {
+		message = &req.Description
+	}
 
-	var id string
-	var createdAt time.Time
-	err = h.db.Pool.QueryRow(ctx, query,
-		strings.TrimSpace(req.Name),
-		strings.ToLower(strings.TrimSpace(req.Email)),
-		req.Website,
-		strings.TrimSpace(req.Description),
-	).Scan(&id, &createdAt)
+	result, err := h.db.Queries.CreatePublisherRequest(ctx, sqlcgen.CreatePublisherRequestParams{
+		Name:         strings.TrimSpace(req.Name),
+		Email:        strings.ToLower(strings.TrimSpace(req.Email)),
+		Organization: organization,
+		Message:      message,
+	})
 
 	if err != nil {
 		slog.Error("failed to create publisher request", "error", err)
@@ -105,7 +102,7 @@ func (h *Handlers) SubmitPublisherRequest(w http.ResponseWriter, r *http.Request
 	}
 
 	slog.Info("publisher request submitted",
-		"id", id,
+		"id", result.ID,
 		"email", req.Email,
 		"name", req.Name)
 
@@ -143,7 +140,7 @@ func (h *Handlers) SubmitPublisherRequest(w http.ResponseWriter, r *http.Request
 	RespondJSON(w, r, http.StatusCreated, map[string]interface{}{
 		"success": true,
 		"message": "Thank you! Your request has been submitted. We'll review it and get back to you soon.",
-		"id":      id,
+		"id":      result.ID,
 	})
 }
 
@@ -157,47 +154,44 @@ func (h *Handlers) AdminGetPublisherRequests(w http.ResponseWriter, r *http.Requ
 		status = "pending"
 	}
 
-	query := `
-		SELECT id, name, email, website, description, status,
-		       rejection_reason, reviewed_by, reviewed_at, created_at
-		FROM publisher_requests
-		WHERE status = $1
-		ORDER BY created_at DESC
-	`
-
-	rows, err := h.db.Pool.Query(ctx, query, status)
+	rows, err := h.db.Queries.GetPublisherRequestsByStatus(ctx, status)
 	if err != nil {
 		slog.Error("failed to query publisher requests", "error", err)
 		RespondInternalError(w, r, "Failed to retrieve requests")
 		return
 	}
-	defer rows.Close()
 
-	requests := make([]PublisherRequest, 0)
-	for rows.Next() {
+	requests := make([]PublisherRequest, 0, len(rows))
+	for _, row := range rows {
 		var req PublisherRequest
-		err := rows.Scan(
-			&req.ID, &req.Name, &req.Email, &req.Website,
-			&req.Description, &req.Status, &req.RejectionReason, &req.ReviewedBy,
-			&req.ReviewedAt, &req.CreatedAt,
-		)
-		if err != nil {
-			slog.Error("failed to scan publisher request row", "error", err)
-			continue
+		req.ID = fmt.Sprintf("%d", row.ID)
+		req.Name = row.Name
+		req.Email = row.Email
+		req.Website = row.Organization
+		if row.Message != nil {
+			req.Description = *row.Message
+		}
+		req.Status = row.Status
+		req.ReviewedBy = row.ReviewedBy
+		if row.ReviewedAt.Valid {
+			t := row.ReviewedAt.Time
+			req.ReviewedAt = &t
+		}
+		if row.CreatedAt.Valid {
+			req.CreatedAt = row.CreatedAt.Time
 		}
 		requests = append(requests, req)
 	}
 
 	// Get counts for all statuses
-	var pendingCount, approvedCount, rejectedCount int
-	_ = h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM publisher_requests WHERE status = 'pending'").Scan(&pendingCount)
-	_ = h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM publisher_requests WHERE status = 'approved'").Scan(&approvedCount)
-	_ = h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM publisher_requests WHERE status = 'rejected'").Scan(&rejectedCount)
+	pendingCount, _ := h.db.Queries.CountPublisherRequestsByStatus(ctx, "pending")
+	approvedCount, _ := h.db.Queries.CountPublisherRequestsByStatus(ctx, "approved")
+	rejectedCount, _ := h.db.Queries.CountPublisherRequestsByStatus(ctx, "rejected")
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"data": requests,
-		"meta": map[string]int{
-			"total":    len(requests),
+		"meta": map[string]int64{
+			"total":    int64(len(requests)),
 			"pending":  pendingCount,
 			"approved": approvedCount,
 			"rejected": rejectedCount,
@@ -219,14 +213,16 @@ func (h *Handlers) AdminApprovePublisherRequest(w http.ResponseWriter, r *http.R
 	// Get admin user ID from context
 	adminUserID := middleware.GetUserID(ctx)
 
-	// Get the request details
-	var req PublisherRequest
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT id, name, email, website, description, status
-		FROM publisher_requests WHERE id = $1
-	`, requestID).Scan(&req.ID, &req.Name, &req.Email,
-		&req.Website, &req.Description, &req.Status)
+	// Convert requestID string to int32
+	var requestIDInt int32
+	_, err := fmt.Sscanf(requestID, "%d", &requestIDInt)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid request ID format")
+		return
+	}
 
+	// Get the request details
+	row, err := h.db.Queries.GetPublisherRequestByID(ctx, requestIDInt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			RespondNotFound(w, r, "Request not found")
@@ -237,8 +233,8 @@ func (h *Handlers) AdminApprovePublisherRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if req.Status != "pending" {
-		RespondBadRequest(w, r, fmt.Sprintf("Request is already %s", req.Status))
+	if row.Status != "pending" {
+		RespondBadRequest(w, r, fmt.Sprintf("Request is already %s", row.Status))
 		return
 	}
 
@@ -251,14 +247,22 @@ func (h *Handlers) AdminApprovePublisherRequest(w http.ResponseWriter, r *http.R
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// Create transaction-aware queries
+	qtx := h.db.Queries.WithTx(tx)
+
 	// Create the publisher
-	slug := generateSlug(req.Name) // Publisher name IS the organization
-	var publisherID string
-	err = tx.QueryRow(ctx, `
-		INSERT INTO publishers (name, slug, email, description, status)
-		VALUES ($1, $2, $3, $4, 'pending_verification')
-		RETURNING id
-	`, req.Name, slug, req.Email, req.Description).Scan(&publisherID)
+	slug := generateSlug(row.Name) // Publisher name IS the organization
+	var description *string
+	if row.Message != nil {
+		description = row.Message
+	}
+
+	publisher, err := qtx.CreatePublisherFromRequest(ctx, sqlcgen.CreatePublisherFromRequestParams{
+		Name:        row.Name,
+		Slug:        &slug,
+		Email:       row.Email,
+		Description: description,
+	})
 
 	if err != nil {
 		slog.Error("failed to create publisher", "error", err)
@@ -267,11 +271,10 @@ func (h *Handlers) AdminApprovePublisherRequest(w http.ResponseWriter, r *http.R
 	}
 
 	// Update request status
-	_, err = tx.Exec(ctx, `
-		UPDATE publisher_requests
-		SET status = 'approved', reviewed_by = $1, reviewed_at = NOW()
-		WHERE id = $2
-	`, adminUserID, requestID)
+	err = qtx.ApprovePublisherRequest(ctx, sqlcgen.ApprovePublisherRequestParams{
+		ID:         requestIDInt,
+		ReviewedBy: &adminUserID,
+	})
 
 	if err != nil {
 		slog.Error("failed to update request status", "error", err)
@@ -286,6 +289,8 @@ func (h *Handlers) AdminApprovePublisherRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	publisherID := fmt.Sprintf("%d", publisher.ID)
+
 	// Send approval email (non-blocking)
 	if h.emailService != nil {
 		webURL := os.Getenv("WEB_URL")
@@ -293,7 +298,7 @@ func (h *Handlers) AdminApprovePublisherRequest(w http.ResponseWriter, r *http.R
 			webURL = "http://localhost:3001"
 		}
 		dashboardURL := fmt.Sprintf("%s/publisher", webURL)
-		go func() { _ = h.emailService.SendPublisherApproved(req.Email, req.Name, dashboardURL) }()
+		go func() { _ = h.emailService.SendPublisherApproved(row.Email, row.Name, dashboardURL) }()
 	}
 
 	slog.Info("publisher request approved",
@@ -327,13 +332,16 @@ func (h *Handlers) AdminRejectPublisherRequest(w http.ResponseWriter, r *http.Re
 	// Get admin user ID from context
 	adminUserID := middleware.GetUserID(ctx)
 
-	// Get the request details first
-	var req PublisherRequest
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT id, name, email, status
-		FROM publisher_requests WHERE id = $1
-	`, requestID).Scan(&req.ID, &req.Name, &req.Email, &req.Status)
+	// Convert requestID string to int32
+	var requestIDInt int32
+	_, err := fmt.Sscanf(requestID, "%d", &requestIDInt)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid request ID format")
+		return
+	}
 
+	// Get the request details first
+	row, err := h.db.Queries.GetPublisherRequestByID(ctx, requestIDInt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			RespondNotFound(w, r, "Request not found")
@@ -344,22 +352,16 @@ func (h *Handlers) AdminRejectPublisherRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if req.Status != "pending" {
-		RespondBadRequest(w, r, fmt.Sprintf("Request is already %s", req.Status))
+	if row.Status != "pending" {
+		RespondBadRequest(w, r, fmt.Sprintf("Request is already %s", row.Status))
 		return
 	}
 
 	// Update request status
-	var rejectionReason *string
-	if reqBody.Reason != "" {
-		rejectionReason = &reqBody.Reason
-	}
-
-	_, err = h.db.Pool.Exec(ctx, `
-		UPDATE publisher_requests
-		SET status = 'rejected', rejection_reason = $1, reviewed_by = $2, reviewed_at = NOW()
-		WHERE id = $3
-	`, rejectionReason, adminUserID, requestID)
+	err = h.db.Queries.RejectPublisherRequest(ctx, sqlcgen.RejectPublisherRequestParams{
+		ID:         requestIDInt,
+		ReviewedBy: &adminUserID,
+	})
 
 	if err != nil {
 		slog.Error("failed to reject publisher request", "error", err)
@@ -373,7 +375,7 @@ func (h *Handlers) AdminRejectPublisherRequest(w http.ResponseWriter, r *http.Re
 		if reqBody.Reason != "" {
 			reason = reqBody.Reason
 		}
-		go func() { _ = h.emailService.SendPublisherRejected(req.Email, req.Name, reason) }()
+		go func() { _ = h.emailService.SendPublisherRejected(row.Email, row.Name, reason) }()
 	}
 
 	slog.Info("publisher request rejected",

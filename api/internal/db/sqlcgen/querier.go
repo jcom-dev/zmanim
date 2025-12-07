@@ -7,11 +7,12 @@ package sqlcgen
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
-	AddMasterZmanFromRequest(ctx context.Context, id string) (AddMasterZmanFromRequestRow, error)
+	AddMasterZmanFromRequest(ctx context.Context, id int32) (AddMasterZmanFromRequestRow, error)
 	// Add a tag to a publisher zman (with optional is_negated)
 	AddTagToPublisherZman(ctx context.Context, arg AddTagToPublisherZmanParams) error
 	// Request a new tag for a zman request
@@ -20,17 +21,57 @@ type Querier interface {
 	AddZmanRequestTag(ctx context.Context, arg AddZmanRequestTagParams) (AddZmanRequestTagRow, error)
 	AdminCountAlgorithms(ctx context.Context, dollar_1 string) (int64, error)
 	AdminCountPublishers(ctx context.Context, dollar_1 string) (int64, error)
-	AdminDeletePublisher(ctx context.Context, id string) error
-	AdminGetPublisher(ctx context.Context, id string) (AdminGetPublisherRow, error)
+	AdminCreateMasterZman(ctx context.Context, arg AdminCreateMasterZmanParams) (AdminCreateMasterZmanRow, error)
+	// Create master zman with audit fields
+	AdminCreateMasterZmanWithAudit(ctx context.Context, arg AdminCreateMasterZmanWithAuditParams) (AdminCreateMasterZmanWithAuditRow, error)
+	// Publisher Creation --
+	AdminCreatePublisher(ctx context.Context, arg AdminCreatePublisherParams) (AdminCreatePublisherRow, error)
+	AdminDeleteMasterZman(ctx context.Context, id int32) error
+	AdminDeletePublisher(ctx context.Context, id int32) error
+	// ============================================
+	// ADMIN QUERIES
+	// ============================================
+	// Get all master zmanim for admin with optional include_hidden filter
+	AdminGetAllMasterZmanim(ctx context.Context, dollar_1 interface{}) ([]AdminGetAllMasterZmanimRow, error)
+	// Get all registry requests without status filter
+	AdminGetAllZmanRequests(ctx context.Context) ([]AdminGetAllZmanRequestsRow, error)
+	AdminGetMasterZmanByID(ctx context.Context, id int32) (AdminGetMasterZmanByIDRow, error)
+	// Get master zmanim by category for admin with optional include_hidden filter
+	AdminGetMasterZmanimByCategory(ctx context.Context, arg AdminGetMasterZmanimByCategoryParams) ([]AdminGetMasterZmanimByCategoryRow, error)
+	AdminGetPublisher(ctx context.Context, id int32) (AdminGetPublisherRow, error)
+	// Admin Statistics (legacy query for backward compatibility) --
+	AdminGetPublisherStats(ctx context.Context) (AdminGetPublisherStatsRow, error)
 	// Admin Statistics --
 	AdminGetStatistics(ctx context.Context) (AdminGetStatisticsRow, error)
+	// Get registry requests filtered by status
+	AdminGetZmanRequestsByStatus(ctx context.Context, key string) ([]AdminGetZmanRequestsByStatusRow, error)
 	// Admin Algorithm Management --
 	AdminListAlgorithms(ctx context.Context, arg AdminListAlgorithmsParams) ([]AdminListAlgorithmsRow, error)
+	// Extended Admin Publisher Listing (with all fields, including soft-deleted) --
+	AdminListAllPublishers(ctx context.Context, dollar_1 bool) ([]AdminListAllPublishersRow, error)
 	// Admin SQL Queries
 	// SQLc will generate type-safe Go code from these queries
 	// Admin Publisher Management --
 	AdminListPublishers(ctx context.Context, arg AdminListPublishersParams) ([]AdminListPublishersRow, error)
+	// Permanent Delete --
+	AdminPermanentDeletePublisher(ctx context.Context, id int32) error
+	AdminReactivatePublisher(ctx context.Context, id int32) (AdminReactivatePublisherRow, error)
+	AdminRestorePublisher(ctx context.Context, id int32) (AdminRestorePublisherRow, error)
+	AdminSetPublisherCertified(ctx context.Context, arg AdminSetPublisherCertifiedParams) (AdminSetPublisherCertifiedRow, error)
+	// Soft Delete and Restore --
+	AdminSoftDeletePublisher(ctx context.Context, arg AdminSoftDeletePublisherParams) (pgtype.Timestamptz, error)
+	// Publisher Updates --
+	AdminSuspendPublisher(ctx context.Context, arg AdminSuspendPublisherParams) (AdminSuspendPublisherRow, error)
+	AdminToggleZmanVisibility(ctx context.Context, id int32) (AdminToggleZmanVisibilityRow, error)
+	// Toggle zman visibility with audit
+	AdminToggleZmanVisibilityWithAudit(ctx context.Context, id int32) (AdminToggleZmanVisibilityWithAuditRow, error)
+	AdminUpdateMasterZman(ctx context.Context, arg AdminUpdateMasterZmanParams) (AdminUpdateMasterZmanRow, error)
+	// Update master zman with all fields (non-dynamic version)
+	AdminUpdateMasterZmanSimple(ctx context.Context, arg AdminUpdateMasterZmanSimpleParams) (AdminUpdateMasterZmanSimpleRow, error)
+	AdminUpdatePublisherFields(ctx context.Context, arg AdminUpdatePublisherFieldsParams) (AdminUpdatePublisherFieldsRow, error)
 	AdminUpdatePublisherStatus(ctx context.Context, arg AdminUpdatePublisherStatusParams) (AdminUpdatePublisherStatusRow, error)
+	// Mark a publisher request as approved
+	ApprovePublisherRequest(ctx context.Context, arg ApprovePublisherRequestParams) error
 	// Approve a new tag request - creates the tag and updates the request
 	// Step 1: Create the new tag in zman_tags table
 	// This query only creates the tag, the caller must update the request separately
@@ -38,7 +79,7 @@ type Querier interface {
 	// Approve a zman request
 	ApproveZmanRequest(ctx context.Context, arg ApproveZmanRequestParams) (ApproveZmanRequestRow, error)
 	// Publish algorithm --
-	ArchiveActiveAlgorithms(ctx context.Context, publisherID string) error
+	ArchiveActiveAlgorithms(ctx context.Context, publisherID int32) error
 	// ============================================================================
 	// Hierarchy Assignment (Point-in-Polygon)
 	// ============================================================================
@@ -47,6 +88,11 @@ type Querier interface {
 	AssignCitiesToCountries(ctx context.Context) (interface{}, error)
 	AssignCitiesToDistricts(ctx context.Context) (interface{}, error)
 	AssignCitiesToRegions(ctx context.Context) (interface{}, error)
+	// Auto-add approved zman to publisher's collection
+	AutoAddApprovedZman(ctx context.Context, arg AutoAddApprovedZmanParams) error
+	// Note: Onboarding queries moved to onboarding.sql
+	// Algorithm Collaboration Queries --
+	BrowsePublicAlgorithms(ctx context.Context, arg BrowsePublicAlgorithmsParams) ([]BrowsePublicAlgorithmsRow, error)
 	// Browse public zmanim --
 	BrowsePublicZmanim(ctx context.Context, arg BrowsePublicZmanimParams) ([]BrowsePublicZmanimRow, error)
 	// Bulk insert tags for a publisher zman (with is_negated)
@@ -59,6 +105,23 @@ type Querier interface {
 	CheckDuplicateCoverageCountry(ctx context.Context, arg CheckDuplicateCoverageCountryParams) (bool, error)
 	CheckDuplicateCoverageDistrict(ctx context.Context, arg CheckDuplicateCoverageDistrictParams) (bool, error)
 	CheckDuplicateCoverageRegion(ctx context.Context, arg CheckDuplicateCoverageRegionParams) (bool, error)
+	// Publisher Request Queries
+	// These queries handle publisher registration requests (public submissions and admin review)
+	// Check if there's already a pending or approved request for this email
+	CheckExistingPublisherRequest(ctx context.Context, lower string) (int64, error)
+	CheckMasterZmanInUse(ctx context.Context, masterZmanID *int32) (bool, error)
+	// Publisher Existence and Basic Info --
+	CheckPublisherExists(ctx context.Context, id int32) (bool, error)
+	// ============================================================================
+	// Queries for Publisher Zman Linking/Copying
+	// ============================================================================
+	// Verify a publisher is active and verified
+	CheckPublisherVerified(ctx context.Context, id int32) (bool, error)
+	// System Config Management --
+	CheckSystemConfigTableExists(ctx context.Context) (bool, error)
+	// Check if a zman_key already exists for a publisher
+	CheckZmanKeyExists(ctx context.Context, arg CheckZmanKeyExistsParams) (bool, error)
+	CopyPublicAlgorithm(ctx context.Context, arg CopyPublicAlgorithmParams) (int32, error)
 	CountCities(ctx context.Context, arg CountCitiesParams) (int64, error)
 	CountCityBoundaries(ctx context.Context) (int64, error)
 	// ============================================================================
@@ -67,7 +130,10 @@ type Querier interface {
 	CountCountryBoundaries(ctx context.Context) (int64, error)
 	CountDistrictBoundaries(ctx context.Context) (int64, error)
 	CountPendingInvitationsForEmail(ctx context.Context, arg CountPendingInvitationsForEmailParams) (int64, error)
-	CountPublisherZmanim(ctx context.Context, publisherID string) (int64, error)
+	CountPublicAlgorithms(ctx context.Context) (int64, error)
+	// Count publisher requests by status
+	CountPublisherRequestsByStatus(ctx context.Context, key string) (int64, error)
+	CountPublisherZmanim(ctx context.Context, publisherID int32) (int64, error)
 	CountPublishers(ctx context.Context, dollar_1 string) (int64, error)
 	CountRegionBoundaries(ctx context.Context) (int64, error)
 	// Get count of tags per type (for UI display)
@@ -83,9 +149,16 @@ type Querier interface {
 	CreateCoverageCountry(ctx context.Context, arg CreateCoverageCountryParams) (CreateCoverageCountryRow, error)
 	CreateCoverageDistrict(ctx context.Context, arg CreateCoverageDistrictParams) (CreateCoverageDistrictRow, error)
 	CreateCoverageRegion(ctx context.Context, arg CreateCoverageRegionParams) (CreateCoverageRegionRow, error)
-	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (string, error)
-	CreateOnboardingState(ctx context.Context, publisherID string) (PublisherOnboarding, error)
+	// Create initial version for a new publisher zman
+	CreateInitialZmanVersion(ctx context.Context, arg CreateInitialZmanVersionParams) error
+	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (int32, error)
+	// Create a new zman from another publisher (linked or copied)
+	CreateLinkedOrCopiedZman(ctx context.Context, arg CreateLinkedOrCopiedZmanParams) (CreateLinkedOrCopiedZmanRow, error)
 	CreatePublisher(ctx context.Context, arg CreatePublisherParams) (CreatePublisherRow, error)
+	// Create a new publisher from an approved request
+	CreatePublisherFromRequest(ctx context.Context, arg CreatePublisherFromRequestParams) (CreatePublisherFromRequestRow, error)
+	// Insert a new publisher registration request
+	CreatePublisherRequest(ctx context.Context, arg CreatePublisherRequestParams) (CreatePublisherRequestRow, error)
 	// ============================================
 	// PUBLISHER SNAPSHOT (ZMANIM-ONLY) QUERIES
 	// ============================================
@@ -95,14 +168,21 @@ type Querier interface {
 	CreatePublisherZman(ctx context.Context, arg CreatePublisherZmanParams) (CreatePublisherZmanRow, error)
 	// Create an alias for a publisher's zman
 	CreatePublisherZmanAlias(ctx context.Context, arg CreatePublisherZmanAliasParams) (CreatePublisherZmanAliasRow, error)
+	// Create publisher zman from master registry with custom formula
+	CreatePublisherZmanFromMasterWithFormula(ctx context.Context, arg CreatePublisherZmanFromMasterWithFormulaParams) (CreatePublisherZmanFromMasterWithFormulaRow, error)
 	CreatePublisherZmanFromRegistry(ctx context.Context, arg CreatePublisherZmanFromRegistryParams) (CreatePublisherZmanFromRegistryRow, error)
 	// Create a publisher_zman entry from an approved zman request
 	// This is used when auto_add_on_approval is true
-	CreatePublisherZmanFromRequest(ctx context.Context, id string) (CreatePublisherZmanFromRequestRow, error)
+	CreatePublisherZmanFromRequest(ctx context.Context, id int32) (CreatePublisherZmanFromRequestRow, error)
+	// Create a new version entry for rollback
+	CreateVersionForRollback(ctx context.Context, arg CreateVersionForRollbackParams) error
+	CreateVersionSnapshot(ctx context.Context, arg CreateVersionSnapshotParams) (CreateVersionSnapshotRow, error)
 	// ============================================
 	// ZMAN REGISTRY REQUESTS
 	// ============================================
 	CreateZmanRegistryRequest(ctx context.Context, arg CreateZmanRegistryRequestParams) (CreateZmanRegistryRequestRow, error)
+	// Create a new zman registry request with all fields
+	CreateZmanRegistryRequestFull(ctx context.Context, arg CreateZmanRegistryRequestFullParams) (CreateZmanRegistryRequestFullRow, error)
 	// Zman Request Queries
 	// Epic 5, Story 5.0: Enhanced Zman Registry Requests
 	// Create a new zman request from a publisher
@@ -114,43 +194,71 @@ type Querier interface {
 	DeleteAllCountryBoundaries(ctx context.Context) error
 	DeleteAllDistrictBoundaries(ctx context.Context) error
 	DeleteAllDistricts(ctx context.Context) error
+	DeleteAllPublisherCoverage(ctx context.Context, publisherID int32) error
+	// Cleanup Operations --
+	DeleteAllPublisherZmanim(ctx context.Context, publisherID int32) error
 	DeleteAllRegionBoundaries(ctx context.Context) error
 	DeleteAllRegions(ctx context.Context) error
 	DeleteCountryBoundary(ctx context.Context, countryID int16) error
-	DeleteCoverage(ctx context.Context, id string) error
-	DeleteCoverageByPublisher(ctx context.Context, publisherID string) error
+	DeleteCoverage(ctx context.Context, id int32) error
+	DeleteCoverageByPublisher(ctx context.Context, publisherID int32) error
 	DeleteDistrictBoundary(ctx context.Context, districtID int32) error
-	DeleteExpiredInvitations(ctx context.Context, publisherID string) error
-	DeleteInvitation(ctx context.Context, id string) error
-	DeletePublisher(ctx context.Context, id string) error
+	DeleteExpiredInvitations(ctx context.Context, publisherID int32) error
+	DeleteInvitation(ctx context.Context, id int32) error
+	// ============================================
+	// TAG MANAGEMENT QUERIES
+	// ============================================
+	DeleteMasterZmanTags(ctx context.Context, masterZmanID int32) error
+	DeleteOnboardingState(ctx context.Context, publisherID int32) error
+	DeletePendingInvitation(ctx context.Context, id int32) (pgconn.CommandTag, error)
+	DeletePublisher(ctx context.Context, id int32) error
 	DeletePublisherSnapshot(ctx context.Context, arg DeletePublisherSnapshotParams) error
-	DeletePublisherZman(ctx context.Context, arg DeletePublisherZmanParams) (string, error)
+	DeletePublisherZman(ctx context.Context, arg DeletePublisherZmanParams) (int32, error)
 	// Delete an alias by ID
-	DeletePublisherZmanAlias(ctx context.Context, id string) error
+	DeletePublisherZmanAlias(ctx context.Context, id int32) error
 	// Delete all aliases for a specific zman_key
 	DeletePublisherZmanAliasByZmanKey(ctx context.Context, arg DeletePublisherZmanAliasByZmanKeyParams) error
+	// Delete all tags for a publisher zman
+	DeletePublisherZmanTags(ctx context.Context, publisherZmanID int32) error
 	DeleteRegionBoundary(ctx context.Context, regionID int32) error
 	// Delete all tags for a zman request (used when updating request)
-	DeleteZmanRequestTags(ctx context.Context, requestID string) error
+	DeleteZmanRequestTags(ctx context.Context, requestID int32) error
 	DeprecateAlgorithmVersion(ctx context.Context, arg DeprecateAlgorithmVersionParams) (int64, error)
+	// ============================================================================
+	// Queries for fetchPublisherZmanim (complex join with tags and source info)
+	// ============================================================================
+	// Get all zmanim for a publisher with full tag and source information
+	// This replaces the raw SQL query in fetchPublisherZmanim function
+	FetchPublisherZmanim(ctx context.Context, publisherID int32) ([]FetchPublisherZmanimRow, error)
 	// Find an existing tag by name (case-insensitive match)
 	FindTagByName(ctx context.Context, lower string) (FindTagByNameRow, error)
+	ForkPublicAlgorithm(ctx context.Context, arg ForkPublicAlgorithmParams) (int32, error)
+	GetAIAuditLogs(ctx context.Context, arg GetAIAuditLogsParams) ([]AiAuditLog, error)
+	GetAccessiblePublishersByClerkUserID(ctx context.Context, clerkUserID *string) (GetAccessiblePublishersByClerkUserIDRow, error)
+	GetAccessiblePublishersByIDs(ctx context.Context, dollar_1 []string) ([]GetAccessiblePublishersByIDsRow, error)
 	GetAlgorithmByID(ctx context.Context, arg GetAlgorithmByIDParams) (GetAlgorithmByIDRow, error)
-	GetAlgorithmTemplateByKey(ctx context.Context, templateKey string) (AlgorithmTemplate, error)
-	// Algorithm Templates --
-	GetAlgorithmTemplates(ctx context.Context) ([]AlgorithmTemplate, error)
+	GetAlgorithmStatusByID(ctx context.Context, id int16) (GetAlgorithmStatusByIDRow, error)
+	GetAlgorithmStatusByKey(ctx context.Context, key string) (GetAlgorithmStatusByKeyRow, error)
+	// Algorithm Statuses --
+	GetAlgorithmStatuses(ctx context.Context) ([]GetAlgorithmStatusesRow, error)
 	// Algorithm versions --
-	GetAlgorithmVersions(ctx context.Context, publisherID string) ([]GetAlgorithmVersionsRow, error)
+	GetAlgorithmVersions(ctx context.Context, publisherID int32) ([]GetAlgorithmVersionsRow, error)
 	// ============================================
 	// ASTRONOMICAL PRIMITIVES QUERIES
 	// ============================================
-	GetAllAstronomicalPrimitives(ctx context.Context) ([]AstronomicalPrimitive, error)
+	GetAllAstronomicalPrimitives(ctx context.Context) ([]GetAllAstronomicalPrimitivesRow, error)
 	// Geo Boundaries SQL Queries (5-Level Hierarchy)
 	// Supports boundaries for: countries, regions (ADM1), districts (ADM2)
 	// ============================================================================
 	// Country Boundaries (ADM0)
 	// ============================================================================
 	GetAllCountryBoundaries(ctx context.Context) ([]GetAllCountryBoundariesRow, error)
+	// ============================================
+	// DAY TYPE QUERIES
+	// ============================================
+	GetAllDayTypes(ctx context.Context) ([]GetAllDayTypesRow, error)
+	// Get all day types for admin
+	GetAllDayTypesAdmin(ctx context.Context) ([]GetAllDayTypesAdminRow, error)
 	// ============================================================================
 	// DISPLAY GROUPS
 	// ============================================================================
@@ -161,6 +269,13 @@ type Querier interface {
 	// ============================================================================
 	// Get all event categories ordered by sort_order
 	GetAllEventCategories(ctx context.Context) ([]EventCategory, error)
+	// Calendar and Jewish Events SQL Queries
+	// SQLc will generate type-safe Go code from these queries
+	// ============================================
+	// JEWISH EVENTS QUERIES
+	// ============================================
+	// Get all Jewish events with their type information
+	GetAllJewishEvents(ctx context.Context) ([]GetAllJewishEventsRow, error)
 	// Master Zmanim Registry SQL Queries
 	// SQLc will generate type-safe Go code from these queries
 	// ============================================
@@ -168,20 +283,31 @@ type Querier interface {
 	// ============================================
 	// Orders by time_category (chronological) then hebrew_name
 	GetAllMasterZmanim(ctx context.Context) ([]GetAllMasterZmanimRow, error)
+	// Get metadata for all zmanim from master registry with time category key
+	GetAllMasterZmanimMetadata(ctx context.Context) ([]GetAllMasterZmanimMetadataRow, error)
 	// Get all aliases for a publisher with canonical names included
 	// Orders by time_category (chronological) then hebrew_name
-	GetAllPublisherZmanAliases(ctx context.Context, publisherID string) ([]GetAllPublisherZmanAliasesRow, error)
+	GetAllPublisherZmanAliases(ctx context.Context, publisherID int32) ([]GetAllPublisherZmanAliasesRow, error)
 	// Get all active zman keys for a publisher (for diff comparison)
-	GetAllPublisherZmanimKeys(ctx context.Context, publisherID string) ([]string, error)
+	GetAllPublisherZmanimKeys(ctx context.Context, publisherID int32) ([]string, error)
+	GetAllPublishersBasicInfo(ctx context.Context) ([]GetAllPublishersBasicInfoRow, error)
+	GetAllSystemConfig(ctx context.Context) ([]GetAllSystemConfigRow, error)
 	// ============================================================================
 	// TAG TYPES
 	// ============================================================================
 	// Get all tag types ordered by sort_order
-	GetAllTagTypes(ctx context.Context) ([]TagType, error)
+	GetAllTagTypes(ctx context.Context) ([]GetAllTagTypesRow, error)
 	// ============================================
 	// TAG QUERIES
 	// ============================================
 	GetAllTags(ctx context.Context) ([]GetAllTagsRow, error)
+	// Get all zman tags for admin (simple version)
+	GetAllTagsAdmin(ctx context.Context) ([]GetAllTagsAdminRow, error)
+	// ============================================
+	// TAG QUERIES (ADDITIONAL)
+	// ============================================
+	// Get all tags with custom sorting by tag type
+	GetAllTagsOrdered(ctx context.Context) ([]GetAllTagsOrderedRow, error)
 	// ============================================================================
 	// All Tags Queries (with tag_key - extends master_registry.sql queries)
 	// ============================================================================
@@ -195,25 +321,37 @@ type Querier interface {
 	GetAllTimeCategories(ctx context.Context) ([]TimeCategory, error)
 	// Get all zman requests (for admin) with optional status filter
 	GetAllZmanRequests(ctx context.Context, dollar_1 string) ([]GetAllZmanRequestsRow, error)
-	GetAstronomicalPrimitiveByName(ctx context.Context, variableName string) (AstronomicalPrimitive, error)
-	GetAstronomicalPrimitivesByCategory(ctx context.Context, category string) ([]AstronomicalPrimitive, error)
+	// Get all tags for all zmanim with tag type key and sort order
+	GetAllZmanimTags(ctx context.Context) ([]GetAllZmanimTagsRow, error)
+	GetAstronomicalPrimitiveByName(ctx context.Context, variableName string) (GetAstronomicalPrimitiveByNameRow, error)
+	GetAstronomicalPrimitivesByCategory(ctx context.Context, key string) ([]GetAstronomicalPrimitivesByCategoryRow, error)
 	// Returns primitives with category for grouping in UI
-	GetAstronomicalPrimitivesGrouped(ctx context.Context) ([]AstronomicalPrimitive, error)
-	GetBoundaryImportsByLevel(ctx context.Context, level string) ([]GetBoundaryImportsByLevelRow, error)
+	GetAstronomicalPrimitivesGrouped(ctx context.Context) ([]GetAstronomicalPrimitivesGroupedRow, error)
+	GetBoundaryImportsByLevel(ctx context.Context, levelID int16) ([]GetBoundaryImportsByLevelRow, error)
 	GetBoundaryStats(ctx context.Context) (GetBoundaryStatsRow, error)
+	GetCachedExplanation(ctx context.Context, arg GetCachedExplanationParams) (string, error)
 	// Estimates the number of cities covered by a publisher's coverage areas
 	// Note: country derived via city.region_id → region.country_id
-	GetCitiesCoveredCount(ctx context.Context, publisherID string) (int32, error)
+	GetCitiesCoveredCount(ctx context.Context, publisherID int32) (int32, error)
 	// ============================================================================
 	// Coverage Helpers
 	// ============================================================================
 	GetCitiesForCoverage(ctx context.Context, arg GetCitiesForCoverageParams) ([]GetCitiesForCoverageRow, error)
-	GetCityBoundaryByID(ctx context.Context, id string) (GetCityBoundaryByIDRow, error)
-	GetCityByID(ctx context.Context, id string) (GetCityByIDRow, error)
+	GetCityBoundaryByID(ctx context.Context, id int32) (GetCityBoundaryByIDRow, error)
+	GetCityByID(ctx context.Context, id int32) (GetCityByIDRow, error)
 	GetCityByName(ctx context.Context, name string) (GetCityByNameRow, error)
+	// ============================================================================
+	// Queries for GetZmanimForCity handler
+	// ============================================================================
+	// Get city details with country and region for zmanim calculation
+	GetCityDetailsForZmanim(ctx context.Context, id int32) (GetCityDetailsForZmanimRow, error)
 	// Get statistics on city hierarchy assignments
 	// Note: country derived via city.region_id → region.country_id (region_id is NOT NULL)
 	GetCityHierarchyStats(ctx context.Context) (GetCityHierarchyStatsRow, error)
+	// Get city coordinates and timezone for DSL calculations
+	GetCityLocationByID(ctx context.Context, id int32) (GetCityLocationByIDRow, error)
+	// Geo Lookups --
+	GetContinentByCode(ctx context.Context, code string) (GetContinentByCodeRow, error)
 	// ============================================================================
 	// Continents
 	// ============================================================================
@@ -228,13 +366,21 @@ type Querier interface {
 	GetCountryBoundaryByCode(ctx context.Context, code string) (GetCountryBoundaryByCodeRow, error)
 	GetCountryBoundaryByID(ctx context.Context, id int16) (GetCountryBoundaryByIDRow, error)
 	GetCountryByCode(ctx context.Context, code string) (GetCountryByCodeRow, error)
+	GetCountryByCodeOrID(ctx context.Context, code string) (GetCountryByCodeOrIDRow, error)
 	GetCountryByID(ctx context.Context, id int16) (GetCountryByIDRow, error)
-	GetCoverageCountByPublisher(ctx context.Context, publisherID string) (int64, error)
-	GetDeletedPublisherZmanim(ctx context.Context, publisherID string) ([]GetDeletedPublisherZmanimRow, error)
+	GetCoverageCountByPublisher(ctx context.Context, publisherID int32) (int64, error)
+	GetCoverageLevelByID(ctx context.Context, id int16) (GetCoverageLevelByIDRow, error)
+	GetCoverageLevelByKey(ctx context.Context, key string) (GetCoverageLevelByKeyRow, error)
+	// Coverage Levels --
+	GetCoverageLevels(ctx context.Context) ([]GetCoverageLevelsRow, error)
+	// Version history queries --
+	GetCurrentVersionNumber(ctx context.Context, algorithmID int32) (interface{}, error)
+	GetDayTypesByParent(ctx context.Context, parentID *int32) ([]GetDayTypesByParentRow, error)
+	GetDeletedPublisherZmanim(ctx context.Context, publisherID int32) ([]GetDeletedPublisherZmanimRow, error)
 	// Check if a zman exists in deleted state (for restore decision)
 	GetDeletedZmanByKey(ctx context.Context, arg GetDeletedZmanByKeyParams) (GetDeletedZmanByKeyRow, error)
 	// Get a display group by its ID
-	GetDisplayGroupByID(ctx context.Context, id string) (DisplayGroup, error)
+	GetDisplayGroupByID(ctx context.Context, id int32) (DisplayGroup, error)
 	// Get a display group by its key
 	GetDisplayGroupByKey(ctx context.Context, key string) (DisplayGroup, error)
 	// ============================================================================
@@ -252,18 +398,52 @@ type Querier interface {
 	GetDistrictsByRegion(ctx context.Context, regionID int32) ([]GetDistrictsByRegionRow, error)
 	GetDistrictsWithoutBoundaries(ctx context.Context, code string) ([]GetDistrictsWithoutBoundariesRow, error)
 	// Get an event category by its ID
-	GetEventCategoryByID(ctx context.Context, id string) (EventCategory, error)
+	GetEventCategoryByID(ctx context.Context, id int32) (EventCategory, error)
 	// Get an event category by its key
 	GetEventCategoryByKey(ctx context.Context, key string) (EventCategory, error)
-	GetExpiredInvitations(ctx context.Context, publisherID string) ([]GetExpiredInvitationsRow, error)
+	// Get all event zmanim with their behavior tags (zmanim with behavior tag type)
+	GetEventZmanim(ctx context.Context) ([]GetEventZmanimRow, error)
+	GetExpiredInvitations(ctx context.Context, publisherID int32) ([]GetExpiredInvitationsRow, error)
 	GetInvitationByToken(ctx context.Context, token string) (GetInvitationByTokenRow, error)
+	GetInvitationForResend(ctx context.Context, id int32) (GetInvitationForResendRow, error)
 	// Get all jewish_day type tags (for calendar filtering)
 	GetJewishDayTags(ctx context.Context) ([]GetJewishDayTagsRow, error)
+	GetJewishEventTypeByKey(ctx context.Context, key string) (GetJewishEventTypeByKeyRow, error)
+	// Jewish Event Types --
+	GetJewishEventTypes(ctx context.Context) ([]GetJewishEventTypesRow, error)
+	// Get Jewish events filtered by event type
+	GetJewishEventsByType(ctx context.Context, key string) ([]GetJewishEventsByTypeRow, error)
+	// Get algorithm ID for publisher --
+	GetLatestAlgorithmByPublisher(ctx context.Context, publisherID int32) (int32, error)
 	GetLatestBoundaryImport(ctx context.Context) (GetLatestBoundaryImportRow, error)
-	GetLatestPublisherSnapshot(ctx context.Context, publisherID string) (PublisherSnapshot, error)
-	GetMasterZmanByID(ctx context.Context, id string) (GetMasterZmanByIDRow, error)
+	GetLatestPublisherSnapshot(ctx context.Context, publisherID int32) (PublisherSnapshot, error)
+	GetMasterZmanByID(ctx context.Context, id int32) (GetMasterZmanByIDRow, error)
 	GetMasterZmanByKey(ctx context.Context, zmanKey string) (GetMasterZmanByKeyRow, error)
-	GetMasterZmanimByCategory(ctx context.Context, timeCategory *string) ([]GetMasterZmanimByCategoryRow, error)
+	// Get day types for master zman with is_default filter
+	GetMasterZmanDayTypesForDetail(ctx context.Context, masterZmanID int32) ([]GetMasterZmanDayTypesForDetailRow, error)
+	// Get day types for a specific master zman with full details
+	GetMasterZmanDayTypesWithDetails(ctx context.Context, masterZmanID int32) ([]GetMasterZmanDayTypesWithDetailsRow, error)
+	// Get default formula from master registry
+	GetMasterZmanDefaultFormula(ctx context.Context, id int32) (*string, error)
+	// Get tags for master zman detail view (different order than GetTagsForMasterZman)
+	GetMasterZmanTagsForDetail(ctx context.Context, masterZmanID int32) ([]GetMasterZmanTagsForDetailRow, error)
+	// Get tags for multiple zmanim with full tag details
+	GetMasterZmanTagsWithDetails(ctx context.Context, dollar_1 []string) ([]GetMasterZmanTagsWithDetailsRow, error)
+	GetMasterZmanimByCategory(ctx context.Context, key string) ([]GetMasterZmanimByCategoryRow, error)
+	// ============================================
+	// ADDITIONAL MASTER REGISTRY QUERIES
+	// ============================================
+	// Get distinct master zmanim filtered by multiple day types
+	GetMasterZmanimByDayTypes(ctx context.Context, dollar_1 []string) ([]GetMasterZmanimByDayTypesRow, error)
+	// ============================================
+	// MASTER ZMANIM BY EVENT QUERIES
+	// ============================================
+	// Get all master zmanim associated with a specific Jewish event
+	GetMasterZmanimByEvent(ctx context.Context, code string) ([]GetMasterZmanimByEventRow, error)
+	// Get master zmanim for a specific event (all days, no day filtering in DB)
+	// Note: The original code had applies_to_day column which doesn't exist in schema
+	// This query returns all zmanim for the event; day filtering should be done in application layer
+	GetMasterZmanimByEventAndDay(ctx context.Context, code string) ([]GetMasterZmanimByEventAndDayRow, error)
 	GetMasterZmanimByTag(ctx context.Context, name string) ([]GetMasterZmanimByTagRow, error)
 	// Get master registry zmanim that have any of the specified tags
 	GetMasterZmanimByTags(ctx context.Context, dollar_1 []string) ([]GetMasterZmanimByTagsRow, error)
@@ -272,62 +452,154 @@ type Querier interface {
 	// Name Mappings
 	// ============================================================================
 	GetNameMapping(ctx context.Context, arg GetNameMappingParams) (GetNameMappingRow, error)
-	GetNameMappingsByLevel(ctx context.Context, level string) ([]GetNameMappingsByLevelRow, error)
+	GetNameMappingsByLevel(ctx context.Context, levelID int16) ([]GetNameMappingsByLevelRow, error)
 	// Find the nearest city to given coordinates using PostGIS
 	GetNearestCity(ctx context.Context, arg GetNearestCityParams) (GetNearestCityRow, error)
-	// Onboarding related --
-	// Schema: id, publisher_id, profile_complete, algorithm_selected, zmanim_configured, coverage_set, created_at, updated_at
-	GetOnboardingState(ctx context.Context, publisherID string) (PublisherOnboarding, error)
+	GetNextVersionNumber(ctx context.Context, pAlgorithmID int32) (int32, error)
+	// Onboarding SQL Queries
+	// SQLc will generate type-safe Go code from these queries
+	// IMPORTANT NOTE: The handler code expects columns that don't exist in the current schema:
+	// - current_step, completed_steps, wizard_data, started_at, last_updated_at, completed_at, skipped
+	// The schema only has: profile_complete, algorithm_selected, zmanim_configured, coverage_set
+	// These queries use the ACTUAL schema columns. Handler needs to be updated OR schema migrated.
+	// Onboarding State Management --
+	GetOnboardingState(ctx context.Context, publisherID int32) (PublisherOnboarding, error)
 	// Publisher Invitations --
-	// Schema: id, publisher_id, email, role, token, expires_at, created_at
-	GetPendingInvitations(ctx context.Context, publisherID string) ([]GetPendingInvitationsRow, error)
+	// Schema: id, publisher_id, email, role_id, token, expires_at, created_at
+	GetPendingInvitations(ctx context.Context, publisherID int32) ([]GetPendingInvitationsRow, error)
 	// Get count of pending zman requests (for admin dashboard)
 	GetPendingZmanRequestCount(ctx context.Context) (int64, error)
-	GetPublisherActiveAlgorithm(ctx context.Context, publisherID string) (GetPublisherActiveAlgorithmRow, error)
-	GetPublisherAlgorithmSummary(ctx context.Context, publisherID string) (GetPublisherAlgorithmSummaryRow, error)
-	GetPublisherBasic(ctx context.Context, id string) (GetPublisherBasicRow, error)
+	GetPublicAlgorithmByID(ctx context.Context, id int32) (GetPublicAlgorithmByIDRow, error)
+	GetPublicAlgorithmConfig(ctx context.Context, id int32) (GetPublicAlgorithmConfigRow, error)
+	GetPublicAlgorithmWithPublisher(ctx context.Context, id int32) (GetPublicAlgorithmWithPublisherRow, error)
+	GetPublisherActiveAlgorithm(ctx context.Context, publisherID int32) (GetPublisherActiveAlgorithmRow, error)
+	// Get publisher's published algorithm configuration
+	GetPublisherAlgorithm(ctx context.Context, publisherID int32) ([]byte, error)
+	GetPublisherAlgorithmSummary(ctx context.Context, publisherID int32) (GetPublisherAlgorithmSummaryRow, error)
+	GetPublisherBasic(ctx context.Context, id int32) (GetPublisherBasicRow, error)
 	GetPublisherBasicByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherBasicByClerkUserIDRow, error)
-	GetPublisherByClerkUserID(ctx context.Context, clerkUserID *string) (string, error)
+	// Get beta status for zmanim for a publisher
+	GetPublisherBetaZmanim(ctx context.Context, publisherID int32) ([]GetPublisherBetaZmanimRow, error)
+	GetPublisherByClerkUserID(ctx context.Context, clerkUserID *string) (int32, error)
 	// Publishers SQL Queries
 	// SQLc will generate type-safe Go code from these queries
-	GetPublisherByID(ctx context.Context, id string) (GetPublisherByIDRow, error)
+	GetPublisherByID(ctx context.Context, id int32) (GetPublisherByIDRow, error)
+	GetPublisherCitiesCovered(ctx context.Context, publisherID int32) (int64, error)
 	// Coverage SQL Queries (5-Level Hierarchy)
 	// Supports: continent, country, region, district, city
-	GetPublisherCoverage(ctx context.Context, publisherID string) ([]GetPublisherCoverageRow, error)
-	GetPublisherCoverageByID(ctx context.Context, id string) (GetPublisherCoverageByIDRow, error)
-	GetPublisherCoverageCount(ctx context.Context, publisherID string) (int64, error)
-	GetPublisherDashboardSummary(ctx context.Context, id string) (GetPublisherDashboardSummaryRow, error)
+	GetPublisherCoverage(ctx context.Context, publisherID int32) ([]GetPublisherCoverageRow, error)
+	GetPublisherCoverageByID(ctx context.Context, id int32) (GetPublisherCoverageByIDRow, error)
+	GetPublisherCoverageCount(ctx context.Context, publisherID int32) (int64, error)
+	GetPublisherDashboardSummary(ctx context.Context, id int32) (GetPublisherDashboardSummaryRow, error)
 	// Algorithms SQL Queries
 	// SQLc will generate type-safe Go code from these queries
 	// Get algorithm for publisher --
-	GetPublisherDraftAlgorithm(ctx context.Context, publisherID string) (GetPublisherDraftAlgorithmRow, error)
+	GetPublisherDraftAlgorithm(ctx context.Context, publisherID int32) (GetPublisherDraftAlgorithmRow, error)
+	GetPublisherEmailAndName(ctx context.Context, id int32) (GetPublisherEmailAndNameRow, error)
+	GetPublisherForks(ctx context.Context, publisherID int32) ([]GetPublisherForksRow, error)
 	GetPublisherFullByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherFullByClerkUserIDRow, error)
+	GetPublisherFullProfileByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherFullProfileByClerkUserIDRow, error)
+	GetPublisherFullProfileByID(ctx context.Context, id int32) (GetPublisherFullProfileByIDRow, error)
+	// Version History SQL Queries
+	// SQLc will generate type-safe Go code from these queries
+	//
+	// NOTE: These queries reference the 'algorithm_version_history' and
+	// 'algorithm_rollback_audit' tables which DO NOT currently exist in the schema.
+	// These tables need to be added via migration before these queries can be used.
+	//
+	// Required table schema (to be added in migration):
+	//
+	// CREATE TABLE algorithm_version_history (
+	//     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+	//     algorithm_id INTEGER NOT NULL REFERENCES algorithms(id) ON DELETE CASCADE,
+	//     version_number INTEGER NOT NULL,
+	//     status TEXT NOT NULL,
+	//     description TEXT,
+	//     config_snapshot JSONB NOT NULL,
+	//     created_by TEXT,
+	//     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+	//     published_at TIMESTAMP WITH TIME ZONE,
+	//     UNIQUE(algorithm_id, version_number)
+	// );
+	//
+	// CREATE TABLE algorithm_rollback_audit (
+	//     id SERIAL PRIMARY KEY,
+	//     algorithm_id INTEGER NOT NULL REFERENCES algorithms(id) ON DELETE CASCADE,
+	//     source_version INTEGER NOT NULL,
+	//     target_version INTEGER NOT NULL,
+	//     new_version INTEGER NOT NULL,
+	//     reason TEXT,
+	//     rolled_back_by TEXT,
+	//     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+	// );
+	//
+	// CREATE OR REPLACE FUNCTION get_next_algorithm_version(p_algorithm_id INTEGER)
+	// RETURNS INTEGER AS $$
+	// BEGIN
+	//     RETURN COALESCE((
+	//         SELECT MAX(version_number) + 1
+	//         FROM algorithm_version_history
+	//         WHERE algorithm_id = p_algorithm_id
+	//     ), 1);
+	// END;
+	// $$ LANGUAGE plpgsql;
+	// Get publisher ID by clerk user ID --
+	GetPublisherIDByClerkUserID(ctx context.Context, clerkUserID *string) (int32, error)
+	// Get publisher info (logo_data is the base64 embedded logo)
+	GetPublisherInfoForZmanim(ctx context.Context, id int32) (GetPublisherInfoForZmanimRow, error)
+	GetPublisherNameAndDeletedAt(ctx context.Context, id int32) (GetPublisherNameAndDeletedAtRow, error)
+	GetPublisherNameByID(ctx context.Context, id int32) (string, error)
+	GetPublisherNameForTeam(ctx context.Context, id int32) (string, error)
+	GetPublisherNamesByIDs(ctx context.Context, dollar_1 []string) ([]GetPublisherNamesByIDsRow, error)
 	// Team Management --
-	GetPublisherOwner(ctx context.Context, id string) (*string, error)
+	GetPublisherOwner(ctx context.Context, id int32) (*string, error)
+	// Team/Invitation Queries
+	GetPublisherOwnerID(ctx context.Context, id int32) (*string, error)
+	GetPublisherProfileByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherProfileByClerkUserIDRow, error)
+	GetPublisherProfileByID(ctx context.Context, id int32) (GetPublisherProfileByIDRow, error)
+	// Get a specific publisher request by ID
+	GetPublisherRequestByID(ctx context.Context, id int32) (GetPublisherRequestByIDRow, error)
+	// Get publisher requests filtered by status
+	GetPublisherRequestsByStatus(ctx context.Context, key string) ([]GetPublisherRequestsByStatusRow, error)
+	GetPublisherRoleByID(ctx context.Context, id int16) (GetPublisherRoleByIDRow, error)
+	GetPublisherRoleByKey(ctx context.Context, key string) (GetPublisherRoleByKeyRow, error)
+	// Publisher Roles --
+	GetPublisherRoles(ctx context.Context) ([]GetPublisherRolesRow, error)
 	GetPublisherSnapshot(ctx context.Context, arg GetPublisherSnapshotParams) (PublisherSnapshot, error)
+	GetPublisherStatusByID(ctx context.Context, id int16) (GetPublisherStatusByIDRow, error)
+	GetPublisherStatusByKey(ctx context.Context, key string) (GetPublisherStatusByKeyRow, error)
+	// Lookup Tables SQL Queries
+	// Provides access to all lookup/reference tables for frontend dropdowns and validation
+	// Publisher Statuses --
+	GetPublisherStatuses(ctx context.Context) ([]GetPublisherStatusesRow, error)
 	// Alias CRUD Queries
 	// Epic 5, Story 5.0: Publisher Zman Aliases
 	// Schema: id, publisher_zman_id, publisher_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at
 	// Get a specific alias for a publisher's zman by zman_key
 	GetPublisherZmanAlias(ctx context.Context, arg GetPublisherZmanAliasParams) (GetPublisherZmanAliasRow, error)
 	// Get a specific zman by ID (for linking validation)
-	GetPublisherZmanByID(ctx context.Context, id string) (GetPublisherZmanByIDRow, error)
+	GetPublisherZmanByID(ctx context.Context, id int32) (GetPublisherZmanByIDRow, error)
 	GetPublisherZmanByKey(ctx context.Context, arg GetPublisherZmanByKeyParams) (GetPublisherZmanByKeyRow, error)
 	// Get a specific zman by key for comparison during restore
 	GetPublisherZmanForSnapshotCompare(ctx context.Context, arg GetPublisherZmanForSnapshotCompareParams) (GetPublisherZmanForSnapshotCompareRow, error)
+	// ============================================================================
+	// Helper Queries for Publisher Zman Operations
+	// ============================================================================
+	// Get publisher zman ID by publisher ID and zman key
+	GetPublisherZmanIDByKey(ctx context.Context, arg GetPublisherZmanIDByKeyParams) (int32, error)
 	// Get all zman requests for a specific publisher
-	GetPublisherZmanRequests(ctx context.Context, publisherID string) ([]GetPublisherZmanRequestsRow, error)
+	GetPublisherZmanRequests(ctx context.Context, publisherID int32) ([]GetPublisherZmanRequestsRow, error)
 	// ============================================================================
 	// Publisher Zman Tags
 	// ============================================================================
 	// Get all tags for a specific publisher zman (including is_negated)
-	GetPublisherZmanTags(ctx context.Context, publisherZmanID string) ([]GetPublisherZmanTagsRow, error)
+	GetPublisherZmanTags(ctx context.Context, publisherZmanID int32) ([]GetPublisherZmanTagsRow, error)
 	GetPublisherZmanWithRegistry(ctx context.Context, arg GetPublisherZmanWithRegistryParams) (GetPublisherZmanWithRegistryRow, error)
 	// Zmanim SQL Queries
 	// SQLc will generate type-safe Go code from these queries
 	// Publisher Zmanim --
 	// Orders by time_category (chronological) then hebrew_name
-	GetPublisherZmanim(ctx context.Context, publisherID string) ([]GetPublisherZmanimRow, error)
+	GetPublisherZmanim(ctx context.Context, publisherID int32) ([]GetPublisherZmanimRow, error)
 	// Get published zmanim from a specific publisher for copying/linking
 	// Orders by category chronologically then hebrew_name
 	GetPublisherZmanimForLinking(ctx context.Context, arg GetPublisherZmanimForLinkingParams) ([]GetPublisherZmanimForLinkingRow, error)
@@ -335,11 +607,11 @@ type Querier interface {
 	// ZMANIM SNAPSHOT DATA QUERIES
 	// ============================================
 	// Get all active (non-deleted) zmanim for snapshot export
-	GetPublisherZmanimForSnapshot(ctx context.Context, publisherID string) ([]GetPublisherZmanimForSnapshotRow, error)
+	GetPublisherZmanimForSnapshot(ctx context.Context, publisherID int32) ([]GetPublisherZmanimForSnapshotRow, error)
 	// ============================================
 	// PUBLISHER ZMANIM WITH REGISTRY (new model)
 	// ============================================
-	GetPublisherZmanimWithRegistry(ctx context.Context, publisherID string) ([]GetPublisherZmanimWithRegistryRow, error)
+	GetPublisherZmanimWithRegistry(ctx context.Context, publisherID int32) ([]GetPublisherZmanimWithRegistryRow, error)
 	// Find publishers with coverage in a specific country
 	// Note: city country derived via city.region_id → region.country_id
 	GetPublishersByCountry(ctx context.Context, countryID *int16) ([]GetPublishersByCountryRow, error)
@@ -349,10 +621,10 @@ type Querier interface {
 	// Publisher Lookup by Location
 	// ============================================================================
 	// Find publishers that cover a specific city (using the get_publishers_for_city function)
-	GetPublishersForCity(ctx context.Context, pCityID string) ([]interface{}, error)
+	GetPublishersForCity(ctx context.Context, pCityID int32) ([]GetPublishersForCityRow, error)
 	// Get all publisher IDs that have a zman referencing this master registry entry
 	// Used for cache invalidation when master zman formula changes
-	GetPublishersUsingMasterZman(ctx context.Context, masterZmanID pgtype.UUID) ([]string, error)
+	GetPublishersUsingMasterZman(ctx context.Context, masterZmanID *int32) ([]int32, error)
 	// ============================================================================
 	// Region Boundaries (ADM1)
 	// ============================================================================
@@ -367,6 +639,11 @@ type Querier interface {
 	GetRegionsByCountry(ctx context.Context, code string) ([]GetRegionsByCountryRow, error)
 	GetRegionsByCountryID(ctx context.Context, countryID *int16) ([]GetRegionsByCountryIDRow, error)
 	GetRegionsWithoutBoundaries(ctx context.Context, code string) ([]GetRegionsWithoutBoundariesRow, error)
+	GetRequestStatusByKey(ctx context.Context, key string) (GetRequestStatusByKeyRow, error)
+	// Request Statuses --
+	GetRequestStatuses(ctx context.Context) ([]GetRequestStatusesRow, error)
+	// Get source zman for copying/linking with publisher verification
+	GetSourceZmanForLinking(ctx context.Context, id int32) (GetSourceZmanForLinkingRow, error)
 	// Get a single tag by its key
 	GetTagByKey(ctx context.Context, tagKey string) (GetTagByKeyRow, error)
 	GetTagByName(ctx context.Context, name string) (GetTagByNameRow, error)
@@ -377,70 +654,103 @@ type Querier interface {
 	// ============================================================================
 	// Get all HebCal event mappings for tag matching
 	GetTagEventMappings(ctx context.Context) ([]GetTagEventMappingsRow, error)
+	// Removed: Duplicate of GetTagTypeByKey in lookups.sql
 	// Get a tag type by its ID
-	GetTagTypeByID(ctx context.Context, id string) (TagType, error)
-	// Get a tag type by its key
-	GetTagTypeByKey(ctx context.Context, key string) (TagType, error)
-	// ============================================================================
-	// Tag Types Metadata
-	// ============================================================================
-	// Get all tag types with their styling
+	GetTagTypeByID(ctx context.Context, id int32) (GetTagTypeByIDRow, error)
+	GetTagTypeByKey(ctx context.Context, key string) (GetTagTypeByKeyRow, error)
+	// Tag Types --
 	GetTagTypes(ctx context.Context) ([]GetTagTypesRow, error)
 	// Get multiple tags by their keys
 	GetTagsByKeys(ctx context.Context, dollar_1 []string) ([]GetTagsByKeysRow, error)
-	GetTagsByType(ctx context.Context, tagType string) ([]GetTagsByTypeRow, error)
+	GetTagsByType(ctx context.Context, key string) ([]GetTagsByTypeRow, error)
 	// Get tags that match a specific HebCal event name using pattern matching
 	// The pattern supports SQL LIKE wildcards (%)
 	GetTagsForHebCalEvent(ctx context.Context, hebcalEventPattern *string) ([]GetTagsForHebCalEventRow, error)
 	// Get tags that match a specific Hebrew date (month and day)
 	GetTagsForHebrewDate(ctx context.Context, arg GetTagsForHebrewDateParams) ([]GetTagsForHebrewDateRow, error)
-	GetTagsForMasterZman(ctx context.Context, masterZmanID string) ([]GetTagsForMasterZmanRow, error)
+	GetTagsForMasterZman(ctx context.Context, masterZmanID int32) ([]GetTagsForMasterZmanRow, error)
 	// Get a time category by its ID
-	GetTimeCategoryByID(ctx context.Context, id string) (TimeCategory, error)
+	GetTimeCategoryByID(ctx context.Context, id int32) (TimeCategory, error)
 	// Get a time category by its key
 	GetTimeCategoryByKey(ctx context.Context, key string) (TimeCategory, error)
+	// Get top cities ordered by population for location picker
+	GetTopCitiesAsLocations(ctx context.Context, limit int32) ([]GetTopCitiesAsLocationsRow, error)
+	// ============================================================================
+	// Queries for GetVerifiedPublishers
+	// ============================================================================
+	// Get verified publishers with zmanim count, excluding specified publisher
+	GetVerifiedPublishers(ctx context.Context, id int32) ([]GetVerifiedPublishersRow, error)
 	// Linked Zmanim Support --
 	// Get verified publishers that current publisher can link to (excludes self)
-	GetVerifiedPublishersForLinking(ctx context.Context, id string) ([]GetVerifiedPublishersForLinkingRow, error)
-	GetZmanRegistryRequestByID(ctx context.Context, id string) (GetZmanRegistryRequestByIDRow, error)
+	GetVerifiedPublishersForLinking(ctx context.Context, id int32) ([]GetVerifiedPublishersForLinkingRow, error)
+	GetVersionConfig(ctx context.Context, arg GetVersionConfigParams) ([]byte, error)
+	GetVersionDetail(ctx context.Context, arg GetVersionDetailParams) (GetVersionDetailRow, error)
+	// Get formula from a specific version for rollback
+	GetVersionFormula(ctx context.Context, arg GetVersionFormulaParams) (*string, error)
+	// ============================================
+	// ADDITIONAL QUERIES FOR MASTER_REGISTRY HANDLER
+	// ============================================
+	// Get applicable day types for a specific zman by zman_key with is_default filter
+	GetZmanApplicableDayTypesByKey(ctx context.Context, zmanKey string) ([]GetZmanApplicableDayTypesByKeyRow, error)
+	// ============================================
+	// ZMAN APPLICABLE EVENTS QUERIES
+	// ============================================
+	// Get all Jewish events that a specific zman applies to
+	GetZmanApplicableEvents(ctx context.Context, zmanKey string) ([]GetZmanApplicableEventsRow, error)
+	// Get applicable day types for a specific zman by zman_key
+	GetZmanDayTypes(ctx context.Context, zmanKey string) ([]GetZmanDayTypesRow, error)
+	// ============================================
+	// ZMAN DISPLAY CONTEXTS QUERIES
+	// ============================================
+	// Get display contexts for a specific zman by zman_key
+	GetZmanDisplayContextsByKey(ctx context.Context, zmanKey string) ([]GetZmanDisplayContextsByKeyRow, error)
+	GetZmanRegistryRequestByID(ctx context.Context, id int32) (GetZmanRegistryRequestByIDRow, error)
 	GetZmanRegistryRequests(ctx context.Context, status *string) ([]GetZmanRegistryRequestsRow, error)
 	// Get a specific zman request by ID
-	GetZmanRequest(ctx context.Context, id string) (GetZmanRequestRow, error)
+	GetZmanRequest(ctx context.Context, id int32) (GetZmanRequestRow, error)
 	// Get a specific tag request by ID
-	GetZmanRequestTag(ctx context.Context, id string) (ZmanRequestTag, error)
+	GetZmanRequestTag(ctx context.Context, id int32) (ZmanRequestTag, error)
 	// Get all tags (existing and requested) for a zman request
-	GetZmanRequestTags(ctx context.Context, requestID string) ([]GetZmanRequestTagsRow, error)
+	GetZmanRequestTags(ctx context.Context, requestID int32) ([]GetZmanRequestTagsRow, error)
+	GetZmanSourceTypeByKey(ctx context.Context, key string) (GetZmanSourceTypeByKeyRow, error)
+	// Zman Source Types --
+	GetZmanSourceTypes(ctx context.Context) ([]GetZmanSourceTypesRow, error)
 	GetZmanVersion(ctx context.Context, arg GetZmanVersionParams) (GetZmanVersionRow, error)
 	// ============================================
 	// VERSION HISTORY QUERIES
 	// ============================================
 	GetZmanVersionHistory(ctx context.Context, arg GetZmanVersionHistoryParams) ([]GetZmanVersionHistoryRow, error)
 	// ============================================================================
+	// Tag Types Metadata
+	// ============================================================================
+	// Removed: Duplicate of GetTagTypes in lookups.sql
+	// ============================================================================
 	// Publisher Zmanim by Active Tags
 	// ============================================================================
 	// Get publisher zmanim that have any of the specified tags (for calendar day filtering)
 	GetZmanimByActiveTags(ctx context.Context, arg GetZmanimByActiveTagsParams) ([]GetZmanimByActiveTagsRow, error)
-	GetZmanimTemplateByKey(ctx context.Context, zmanKey string) (ZmanimTemplate, error)
-	// Zmanim Templates --
-	// Orders by category then hebrew_name
-	GetZmanimTemplates(ctx context.Context) ([]ZmanimTemplate, error)
-	GetZmanimTemplatesByKeys(ctx context.Context, dollar_1 []string) ([]ZmanimTemplate, error)
 	// Get all of a publisher's zmanim with their primary alias (if any)
 	// Orders by time_category (chronological) then hebrew_name
-	GetZmanimWithAliases(ctx context.Context, publisherID string) ([]GetZmanimWithAliasesRow, error)
+	GetZmanimWithAliases(ctx context.Context, publisherID int32) ([]GetZmanimWithAliasesRow, error)
 	ImportZmanimFromRegistryByKeys(ctx context.Context, arg ImportZmanimFromRegistryByKeysParams) ([]ImportZmanimFromRegistryByKeysRow, error)
-	// Import from templates to publisher --
-	ImportZmanimFromTemplates(ctx context.Context, publisherID string) ([]ImportZmanimFromTemplatesRow, error)
-	ImportZmanimFromTemplatesByKeys(ctx context.Context, arg ImportZmanimFromTemplatesByKeysParams) ([]ImportZmanimFromTemplatesByKeysRow, error)
-	InsertCity(ctx context.Context, arg InsertCityParams) (string, error)
+	IncrementAlgorithmForkCount(ctx context.Context, id int32) error
+	InsertAIAuditLog(ctx context.Context, arg InsertAIAuditLogParams) error
+	InsertCity(ctx context.Context, arg InsertCityParams) (int32, error)
 	// ============================================================================
 	// Insert/Update Operations
 	// ============================================================================
 	InsertCountry(ctx context.Context, arg InsertCountryParams) (int16, error)
 	InsertDistrict(ctx context.Context, arg InsertDistrictParams) (int32, error)
+	InsertMasterZmanTag(ctx context.Context, arg InsertMasterZmanTagParams) error
+	// Insert a tag for a publisher zman with is_negated
+	InsertPublisherZmanTag(ctx context.Context, arg InsertPublisherZmanTagParams) error
 	InsertRegion(ctx context.Context, arg InsertRegionParams) (int32, error)
 	// Insert a new zman from snapshot (zman doesn't exist at all)
 	InsertZmanFromSnapshot(ctx context.Context, arg InsertZmanFromSnapshotParams) error
+	// Insert reference to existing tag for a request
+	InsertZmanRequestExistingTag(ctx context.Context, arg InsertZmanRequestExistingTagParams) error
+	// Insert new tag request for a zman request
+	InsertZmanRequestNewTag(ctx context.Context, arg InsertZmanRequestNewTagParams) error
 	// Update the tag request to link the newly created tag
 	// Must also clear requested_tag_name to satisfy tag_reference_check constraint
 	LinkTagToRequest(ctx context.Context, arg LinkTagToRequestParams) error
@@ -448,9 +758,13 @@ type Querier interface {
 	ListCitiesByCountry(ctx context.Context, arg ListCitiesByCountryParams) ([]ListCitiesByCountryRow, error)
 	ListCitiesByDistrict(ctx context.Context, arg ListCitiesByDistrictParams) ([]ListCitiesByDistrictRow, error)
 	ListCitiesByRegion(ctx context.Context, arg ListCitiesByRegionParams) ([]ListCitiesByRegionRow, error)
-	ListPublisherSnapshots(ctx context.Context, publisherID string) ([]ListPublisherSnapshotsRow, error)
+	ListPendingInvitationsByPublisher(ctx context.Context, publisherID int32) ([]ListPendingInvitationsByPublisherRow, error)
+	ListPublisherSnapshots(ctx context.Context, publisherID int32) ([]ListPublisherSnapshotsRow, error)
 	ListPublishers(ctx context.Context, arg ListPublishersParams) ([]ListPublishersRow, error)
 	ListPublishersByIDs(ctx context.Context, dollar_1 []string) ([]ListPublishersByIDsRow, error)
+	ListVersionHistory(ctx context.Context, algorithmID int32) ([]ListVersionHistoryRow, error)
+	// Rollback audit --
+	LogRollback(ctx context.Context, arg LogRollbackParams) error
 	// Returns all geographic levels for a point (country, region, district)
 	LookupAllLevelsByPoint(ctx context.Context, arg LookupAllLevelsByPointParams) (LookupAllLevelsByPointRow, error)
 	// Returns all geographic levels for a point with area information for zoom-based selection
@@ -462,13 +776,18 @@ type Querier interface {
 	LookupDistrictByPoint(ctx context.Context, arg LookupDistrictByPointParams) (LookupDistrictByPointRow, error)
 	LookupNearestCities(ctx context.Context, arg LookupNearestCitiesParams) ([]LookupNearestCitiesRow, error)
 	LookupRegionByPoint(ctx context.Context, arg LookupRegionByPointParams) (LookupRegionByPointRow, error)
+	MarkCoverageSet(ctx context.Context, publisherID int32) error
+	MarkZmanimConfigured(ctx context.Context, publisherID int32) error
 	PermanentDeletePublisherZman(ctx context.Context, arg PermanentDeletePublisherZmanParams) error
-	PublishAlgorithm(ctx context.Context, id string) (pgtype.Timestamptz, error)
+	PermanentDeleteZman(ctx context.Context, arg PermanentDeleteZmanParams) error
+	PublishAlgorithm(ctx context.Context, id int32) (pgtype.Timestamptz, error)
 	// Bulk publish/unpublish zmanim --
-	PublishAllZmanim(ctx context.Context, publisherID string) error
+	PublishAllZmanim(ctx context.Context, publisherID int32) error
 	PublishZmanimByKeys(ctx context.Context, arg PublishZmanimByKeysParams) error
+	// Mark a publisher request as rejected
+	RejectPublisherRequest(ctx context.Context, arg RejectPublisherRequestParams) error
 	// Reject a new tag request by deleting it from zman_request_tags
-	RejectTagRequest(ctx context.Context, id string) error
+	RejectTagRequest(ctx context.Context, id int32) error
 	// Reject a zman request
 	RejectZmanRequest(ctx context.Context, arg RejectZmanRequestParams) (RejectZmanRequestRow, error)
 	// Remove a tag from a publisher zman
@@ -476,6 +795,11 @@ type Querier interface {
 	// Restore a soft-deleted zman that exists in snapshot being restored
 	RestoreDeletedZmanForSnapshot(ctx context.Context, arg RestoreDeletedZmanForSnapshotParams) error
 	RestorePublisherZman(ctx context.Context, arg RestorePublisherZmanParams) (RestorePublisherZmanRow, error)
+	RestoreZman(ctx context.Context, arg RestoreZmanParams) (RestoreZmanRow, error)
+	// Update request status during review
+	ReviewZmanRegistryRequest(ctx context.Context, arg ReviewZmanRegistryRequestParams) (ReviewZmanRegistryRequestRow, error)
+	// Update zman formula during rollback
+	RollbackPublisherZmanFormula(ctx context.Context, arg RollbackPublisherZmanFormulaParams) (RollbackPublisherZmanFormulaRow, error)
 	RollbackZmanToVersion(ctx context.Context, arg RollbackZmanToVersionParams) (RollbackZmanToVersionRow, error)
 	// Cities SQL Queries (5-Level Hierarchy)
 	// Continent -> Country -> Region (ADM1) -> District (ADM2) -> City
@@ -484,30 +808,40 @@ type Querier interface {
 	SearchCitiesFuzzy(ctx context.Context, arg SearchCitiesFuzzyParams) ([]SearchCitiesFuzzyRow, error)
 	SearchDistricts(ctx context.Context, arg SearchDistrictsParams) ([]SearchDistrictsRow, error)
 	SearchMasterZmanim(ctx context.Context, dollar_1 *string) ([]SearchMasterZmanimRow, error)
+	SearchPublishersAll(ctx context.Context, arg SearchPublishersAllParams) ([]SearchPublishersAllRow, error)
+	SearchPublishersWithAlgorithm(ctx context.Context, arg SearchPublishersWithAlgorithmParams) ([]SearchPublishersWithAlgorithmRow, error)
 	SearchRegions(ctx context.Context, arg SearchRegionsParams) ([]SearchRegionsRow, error)
+	SetAlgorithmVisibility(ctx context.Context, arg SetAlgorithmVisibilityParams) error
 	// Replace all tags for a publisher zman (delete existing, insert new)
 	// First delete all existing tags for the zman
-	SetPublisherZmanTags(ctx context.Context, publisherZmanID string) error
+	SetPublisherZmanTags(ctx context.Context, publisherZmanID int32) error
 	// ============================================
 	// SOFT DELETE QUERIES
 	// ============================================
 	SoftDeletePublisherZman(ctx context.Context, arg SoftDeletePublisherZmanParams) (SoftDeletePublisherZmanRow, error)
+	// Soft delete a publisher zman (exec version)
+	SoftDeletePublisherZmanExec(ctx context.Context, arg SoftDeletePublisherZmanExecParams) error
+	// ============================================
+	// SOFT DELETE QUERIES (ADDITIONAL)
+	// ============================================
+	SoftDeleteZman(ctx context.Context, arg SoftDeleteZmanParams) error
 	// ============================================
 	// SNAPSHOT RESTORE QUERIES
 	// ============================================
 	// Soft delete a zman that exists in current state but not in snapshot being restored
 	SoftDeleteZmanForRestore(ctx context.Context, arg SoftDeleteZmanForRestoreParams) error
-	UnpublishAllZmanim(ctx context.Context, publisherID string) error
+	// User SQL Queries
+	// SQLc will generate type-safe Go code from these queries
+	StorePasswordResetToken(ctx context.Context, arg StorePasswordResetTokenParams) error
+	UnpublishAllZmanim(ctx context.Context, publisherID int32) error
 	UnpublishZmanimByKeys(ctx context.Context, arg UnpublishZmanimByKeysParams) error
+	// Update algorithm configuration --
+	UpdateAlgorithmConfiguration(ctx context.Context, arg UpdateAlgorithmConfigurationParams) error
 	UpdateAlgorithmDraft(ctx context.Context, arg UpdateAlgorithmDraftParams) (UpdateAlgorithmDraftRow, error)
 	UpdateCityHierarchy(ctx context.Context, arg UpdateCityHierarchyParams) error
 	UpdateCoverageActive(ctx context.Context, arg UpdateCoverageActiveParams) (UpdateCoverageActiveRow, error)
 	UpdateCoveragePriority(ctx context.Context, arg UpdateCoveragePriorityParams) (UpdateCoveragePriorityRow, error)
 	UpdateInvitationToken(ctx context.Context, arg UpdateInvitationTokenParams) error
-	UpdateOnboardingAlgorithmSelected(ctx context.Context, arg UpdateOnboardingAlgorithmSelectedParams) (PublisherOnboarding, error)
-	UpdateOnboardingCoverageSet(ctx context.Context, arg UpdateOnboardingCoverageSetParams) (PublisherOnboarding, error)
-	UpdateOnboardingProfileComplete(ctx context.Context, arg UpdateOnboardingProfileCompleteParams) (PublisherOnboarding, error)
-	UpdateOnboardingZmanimConfigured(ctx context.Context, arg UpdateOnboardingZmanimConfiguredParams) (PublisherOnboarding, error)
 	UpdatePublisherLogo(ctx context.Context, arg UpdatePublisherLogoParams) (UpdatePublisherLogoRow, error)
 	UpdatePublisherProfile(ctx context.Context, arg UpdatePublisherProfileParams) (UpdatePublisherProfileRow, error)
 	UpdatePublisherProfileByClerkUserID(ctx context.Context, arg UpdatePublisherProfileByClerkUserIDParams) (UpdatePublisherProfileByClerkUserIDRow, error)
@@ -515,11 +849,12 @@ type Querier interface {
 	UpdatePublisherZman(ctx context.Context, arg UpdatePublisherZmanParams) (UpdatePublisherZmanRow, error)
 	// Update an alias
 	UpdatePublisherZmanAlias(ctx context.Context, arg UpdatePublisherZmanAliasParams) (UpdatePublisherZmanAliasRow, error)
+	UpdateSystemConfig(ctx context.Context, arg UpdateSystemConfigParams) (UpdateSystemConfigRow, error)
 	UpdateZmanCurrentVersion(ctx context.Context, arg UpdateZmanCurrentVersionParams) error
 	// Update an existing zman with data from snapshot (creates new version via trigger)
 	UpdateZmanFromSnapshot(ctx context.Context, arg UpdateZmanFromSnapshotParams) error
 	UpdateZmanRegistryRequestStatus(ctx context.Context, arg UpdateZmanRegistryRequestStatusParams) (UpdateZmanRegistryRequestStatusRow, error)
-	UpsertCity(ctx context.Context, arg UpsertCityParams) (string, error)
+	UpsertCity(ctx context.Context, arg UpsertCityParams) (int32, error)
 	// ============================================================================
 	// City Boundaries (Localities)
 	// ============================================================================
@@ -529,10 +864,19 @@ type Querier interface {
 	// ============================================================================
 	UpsertCountryBoundary(ctx context.Context, arg UpsertCountryBoundaryParams) error
 	UpsertDistrictBoundary(ctx context.Context, arg UpsertDistrictBoundaryParams) error
+	UpsertExplanationCache(ctx context.Context, arg UpsertExplanationCacheParams) error
 	UpsertNameMapping(ctx context.Context, arg UpsertNameMappingParams) error
+	UpsertOnboardingComplete(ctx context.Context, arg UpsertOnboardingCompleteParams) error
+	UpsertPublisherZmanLegacy(ctx context.Context, arg UpsertPublisherZmanLegacyParams) error
+	// Publisher Zmanim Upserts for Onboarding --
+	UpsertPublisherZmanWithMaster(ctx context.Context, arg UpsertPublisherZmanWithMasterParams) error
 	UpsertRegionBoundary(ctx context.Context, arg UpsertRegionBoundaryParams) error
 	// Returns any cities with hierarchy issues
 	ValidateAllCityHierarchy(ctx context.Context) ([]interface{}, error)
+	// Check if a zman key exists in the master registry
+	ValidateMasterZmanKeyExists(ctx context.Context, zmanKey string) (bool, error)
+	// Check if a key has a pending request
+	ValidatePendingRequestKeyExists(ctx context.Context, requestedKey string) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

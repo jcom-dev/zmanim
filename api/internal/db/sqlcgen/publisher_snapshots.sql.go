@@ -7,7 +7,6 @@ package sqlcgen
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -26,7 +25,7 @@ RETURNING id, publisher_id, description, snapshot_data, created_by, created_at
 `
 
 type CreatePublisherSnapshotParams struct {
-	PublisherID  string  `json:"publisher_id"`
+	PublisherID  int32   `json:"publisher_id"`
 	Description  *string `json:"description"`
 	SnapshotData []byte  `json:"snapshot_data"`
 	CreatedBy    *string `json:"created_by"`
@@ -62,8 +61,8 @@ WHERE id = $1 AND publisher_id = $2
 `
 
 type DeletePublisherSnapshotParams struct {
-	ID          string `json:"id"`
-	PublisherID string `json:"publisher_id"`
+	ID          int32 `json:"id"`
+	PublisherID int32 `json:"publisher_id"`
 }
 
 func (q *Queries) DeletePublisherSnapshot(ctx context.Context, arg DeletePublisherSnapshotParams) error {
@@ -78,7 +77,7 @@ WHERE publisher_id = $1 AND deleted_at IS NULL
 `
 
 // Get all active zman keys for a publisher (for diff comparison)
-func (q *Queries) GetAllPublisherZmanimKeys(ctx context.Context, publisherID string) ([]string, error) {
+func (q *Queries) GetAllPublisherZmanimKeys(ctx context.Context, publisherID int32) ([]string, error) {
 	rows, err := q.db.Query(ctx, getAllPublisherZmanimKeys, publisherID)
 	if err != nil {
 		return nil, err
@@ -105,12 +104,12 @@ WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NOT NULL
 `
 
 type GetDeletedZmanByKeyParams struct {
-	PublisherID string `json:"publisher_id"`
+	PublisherID int32  `json:"publisher_id"`
 	ZmanKey     string `json:"zman_key"`
 }
 
 type GetDeletedZmanByKeyRow struct {
-	ID      string `json:"id"`
+	ID      int32  `json:"id"`
 	ZmanKey string `json:"zman_key"`
 }
 
@@ -130,7 +129,7 @@ ORDER BY created_at DESC
 LIMIT 1
 `
 
-func (q *Queries) GetLatestPublisherSnapshot(ctx context.Context, publisherID string) (PublisherSnapshot, error) {
+func (q *Queries) GetLatestPublisherSnapshot(ctx context.Context, publisherID int32) (PublisherSnapshot, error) {
 	row := q.db.QueryRow(ctx, getLatestPublisherSnapshot, publisherID)
 	var i PublisherSnapshot
 	err := row.Scan(
@@ -151,8 +150,8 @@ WHERE id = $1 AND publisher_id = $2
 `
 
 type GetPublisherSnapshotParams struct {
-	ID          string `json:"id"`
-	PublisherID string `json:"publisher_id"`
+	ID          int32 `json:"id"`
+	PublisherID int32 `json:"publisher_id"`
 }
 
 func (q *Queries) GetPublisherSnapshot(ctx context.Context, arg GetPublisherSnapshotParams) (PublisherSnapshot, error) {
@@ -171,54 +170,64 @@ func (q *Queries) GetPublisherSnapshot(ctx context.Context, arg GetPublisherSnap
 
 const getPublisherZmanForSnapshotCompare = `-- name: GetPublisherZmanForSnapshotCompare :one
 SELECT
-    id,
-    zman_key,
-    hebrew_name,
-    english_name,
-    transliteration,
-    description,
-    formula_dsl,
-    ai_explanation,
-    publisher_comment,
-    is_enabled,
-    is_visible,
-    is_published,
-    is_beta,
-    is_custom,
-    category,
-    master_zman_id,
-    linked_publisher_zman_id,
-    source_type,
-    current_version
-FROM publisher_zmanim
-WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL
+    pz.id,
+    pz.zman_key,
+    pz.hebrew_name,
+    pz.english_name,
+    pz.transliteration,
+    pz.description,
+    pz.formula_dsl,
+    pz.ai_explanation,
+    pz.publisher_comment,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.is_published,
+    pz.is_beta,
+    pz.is_custom,
+    pz.time_category_id,
+    tc.key AS category,
+    tc.display_name_hebrew AS category_display_hebrew,
+    tc.display_name_english AS category_display_english,
+    pz.master_zman_id,
+    pz.linked_publisher_zman_id,
+    pz.source_type_id,
+    zst.key AS source_type,
+    pz.current_version
+FROM publisher_zmanim pz
+JOIN time_categories tc ON tc.id = pz.time_category_id
+LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
+WHERE pz.publisher_id = $1 AND pz.zman_key = $2 AND pz.deleted_at IS NULL
 `
 
 type GetPublisherZmanForSnapshotCompareParams struct {
-	PublisherID string `json:"publisher_id"`
+	PublisherID int32  `json:"publisher_id"`
 	ZmanKey     string `json:"zman_key"`
 }
 
 type GetPublisherZmanForSnapshotCompareRow struct {
-	ID                    string      `json:"id"`
-	ZmanKey               string      `json:"zman_key"`
-	HebrewName            string      `json:"hebrew_name"`
-	EnglishName           string      `json:"english_name"`
-	Transliteration       *string     `json:"transliteration"`
-	Description           *string     `json:"description"`
-	FormulaDsl            string      `json:"formula_dsl"`
-	AiExplanation         *string     `json:"ai_explanation"`
-	PublisherComment      *string     `json:"publisher_comment"`
-	IsEnabled             bool        `json:"is_enabled"`
-	IsVisible             bool        `json:"is_visible"`
-	IsPublished           bool        `json:"is_published"`
-	IsBeta                bool        `json:"is_beta"`
-	IsCustom              bool        `json:"is_custom"`
-	Category              string      `json:"category"`
-	MasterZmanID          pgtype.UUID `json:"master_zman_id"`
-	LinkedPublisherZmanID pgtype.UUID `json:"linked_publisher_zman_id"`
-	SourceType            string      `json:"source_type"`
-	CurrentVersion        *int32      `json:"current_version"`
+	ID                     int32   `json:"id"`
+	ZmanKey                string  `json:"zman_key"`
+	HebrewName             string  `json:"hebrew_name"`
+	EnglishName            string  `json:"english_name"`
+	Transliteration        *string `json:"transliteration"`
+	Description            *string `json:"description"`
+	FormulaDsl             string  `json:"formula_dsl"`
+	AiExplanation          *string `json:"ai_explanation"`
+	PublisherComment       *string `json:"publisher_comment"`
+	IsEnabled              bool    `json:"is_enabled"`
+	IsVisible              bool    `json:"is_visible"`
+	IsPublished            bool    `json:"is_published"`
+	IsBeta                 bool    `json:"is_beta"`
+	IsCustom               bool    `json:"is_custom"`
+	TimeCategoryID         *int32  `json:"time_category_id"`
+	Category               string  `json:"category"`
+	CategoryDisplayHebrew  string  `json:"category_display_hebrew"`
+	CategoryDisplayEnglish string  `json:"category_display_english"`
+	MasterZmanID           *int32  `json:"master_zman_id"`
+	LinkedPublisherZmanID  *int32  `json:"linked_publisher_zman_id"`
+	SourceTypeID           int16   `json:"source_type_id"`
+	SourceType             *string `json:"source_type"`
+	CurrentVersion         *int32  `json:"current_version"`
 }
 
 // Get a specific zman by key for comparison during restore
@@ -240,9 +249,13 @@ func (q *Queries) GetPublisherZmanForSnapshotCompare(ctx context.Context, arg Ge
 		&i.IsPublished,
 		&i.IsBeta,
 		&i.IsCustom,
+		&i.TimeCategoryID,
 		&i.Category,
+		&i.CategoryDisplayHebrew,
+		&i.CategoryDisplayEnglish,
 		&i.MasterZmanID,
 		&i.LinkedPublisherZmanID,
+		&i.SourceTypeID,
 		&i.SourceType,
 		&i.CurrentVersion,
 	)
@@ -252,52 +265,62 @@ func (q *Queries) GetPublisherZmanForSnapshotCompare(ctx context.Context, arg Ge
 const getPublisherZmanimForSnapshot = `-- name: GetPublisherZmanimForSnapshot :many
 
 SELECT
-    zman_key,
-    hebrew_name,
-    english_name,
-    transliteration,
-    description,
-    formula_dsl,
-    ai_explanation,
-    publisher_comment,
-    is_enabled,
-    is_visible,
-    is_published,
-    is_beta,
-    is_custom,
-    category,
-    master_zman_id,
-    linked_publisher_zman_id,
-    source_type
-FROM publisher_zmanim
-WHERE publisher_id = $1 AND deleted_at IS NULL
+    pz.zman_key,
+    pz.hebrew_name,
+    pz.english_name,
+    pz.transliteration,
+    pz.description,
+    pz.formula_dsl,
+    pz.ai_explanation,
+    pz.publisher_comment,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.is_published,
+    pz.is_beta,
+    pz.is_custom,
+    pz.time_category_id,
+    tc.key AS category,
+    tc.display_name_hebrew AS category_display_hebrew,
+    tc.display_name_english AS category_display_english,
+    pz.master_zman_id,
+    pz.linked_publisher_zman_id,
+    pz.source_type_id,
+    zst.key AS source_type
+FROM publisher_zmanim pz
+JOIN time_categories tc ON tc.id = pz.time_category_id
+LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
+WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL
 `
 
 type GetPublisherZmanimForSnapshotRow struct {
-	ZmanKey               string      `json:"zman_key"`
-	HebrewName            string      `json:"hebrew_name"`
-	EnglishName           string      `json:"english_name"`
-	Transliteration       *string     `json:"transliteration"`
-	Description           *string     `json:"description"`
-	FormulaDsl            string      `json:"formula_dsl"`
-	AiExplanation         *string     `json:"ai_explanation"`
-	PublisherComment      *string     `json:"publisher_comment"`
-	IsEnabled             bool        `json:"is_enabled"`
-	IsVisible             bool        `json:"is_visible"`
-	IsPublished           bool        `json:"is_published"`
-	IsBeta                bool        `json:"is_beta"`
-	IsCustom              bool        `json:"is_custom"`
-	Category              string      `json:"category"`
-	MasterZmanID          pgtype.UUID `json:"master_zman_id"`
-	LinkedPublisherZmanID pgtype.UUID `json:"linked_publisher_zman_id"`
-	SourceType            string      `json:"source_type"`
+	ZmanKey                string  `json:"zman_key"`
+	HebrewName             string  `json:"hebrew_name"`
+	EnglishName            string  `json:"english_name"`
+	Transliteration        *string `json:"transliteration"`
+	Description            *string `json:"description"`
+	FormulaDsl             string  `json:"formula_dsl"`
+	AiExplanation          *string `json:"ai_explanation"`
+	PublisherComment       *string `json:"publisher_comment"`
+	IsEnabled              bool    `json:"is_enabled"`
+	IsVisible              bool    `json:"is_visible"`
+	IsPublished            bool    `json:"is_published"`
+	IsBeta                 bool    `json:"is_beta"`
+	IsCustom               bool    `json:"is_custom"`
+	TimeCategoryID         *int32  `json:"time_category_id"`
+	Category               string  `json:"category"`
+	CategoryDisplayHebrew  string  `json:"category_display_hebrew"`
+	CategoryDisplayEnglish string  `json:"category_display_english"`
+	MasterZmanID           *int32  `json:"master_zman_id"`
+	LinkedPublisherZmanID  *int32  `json:"linked_publisher_zman_id"`
+	SourceTypeID           int16   `json:"source_type_id"`
+	SourceType             *string `json:"source_type"`
 }
 
 // ============================================
 // ZMANIM SNAPSHOT DATA QUERIES
 // ============================================
 // Get all active (non-deleted) zmanim for snapshot export
-func (q *Queries) GetPublisherZmanimForSnapshot(ctx context.Context, publisherID string) ([]GetPublisherZmanimForSnapshotRow, error) {
+func (q *Queries) GetPublisherZmanimForSnapshot(ctx context.Context, publisherID int32) ([]GetPublisherZmanimForSnapshotRow, error) {
 	rows, err := q.db.Query(ctx, getPublisherZmanimForSnapshot, publisherID)
 	if err != nil {
 		return nil, err
@@ -320,9 +343,13 @@ func (q *Queries) GetPublisherZmanimForSnapshot(ctx context.Context, publisherID
 			&i.IsPublished,
 			&i.IsBeta,
 			&i.IsCustom,
+			&i.TimeCategoryID,
 			&i.Category,
+			&i.CategoryDisplayHebrew,
+			&i.CategoryDisplayEnglish,
 			&i.MasterZmanID,
 			&i.LinkedPublisherZmanID,
+			&i.SourceTypeID,
 			&i.SourceType,
 		); err != nil {
 			return nil, err
@@ -351,34 +378,34 @@ INSERT INTO publisher_zmanim (
     is_published,
     is_beta,
     is_custom,
-    category,
+    time_category_id,
     master_zman_id,
     linked_publisher_zman_id,
-    source_type
+    source_type_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 )
 `
 
 type InsertZmanFromSnapshotParams struct {
-	PublisherID           string      `json:"publisher_id"`
-	ZmanKey               string      `json:"zman_key"`
-	HebrewName            string      `json:"hebrew_name"`
-	EnglishName           string      `json:"english_name"`
-	Transliteration       *string     `json:"transliteration"`
-	Description           *string     `json:"description"`
-	FormulaDsl            string      `json:"formula_dsl"`
-	AiExplanation         *string     `json:"ai_explanation"`
-	PublisherComment      *string     `json:"publisher_comment"`
-	IsEnabled             bool        `json:"is_enabled"`
-	IsVisible             bool        `json:"is_visible"`
-	IsPublished           bool        `json:"is_published"`
-	IsBeta                bool        `json:"is_beta"`
-	IsCustom              bool        `json:"is_custom"`
-	Category              string      `json:"category"`
-	MasterZmanID          pgtype.UUID `json:"master_zman_id"`
-	LinkedPublisherZmanID pgtype.UUID `json:"linked_publisher_zman_id"`
-	SourceType            string      `json:"source_type"`
+	PublisherID           int32   `json:"publisher_id"`
+	ZmanKey               string  `json:"zman_key"`
+	HebrewName            string  `json:"hebrew_name"`
+	EnglishName           string  `json:"english_name"`
+	Transliteration       *string `json:"transliteration"`
+	Description           *string `json:"description"`
+	FormulaDsl            string  `json:"formula_dsl"`
+	AiExplanation         *string `json:"ai_explanation"`
+	PublisherComment      *string `json:"publisher_comment"`
+	IsEnabled             bool    `json:"is_enabled"`
+	IsVisible             bool    `json:"is_visible"`
+	IsPublished           bool    `json:"is_published"`
+	IsBeta                bool    `json:"is_beta"`
+	IsCustom              bool    `json:"is_custom"`
+	TimeCategoryID        *int32  `json:"time_category_id"`
+	MasterZmanID          *int32  `json:"master_zman_id"`
+	LinkedPublisherZmanID *int32  `json:"linked_publisher_zman_id"`
+	SourceTypeID          int16   `json:"source_type_id"`
 }
 
 // Insert a new zman from snapshot (zman doesn't exist at all)
@@ -398,10 +425,10 @@ func (q *Queries) InsertZmanFromSnapshot(ctx context.Context, arg InsertZmanFrom
 		arg.IsPublished,
 		arg.IsBeta,
 		arg.IsCustom,
-		arg.Category,
+		arg.TimeCategoryID,
 		arg.MasterZmanID,
 		arg.LinkedPublisherZmanID,
-		arg.SourceType,
+		arg.SourceTypeID,
 	)
 	return err
 }
@@ -420,14 +447,14 @@ LIMIT 20
 `
 
 type ListPublisherSnapshotsRow struct {
-	ID          string    `json:"id"`
-	PublisherID string    `json:"publisher_id"`
-	Description *string   `json:"description"`
-	CreatedBy   *string   `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          int32              `json:"id"`
+	PublisherID int32              `json:"publisher_id"`
+	Description *string            `json:"description"`
+	CreatedBy   *string            `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
-func (q *Queries) ListPublisherSnapshots(ctx context.Context, publisherID string) ([]ListPublisherSnapshotsRow, error) {
+func (q *Queries) ListPublisherSnapshots(ctx context.Context, publisherID int32) ([]ListPublisherSnapshotsRow, error) {
 	rows, err := q.db.Query(ctx, listPublisherSnapshots, publisherID)
 	if err != nil {
 		return nil, err
@@ -460,7 +487,7 @@ WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NOT NULL
 `
 
 type RestoreDeletedZmanForSnapshotParams struct {
-	PublisherID string `json:"publisher_id"`
+	PublisherID int32  `json:"publisher_id"`
 	ZmanKey     string `json:"zman_key"`
 }
 
@@ -478,7 +505,7 @@ WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL
 `
 
 type SoftDeleteZmanForRestoreParams struct {
-	PublisherID string  `json:"publisher_id"`
+	PublisherID int32   `json:"publisher_id"`
 	ZmanKey     string  `json:"zman_key"`
 	DeletedBy   *string `json:"deleted_by"`
 }
@@ -507,33 +534,33 @@ SET
     is_published = $12,
     is_beta = $13,
     is_custom = $14,
-    category = $15,
+    time_category_id = $15,
     master_zman_id = $16,
     linked_publisher_zman_id = $17,
-    source_type = $18,
+    source_type_id = $18,
     updated_at = NOW()
 WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL
 `
 
 type UpdateZmanFromSnapshotParams struct {
-	PublisherID           string      `json:"publisher_id"`
-	ZmanKey               string      `json:"zman_key"`
-	HebrewName            string      `json:"hebrew_name"`
-	EnglishName           string      `json:"english_name"`
-	Transliteration       *string     `json:"transliteration"`
-	Description           *string     `json:"description"`
-	FormulaDsl            string      `json:"formula_dsl"`
-	AiExplanation         *string     `json:"ai_explanation"`
-	PublisherComment      *string     `json:"publisher_comment"`
-	IsEnabled             bool        `json:"is_enabled"`
-	IsVisible             bool        `json:"is_visible"`
-	IsPublished           bool        `json:"is_published"`
-	IsBeta                bool        `json:"is_beta"`
-	IsCustom              bool        `json:"is_custom"`
-	Category              string      `json:"category"`
-	MasterZmanID          pgtype.UUID `json:"master_zman_id"`
-	LinkedPublisherZmanID pgtype.UUID `json:"linked_publisher_zman_id"`
-	SourceType            string      `json:"source_type"`
+	PublisherID           int32   `json:"publisher_id"`
+	ZmanKey               string  `json:"zman_key"`
+	HebrewName            string  `json:"hebrew_name"`
+	EnglishName           string  `json:"english_name"`
+	Transliteration       *string `json:"transliteration"`
+	Description           *string `json:"description"`
+	FormulaDsl            string  `json:"formula_dsl"`
+	AiExplanation         *string `json:"ai_explanation"`
+	PublisherComment      *string `json:"publisher_comment"`
+	IsEnabled             bool    `json:"is_enabled"`
+	IsVisible             bool    `json:"is_visible"`
+	IsPublished           bool    `json:"is_published"`
+	IsBeta                bool    `json:"is_beta"`
+	IsCustom              bool    `json:"is_custom"`
+	TimeCategoryID        *int32  `json:"time_category_id"`
+	MasterZmanID          *int32  `json:"master_zman_id"`
+	LinkedPublisherZmanID *int32  `json:"linked_publisher_zman_id"`
+	SourceTypeID          int16   `json:"source_type_id"`
 }
 
 // Update an existing zman with data from snapshot (creates new version via trigger)
@@ -553,10 +580,10 @@ func (q *Queries) UpdateZmanFromSnapshot(ctx context.Context, arg UpdateZmanFrom
 		arg.IsPublished,
 		arg.IsBeta,
 		arg.IsCustom,
-		arg.Category,
+		arg.TimeCategoryID,
 		arg.MasterZmanID,
 		arg.LinkedPublisherZmanID,
-		arg.SourceType,
+		arg.SourceTypeID,
 	)
 	return err
 }

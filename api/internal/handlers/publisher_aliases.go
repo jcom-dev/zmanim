@@ -67,15 +67,23 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 5: Delete existing alias (if any) and create new one
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+
 	// First delete any existing primary alias for this zman
 	_ = h.db.Queries.DeletePublisherZmanAliasByZmanKey(ctx, sqlcgen.DeletePublisherZmanAliasByZmanKeyParams{
-		PublisherID: pc.PublisherID,
+		PublisherID: publisherID,
 		ZmanKey:     zmanKey,
 	})
 
 	// Create new alias
 	alias, err := h.db.Queries.CreatePublisherZmanAlias(ctx, sqlcgen.CreatePublisherZmanAliasParams{
-		PublisherID:          pc.PublisherID,
+		PublisherID:          publisherID,
 		ZmanKey:              zmanKey,
 		AliasHebrew:          req.AliasHebrew,
 		AliasEnglish:         req.AliasEnglish,
@@ -96,7 +104,7 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 
 	// Get the full alias with canonical names
 	fullAlias, err := h.db.Queries.GetPublisherZmanAlias(ctx, sqlcgen.GetPublisherZmanAliasParams{
-		PublisherID: pc.PublisherID,
+		PublisherID: publisherID,
 		ZmanKey:     zmanKey,
 	})
 	if err != nil {
@@ -107,14 +115,14 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 
 	// Step 6: Respond
 	response := AliasResponse{
-		ID:                   alias.ID,
+		ID:                   int32ToString(alias.ID),
 		ZmanKey:              fullAlias.ZmanKey,
 		AliasHebrew:          fullAlias.AliasHebrew,
 		AliasEnglish:         fullAlias.AliasEnglish,
 		AliasTransliteration: fullAlias.AliasTransliteration,
 		CanonicalHebrewName:  fullAlias.CanonicalHebrewName,
 		CanonicalEnglishName: fullAlias.CanonicalEnglishName,
-		CreatedAt:            alias.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:            alias.CreatedAt.Time.Format("2006-01-02T15:04:05Z"),
 	}
 
 	RespondJSON(w, r, http.StatusOK, response)
@@ -140,8 +148,16 @@ func (h *Handlers) GetAlias(w http.ResponseWriter, r *http.Request) {
 	// Step 3-4: No request body to parse or validate
 
 	// Step 5: Execute business logic
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+
 	alias, err := h.db.Queries.GetPublisherZmanAlias(ctx, sqlcgen.GetPublisherZmanAliasParams{
-		PublisherID: pc.PublisherID,
+		PublisherID: publisherID,
 		ZmanKey:     zmanKey,
 	})
 	if err != nil {
@@ -157,14 +173,14 @@ func (h *Handlers) GetAlias(w http.ResponseWriter, r *http.Request) {
 
 	// Step 6: Respond
 	response := AliasResponse{
-		ID:                   alias.ID,
+		ID:                   int32ToString(alias.ID),
 		ZmanKey:              alias.ZmanKey,
 		AliasHebrew:          alias.AliasHebrew,
 		AliasEnglish:         alias.AliasEnglish,
 		AliasTransliteration: alias.AliasTransliteration,
 		CanonicalHebrewName:  alias.CanonicalHebrewName,
 		CanonicalEnglishName: alias.CanonicalEnglishName,
-		CreatedAt:            alias.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:            alias.CreatedAt.Time.Format("2006-01-02T15:04:05Z"),
 	}
 
 	RespondJSON(w, r, http.StatusOK, response)
@@ -190,8 +206,16 @@ func (h *Handlers) DeleteAlias(w http.ResponseWriter, r *http.Request) {
 	// Step 3-4: No request body to parse or validate
 
 	// Step 5: Execute business logic
-	err := h.db.Queries.DeletePublisherZmanAliasByZmanKey(ctx, sqlcgen.DeletePublisherZmanAliasByZmanKeyParams{
-		PublisherID: pc.PublisherID,
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+
+	err = h.db.Queries.DeletePublisherZmanAliasByZmanKey(ctx, sqlcgen.DeletePublisherZmanAliasByZmanKeyParams{
+		PublisherID: publisherID,
 		ZmanKey:     zmanKey,
 	})
 	if err != nil {
@@ -217,7 +241,15 @@ func (h *Handlers) ListAliases(w http.ResponseWriter, r *http.Request) {
 	// Step 2-4: No URL params or request body
 
 	// Step 5: Execute business logic
-	aliases, err := h.db.Queries.GetAllPublisherZmanAliases(ctx, pc.PublisherID)
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+
+	aliases, err := h.db.Queries.GetAllPublisherZmanAliases(ctx, publisherID)
 	if err != nil {
 		slog.Error("failed to list aliases", "error", err, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to retrieve aliases")
@@ -231,14 +263,14 @@ func (h *Handlers) ListAliases(w http.ResponseWriter, r *http.Request) {
 
 	for _, alias := range aliases {
 		response.Aliases = append(response.Aliases, AliasResponse{
-			ID:                   alias.ID,
+			ID:                   int32ToString(alias.ID),
 			ZmanKey:              alias.ZmanKey,
 			AliasHebrew:          alias.AliasHebrew,
 			AliasEnglish:         alias.AliasEnglish,
 			AliasTransliteration: alias.AliasTransliteration,
 			CanonicalHebrewName:  alias.CanonicalHebrewName,
 			CanonicalEnglishName: alias.CanonicalEnglishName,
-			CreatedAt:            alias.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			CreatedAt:            alias.CreatedAt.Time.Format("2006-01-02T15:04:05Z"),
 		})
 	}
 

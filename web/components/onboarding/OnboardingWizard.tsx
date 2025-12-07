@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { WizardProgress } from './WizardProgress';
 import { WelcomeStep } from './steps/WelcomeStep';
-import { TemplateSelectionStep } from './steps/TemplateSelectionStep';
 import { CustomizeZmanimStep } from './steps/CustomizeZmanimStep';
 import { CoverageSetupStep } from './steps/CoverageSetupStep';
 import { ReviewPublishStep } from './steps/ReviewPublishStep';
@@ -14,7 +13,6 @@ interface OnboardingStateAPI {
   current_step?: number;
   completed_steps?: number[];
   data?: {
-    template?: string;
     customizations?: (ZmanCustomization | SelectedZmanCustomization)[];
     coverage?: CoverageSelection[];
   };
@@ -28,7 +26,6 @@ export interface OnboardingState {
   currentStep: number;
   completedSteps: number[];
   data: {
-    template?: string;
     customizations?: (ZmanCustomization | SelectedZmanCustomization)[];
     coverage?: CoverageSelection[];
   };
@@ -90,7 +87,6 @@ interface StepDefinition {
 
 const STEPS: StepDefinition[] = [
   { id: 'welcome', title: 'Welcome', titleHebrew: 'ברוכים הבאים' },
-  { id: 'template', title: 'Choose Template', titleHebrew: 'בחר תבנית' },
   { id: 'customize', title: 'Customize Zmanim', titleHebrew: 'התאם זמנים' },
   { id: 'coverage', title: 'Set Coverage', titleHebrew: 'הגדר כיסוי' },
   { id: 'review', title: 'Review & Publish', titleHebrew: 'בדוק ופרסם' },
@@ -243,10 +239,9 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
 
       <div className="mt-8 bg-card rounded-lg shadow-lg p-6 min-h-[400px]">
         {state.currentStep === 0 && <WelcomeStep {...stepProps} />}
-        {state.currentStep === 1 && <TemplateSelectionStep {...stepProps} />}
-        {state.currentStep === 2 && <CustomizeZmanimStep {...stepProps} />}
-        {state.currentStep === 3 && <CoverageSetupStep {...stepProps} />}
-        {state.currentStep === 4 && (
+        {state.currentStep === 1 && <CustomizeZmanimStep {...stepProps} />}
+        {state.currentStep === 2 && <CoverageSetupStep {...stepProps} />}
+        {state.currentStep === 3 && (
           <ReviewPublishStep {...stepProps} onComplete={handleComplete} onDismiss={handleDismissWizard} />
         )}
       </div>

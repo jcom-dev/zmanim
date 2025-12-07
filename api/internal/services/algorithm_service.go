@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/jcom-dev/zmanim-lab/internal/db"
@@ -237,30 +235,3 @@ func (s *AlgorithmService) validateAlgorithmConfig(config map[string]interface{}
 	return nil
 }
 
-// GetTemplates returns available algorithm templates
-func (s *AlgorithmService) GetTemplates(ctx context.Context) (map[string]interface{}, error) {
-	templateDir := "api/data/templates"
-	templates := make(map[string]interface{})
-
-	templateFiles := []string{"gra.json", "mga.json", "rabbeinu-tam.json", "custom.json"}
-
-	for _, filename := range templateFiles {
-		templatePath := filepath.Join(templateDir, filename)
-		data, err := os.ReadFile(templatePath)
-		if err != nil {
-			// Log error but continue with other templates
-			continue
-		}
-
-		var templateData map[string]interface{}
-		if err := json.Unmarshal(data, &templateData); err != nil {
-			continue
-		}
-
-		// Use filename without extension as key
-		key := filename[:len(filename)-5] // Remove ".json"
-		templates[key] = templateData
-	}
-
-	return templates, nil
-}

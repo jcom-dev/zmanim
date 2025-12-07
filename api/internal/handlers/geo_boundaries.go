@@ -85,7 +85,7 @@ type DistrictInfo struct {
 
 // NearestCity represents a nearby city in lookup response
 type NearestCity struct {
-	ID           string  `json:"id"`
+	ID           int32   `json:"id"`
 	Name         string  `json:"name"`
 	NameLocal    *string `json:"name_local,omitempty"`
 	CountryCode  string  `json:"country_code"`

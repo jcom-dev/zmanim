@@ -29,8 +29,15 @@ func (h *Handlers) ExportPublisherSnapshot(w http.ResponseWriter, r *http.Reques
 	// 4. No validation
 
 	// 5. Build snapshot
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
 	description := fmt.Sprintf("Export - %s", time.Now().Format("Jan 2, 2006 3:04 PM"))
-	snapshot, err := h.snapshotService.BuildSnapshot(ctx, pc.PublisherID, description)
+	snapshot, err := h.snapshotService.BuildSnapshot(ctx, publisherID, description)
 	if err != nil {
 		slog.Error("failed to build snapshot for export", "error", err, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to export snapshot")
@@ -84,7 +91,14 @@ func (h *Handlers) ImportPublisherSnapshot(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 5. Import snapshot
-	err := h.snapshotService.ImportSnapshot(ctx, pc.PublisherID, pc.UserID, &req.Snapshot)
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
+	err = h.snapshotService.ImportSnapshot(ctx, publisherID, pc.UserID, &req.Snapshot)
 	if err != nil {
 		slog.Error("failed to import snapshot", "error", err, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to import snapshot")
@@ -128,7 +142,14 @@ func (h *Handlers) SavePublisherSnapshot(w http.ResponseWriter, r *http.Request)
 	}
 
 	// 5. Save snapshot
-	meta, err := h.snapshotService.SaveSnapshot(ctx, pc.PublisherID, pc.UserID, req.Description)
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
+	meta, err := h.snapshotService.SaveSnapshot(ctx, publisherID, pc.UserID, req.Description)
 	if err != nil {
 		slog.Error("failed to save snapshot", "error", err, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to save version")
@@ -157,7 +178,14 @@ func (h *Handlers) ListPublisherSnapshots(w http.ResponseWriter, r *http.Request
 	// 4. No validation
 
 	// 5. List snapshots
-	snapshots, err := h.snapshotService.ListSnapshots(ctx, pc.PublisherID)
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
+	snapshots, err := h.snapshotService.ListSnapshots(ctx, publisherID)
 	if err != nil {
 		slog.Error("failed to list snapshots", "error", err, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to list versions")
@@ -183,20 +211,33 @@ func (h *Handlers) GetPublisherSnapshot(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 2. Extract URL params
-	snapshotID := chi.URLParam(r, "id")
-	if snapshotID == "" {
+	snapshotIDStr := chi.URLParam(r, "id")
+	if snapshotIDStr == "" {
 		RespondValidationError(w, r, "Snapshot ID is required", nil)
 		return
 	}
 
 	// 3. No body
 
-	// 4. No additional validation
+	// 4. Convert and validate IDs
+	snapshotID, err := stringToInt32(snapshotIDStr)
+	if err != nil {
+		slog.Error("invalid snapshot ID", "error", err, "snapshot_id", snapshotIDStr)
+		RespondBadRequest(w, r, "Invalid snapshot ID")
+		return
+	}
+
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// 5. Get snapshot
-	snapshot, err := h.snapshotService.GetSnapshot(ctx, snapshotID, pc.PublisherID)
+	snapshot, err := h.snapshotService.GetSnapshot(ctx, snapshotID, publisherID)
 	if err != nil {
-		slog.Error("failed to get snapshot", "error", err, "snapshot_id", snapshotID, "publisher_id", pc.PublisherID)
+		slog.Error("failed to get snapshot", "error", err, "snapshot_id", snapshotIDStr, "publisher_id", pc.PublisherID)
 		RespondNotFound(w, r, "Snapshot not found")
 		return
 	}
@@ -217,20 +258,33 @@ func (h *Handlers) RestorePublisherSnapshot(w http.ResponseWriter, r *http.Reque
 	}
 
 	// 2. Extract URL params
-	snapshotID := chi.URLParam(r, "id")
-	if snapshotID == "" {
+	snapshotIDStr := chi.URLParam(r, "id")
+	if snapshotIDStr == "" {
 		RespondValidationError(w, r, "Snapshot ID is required", nil)
 		return
 	}
 
 	// 3. No body
 
-	// 4. No additional validation
+	// 4. Convert and validate IDs
+	snapshotID, err := stringToInt32(snapshotIDStr)
+	if err != nil {
+		slog.Error("invalid snapshot ID", "error", err, "snapshot_id", snapshotIDStr)
+		RespondBadRequest(w, r, "Invalid snapshot ID")
+		return
+	}
+
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// 5. Restore snapshot (auto-saves current state first)
-	autoSave, err := h.snapshotService.RestoreSnapshot(ctx, snapshotID, pc.PublisherID, pc.UserID)
+	autoSave, err := h.snapshotService.RestoreSnapshot(ctx, snapshotID, publisherID, pc.UserID)
 	if err != nil {
-		slog.Error("failed to restore snapshot", "error", err, "snapshot_id", snapshotID, "publisher_id", pc.PublisherID)
+		slog.Error("failed to restore snapshot", "error", err, "snapshot_id", snapshotIDStr, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to restore version")
 		return
 	}
@@ -254,20 +308,33 @@ func (h *Handlers) DeletePublisherSnapshot(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 2. Extract URL params
-	snapshotID := chi.URLParam(r, "id")
-	if snapshotID == "" {
+	snapshotIDStr := chi.URLParam(r, "id")
+	if snapshotIDStr == "" {
 		RespondValidationError(w, r, "Snapshot ID is required", nil)
 		return
 	}
 
 	// 3. No body
 
-	// 4. No additional validation
+	// 4. Convert and validate IDs
+	snapshotID, err := stringToInt32(snapshotIDStr)
+	if err != nil {
+		slog.Error("invalid snapshot ID", "error", err, "snapshot_id", snapshotIDStr)
+		RespondBadRequest(w, r, "Invalid snapshot ID")
+		return
+	}
+
+	publisherID, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		slog.Error("invalid publisher ID", "error", err, "publisher_id", pc.PublisherID)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// 5. Delete snapshot
-	err := h.snapshotService.DeleteSnapshot(ctx, snapshotID, pc.PublisherID)
+	err = h.snapshotService.DeleteSnapshot(ctx, snapshotID, publisherID)
 	if err != nil {
-		slog.Error("failed to delete snapshot", "error", err, "snapshot_id", snapshotID, "publisher_id", pc.PublisherID)
+		slog.Error("failed to delete snapshot", "error", err, "snapshot_id", snapshotIDStr, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to delete version")
 		return
 	}

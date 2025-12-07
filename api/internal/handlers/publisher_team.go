@@ -6,10 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 )
 
 // PublisherInvitation represents a team invitation
@@ -45,19 +48,23 @@ func (h *Handlers) GetPublisherTeam(w http.ResponseWriter, r *http.Request) {
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
+	publisherID, err := stringToInt32(publisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// Get the publisher's owner (clerk_user_id)
 	var ownerID *string
-	_ = h.db.Pool.QueryRow(ctx,
-		"SELECT clerk_user_id FROM publishers WHERE id = $1",
-		publisherID,
-	).Scan(&ownerID)
+	if ownerClerkID, err := h.db.Queries.GetPublisherOwnerID(ctx, publisherID); err == nil {
+		ownerID = ownerClerkID
+	}
 
 	// Get team members from Clerk
 	members := make([]TeamMember, 0)
 	if h.clerkService != nil {
-		users, err := h.clerkService.GetUsersWithPublisherAccess(ctx, publisherID)
+		users, err := h.clerkService.GetUsersWithPublisherAccess(ctx, publisherIDStr)
 		if err != nil {
 			slog.Error("failed to get publisher users from Clerk", "error", err)
 		} else {
@@ -77,37 +84,24 @@ func (h *Handlers) GetPublisherTeam(w http.ResponseWriter, r *http.Request) {
 
 	// Get pending invitations
 	invitations := make([]map[string]interface{}, 0)
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT id, email, status, expires_at, created_at
-		FROM publisher_invitations
-		WHERE publisher_id = $1 AND status IN ('pending', 'expired')
-		ORDER BY created_at DESC
-	`, publisherID)
-
+	invitationRows, err := h.db.Queries.ListPendingInvitationsByPublisher(ctx, publisherID)
 	if err != nil {
 		slog.Error("failed to get publisher invitations", "error", err)
 	} else {
-		defer rows.Close()
 		now := time.Now()
-		for rows.Next() {
-			var id, email, status string
-			var expiresAt, createdAt time.Time
-
-			if err := rows.Scan(&id, &email, &status, &expiresAt, &createdAt); err != nil {
-				continue
-			}
-
-			// Check if expired
-			if status == "pending" && now.After(expiresAt) {
+		for _, inv := range invitationRows {
+			// Determine status based on expiration
+			status := "pending"
+			if now.After(inv.ExpiresAt.Time) {
 				status = "expired"
 			}
 
 			invitations = append(invitations, map[string]interface{}{
-				"id":         id,
-				"email":      email,
+				"id":         inv.ID,
+				"email":      inv.Email,
 				"status":     status,
-				"expires_at": expiresAt,
-				"created_at": createdAt,
+				"expires_at": inv.ExpiresAt,
+				"created_at": inv.CreatedAt,
 			})
 		}
 	}
@@ -130,8 +124,14 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
 	userID := pc.UserID
+
+	publisherID, err := stringToInt32(publisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	var req struct {
 		Email string `json:"email"`
@@ -149,11 +149,7 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get publisher name for the email
-	var publisherName string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT name FROM publishers WHERE id = $1",
-		publisherID,
-	).Scan(&publisherName)
+	publisherName, err := h.db.Queries.GetPublisherNameForTeam(ctx, publisherID)
 	if err != nil {
 		RespondNotFound(w, r, "Publisher not found")
 		return
@@ -199,7 +195,7 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 		metadata, _ := h.clerkService.GetUserPublicMetadata(ctx, existingUser.ID)
 		if accessList, ok := metadata["publisher_access_list"].([]interface{}); ok {
 			for _, id := range accessList {
-				if idStr, ok := id.(string); ok && idStr == publisherID {
+				if idStr, ok := id.(string); ok && idStr == publisherIDStr {
 					RespondConflict(w, r, "User already has access to this publisher")
 					return
 				}
@@ -207,8 +203,8 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 		}
 
 		// Add publisher to their access list
-		if err := h.clerkService.AddPublisherToUser(ctx, existingUser.ID, publisherID); err != nil {
-			slog.Error("failed to add publisher to user", "error", err, "user_id", existingUser.ID, "publisher_id", publisherID)
+		if err := h.clerkService.AddPublisherToUser(ctx, existingUser.ID, publisherIDStr); err != nil {
+			slog.Error("failed to add publisher to user", "error", err, "user_id", existingUser.ID, "publisher_id", publisherIDStr)
 			RespondInternalError(w, r, "Failed to add user to team")
 			return
 		}
@@ -221,13 +217,13 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 		slog.Info("publisher access added to existing user",
 			"email", req.Email,
 			"user_id", existingUser.ID,
-			"publisher_id", publisherID,
+			"publisher_id", publisherIDStr,
 			"added_by", userID)
 	} else {
 		// User doesn't exist - create directly (no invitation)
-		newUser, err := h.clerkService.CreatePublisherUserDirectly(ctx, req.Email, userName, publisherID)
+		newUser, err := h.clerkService.CreatePublisherUserDirectly(ctx, req.Email, userName, publisherIDStr)
 		if err != nil {
-			slog.Error("failed to create user", "error", err, "email", req.Email, "publisher_id", publisherID)
+			slog.Error("failed to create user", "error", err, "email", req.Email, "publisher_id", publisherIDStr)
 			RespondInternalError(w, r, "Failed to create user")
 			return
 		}
@@ -236,7 +232,7 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 		slog.Info("user created and added to publisher team",
 			"email", req.Email,
 			"user_id", newUser.ID,
-			"publisher_id", publisherID,
+			"publisher_id", publisherIDStr,
 			"added_by", userID)
 	}
 
@@ -247,7 +243,7 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 				slog.Error("failed to send team member added email",
 					"error", err,
 					"email", req.Email,
-					"publisher_id", publisherID)
+					"publisher_id", publisherIDStr)
 			}
 		}()
 	}
@@ -278,7 +274,7 @@ func (h *Handlers) RemovePublisherTeamMember(w http.ResponseWriter, r *http.Requ
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
 	currentUserID := pc.UserID
 
 	memberUserID := chi.URLParam(r, "userId")
@@ -306,7 +302,7 @@ func (h *Handlers) RemovePublisherTeamMember(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Remove publisher and check if user should be deleted
-	userDeleted, err := h.clerkService.RemovePublisherFromUserAndCleanup(ctx, memberUserID, publisherID)
+	userDeleted, err := h.clerkService.RemovePublisherFromUserAndCleanup(ctx, memberUserID, publisherIDStr)
 	if err != nil {
 		slog.Error("failed to remove publisher from user", "error", err)
 		RespondInternalError(w, r, "Failed to remove team member")
@@ -315,7 +311,7 @@ func (h *Handlers) RemovePublisherTeamMember(w http.ResponseWriter, r *http.Requ
 
 	if userDeleted {
 		slog.Info("team member removed and user deleted (no remaining roles)",
-			"publisher_id", publisherID,
+			"publisher_id", publisherIDStr,
 			"removed_user", memberUserID,
 			"removed_by", currentUserID,
 			"email", email)
@@ -327,7 +323,7 @@ func (h *Handlers) RemovePublisherTeamMember(w http.ResponseWriter, r *http.Requ
 		})
 	} else {
 		slog.Info("team member removed",
-			"publisher_id", publisherID,
+			"publisher_id", publisherIDStr,
 			"removed_user", memberUserID,
 			"removed_by", currentUserID,
 			"email", email)
@@ -352,21 +348,20 @@ func (h *Handlers) ResendPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	}
 	userID := pc.UserID
 
-	invitationID := chi.URLParam(r, "id")
-	if invitationID == "" {
+	invitationIDStr := chi.URLParam(r, "id")
+	if invitationIDStr == "" {
 		RespondValidationError(w, r, "Invitation ID is required", nil)
 		return
 	}
 
-	// Get the invitation and verify ownership
-	var publisherID, email, token string
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT pi.publisher_id, pi.email, pi.token
-		FROM publisher_invitations pi
-		JOIN publishers p ON pi.publisher_id = p.id
-		WHERE pi.id = $1 AND pi.status = 'pending'
-	`, invitationID).Scan(&publisherID, &email, &token)
+	invitationID, err := strconv.ParseInt(invitationIDStr, 10, 32)
+	if err != nil {
+		RespondValidationError(w, r, "Invalid invitation ID", nil)
+		return
+	}
 
+	// Get the invitation and verify ownership
+	invitation, err := h.db.Queries.GetInvitationForResend(ctx, int32(invitationID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			RespondNotFound(w, r, "Invitation not found")
@@ -377,6 +372,9 @@ func (h *Handlers) ResendPublisherInvitation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	publisherID := invitation.PublisherID
+	email := invitation.Email
+
 	// Generate new token and reset expiration
 	newToken, err := generateSecureToken()
 	if err != nil {
@@ -386,11 +384,11 @@ func (h *Handlers) ResendPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	}
 
 	newExpiry := time.Now().Add(7 * 24 * time.Hour)
-	_, err = h.db.Pool.Exec(ctx, `
-		UPDATE publisher_invitations
-		SET token = $1, expires_at = $2
-		WHERE id = $3
-	`, newToken, newExpiry, invitationID)
+	err = h.db.Queries.UpdateInvitationToken(ctx, sqlcgen.UpdateInvitationTokenParams{
+		Token:     newToken,
+		ExpiresAt: pgtype.Timestamptz{Time: newExpiry, Valid: true},
+		ID:        int32(invitationID),
+	})
 
 	if err != nil {
 		slog.Error("failed to update invitation", "error", err)
@@ -399,8 +397,7 @@ func (h *Handlers) ResendPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get publisher name for the email
-	var publisherName string
-	_ = h.db.Pool.QueryRow(ctx, "SELECT name FROM publishers WHERE id = $1", publisherID).Scan(&publisherName)
+	publisherName, _ := h.db.Queries.GetPublisherNameForTeam(ctx, publisherID)
 
 	// Get inviter name
 	inviterName := "A team member"
@@ -425,7 +422,7 @@ func (h *Handlers) ResendPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	}
 
 	slog.Info("publisher invitation resent",
-		"invitation_id", invitationID,
+		"invitation_id", int32(invitationID),
 		"email", email)
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
@@ -446,17 +443,20 @@ func (h *Handlers) CancelPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	}
 	userID := pc.UserID
 
-	invitationID := chi.URLParam(r, "id")
-	if invitationID == "" {
+	invitationIDStr := chi.URLParam(r, "id")
+	if invitationIDStr == "" {
 		RespondValidationError(w, r, "Invitation ID is required", nil)
 		return
 	}
 
+	invitationID, err := strconv.ParseInt(invitationIDStr, 10, 32)
+	if err != nil {
+		RespondValidationError(w, r, "Invalid invitation ID", nil)
+		return
+	}
+
 	// Delete the invitation (only if pending)
-	result, err := h.db.Pool.Exec(ctx, `
-		DELETE FROM publisher_invitations
-		WHERE id = $1 AND status = 'pending'
-	`, invitationID)
+	result, err := h.db.Queries.DeletePendingInvitation(ctx, int32(invitationID))
 
 	if err != nil {
 		slog.Error("failed to cancel invitation", "error", err)
@@ -470,7 +470,7 @@ func (h *Handlers) CancelPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	}
 
 	slog.Info("publisher invitation cancelled",
-		"invitation_id", invitationID,
+		"invitation_id", int32(invitationID),
 		"cancelled_by", userID)
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
@@ -507,16 +507,7 @@ func (h *Handlers) AcceptPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Find the invitation
-	var invitation PublisherInvitation
-	var publisherName string
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT pi.id, pi.publisher_id, pi.email, pi.status, pi.expires_at, p.name
-		FROM publisher_invitations pi
-		JOIN publishers p ON pi.publisher_id = p.id
-		WHERE pi.token = $1
-	`, req.Token).Scan(&invitation.ID, &invitation.PublisherID, &invitation.Email,
-		&invitation.Status, &invitation.ExpiresAt, &publisherName)
-
+	invitationData, err := h.db.Queries.GetInvitationByToken(ctx, req.Token)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			RespondBadRequest(w, r, "This invitation is invalid or has expired. Please request a new invitation.")
@@ -527,18 +518,9 @@ func (h *Handlers) AcceptPublisherInvitation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Check status and expiration
-	if invitation.Status != "pending" {
-		RespondBadRequest(w, r, "This invitation has already been used or cancelled")
-		return
-	}
-
-	if time.Now().After(invitation.ExpiresAt) {
-		// Mark as expired
-		_, _ = h.db.Pool.Exec(ctx, "UPDATE publisher_invitations SET status = 'expired' WHERE id = $1", invitation.ID)
-		RespondBadRequest(w, r, "This invitation has expired. Please request a new invitation.")
-		return
-	}
+	// Check expiration - the query already filters for non-expired invitations
+	// If we got a result, it's valid and not expired
+	publisherName := invitationData.PublisherName
 
 	// Add publisher access to user via Clerk
 	if h.clerkService == nil {
@@ -546,32 +528,27 @@ func (h *Handlers) AcceptPublisherInvitation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.clerkService.AddPublisherToUser(ctx, userID, invitation.PublisherID); err != nil {
+	if err := h.clerkService.AddPublisherToUser(ctx, userID, int32ToString(invitationData.PublisherID)); err != nil {
 		slog.Error("failed to add publisher to user", "error", err)
 		RespondInternalError(w, r, "Failed to grant publisher access")
 		return
 	}
 
-	// Update invitation status
-	_, err = h.db.Pool.Exec(ctx, `
-		UPDATE publisher_invitations
-		SET status = 'accepted', accepted_at = NOW()
-		WHERE id = $1
-	`, invitation.ID)
-
+	// Delete the invitation since it has been accepted
+	err = h.db.Queries.DeleteInvitation(ctx, invitationData.ID)
 	if err != nil {
-		slog.Error("failed to update invitation status", "error", err)
+		slog.Error("failed to delete invitation", "error", err)
 		// Don't fail - the user already has access
 	}
 
 	slog.Info("publisher invitation accepted",
-		"invitation_id", invitation.ID,
-		"publisher_id", invitation.PublisherID,
+		"invitation_id", invitationData.ID,
+		"publisher_id", invitationData.PublisherID,
 		"user_id", userID)
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success":        true,
-		"publisher_id":   invitation.PublisherID,
+		"publisher_id":   invitationData.PublisherID,
 		"publisher_name": publisherName,
 		"message":        fmt.Sprintf("You've been added to %s!", publisherName),
 	})

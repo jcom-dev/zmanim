@@ -227,55 +227,46 @@ func (h *Handlers) GetJewishEvents(w http.ResponseWriter, r *http.Request) {
 	var events []JewishEventResponse
 
 	if eventType != "" {
-		rows, err := h.db.Pool.Query(ctx, `
-			SELECT id, code, name_hebrew, name_english, event_type,
-				duration_days_israel, duration_days_diaspora,
-				fast_start_type, parent_event_code, sort_order
-			FROM jewish_events
-			WHERE event_type = $1
-			ORDER BY sort_order, name_english
-		`, eventType)
+		rows, err := h.db.Queries.GetJewishEventsByType(ctx, eventType)
 		if err != nil {
 			RespondInternalError(w, r, "Failed to get Jewish events")
 			return
 		}
-		defer rows.Close()
 
-		for rows.Next() {
-			var e JewishEventResponse
-			if err := rows.Scan(
-				&e.ID, &e.Code, &e.NameHebrew, &e.NameEnglish, &e.EventType,
-				&e.DurationDaysIsrael, &e.DurationDaysDiaspora,
-				&e.FastStartType, &e.ParentEventCode, &e.SortOrder,
-			); err != nil {
-				continue
-			}
-			events = append(events, e)
+		for _, row := range rows {
+			events = append(events, JewishEventResponse{
+				ID:                   intToString(row.ID),
+				Code:                 row.Code,
+				NameHebrew:           row.NameHebrew,
+				NameEnglish:          row.NameEnglish,
+				EventType:            stringPtrToString(row.EventType),
+				DurationDaysIsrael:   int32PtrToInt(row.DurationDaysIsrael),
+				DurationDaysDiaspora: int32PtrToInt(row.DurationDaysDiaspora),
+				FastStartType:        row.FastStartType,
+				ParentEventCode:      row.ParentEventCode,
+				SortOrder:            int32PtrToInt(row.SortOrder),
+			})
 		}
 	} else {
-		rows, err := h.db.Pool.Query(ctx, `
-			SELECT id, code, name_hebrew, name_english, event_type,
-				duration_days_israel, duration_days_diaspora,
-				fast_start_type, parent_event_code, sort_order
-			FROM jewish_events
-			ORDER BY sort_order, name_english
-		`)
+		rows, err := h.db.Queries.GetAllJewishEvents(ctx)
 		if err != nil {
 			RespondInternalError(w, r, "Failed to get Jewish events")
 			return
 		}
-		defer rows.Close()
 
-		for rows.Next() {
-			var e JewishEventResponse
-			if err := rows.Scan(
-				&e.ID, &e.Code, &e.NameHebrew, &e.NameEnglish, &e.EventType,
-				&e.DurationDaysIsrael, &e.DurationDaysDiaspora,
-				&e.FastStartType, &e.ParentEventCode, &e.SortOrder,
-			); err != nil {
-				continue
-			}
-			events = append(events, e)
+		for _, row := range rows {
+			events = append(events, JewishEventResponse{
+				ID:                   intToString(row.ID),
+				Code:                 row.Code,
+				NameHebrew:           row.NameHebrew,
+				NameEnglish:          row.NameEnglish,
+				EventType:            stringPtrToString(row.EventType),
+				DurationDaysIsrael:   int32PtrToInt(row.DurationDaysIsrael),
+				DurationDaysDiaspora: int32PtrToInt(row.DurationDaysDiaspora),
+				FastStartType:        row.FastStartType,
+				ParentEventCode:      row.ParentEventCode,
+				SortOrder:            int32PtrToInt(row.SortOrder),
+			})
 		}
 	}
 
@@ -537,81 +528,58 @@ func (h *Handlers) GetMasterZmanimByEvent(w http.ResponseWriter, r *http.Request
 	}
 
 	dayNumberStr := r.URL.Query().Get("day_number")
-	var dayNumber *int
-	if dayNumberStr != "" {
-		dn, err := parseIntParam(dayNumberStr)
-		if err != nil {
-			RespondBadRequest(w, r, "Invalid day_number value")
-			return
-		}
-		dayNumber = &dn
-	}
-
 	var zmanim []MasterZman
 
-	if dayNumber != nil {
-		// Filter by specific day number
-		rows, err := h.db.Pool.Query(ctx, `
-			SELECT DISTINCT mr.id, mr.zman_key, mr.canonical_hebrew_name, mr.canonical_english_name,
-				mr.transliteration, mr.description, mr.halachic_notes, mr.halachic_source,
-				mr.time_category, mr.default_formula_dsl, mr.is_core,
-				mr.created_at, mr.updated_at
-			FROM master_zmanim_registry mr
-			JOIN master_zman_events mze ON mr.id = mze.master_zman_id
-			JOIN jewish_events je ON je.id = mze.jewish_event_id
-			WHERE je.code = $1
-				AND mze.is_default = true
-				AND (mze.applies_to_day IS NULL OR mze.applies_to_day = $2)
-			ORDER BY mr.time_category, mr.canonical_hebrew_name
-		`, eventCode, *dayNumber)
+	// Note: day_number filtering is ignored because the schema doesn't have applies_to_day column
+	// Day filtering should be done in the application layer if needed
+	if dayNumberStr != "" {
+		// Use the same query for both cases since schema doesn't support day filtering
+		rows, err := h.db.Queries.GetMasterZmanimByEventAndDay(ctx, eventCode)
 		if err != nil {
 			RespondInternalError(w, r, "Failed to get zmanim")
 			return
 		}
-		defer rows.Close()
 
-		for rows.Next() {
-			var z MasterZman
-			if err := rows.Scan(
-				&z.ID, &z.ZmanKey, &z.CanonicalHebrewName, &z.CanonicalEnglishName,
-				&z.Transliteration, &z.Description, &z.HalachicNotes, &z.HalachicSource,
-				&z.TimeCategory, &z.DefaultFormulaDSL, &z.IsCore,
-				&z.CreatedAt, &z.UpdatedAt,
-			); err != nil {
-				continue
-			}
-			zmanim = append(zmanim, z)
+		for _, row := range rows {
+			zmanim = append(zmanim, MasterZman{
+				ID:                   intToString(row.ID),
+				ZmanKey:              row.ZmanKey,
+				CanonicalHebrewName:  row.CanonicalHebrewName,
+				CanonicalEnglishName: row.CanonicalEnglishName,
+				Transliteration:      row.Transliteration,
+				Description:          row.Description,
+				HalachicNotes:        row.HalachicNotes,
+				HalachicSource:       row.HalachicSource,
+				TimeCategory:         stringPtrToString(row.TimeCategory),
+				DefaultFormulaDSL:    stringPtrToString(row.DefaultFormulaDsl),
+				IsCore:               *row.IsCore,
+				CreatedAt:            row.CreatedAt.Time,
+				UpdatedAt:            row.UpdatedAt.Time,
+			})
 		}
 	} else {
-		// Get all zmanim for event
-		rows, err := h.db.Pool.Query(ctx, `
-			SELECT DISTINCT mr.id, mr.zman_key, mr.canonical_hebrew_name, mr.canonical_english_name,
-				mr.transliteration, mr.description, mr.halachic_notes, mr.halachic_source,
-				mr.time_category, mr.default_formula_dsl, mr.is_core,
-				mr.created_at, mr.updated_at
-			FROM master_zmanim_registry mr
-			JOIN master_zman_events mze ON mr.id = mze.master_zman_id
-			JOIN jewish_events je ON je.id = mze.jewish_event_id
-			WHERE je.code = $1 AND mze.is_default = true
-			ORDER BY mr.time_category, mr.canonical_hebrew_name
-		`, eventCode)
+		rows, err := h.db.Queries.GetMasterZmanimByEvent(ctx, eventCode)
 		if err != nil {
 			RespondInternalError(w, r, "Failed to get zmanim")
 			return
 		}
-		defer rows.Close()
 
-		for rows.Next() {
-			var z MasterZman
-			if err := rows.Scan(
-				&z.ID, &z.ZmanKey, &z.CanonicalHebrewName, &z.CanonicalEnglishName,
-				&z.Transliteration, &z.Description, &z.HalachicNotes, &z.HalachicSource,
-				&z.TimeCategory, &z.DefaultFormulaDSL, &z.IsCore,
-				&z.CreatedAt, &z.UpdatedAt,
-			); err != nil {
-				continue
-			}
-			zmanim = append(zmanim, z)
+		for _, row := range rows {
+			zmanim = append(zmanim, MasterZman{
+				ID:                   intToString(row.ID),
+				ZmanKey:              row.ZmanKey,
+				CanonicalHebrewName:  row.CanonicalHebrewName,
+				CanonicalEnglishName: row.CanonicalEnglishName,
+				Transliteration:      row.Transliteration,
+				Description:          row.Description,
+				HalachicNotes:        row.HalachicNotes,
+				HalachicSource:       row.HalachicSource,
+				TimeCategory:         stringPtrToString(row.TimeCategory),
+				DefaultFormulaDSL:    stringPtrToString(row.DefaultFormulaDsl),
+				IsCore:               *row.IsCore,
+				CreatedAt:            row.CreatedAt.Time,
+				UpdatedAt:            row.UpdatedAt.Time,
+			})
 		}
 	}
 
@@ -633,26 +601,21 @@ func (h *Handlers) GetZmanDisplayContexts(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT zdc.id, zdc.context_code, zdc.display_name_hebrew, zdc.display_name_english, zdc.sort_order
-		FROM zman_display_contexts zdc
-		JOIN master_zmanim_registry mr ON mr.id = zdc.master_zman_id
-		WHERE mr.zman_key = $1
-		ORDER BY zdc.sort_order
-	`, zmanKey)
+	rows, err := h.db.Queries.GetZmanDisplayContextsByKey(ctx, zmanKey)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to get display contexts")
 		return
 	}
-	defer rows.Close()
 
 	var contexts []ZmanDisplayContext
-	for rows.Next() {
-		var c ZmanDisplayContext
-		if err := rows.Scan(&c.ID, &c.ContextCode, &c.DisplayNameHebrew, &c.DisplayNameEnglish, &c.SortOrder); err != nil {
-			continue
-		}
-		contexts = append(contexts, c)
+	for _, row := range rows {
+		contexts = append(contexts, ZmanDisplayContext{
+			ID:                 intToString(row.ID),
+			ContextCode:        row.ContextCode,
+			DisplayNameHebrew:  row.DisplayNameHebrew,
+			DisplayNameEnglish: row.DisplayNameEnglish,
+			SortOrder:          int32PtrToInt(row.SortOrder),
+		})
 	}
 
 	if contexts == nil {
@@ -673,44 +636,32 @@ func (h *Handlers) GetZmanApplicableEvents(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT je.id, je.code, je.name_hebrew, je.name_english, je.event_type,
-			je.duration_days_israel, je.duration_days_diaspora,
-			je.fast_start_type, je.parent_event_code, je.sort_order,
-			mze.applies_to_day, mze.is_default, mze.notes
-		FROM jewish_events je
-		JOIN master_zman_events mze ON je.id = mze.jewish_event_id
-		JOIN master_zmanim_registry mr ON mr.id = mze.master_zman_id
-		WHERE mr.zman_key = $1
-		ORDER BY je.sort_order
-	`, zmanKey)
+	rows, err := h.db.Queries.GetZmanApplicableEvents(ctx, zmanKey)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to get applicable events")
 		return
 	}
-	defer rows.Close()
 
 	var events []map[string]interface{}
-	for rows.Next() {
-		var e JewishEventResponse
-		var appliesToDay *int
-		var isDefault bool
-		var notes *string
-
-		if err := rows.Scan(
-			&e.ID, &e.Code, &e.NameHebrew, &e.NameEnglish, &e.EventType,
-			&e.DurationDaysIsrael, &e.DurationDaysDiaspora,
-			&e.FastStartType, &e.ParentEventCode, &e.SortOrder,
-			&appliesToDay, &isDefault, &notes,
-		); err != nil {
-			continue
+	for _, row := range rows {
+		e := JewishEventResponse{
+			ID:                   intToString(row.ID),
+			Code:                 row.Code,
+			NameHebrew:           row.NameHebrew,
+			NameEnglish:          row.NameEnglish,
+			EventType:            stringPtrToString(row.EventType),
+			DurationDaysIsrael:   int32PtrToInt(row.DurationDaysIsrael),
+			DurationDaysDiaspora: int32PtrToInt(row.DurationDaysDiaspora),
+			FastStartType:        row.FastStartType,
+			ParentEventCode:      row.ParentEventCode,
+			SortOrder:            int32PtrToInt(row.SortOrder),
 		}
 
 		eventMap := map[string]interface{}{
-			"event":          e,
-			"applies_to_day": appliesToDay,
-			"is_default":     isDefault,
-			"notes":          notes,
+			"event":                 e,
+			"is_primary":            row.IsPrimary,
+			"override_hebrew_name":  row.OverrideHebrewName,
+			"override_english_name": row.OverrideEnglishName,
 		}
 		events = append(events, eventMap)
 	}

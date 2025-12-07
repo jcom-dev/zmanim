@@ -123,14 +123,14 @@ func (q *Queries) CountRegionBoundaries(ctx context.Context) (int64, error) {
 
 const createBoundaryImport = `-- name: CreateBoundaryImport :one
 
-INSERT INTO geo_boundary_imports (source, level, country_code, version, records_imported, records_matched, records_unmatched, notes)
+INSERT INTO geo_boundary_imports (source_id, level_id, country_code, version, records_imported, records_matched, records_unmatched, notes)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id
 `
 
 type CreateBoundaryImportParams struct {
-	Source           string  `json:"source"`
-	Level            string  `json:"level"`
+	SourceID         int32   `json:"source_id"`
+	LevelID          int16   `json:"level_id"`
 	CountryCode      *string `json:"country_code"`
 	Version          *string `json:"version"`
 	RecordsImported  *int32  `json:"records_imported"`
@@ -144,8 +144,8 @@ type CreateBoundaryImportParams struct {
 // ============================================================================
 func (q *Queries) CreateBoundaryImport(ctx context.Context, arg CreateBoundaryImportParams) (int32, error) {
 	row := q.db.QueryRow(ctx, createBoundaryImport,
-		arg.Source,
-		arg.Level,
+		arg.SourceID,
+		arg.LevelID,
 		arg.CountryCode,
 		arg.Version,
 		arg.RecordsImported,
@@ -300,10 +300,22 @@ func (q *Queries) GetAllCountryBoundaries(ctx context.Context) ([]GetAllCountryB
 }
 
 const getBoundaryImportsByLevel = `-- name: GetBoundaryImportsByLevel :many
-SELECT id, source, level, country_code, version, imported_at, records_imported, records_matched, records_unmatched, notes
-FROM geo_boundary_imports
-WHERE level = $1
-ORDER BY imported_at DESC
+SELECT
+    bi.id,
+    ds.key as source,
+    lv.key as level,
+    bi.country_code,
+    bi.version,
+    bi.imported_at,
+    bi.records_imported,
+    bi.records_matched,
+    bi.records_unmatched,
+    bi.notes
+FROM geo_boundary_imports bi
+JOIN geo_data_sources ds ON bi.source_id = ds.id
+JOIN geo_levels lv ON bi.level_id = lv.id
+WHERE bi.level_id = $1
+ORDER BY bi.imported_at DESC
 `
 
 type GetBoundaryImportsByLevelRow struct {
@@ -319,8 +331,8 @@ type GetBoundaryImportsByLevelRow struct {
 	Notes            *string            `json:"notes"`
 }
 
-func (q *Queries) GetBoundaryImportsByLevel(ctx context.Context, level string) ([]GetBoundaryImportsByLevelRow, error) {
-	rows, err := q.db.Query(ctx, getBoundaryImportsByLevel, level)
+func (q *Queries) GetBoundaryImportsByLevel(ctx context.Context, levelID int16) ([]GetBoundaryImportsByLevelRow, error) {
+	rows, err := q.db.Query(ctx, getBoundaryImportsByLevel, levelID)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +413,7 @@ WHERE c.id = $1
 `
 
 type GetCityBoundaryByIDRow struct {
-	ID              string   `json:"id"`
+	ID              int32    `json:"id"`
 	Name            string   `json:"name"`
 	CountryCode     string   `json:"country_code"`
 	RegionName      *string  `json:"region_name"`
@@ -410,7 +422,7 @@ type GetCityBoundaryByIDRow struct {
 	BoundaryGeojson string   `json:"boundary_geojson"`
 }
 
-func (q *Queries) GetCityBoundaryByID(ctx context.Context, id string) (GetCityBoundaryByIDRow, error) {
+func (q *Queries) GetCityBoundaryByID(ctx context.Context, id int32) (GetCityBoundaryByIDRow, error) {
 	row := q.db.QueryRow(ctx, getCityBoundaryByID, id)
 	var i GetCityBoundaryByIDRow
 	err := row.Scan(
@@ -901,9 +913,21 @@ func (q *Queries) GetDistrictsWithoutBoundaries(ctx context.Context, code string
 }
 
 const getLatestBoundaryImport = `-- name: GetLatestBoundaryImport :one
-SELECT id, source, level, country_code, version, imported_at, records_imported, records_matched, records_unmatched, notes
-FROM geo_boundary_imports
-ORDER BY imported_at DESC
+SELECT
+    bi.id,
+    ds.key as source,
+    lv.key as level,
+    bi.country_code,
+    bi.version,
+    bi.imported_at,
+    bi.records_imported,
+    bi.records_matched,
+    bi.records_unmatched,
+    bi.notes
+FROM geo_boundary_imports bi
+JOIN geo_data_sources ds ON bi.source_id = ds.id
+JOIN geo_levels lv ON bi.level_id = lv.id
+ORDER BY bi.imported_at DESC
 LIMIT 1
 `
 
@@ -940,15 +964,24 @@ func (q *Queries) GetLatestBoundaryImport(ctx context.Context) (GetLatestBoundar
 
 const getNameMapping = `-- name: GetNameMapping :one
 
-SELECT id, level, source, source_name, source_country_code, target_id, notes
-FROM geo_name_mappings
-WHERE level = $1 AND source = $2 AND source_name = $3
-  AND (source_country_code = $4 OR (source_country_code IS NULL AND $4 IS NULL))
+SELECT
+    nm.id,
+    lv.key as level,
+    ds.key as source,
+    nm.source_name,
+    nm.source_country_code,
+    nm.target_id,
+    nm.notes
+FROM geo_name_mappings nm
+JOIN geo_levels lv ON nm.level_id = lv.id
+JOIN geo_data_sources ds ON nm.source_id = ds.id
+WHERE nm.level_id = $1 AND nm.source_id = $2 AND nm.source_name = $3
+  AND (nm.source_country_code = $4 OR (nm.source_country_code IS NULL AND $4 IS NULL))
 `
 
 type GetNameMappingParams struct {
-	Level             string  `json:"level"`
-	Source            string  `json:"source"`
+	LevelID           int16   `json:"level_id"`
+	SourceID          int32   `json:"source_id"`
 	SourceName        string  `json:"source_name"`
 	SourceCountryCode *string `json:"source_country_code"`
 }
@@ -968,8 +1001,8 @@ type GetNameMappingRow struct {
 // ============================================================================
 func (q *Queries) GetNameMapping(ctx context.Context, arg GetNameMappingParams) (GetNameMappingRow, error) {
 	row := q.db.QueryRow(ctx, getNameMapping,
-		arg.Level,
-		arg.Source,
+		arg.LevelID,
+		arg.SourceID,
 		arg.SourceName,
 		arg.SourceCountryCode,
 	)
@@ -987,10 +1020,19 @@ func (q *Queries) GetNameMapping(ctx context.Context, arg GetNameMappingParams) 
 }
 
 const getNameMappingsByLevel = `-- name: GetNameMappingsByLevel :many
-SELECT id, level, source, source_name, source_country_code, target_id, notes
-FROM geo_name_mappings
-WHERE level = $1
-ORDER BY source_name
+SELECT
+    nm.id,
+    lv.key as level,
+    ds.key as source,
+    nm.source_name,
+    nm.source_country_code,
+    nm.target_id,
+    nm.notes
+FROM geo_name_mappings nm
+JOIN geo_levels lv ON nm.level_id = lv.id
+JOIN geo_data_sources ds ON nm.source_id = ds.id
+WHERE nm.level_id = $1
+ORDER BY nm.source_name
 `
 
 type GetNameMappingsByLevelRow struct {
@@ -1003,8 +1045,8 @@ type GetNameMappingsByLevelRow struct {
 	Notes             *string `json:"notes"`
 }
 
-func (q *Queries) GetNameMappingsByLevel(ctx context.Context, level string) ([]GetNameMappingsByLevelRow, error) {
-	rows, err := q.db.Query(ctx, getNameMappingsByLevel, level)
+func (q *Queries) GetNameMappingsByLevel(ctx context.Context, levelID int16) ([]GetNameMappingsByLevelRow, error) {
+	rows, err := q.db.Query(ctx, getNameMappingsByLevel, levelID)
 	if err != nil {
 		return nil, err
 	}
@@ -1502,7 +1544,7 @@ type LookupNearestCitiesParams struct {
 }
 
 type LookupNearestCitiesRow struct {
-	ID           string  `json:"id"`
+	ID           int32   `json:"id"`
 	Name         string  `json:"name"`
 	CountryCode  string  `json:"country_code"`
 	RegionName   string  `json:"region_name"`
@@ -1599,7 +1641,7 @@ ON CONFLICT (city_id) DO UPDATE SET
 `
 
 type UpsertCityBoundaryParams struct {
-	CityID            string      `json:"city_id"`
+	CityID            int32       `json:"city_id"`
 	StGeomfromgeojson interface{} `json:"st_geomfromgeojson"`
 	Column3           string      `json:"column_3"`
 	AreaKm2           *float64    `json:"area_km2"`
@@ -1699,16 +1741,16 @@ func (q *Queries) UpsertDistrictBoundary(ctx context.Context, arg UpsertDistrict
 }
 
 const upsertNameMapping = `-- name: UpsertNameMapping :exec
-INSERT INTO geo_name_mappings (level, source, source_name, source_country_code, target_id, notes)
+INSERT INTO geo_name_mappings (level_id, source_id, source_name, source_country_code, target_id, notes)
 VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (level, source, source_name, source_country_code) DO UPDATE SET
+ON CONFLICT (level_id, source_id, source_name, source_country_code) DO UPDATE SET
     target_id = $5,
     notes = $6
 `
 
 type UpsertNameMappingParams struct {
-	Level             string  `json:"level"`
-	Source            string  `json:"source"`
+	LevelID           int16   `json:"level_id"`
+	SourceID          int32   `json:"source_id"`
 	SourceName        string  `json:"source_name"`
 	SourceCountryCode *string `json:"source_country_code"`
 	TargetID          int32   `json:"target_id"`
@@ -1717,8 +1759,8 @@ type UpsertNameMappingParams struct {
 
 func (q *Queries) UpsertNameMapping(ctx context.Context, arg UpsertNameMappingParams) error {
 	_, err := q.db.Exec(ctx, upsertNameMapping,
-		arg.Level,
-		arg.Source,
+		arg.LevelID,
+		arg.SourceID,
 		arg.SourceName,
 		arg.SourceCountryCode,
 		arg.TargetID,

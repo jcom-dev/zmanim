@@ -7,15 +7,15 @@ package sqlcgen
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const adminCountAlgorithms = `-- name: AdminCountAlgorithms :one
 SELECT COUNT(*)
-FROM algorithms
-WHERE ($1::text IS NULL OR status = $1)
+FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+WHERE ($1::text IS NULL OR astatus.key = $1)
 `
 
 func (q *Queries) AdminCountAlgorithms(ctx context.Context, dollar_1 string) (int64, error) {
@@ -27,8 +27,9 @@ func (q *Queries) AdminCountAlgorithms(ctx context.Context, dollar_1 string) (in
 
 const adminCountPublishers = `-- name: AdminCountPublishers :one
 SELECT COUNT(*)
-FROM publishers
-WHERE ($1::text IS NULL OR status = $1)
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE ($1::text IS NULL OR ps.key = $1)
 `
 
 func (q *Queries) AdminCountPublishers(ctx context.Context, dollar_1 string) (int64, error) {
@@ -38,37 +39,97 @@ func (q *Queries) AdminCountPublishers(ctx context.Context, dollar_1 string) (in
 	return count, err
 }
 
+const adminCreatePublisher = `-- name: AdminCreatePublisher :one
+
+INSERT INTO publishers (name, slug, email, website, description, status_id)
+VALUES ($1, $2, $3, $4, $5, (SELECT id FROM publisher_statuses WHERE key = 'active'))
+RETURNING id, name, slug, email, website, description,
+          status_id, created_at, updated_at
+`
+
+type AdminCreatePublisherParams struct {
+	Name        string  `json:"name"`
+	Slug        *string `json:"slug"`
+	Email       string  `json:"email"`
+	Website     *string `json:"website"`
+	Description *string `json:"description"`
+}
+
+type AdminCreatePublisherRow struct {
+	ID          int32              `json:"id"`
+	Name        string             `json:"name"`
+	Slug        *string            `json:"slug"`
+	Email       string             `json:"email"`
+	Website     *string            `json:"website"`
+	Description *string            `json:"description"`
+	StatusID    int16              `json:"status_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Publisher Creation --
+func (q *Queries) AdminCreatePublisher(ctx context.Context, arg AdminCreatePublisherParams) (AdminCreatePublisherRow, error) {
+	row := q.db.QueryRow(ctx, adminCreatePublisher,
+		arg.Name,
+		arg.Slug,
+		arg.Email,
+		arg.Website,
+		arg.Description,
+	)
+	var i AdminCreatePublisherRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Email,
+		&i.Website,
+		&i.Description,
+		&i.StatusID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const adminDeletePublisher = `-- name: AdminDeletePublisher :exec
 DELETE FROM publishers WHERE id = $1
 `
 
-func (q *Queries) AdminDeletePublisher(ctx context.Context, id string) error {
+func (q *Queries) AdminDeletePublisher(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, adminDeletePublisher, id)
 	return err
 }
 
 const adminGetPublisher = `-- name: AdminGetPublisher :one
-SELECT id, clerk_user_id, name, email, description, bio,
-       website, logo_url, status, created_at, updated_at
-FROM publishers
-WHERE id = $1
+SELECT p.id, p.clerk_user_id, p.name, p.email, p.description, p.bio,
+       p.website, p.logo_url, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       p.created_at, p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.id = $1
 `
 
 type AdminGetPublisherRow struct {
-	ID          string             `json:"id"`
-	ClerkUserID *string            `json:"clerk_user_id"`
-	Name        string             `json:"name"`
-	Email       string             `json:"email"`
-	Description *string            `json:"description"`
-	Bio         *string            `json:"bio"`
-	Website     *string            `json:"website"`
-	LogoUrl     *string            `json:"logo_url"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	ClerkUserID          *string            `json:"clerk_user_id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	Description          *string            `json:"description"`
+	Bio                  *string            `json:"bio"`
+	Website              *string            `json:"website"`
+	LogoUrl              *string            `json:"logo_url"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) AdminGetPublisher(ctx context.Context, id string) (AdminGetPublisherRow, error) {
+func (q *Queries) AdminGetPublisher(ctx context.Context, id int32) (AdminGetPublisherRow, error) {
 	row := q.db.QueryRow(ctx, adminGetPublisher, id)
 	var i AdminGetPublisherRow
 	err := row.Scan(
@@ -80,9 +141,43 @@ func (q *Queries) AdminGetPublisher(ctx context.Context, id string) (AdminGetPub
 		&i.Bio,
 		&i.Website,
 		&i.LogoUrl,
-		&i.Status,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const adminGetPublisherStats = `-- name: AdminGetPublisherStats :one
+
+SELECT
+    COUNT(*) FILTER (WHERE ps.key IN ('active', 'pending', 'suspended')) as total,
+    COUNT(*) FILTER (WHERE ps.key = 'active') as active,
+    COUNT(*) FILTER (WHERE ps.key IN ('pending')) as pending,
+    COUNT(*) FILTER (WHERE ps.key = 'suspended') as suspended
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+`
+
+type AdminGetPublisherStatsRow struct {
+	Total     int64 `json:"total"`
+	Active    int64 `json:"active"`
+	Pending   int64 `json:"pending"`
+	Suspended int64 `json:"suspended"`
+}
+
+// Admin Statistics (legacy query for backward compatibility) --
+func (q *Queries) AdminGetPublisherStats(ctx context.Context) (AdminGetPublisherStatsRow, error) {
+	row := q.db.QueryRow(ctx, adminGetPublisherStats)
+	var i AdminGetPublisherStatsRow
+	err := row.Scan(
+		&i.Total,
+		&i.Active,
+		&i.Pending,
+		&i.Suspended,
 	)
 	return i, err
 }
@@ -91,9 +186,15 @@ const adminGetStatistics = `-- name: AdminGetStatistics :one
 
 SELECT
     (SELECT COUNT(*) FROM publishers) as total_publishers,
-    (SELECT COUNT(*) FROM publishers WHERE status = 'active') as active_publishers,
-    (SELECT COUNT(*) FROM publishers WHERE status = 'pending') as pending_publishers,
-    (SELECT COUNT(*) FROM algorithms WHERE status = 'published') as published_algorithms,
+    (SELECT COUNT(*) FROM publishers p
+     JOIN publisher_statuses ps ON ps.id = p.status_id
+     WHERE ps.key = 'active') as active_publishers,
+    (SELECT COUNT(*) FROM publishers p
+     JOIN publisher_statuses ps ON ps.id = p.status_id
+     WHERE ps.key = 'pending') as pending_publishers,
+    (SELECT COUNT(*) FROM algorithms a
+     JOIN algorithm_statuses astatus ON astatus.id = a.status_id
+     WHERE astatus.key = 'active') as published_algorithms,
     (SELECT COUNT(*) FROM geo_cities) as total_cities,
     (SELECT COUNT(*) FROM publisher_coverage WHERE is_active = true) as active_coverage_areas
 `
@@ -125,12 +226,17 @@ func (q *Queries) AdminGetStatistics(ctx context.Context) (AdminGetStatisticsRow
 const adminListAlgorithms = `-- name: AdminListAlgorithms :many
 
 SELECT
-    a.id, a.publisher_id, a.name, a.status, a.is_public,
+    a.id, a.publisher_id, a.name, a.status_id,
+    astatus.key as status_key,
+    astatus.display_name_hebrew as status_display_hebrew,
+    astatus.display_name_english as status_display_english,
+    a.is_public,
     a.created_at, a.updated_at,
     p.name as publisher_name
 FROM algorithms a
+JOIN algorithm_statuses astatus ON astatus.id = a.status_id
 JOIN publishers p ON a.publisher_id = p.id
-WHERE ($1::text IS NULL OR a.status = $1)
+WHERE ($1::text IS NULL OR astatus.key = $1)
 ORDER BY a.updated_at DESC
 LIMIT $2 OFFSET $3
 `
@@ -142,14 +248,17 @@ type AdminListAlgorithmsParams struct {
 }
 
 type AdminListAlgorithmsRow struct {
-	ID            string             `json:"id"`
-	PublisherID   string             `json:"publisher_id"`
-	Name          string             `json:"name"`
-	Status        *string            `json:"status"`
-	IsPublic      *bool              `json:"is_public"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	PublisherName string             `json:"publisher_name"`
+	ID                   int32              `json:"id"`
+	PublisherID          int32              `json:"publisher_id"`
+	Name                 string             `json:"name"`
+	StatusID             *int16             `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	IsPublic             *bool              `json:"is_public"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	PublisherName        string             `json:"publisher_name"`
 }
 
 // Admin Algorithm Management --
@@ -166,7 +275,10 @@ func (q *Queries) AdminListAlgorithms(ctx context.Context, arg AdminListAlgorith
 			&i.ID,
 			&i.PublisherID,
 			&i.Name,
-			&i.Status,
+			&i.StatusID,
+			&i.StatusKey,
+			&i.StatusDisplayHebrew,
+			&i.StatusDisplayEnglish,
 			&i.IsPublic,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -182,13 +294,94 @@ func (q *Queries) AdminListAlgorithms(ctx context.Context, arg AdminListAlgorith
 	return items, nil
 }
 
+const adminListAllPublishers = `-- name: AdminListAllPublishers :many
+
+SELECT p.id, p.clerk_user_id, p.name, p.email, p.website,
+       p.logo_url, p.description, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       p.is_certified, p.suspension_reason,
+       p.deleted_at, p.deleted_by, p.created_at, p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE ($1::boolean = true OR p.deleted_at IS NULL)
+ORDER BY
+    CASE WHEN $1::boolean = true THEN p.deleted_at END DESC NULLS FIRST,
+    p.created_at DESC
+`
+
+type AdminListAllPublishersRow struct {
+	ID                   int32              `json:"id"`
+	ClerkUserID          *string            `json:"clerk_user_id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	Website              *string            `json:"website"`
+	LogoUrl              *string            `json:"logo_url"`
+	Description          *string            `json:"description"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	IsCertified          bool               `json:"is_certified"`
+	SuspensionReason     *string            `json:"suspension_reason"`
+	DeletedAt            pgtype.Timestamptz `json:"deleted_at"`
+	DeletedBy            *string            `json:"deleted_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Extended Admin Publisher Listing (with all fields, including soft-deleted) --
+func (q *Queries) AdminListAllPublishers(ctx context.Context, dollar_1 bool) ([]AdminListAllPublishersRow, error) {
+	rows, err := q.db.Query(ctx, adminListAllPublishers, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AdminListAllPublishersRow{}
+	for rows.Next() {
+		var i AdminListAllPublishersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClerkUserID,
+			&i.Name,
+			&i.Email,
+			&i.Website,
+			&i.LogoUrl,
+			&i.Description,
+			&i.StatusID,
+			&i.StatusKey,
+			&i.StatusDisplayHebrew,
+			&i.StatusDisplayEnglish,
+			&i.IsCertified,
+			&i.SuspensionReason,
+			&i.DeletedAt,
+			&i.DeletedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const adminListPublishers = `-- name: AdminListPublishers :many
 
 
-SELECT id, clerk_user_id, name, email, status, created_at, updated_at
-FROM publishers
-WHERE ($1::text IS NULL OR status = $1)
-ORDER BY created_at DESC
+SELECT p.id, p.clerk_user_id, p.name, p.email, p.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english,
+       p.created_at, p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE ($1::text IS NULL OR ps.key = $1)
+ORDER BY p.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -199,13 +392,16 @@ type AdminListPublishersParams struct {
 }
 
 type AdminListPublishersRow struct {
-	ID          string             `json:"id"`
-	ClerkUserID *string            `json:"clerk_user_id"`
-	Name        string             `json:"name"`
-	Email       string             `json:"email"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                   int32              `json:"id"`
+	ClerkUserID          *string            `json:"clerk_user_id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	StatusID             int16              `json:"status_id"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Admin SQL Queries
@@ -225,7 +421,10 @@ func (q *Queries) AdminListPublishers(ctx context.Context, arg AdminListPublishe
 			&i.ClerkUserID,
 			&i.Name,
 			&i.Email,
-			&i.Status,
+			&i.StatusID,
+			&i.StatusKey,
+			&i.StatusDisplayHebrew,
+			&i.StatusDisplayEnglish,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -239,28 +438,293 @@ func (q *Queries) AdminListPublishers(ctx context.Context, arg AdminListPublishe
 	return items, nil
 }
 
-const adminUpdatePublisherStatus = `-- name: AdminUpdatePublisherStatus :one
+const adminPermanentDeletePublisher = `-- name: AdminPermanentDeletePublisher :exec
+
+DELETE FROM publishers WHERE id = $1
+`
+
+// Permanent Delete --
+func (q *Queries) AdminPermanentDeletePublisher(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, adminPermanentDeletePublisher, id)
+	return err
+}
+
+const adminReactivatePublisher = `-- name: AdminReactivatePublisher :one
 UPDATE publishers
-SET status = $2, updated_at = NOW()
-WHERE id = $1
-RETURNING id, status
+SET status_id = (SELECT ps.id FROM publisher_statuses ps WHERE ps.key = 'active'),
+    suspension_reason = NULL,
+    updated_at = NOW()
+WHERE publishers.id = $1
+RETURNING publishers.id, publishers.name, publishers.email, publishers.status_id, publishers.created_at, publishers.updated_at
+`
+
+type AdminReactivatePublisherRow struct {
+	ID        int32              `json:"id"`
+	Name      string             `json:"name"`
+	Email     string             `json:"email"`
+	StatusID  int16              `json:"status_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) AdminReactivatePublisher(ctx context.Context, id int32) (AdminReactivatePublisherRow, error) {
+	row := q.db.QueryRow(ctx, adminReactivatePublisher, id)
+	var i AdminReactivatePublisherRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.StatusID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const adminRestorePublisher = `-- name: AdminRestorePublisher :one
+UPDATE publishers
+SET deleted_at = NULL, deleted_by = NULL, updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NOT NULL
+RETURNING id, name, status_id, updated_at
+`
+
+type AdminRestorePublisherRow struct {
+	ID        int32              `json:"id"`
+	Name      string             `json:"name"`
+	StatusID  int16              `json:"status_id"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) AdminRestorePublisher(ctx context.Context, id int32) (AdminRestorePublisherRow, error) {
+	row := q.db.QueryRow(ctx, adminRestorePublisher, id)
+	var i AdminRestorePublisherRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.StatusID,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const adminSetPublisherCertified = `-- name: AdminSetPublisherCertified :one
+UPDATE publishers
+SET is_certified = $1, updated_at = NOW()
+WHERE id = $2
+RETURNING id, name, is_certified, updated_at
+`
+
+type AdminSetPublisherCertifiedParams struct {
+	IsCertified bool  `json:"is_certified"`
+	ID          int32 `json:"id"`
+}
+
+type AdminSetPublisherCertifiedRow struct {
+	ID          int32              `json:"id"`
+	Name        string             `json:"name"`
+	IsCertified bool               `json:"is_certified"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) AdminSetPublisherCertified(ctx context.Context, arg AdminSetPublisherCertifiedParams) (AdminSetPublisherCertifiedRow, error) {
+	row := q.db.QueryRow(ctx, adminSetPublisherCertified, arg.IsCertified, arg.ID)
+	var i AdminSetPublisherCertifiedRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.IsCertified,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const adminSoftDeletePublisher = `-- name: AdminSoftDeletePublisher :one
+
+UPDATE publishers
+SET deleted_at = NOW(), deleted_by = $1, updated_at = NOW()
+WHERE id = $2 AND deleted_at IS NULL
+RETURNING deleted_at
+`
+
+type AdminSoftDeletePublisherParams struct {
+	DeletedBy *string `json:"deleted_by"`
+	ID        int32   `json:"id"`
+}
+
+// Soft Delete and Restore --
+func (q *Queries) AdminSoftDeletePublisher(ctx context.Context, arg AdminSoftDeletePublisherParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, adminSoftDeletePublisher, arg.DeletedBy, arg.ID)
+	var deleted_at pgtype.Timestamptz
+	err := row.Scan(&deleted_at)
+	return deleted_at, err
+}
+
+const adminSuspendPublisher = `-- name: AdminSuspendPublisher :one
+
+UPDATE publishers
+SET status_id = (SELECT ps.id FROM publisher_statuses ps WHERE ps.key = 'suspended'),
+    suspension_reason = $1,
+    updated_at = NOW()
+WHERE publishers.id = $2
+RETURNING publishers.id, publishers.name, publishers.email, publishers.status_id, publishers.suspension_reason, publishers.created_at, publishers.updated_at
+`
+
+type AdminSuspendPublisherParams struct {
+	SuspensionReason *string `json:"suspension_reason"`
+	ID               int32   `json:"id"`
+}
+
+type AdminSuspendPublisherRow struct {
+	ID               int32              `json:"id"`
+	Name             string             `json:"name"`
+	Email            string             `json:"email"`
+	StatusID         int16              `json:"status_id"`
+	SuspensionReason *string            `json:"suspension_reason"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Publisher Updates --
+func (q *Queries) AdminSuspendPublisher(ctx context.Context, arg AdminSuspendPublisherParams) (AdminSuspendPublisherRow, error) {
+	row := q.db.QueryRow(ctx, adminSuspendPublisher, arg.SuspensionReason, arg.ID)
+	var i AdminSuspendPublisherRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.StatusID,
+		&i.SuspensionReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const adminUpdatePublisherFields = `-- name: AdminUpdatePublisherFields :one
+UPDATE publishers
+SET name = COALESCE($1, name),
+    slug = CASE WHEN $1 IS NOT NULL THEN $2 ELSE slug END,
+    email = COALESCE($3, email),
+    website = COALESCE($4, website),
+    description = COALESCE($5, description),
+    updated_at = NOW()
+WHERE id = $6
+RETURNING id, name, slug, email, website, description, status_id, created_at, updated_at
+`
+
+type AdminUpdatePublisherFieldsParams struct {
+	Name        *string `json:"name"`
+	Slug        *string `json:"slug"`
+	Email       *string `json:"email"`
+	Website     *string `json:"website"`
+	Description *string `json:"description"`
+	ID          int32   `json:"id"`
+}
+
+type AdminUpdatePublisherFieldsRow struct {
+	ID          int32              `json:"id"`
+	Name        string             `json:"name"`
+	Slug        *string            `json:"slug"`
+	Email       string             `json:"email"`
+	Website     *string            `json:"website"`
+	Description *string            `json:"description"`
+	StatusID    int16              `json:"status_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) AdminUpdatePublisherFields(ctx context.Context, arg AdminUpdatePublisherFieldsParams) (AdminUpdatePublisherFieldsRow, error) {
+	row := q.db.QueryRow(ctx, adminUpdatePublisherFields,
+		arg.Name,
+		arg.Slug,
+		arg.Email,
+		arg.Website,
+		arg.Description,
+		arg.ID,
+	)
+	var i AdminUpdatePublisherFieldsRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Email,
+		&i.Website,
+		&i.Description,
+		&i.StatusID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const adminUpdatePublisherStatus = `-- name: AdminUpdatePublisherStatus :one
+WITH updated AS (
+    UPDATE publishers
+    SET status_id = $2, updated_at = NOW()
+    WHERE publishers.id = $1
+    RETURNING id, status_id
+)
+SELECT u.id, u.status_id,
+       ps.key as status_key,
+       ps.display_name_hebrew as status_display_hebrew,
+       ps.display_name_english as status_display_english
+FROM updated u
+JOIN publisher_statuses ps ON ps.id = u.status_id
 `
 
 type AdminUpdatePublisherStatusParams struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	ID       int32 `json:"id"`
+	StatusID int16 `json:"status_id"`
 }
 
 type AdminUpdatePublisherStatusRow struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	ID                   int32  `json:"id"`
+	StatusID             int16  `json:"status_id"`
+	StatusKey            string `json:"status_key"`
+	StatusDisplayHebrew  string `json:"status_display_hebrew"`
+	StatusDisplayEnglish string `json:"status_display_english"`
 }
 
 func (q *Queries) AdminUpdatePublisherStatus(ctx context.Context, arg AdminUpdatePublisherStatusParams) (AdminUpdatePublisherStatusRow, error) {
-	row := q.db.QueryRow(ctx, adminUpdatePublisherStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, adminUpdatePublisherStatus, arg.ID, arg.StatusID)
 	var i AdminUpdatePublisherStatusRow
-	err := row.Scan(&i.ID, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.StatusID,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
+	)
 	return i, err
+}
+
+const checkPublisherExists = `-- name: CheckPublisherExists :one
+
+SELECT EXISTS(SELECT 1 FROM publishers WHERE id = $1)
+`
+
+// Publisher Existence and Basic Info --
+func (q *Queries) CheckPublisherExists(ctx context.Context, id int32) (bool, error) {
+	row := q.db.QueryRow(ctx, checkPublisherExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const checkSystemConfigTableExists = `-- name: CheckSystemConfigTableExists :one
+
+SELECT EXISTS (
+    SELECT FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'system_config'
+)
+`
+
+// System Config Management --
+func (q *Queries) CheckSystemConfigTableExists(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, checkSystemConfigTableExists)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const countPendingInvitationsForEmail = `-- name: CountPendingInvitationsForEmail :one
@@ -270,7 +734,7 @@ WHERE publisher_id = $1 AND LOWER(email) = LOWER($2) AND expires_at > NOW()
 `
 
 type CountPendingInvitationsForEmailParams struct {
-	PublisherID string `json:"publisher_id"`
+	PublisherID int32  `json:"publisher_id"`
 	Lower       string `json:"lower"`
 }
 
@@ -282,28 +746,28 @@ func (q *Queries) CountPendingInvitationsForEmail(ctx context.Context, arg Count
 }
 
 const createInvitation = `-- name: CreateInvitation :one
-INSERT INTO publisher_invitations (publisher_id, email, role, token, expires_at)
+INSERT INTO publisher_invitations (publisher_id, email, role_id, token, expires_at)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id
 `
 
 type CreateInvitationParams struct {
-	PublisherID string    `json:"publisher_id"`
-	Email       string    `json:"email"`
-	Role        string    `json:"role"`
-	Token       string    `json:"token"`
-	ExpiresAt   time.Time `json:"expires_at"`
+	PublisherID int32              `json:"publisher_id"`
+	Email       string             `json:"email"`
+	RoleID      int16              `json:"role_id"`
+	Token       string             `json:"token"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 }
 
-func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationParams) (string, error) {
+func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationParams) (int32, error) {
 	row := q.db.QueryRow(ctx, createInvitation,
 		arg.PublisherID,
 		arg.Email,
-		arg.Role,
+		arg.RoleID,
 		arg.Token,
 		arg.ExpiresAt,
 	)
-	var id string
+	var id int32
 	err := row.Scan(&id)
 	return id, err
 }
@@ -313,7 +777,7 @@ DELETE FROM publisher_invitations
 WHERE publisher_id = $1 AND expires_at <= NOW()
 `
 
-func (q *Queries) DeleteExpiredInvitations(ctx context.Context, publisherID string) error {
+func (q *Queries) DeleteExpiredInvitations(ctx context.Context, publisherID int32) error {
 	_, err := q.db.Exec(ctx, deleteExpiredInvitations, publisherID)
 	return err
 }
@@ -323,27 +787,102 @@ DELETE FROM publisher_invitations
 WHERE id = $1
 `
 
-func (q *Queries) DeleteInvitation(ctx context.Context, id string) error {
+func (q *Queries) DeleteInvitation(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteInvitation, id)
 	return err
 }
 
+const getAllPublishersBasicInfo = `-- name: GetAllPublishersBasicInfo :many
+SELECT id, name FROM publishers ORDER BY name
+`
+
+type GetAllPublishersBasicInfoRow struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) GetAllPublishersBasicInfo(ctx context.Context) ([]GetAllPublishersBasicInfoRow, error) {
+	rows, err := q.db.Query(ctx, getAllPublishersBasicInfo)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAllPublishersBasicInfoRow{}
+	for rows.Next() {
+		var i GetAllPublishersBasicInfoRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllSystemConfig = `-- name: GetAllSystemConfig :many
+SELECT key, value, description, updated_at
+FROM system_config
+ORDER BY key
+`
+
+type GetAllSystemConfigRow struct {
+	Key         string             `json:"key"`
+	Value       []byte             `json:"value"`
+	Description *string            `json:"description"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetAllSystemConfig(ctx context.Context) ([]GetAllSystemConfigRow, error) {
+	rows, err := q.db.Query(ctx, getAllSystemConfig)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAllSystemConfigRow{}
+	for rows.Next() {
+		var i GetAllSystemConfigRow
+		if err := rows.Scan(
+			&i.Key,
+			&i.Value,
+			&i.Description,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getExpiredInvitations = `-- name: GetExpiredInvitations :many
-SELECT id, email, role, expires_at, created_at
-FROM publisher_invitations
-WHERE publisher_id = $1 AND expires_at <= NOW()
-ORDER BY created_at DESC
+SELECT pi.id, pi.email, pi.role_id,
+       pr.key as role_key,
+       pr.display_name_hebrew as role_display_hebrew,
+       pr.display_name_english as role_display_english,
+       pi.expires_at, pi.created_at
+FROM publisher_invitations pi
+JOIN publisher_roles pr ON pr.id = pi.role_id
+WHERE pi.publisher_id = $1 AND pi.expires_at <= NOW()
+ORDER BY pi.created_at DESC
 `
 
 type GetExpiredInvitationsRow struct {
-	ID        string             `json:"id"`
-	Email     string             `json:"email"`
-	Role      string             `json:"role"`
-	ExpiresAt time.Time          `json:"expires_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID                 int32              `json:"id"`
+	Email              string             `json:"email"`
+	RoleID             int16              `json:"role_id"`
+	RoleKey            string             `json:"role_key"`
+	RoleDisplayHebrew  string             `json:"role_display_hebrew"`
+	RoleDisplayEnglish string             `json:"role_display_english"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
-func (q *Queries) GetExpiredInvitations(ctx context.Context, publisherID string) ([]GetExpiredInvitationsRow, error) {
+func (q *Queries) GetExpiredInvitations(ctx context.Context, publisherID int32) ([]GetExpiredInvitationsRow, error) {
 	rows, err := q.db.Query(ctx, getExpiredInvitations, publisherID)
 	if err != nil {
 		return nil, err
@@ -355,7 +894,10 @@ func (q *Queries) GetExpiredInvitations(ctx context.Context, publisherID string)
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
-			&i.Role,
+			&i.RoleID,
+			&i.RoleKey,
+			&i.RoleDisplayHebrew,
+			&i.RoleDisplayEnglish,
 			&i.ExpiresAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -370,19 +912,27 @@ func (q *Queries) GetExpiredInvitations(ctx context.Context, publisherID string)
 }
 
 const getInvitationByToken = `-- name: GetInvitationByToken :one
-SELECT pi.id, pi.publisher_id, pi.email, pi.role, pi.expires_at, p.name as publisher_name
+SELECT pi.id, pi.publisher_id, pi.email, pi.role_id,
+       pr.key as role_key,
+       pr.display_name_hebrew as role_display_hebrew,
+       pr.display_name_english as role_display_english,
+       pi.expires_at, p.name as publisher_name
 FROM publisher_invitations pi
+JOIN publisher_roles pr ON pr.id = pi.role_id
 JOIN publishers p ON pi.publisher_id = p.id
 WHERE pi.token = $1 AND pi.expires_at > NOW()
 `
 
 type GetInvitationByTokenRow struct {
-	ID            string    `json:"id"`
-	PublisherID   string    `json:"publisher_id"`
-	Email         string    `json:"email"`
-	Role          string    `json:"role"`
-	ExpiresAt     time.Time `json:"expires_at"`
-	PublisherName string    `json:"publisher_name"`
+	ID                 int32              `json:"id"`
+	PublisherID        int32              `json:"publisher_id"`
+	Email              string             `json:"email"`
+	RoleID             int16              `json:"role_id"`
+	RoleKey            string             `json:"role_key"`
+	RoleDisplayHebrew  string             `json:"role_display_hebrew"`
+	RoleDisplayEnglish string             `json:"role_display_english"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	PublisherName      string             `json:"publisher_name"`
 }
 
 func (q *Queries) GetInvitationByToken(ctx context.Context, token string) (GetInvitationByTokenRow, error) {
@@ -392,7 +942,10 @@ func (q *Queries) GetInvitationByToken(ctx context.Context, token string) (GetIn
 		&i.ID,
 		&i.PublisherID,
 		&i.Email,
-		&i.Role,
+		&i.RoleID,
+		&i.RoleKey,
+		&i.RoleDisplayHebrew,
+		&i.RoleDisplayEnglish,
 		&i.ExpiresAt,
 		&i.PublisherName,
 	)
@@ -401,23 +954,31 @@ func (q *Queries) GetInvitationByToken(ctx context.Context, token string) (GetIn
 
 const getPendingInvitations = `-- name: GetPendingInvitations :many
 
-SELECT id, email, role, expires_at, created_at
-FROM publisher_invitations
-WHERE publisher_id = $1 AND expires_at > NOW()
-ORDER BY created_at DESC
+SELECT pi.id, pi.email, pi.role_id,
+       pr.key as role_key,
+       pr.display_name_hebrew as role_display_hebrew,
+       pr.display_name_english as role_display_english,
+       pi.expires_at, pi.created_at
+FROM publisher_invitations pi
+JOIN publisher_roles pr ON pr.id = pi.role_id
+WHERE pi.publisher_id = $1 AND pi.expires_at > NOW()
+ORDER BY pi.created_at DESC
 `
 
 type GetPendingInvitationsRow struct {
-	ID        string             `json:"id"`
-	Email     string             `json:"email"`
-	Role      string             `json:"role"`
-	ExpiresAt time.Time          `json:"expires_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID                 int32              `json:"id"`
+	Email              string             `json:"email"`
+	RoleID             int16              `json:"role_id"`
+	RoleKey            string             `json:"role_key"`
+	RoleDisplayHebrew  string             `json:"role_display_hebrew"`
+	RoleDisplayEnglish string             `json:"role_display_english"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 // Publisher Invitations --
-// Schema: id, publisher_id, email, role, token, expires_at, created_at
-func (q *Queries) GetPendingInvitations(ctx context.Context, publisherID string) ([]GetPendingInvitationsRow, error) {
+// Schema: id, publisher_id, email, role_id, token, expires_at, created_at
+func (q *Queries) GetPendingInvitations(ctx context.Context, publisherID int32) ([]GetPendingInvitationsRow, error) {
 	rows, err := q.db.Query(ctx, getPendingInvitations, publisherID)
 	if err != nil {
 		return nil, err
@@ -429,7 +990,10 @@ func (q *Queries) GetPendingInvitations(ctx context.Context, publisherID string)
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
-			&i.Role,
+			&i.RoleID,
+			&i.RoleKey,
+			&i.RoleDisplayHebrew,
+			&i.RoleDisplayEnglish,
 			&i.ExpiresAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -443,13 +1007,56 @@ func (q *Queries) GetPendingInvitations(ctx context.Context, publisherID string)
 	return items, nil
 }
 
+const getPublisherEmailAndName = `-- name: GetPublisherEmailAndName :one
+SELECT email, name FROM publishers WHERE id = $1
+`
+
+type GetPublisherEmailAndNameRow struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+func (q *Queries) GetPublisherEmailAndName(ctx context.Context, id int32) (GetPublisherEmailAndNameRow, error) {
+	row := q.db.QueryRow(ctx, getPublisherEmailAndName, id)
+	var i GetPublisherEmailAndNameRow
+	err := row.Scan(&i.Email, &i.Name)
+	return i, err
+}
+
+const getPublisherNameAndDeletedAt = `-- name: GetPublisherNameAndDeletedAt :one
+SELECT name, deleted_at FROM publishers WHERE id = $1
+`
+
+type GetPublisherNameAndDeletedAtRow struct {
+	Name      string             `json:"name"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+}
+
+func (q *Queries) GetPublisherNameAndDeletedAt(ctx context.Context, id int32) (GetPublisherNameAndDeletedAtRow, error) {
+	row := q.db.QueryRow(ctx, getPublisherNameAndDeletedAt, id)
+	var i GetPublisherNameAndDeletedAtRow
+	err := row.Scan(&i.Name, &i.DeletedAt)
+	return i, err
+}
+
+const getPublisherNameByID = `-- name: GetPublisherNameByID :one
+SELECT name FROM publishers WHERE id = $1
+`
+
+func (q *Queries) GetPublisherNameByID(ctx context.Context, id int32) (string, error) {
+	row := q.db.QueryRow(ctx, getPublisherNameByID, id)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
 const getPublisherOwner = `-- name: GetPublisherOwner :one
 
 SELECT clerk_user_id FROM publishers WHERE id = $1
 `
 
 // Team Management --
-func (q *Queries) GetPublisherOwner(ctx context.Context, id string) (*string, error) {
+func (q *Queries) GetPublisherOwner(ctx context.Context, id int32) (*string, error) {
 	row := q.db.QueryRow(ctx, getPublisherOwner, id)
 	var clerk_user_id *string
 	err := row.Scan(&clerk_user_id)
@@ -463,12 +1070,43 @@ WHERE id = $3
 `
 
 type UpdateInvitationTokenParams struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-	ID        string    `json:"id"`
+	Token     string             `json:"token"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	ID        int32              `json:"id"`
 }
 
 func (q *Queries) UpdateInvitationToken(ctx context.Context, arg UpdateInvitationTokenParams) error {
 	_, err := q.db.Exec(ctx, updateInvitationToken, arg.Token, arg.ExpiresAt, arg.ID)
 	return err
+}
+
+const updateSystemConfig = `-- name: UpdateSystemConfig :one
+UPDATE system_config
+SET value = $1, updated_at = NOW()
+WHERE key = $2
+RETURNING key, value, description, updated_at
+`
+
+type UpdateSystemConfigParams struct {
+	Value []byte `json:"value"`
+	Key   string `json:"key"`
+}
+
+type UpdateSystemConfigRow struct {
+	Key         string             `json:"key"`
+	Value       []byte             `json:"value"`
+	Description *string            `json:"description"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateSystemConfig(ctx context.Context, arg UpdateSystemConfigParams) (UpdateSystemConfigRow, error) {
+	row := q.db.QueryRow(ctx, updateSystemConfig, arg.Value, arg.Key)
+	var i UpdateSystemConfigRow
+	err := row.Scan(
+		&i.Key,
+		&i.Value,
+		&i.Description,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

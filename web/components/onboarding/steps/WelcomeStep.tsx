@@ -33,21 +33,16 @@ export function WelcomeStep({ onNext, onSkip }: WelcomeStepProps) {
           This wizard will help you set up your first zmanim algorithm in just a few minutes.
         </p>
         <p className="text-muted-foreground">
-          You&apos;ll choose a calculation template, customize key times, and set your coverage area.
+          You&apos;ll select your zmanim, customize key times, and set your coverage area.
         </p>
       </div>
 
       {/* Features list */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-        <FeatureCard
-          icon={<TemplateIcon />}
-          title="Choose Template"
-          description="Start with a proven calculation method"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl mx-auto">
         <FeatureCard
           icon={<EditIcon />}
-          title="Customize"
-          description="Adjust times to match your minhag"
+          title="Select & Customize"
+          description="Choose zmanim and adjust times to match your minhag"
         />
         <FeatureCard
           icon={<MapIcon />}
@@ -92,16 +87,6 @@ function SunriseIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 2v2M12 18v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
       <circle cx="12" cy="12" r="4"/>
-    </svg>
-  );
-}
-
-function TemplateIcon() {
-  return (
-    <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="3" width="18" height="18" rx="2"/>
-      <path d="M3 9h18"/>
-      <path d="M9 21V9"/>
     </svg>
   );
 }

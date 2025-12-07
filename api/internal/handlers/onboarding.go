@@ -2,22 +2,25 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
-	"time"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 )
 
-// OnboardingState represents the publisher's onboarding progress
+// OnboardingState represents the publisher's onboarding progress (actual schema)
 type OnboardingState struct {
-	ID             string                 `json:"id,omitempty"`
-	PublisherID    string                 `json:"publisher_id"`
-	CurrentStep    int                    `json:"current_step"`
-	CompletedSteps []int                  `json:"completed_steps"`
-	Data           map[string]interface{} `json:"data"`
-	StartedAt      string                 `json:"started_at"`
-	LastUpdatedAt  string                 `json:"last_updated_at"`
-	CompletedAt    *string                `json:"completed_at,omitempty"`
-	Skipped        bool                   `json:"skipped"`
+	ID                int32  `json:"id,omitempty"`
+	PublisherID       string `json:"publisher_id"`
+	ProfileComplete   bool   `json:"profile_complete"`
+	AlgorithmSelected bool   `json:"algorithm_selected"`
+	ZmanimConfigured  bool   `json:"zmanim_configured"`
+	CoverageSet       bool   `json:"coverage_set"`
+	CreatedAt         string `json:"created_at"`
+	UpdatedAt         string `json:"updated_at"`
 }
 
 // GetOnboardingState returns the publisher's onboarding state
@@ -32,45 +35,36 @@ func (h *Handlers) GetOnboardingState(w http.ResponseWriter, r *http.Request) {
 	}
 	publisherID := pc.PublisherID
 
-	// Query onboarding state
-	var state OnboardingState
-	var startedAt, lastUpdatedAt time.Time
-	var completedAt *time.Time
-	var wizardData []byte
-
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT id, current_step, completed_steps, wizard_data,
-		       started_at, last_updated_at, completed_at, skipped
-		FROM publisher_onboarding
-		WHERE publisher_id = $1
-	`, publisherID).Scan(
-		&state.ID, &state.CurrentStep, &state.CompletedSteps, &wizardData,
-		&startedAt, &lastUpdatedAt, &completedAt, &state.Skipped,
-	)
-
+	// Convert publisher ID to int32
+	publisherIDInt, err := stringToInt32(publisherID)
 	if err != nil {
-		// No onboarding state - return null (new publisher)
-		RespondJSON(w, r, http.StatusOK, nil)
+		RespondInternalError(w, r, "Invalid publisher ID")
 		return
 	}
 
-	state.PublisherID = publisherID
-	state.StartedAt = startedAt.Format(time.RFC3339)
-	state.LastUpdatedAt = lastUpdatedAt.Format(time.RFC3339)
-	if completedAt != nil {
-		ts := completedAt.Format(time.RFC3339)
-		state.CompletedAt = &ts
+	// Query onboarding state using SQLc
+	onboarding, err := h.db.Queries.GetOnboardingState(ctx, publisherIDInt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No onboarding state - return null (new publisher)
+			RespondJSON(w, r, http.StatusOK, nil)
+			return
+		}
+		slog.Error("GetOnboardingState failed to query", "error", err)
+		RespondInternalError(w, r, "Failed to get onboarding state")
+		return
 	}
 
-	if wizardData != nil {
-		_ = json.Unmarshal(wizardData, &state.Data)
-	}
-
-	if state.CompletedSteps == nil {
-		state.CompletedSteps = []int{}
-	}
-	if state.Data == nil {
-		state.Data = make(map[string]interface{})
+	// Convert to response format
+	state := OnboardingState{
+		ID:                onboarding.ID,
+		PublisherID:       publisherID,
+		ProfileComplete:   onboarding.ProfileComplete != nil && *onboarding.ProfileComplete,
+		AlgorithmSelected: onboarding.AlgorithmSelected != nil && *onboarding.AlgorithmSelected,
+		ZmanimConfigured:  onboarding.ZmanimConfigured != nil && *onboarding.ZmanimConfigured,
+		CoverageSet:       onboarding.CoverageSet != nil && *onboarding.CoverageSet,
+		CreatedAt:         onboarding.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:         onboarding.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	RespondJSON(w, r, http.StatusOK, state)
@@ -98,27 +92,22 @@ func (h *Handlers) SaveOnboardingState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert data to JSON
-	wizardData, err := json.Marshal(req.Data)
+	// Convert publisher ID to int32
+	publisherIDInt, err := stringToInt32(publisherID)
 	if err != nil {
-		slog.Error("SaveOnboardingState failed to marshal data", "error", err)
-		RespondBadRequest(w, r, "Invalid data format")
+		slog.Error("SaveOnboardingState invalid publisher ID", "error", err)
+		RespondInternalError(w, r, "Invalid publisher ID")
 		return
 	}
-	slog.Debug("SaveOnboardingState wizard_data", "wizard_data", string(wizardData))
 
-	// Upsert onboarding state
-	_, err = h.db.Pool.Exec(ctx, `
-		INSERT INTO publisher_onboarding (
-			publisher_id, current_step, completed_steps, wizard_data, last_updated_at
-		) VALUES ($1, $2, $3, $4, NOW())
-		ON CONFLICT (publisher_id)
-		DO UPDATE SET
-			current_step = EXCLUDED.current_step,
-			completed_steps = EXCLUDED.completed_steps,
-			wizard_data = EXCLUDED.wizard_data,
-			last_updated_at = NOW()
-	`, publisherID, req.CurrentStep, req.CompletedSteps, wizardData)
+	// Upsert onboarding state using SQLc
+	err = h.db.Queries.UpsertOnboardingComplete(ctx, sqlcgen.UpsertOnboardingCompleteParams{
+		PublisherID:       publisherIDInt,
+		ProfileComplete:   boolPtr(req.ProfileComplete),
+		AlgorithmSelected: boolPtr(req.AlgorithmSelected),
+		ZmanimConfigured:  boolPtr(req.ZmanimConfigured),
+		CoverageSet:       boolPtr(req.CoverageSet),
+	})
 
 	if err != nil {
 		slog.Error("SaveOnboardingState failed to save", "error", err)
@@ -178,8 +167,12 @@ func (z WizardZman) GetEnglishName() string {
 	return z.NameEnglish
 }
 
-// GetCategory returns the category, defaulting to "essential" for everyday zmanim
-func (z WizardZman) GetCategory() string {
+// GetTimeCategoryKey returns the category key, mapping legacy categories to time_categories
+func (z WizardZman) GetTimeCategoryKey() string {
+	// Map legacy categories to time_categories keys
+	if z.TimeCategory != "" {
+		return z.TimeCategory
+	}
 	if z.Category == "event" {
 		return "optional"
 	}
@@ -199,6 +192,12 @@ type WizardCoverage struct {
 	Name string `json:"name"`
 }
 
+// CompleteOnboardingRequest represents the request body for completing onboarding
+type CompleteOnboardingRequest struct {
+	Customizations []WizardZman     `json:"customizations"`
+	Coverage       []WizardCoverage `json:"coverage"`
+}
+
 // CompleteOnboarding marks onboarding as complete and imports zmanim from wizard customizations
 // POST /api/publisher/onboarding/complete
 func (h *Handlers) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
@@ -214,218 +213,247 @@ func (h *Handlers) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
 	publisherID := pc.PublisherID
 	slog.Info("CompleteOnboarding resolved publisher", "publisher_id", publisherID)
 
-	// Get the wizard data with user's customizations
-	var wizardData []byte
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT wizard_data FROM publisher_onboarding WHERE publisher_id = $1
-	`, publisherID).Scan(&wizardData)
+	// Convert publisher ID to int32
+	publisherIDInt, err := stringToInt32(publisherID)
 	if err != nil {
-		slog.Error("CompleteOnboarding no onboarding data found", "error", err)
-		RespondBadRequest(w, r, "No onboarding data found")
+		slog.Error("CompleteOnboarding invalid publisher ID", "error", err)
+		RespondInternalError(w, r, "Invalid publisher ID")
 		return
 	}
-	slog.Debug("CompleteOnboarding wizard_data", "wizard_data", string(wizardData))
 
-	var data struct {
-		Customizations []WizardZman     `json:"customizations"`
-		Coverage       []WizardCoverage `json:"coverage"`
-	}
-	if err := json.Unmarshal(wizardData, &data); err != nil {
-		slog.Error("CompleteOnboarding invalid wizard data", "error", err)
-		RespondBadRequest(w, r, "Invalid wizard data")
+	// Parse request body
+	var req CompleteOnboardingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error("CompleteOnboarding invalid request body", "error", err)
+		RespondBadRequest(w, r, "Invalid request body")
 		return
 	}
-	slog.Info("CompleteOnboarding parsed data", "customizations", len(data.Customizations), "coverage_items", len(data.Coverage))
+	slog.Info("CompleteOnboarding parsed data", "customizations", len(req.Customizations), "coverage_items", len(req.Coverage))
 
 	// Import zmanim from wizard customizations (only enabled ones)
-	if len(data.Customizations) > 0 {
+	if len(req.Customizations) > 0 {
 		// Filter to only include enabled zmanim
 		enabledZmanim := make([]WizardZman, 0)
-		for _, zman := range data.Customizations {
+		for _, zman := range req.Customizations {
 			if zman.Enabled {
 				enabledZmanim = append(enabledZmanim, zman)
 			}
 		}
-		slog.Info("CompleteOnboarding importing zmanim", "enabled", len(enabledZmanim), "total", len(data.Customizations))
+		slog.Info("CompleteOnboarding importing zmanim", "enabled", len(enabledZmanim), "total", len(req.Customizations))
 
 		for i, zman := range enabledZmanim {
 			zmanKey := zman.GetKey()
 			hebrewName := zman.GetHebrewName()
 			englishName := zman.GetEnglishName()
-			category := zman.GetCategory()
+			timeCategoryKey := zman.GetTimeCategoryKey()
 
 			slog.Debug("CompleteOnboarding inserting zman", "index", i+1, "key", zmanKey, "hebrew", hebrewName, "english", englishName)
 
+			// Get time_category_id from key
+			var timeCategoryID *int32
+			if timeCategoryKey != "" {
+				timeCategory, err := h.db.Queries.GetTimeCategoryByKey(ctx, timeCategoryKey)
+				if err != nil {
+					slog.Warn("CompleteOnboarding time category not found", "key", timeCategoryKey, "error", err)
+					// Continue with nil category
+				} else {
+					timeCategoryID = &timeCategory.ID
+				}
+			}
+
 			// Check if this is a registry-based zman (has master_zman_id)
 			if zman.MasterZmanID != "" {
+				masterZmanIDInt, err := stringToInt32(zman.MasterZmanID)
+				if err != nil {
+					slog.Error("CompleteOnboarding invalid master_zman_id", "master_zman_id", zman.MasterZmanID, "error", err)
+					RespondInternalError(w, r, "Invalid master_zman_id: "+zman.MasterZmanID)
+					return
+				}
 				// Use the registry-based insert that links to master_zman_id
-				_, err = h.db.Pool.Exec(ctx, `
-					INSERT INTO publisher_zmanim (
-						publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-						is_enabled, is_visible, is_published, is_custom, category,
-						master_zman_id
-					) VALUES ($1, $2, $3, $4, $5, true, true, false, false, $6, $7)
-					ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
-						hebrew_name = EXCLUDED.hebrew_name,
-						english_name = EXCLUDED.english_name,
-						formula_dsl = EXCLUDED.formula_dsl,
-						is_enabled = EXCLUDED.is_enabled,
-						category = EXCLUDED.category,
-						master_zman_id = EXCLUDED.master_zman_id
-				`, publisherID, zmanKey, hebrewName, englishName,
-					zman.Formula, category, zman.MasterZmanID)
+				err = h.db.Queries.UpsertPublisherZmanWithMaster(ctx, sqlcgen.UpsertPublisherZmanWithMasterParams{
+					PublisherID:    publisherIDInt,
+					ZmanKey:        zmanKey,
+					HebrewName:     hebrewName,
+					EnglishName:    englishName,
+					FormulaDsl:     zman.Formula,
+					TimeCategoryID: timeCategoryID,
+					MasterZmanID:   &masterZmanIDInt,
+				})
+				if err != nil {
+					slog.Error("CompleteOnboarding failed to insert zman with master", "zman_key", zmanKey, "error", err)
+					RespondInternalError(w, r, "Failed to import zmanim: "+err.Error())
+					return
+				}
 			} else {
 				// Legacy insert without master_zman_id
-				_, err = h.db.Pool.Exec(ctx, `
-					INSERT INTO publisher_zmanim (
-						publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-						is_enabled, is_visible, is_published, is_custom, category
-					) VALUES ($1, $2, $3, $4, $5, true, true, false, false, $6)
-					ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
-						hebrew_name = EXCLUDED.hebrew_name,
-						english_name = EXCLUDED.english_name,
-						formula_dsl = EXCLUDED.formula_dsl,
-						is_enabled = EXCLUDED.is_enabled,
-						category = EXCLUDED.category
-				`, publisherID, zmanKey, hebrewName, englishName,
-					zman.Formula, category)
-			}
-			if err != nil {
-				slog.Error("CompleteOnboarding failed to insert zman", "zman_key", zmanKey, "error", err)
-				RespondInternalError(w, r, "Failed to import zmanim: "+err.Error())
-				return
+				err = h.db.Queries.UpsertPublisherZmanLegacy(ctx, sqlcgen.UpsertPublisherZmanLegacyParams{
+					PublisherID:    publisherIDInt,
+					ZmanKey:        zmanKey,
+					HebrewName:     hebrewName,
+					EnglishName:    englishName,
+					FormulaDsl:     zman.Formula,
+					TimeCategoryID: timeCategoryID,
+				})
+				if err != nil {
+					slog.Error("CompleteOnboarding failed to insert zman legacy", "zman_key", zmanKey, "error", err)
+					RespondInternalError(w, r, "Failed to import zmanim: "+err.Error())
+					return
+				}
 			}
 		}
 		slog.Info("CompleteOnboarding successfully imported zmanim", "count", len(enabledZmanim))
-	} else {
-		// Fallback: import essential zmanim from templates if no customizations
-		_, err = h.db.Pool.Exec(ctx, `
-			INSERT INTO publisher_zmanim (
-				publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-				is_enabled, is_visible, is_published, is_custom, category
-			)
-			SELECT
-				$1, zman_key, hebrew_name, english_name, formula_dsl,
-				true, true, false, false, category
-			FROM zmanim_templates
-			WHERE category = 'essential' OR is_required = true
-			ON CONFLICT (publisher_id, zman_key) DO NOTHING
-		`, publisherID)
+
+		// Mark zmanim as configured
+		err = h.db.Queries.MarkZmanimConfigured(ctx, publisherIDInt)
 		if err != nil {
-			RespondInternalError(w, r, "Failed to import zmanim")
-			return
+			slog.Error("CompleteOnboarding failed to mark zmanim configured", "error", err)
 		}
 	}
 
 	// Import coverage from wizard selections
-	if len(data.Coverage) > 0 {
-		slog.Info("CompleteOnboarding importing coverage", "count", len(data.Coverage))
-		for i, cov := range data.Coverage {
+	if len(req.Coverage) > 0 {
+		slog.Info("CompleteOnboarding importing coverage", "count", len(req.Coverage))
+
+		for i, cov := range req.Coverage {
 			slog.Debug("CompleteOnboarding processing coverage", "index", i+1, "type", cov.Type, "id", cov.ID, "name", cov.Name)
 
 			switch cov.Type {
 			case "continent":
 				// For continent coverage, the ID is the continent code (e.g., "EU", "NA")
-				_, err = h.db.Pool.Exec(ctx, `
-					INSERT INTO publisher_coverage (publisher_id, coverage_level, continent_code)
-					VALUES ($1, 'continent', $2)
-					ON CONFLICT DO NOTHING
-				`, publisherID, cov.ID)
+				continent, err := h.db.Queries.GetContinentByCode(ctx, cov.ID)
 				if err != nil {
-					slog.Error("CompleteOnboarding failed to insert continent coverage", "id", cov.ID, "error", err)
+					slog.Error("CompleteOnboarding failed to find continent", "code", cov.ID, "error", err)
+					continue
+				}
+				_, err = h.db.Queries.CreateCoverageContinent(ctx, sqlcgen.CreateCoverageContinentParams{
+					PublisherID: publisherIDInt,
+					ContinentID: &continent.ID,
+					Priority:    int32Ptr(100),
+					IsActive:    true,
+				})
+				if err != nil {
+					// Check if it's a duplicate
+					if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+						slog.Debug("CompleteOnboarding continent coverage already exists", "id", cov.ID)
+					} else {
+						slog.Error("CompleteOnboarding failed to insert continent coverage", "id", cov.ID, "error", err)
+					}
 				}
 
 			case "country":
-				// For country coverage, the ID is the country code
-				_, err = h.db.Pool.Exec(ctx, `
-					INSERT INTO publisher_coverage (publisher_id, coverage_level, country_code)
-					VALUES ($1, 'country', $2)
-					ON CONFLICT DO NOTHING
-				`, publisherID, cov.ID)
+				// For country coverage, the ID could be code or numeric ID
+				country, err := h.db.Queries.GetCountryByCodeOrID(ctx, cov.ID)
 				if err != nil {
-					slog.Error("CompleteOnboarding failed to insert country coverage", "id", cov.ID, "error", err)
+					slog.Error("CompleteOnboarding failed to find country", "id", cov.ID, "error", err)
+					continue
+				}
+				_, err = h.db.Queries.CreateCoverageCountry(ctx, sqlcgen.CreateCoverageCountryParams{
+					PublisherID: publisherIDInt,
+					CountryID:   &country.ID,
+					Priority:    int32Ptr(100),
+					IsActive:    true,
+				})
+				if err != nil {
+					if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+						slog.Debug("CompleteOnboarding country coverage already exists", "id", cov.ID)
+					} else {
+						slog.Error("CompleteOnboarding failed to insert country coverage", "id", cov.ID, "error", err)
+					}
 				}
 
 			case "region":
-				// For region coverage, the ID is "country_code-region_name" (e.g., "US-California")
-				parts := splitFirst(cov.ID, "-")
-				if len(parts) == 2 {
-					_, err = h.db.Pool.Exec(ctx, `
-						INSERT INTO publisher_coverage (publisher_id, coverage_level, country_code, region)
-						VALUES ($1, 'region', $2, $3)
-						ON CONFLICT DO NOTHING
-					`, publisherID, parts[0], parts[1])
-					if err != nil {
+				// For region coverage, the ID should be the region_id (integer)
+				regionID, err := stringToInt32(cov.ID)
+				if err != nil {
+					slog.Error("CompleteOnboarding invalid region ID", "id", cov.ID, "error", err)
+					continue
+				}
+				region, err := h.db.Queries.GetRegionByID(ctx, regionID)
+				if err != nil {
+					slog.Error("CompleteOnboarding failed to find region", "id", cov.ID, "error", err)
+					continue
+				}
+				_, err = h.db.Queries.CreateCoverageRegion(ctx, sqlcgen.CreateCoverageRegionParams{
+					PublisherID: publisherIDInt,
+					RegionID:    &region.ID,
+					Priority:    int32Ptr(100),
+					IsActive:    true,
+				})
+				if err != nil {
+					if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+						slog.Debug("CompleteOnboarding region coverage already exists", "id", cov.ID)
+					} else {
 						slog.Error("CompleteOnboarding failed to insert region coverage", "id", cov.ID, "error", err)
 					}
-				} else {
-					slog.Warn("CompleteOnboarding invalid region ID format", "id", cov.ID)
 				}
 
 			case "city":
-				// For city coverage, the ID could be a UUID or a quick-select ID
-				// Quick select IDs are like "quick-jerusalem-IL" - we need to look up the actual city
+				// For city coverage, the ID could be an integer or a quick-select ID
+				var cityID int32
 				if isQuickSelectID(cov.ID) {
 					// Look up city by name from quick select
 					cityName := extractCityNameFromQuickID(cov.ID)
-					var cityID string
-					err = h.db.Pool.QueryRow(ctx, `
-						SELECT id FROM cities WHERE LOWER(name) = LOWER($1) LIMIT 1
-					`, cityName).Scan(&cityID)
+					city, err := h.db.Queries.GetCityByName(ctx, cityName)
 					if err != nil {
 						slog.Warn("CompleteOnboarding could not find city for quick select", "id", cov.ID, "error", err)
 						continue
 					}
-					_, err = h.db.Pool.Exec(ctx, `
-						INSERT INTO publisher_coverage (publisher_id, coverage_level, city_id)
-						VALUES ($1, 'city', $2)
-						ON CONFLICT DO NOTHING
-					`, publisherID, cityID)
-					if err != nil {
-						slog.Error("CompleteOnboarding failed to insert city coverage", "city_id", cityID, "error", err)
-					}
+					cityID = city.ID
 				} else {
-					// Regular city ID (UUID)
-					_, err = h.db.Pool.Exec(ctx, `
-						INSERT INTO publisher_coverage (publisher_id, coverage_level, city_id)
-						VALUES ($1, 'city', $2)
-						ON CONFLICT DO NOTHING
-					`, publisherID, cov.ID)
+					// Regular city ID (integer string)
+					var err error
+					cityID, err = stringToInt32(cov.ID)
 					if err != nil {
-						slog.Error("CompleteOnboarding failed to insert city coverage", "id", cov.ID, "error", err)
+						slog.Error("CompleteOnboarding invalid city ID", "id", cov.ID, "error", err)
+						continue
+					}
+					// Verify city exists
+					_, err = h.db.Queries.GetCityByID(ctx, cityID)
+					if err != nil {
+						slog.Error("CompleteOnboarding could not find city", "id", cov.ID, "error", err)
+						continue
+					}
+				}
+				_, err = h.db.Queries.CreateCoverageCity(ctx, sqlcgen.CreateCoverageCityParams{
+					PublisherID: publisherIDInt,
+					CityID:      &cityID,
+					Priority:    int32Ptr(100),
+					IsActive:    true,
+				})
+				if err != nil {
+					if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+						slog.Debug("CompleteOnboarding city coverage already exists", "city_id", cityID)
+					} else {
+						slog.Error("CompleteOnboarding failed to insert city coverage", "city_id", cityID, "error", err)
 					}
 				}
 			}
 		}
 		slog.Info("CompleteOnboarding finished importing coverage")
+
+		// Mark coverage as set
+		err = h.db.Queries.MarkCoverageSet(ctx, publisherIDInt)
+		if err != nil {
+			slog.Error("CompleteOnboarding failed to mark coverage set", "error", err)
+		}
 	}
 
 	// Mark onboarding as complete
-	_, _ = h.db.Pool.Exec(ctx, `
-		UPDATE publisher_onboarding
-		SET completed_at = NOW(), current_step = 5
-		WHERE publisher_id = $1
-	`, publisherID)
+	err = h.db.Queries.UpsertOnboardingComplete(ctx, sqlcgen.UpsertOnboardingCompleteParams{
+		PublisherID:       publisherIDInt,
+		ProfileComplete:   boolPtr(true),
+		AlgorithmSelected: boolPtr(true),
+		ZmanimConfigured:  boolPtr(true),
+		CoverageSet:       boolPtr(true),
+	})
+	if err != nil {
+		slog.Error("CompleteOnboarding failed to mark as complete", "error", err)
+	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"status":  "completed",
 		"message": "Onboarding completed successfully",
 	})
-}
-
-// splitFirst splits a string on the first occurrence of sep
-func splitFirst(s, sep string) []string {
-	idx := -1
-	for i := 0; i < len(s); i++ {
-		if s[i:i+len(sep)] == sep {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		return []string{s}
-	}
-	return []string{s[:idx], s[idx+len(sep):]}
 }
 
 // isQuickSelectID checks if the ID is a quick-select format (quick-cityname-countrycode)
@@ -477,13 +505,21 @@ func (h *Handlers) SkipOnboarding(w http.ResponseWriter, r *http.Request) {
 	}
 	publisherID := pc.PublisherID
 
-	// Mark as skipped
-	_, err := h.db.Pool.Exec(ctx, `
-		INSERT INTO publisher_onboarding (publisher_id, skipped)
-		VALUES ($1, true)
-		ON CONFLICT (publisher_id)
-		DO UPDATE SET skipped = true, last_updated_at = NOW()
-	`, publisherID)
+	// Convert publisher ID to int32
+	publisherIDInt, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+
+	// Mark onboarding as complete (all flags true = skipped)
+	err = h.db.Queries.UpsertOnboardingComplete(ctx, sqlcgen.UpsertOnboardingCompleteParams{
+		PublisherID:       publisherIDInt,
+		ProfileComplete:   boolPtr(true),
+		AlgorithmSelected: boolPtr(true),
+		ZmanimConfigured:  boolPtr(true),
+		CoverageSet:       boolPtr(true),
+	})
 
 	if err != nil {
 		RespondInternalError(w, r, "Failed to skip onboarding")
@@ -507,10 +543,15 @@ func (h *Handlers) ResetOnboarding(w http.ResponseWriter, r *http.Request) {
 	}
 	publisherID := pc.PublisherID
 
+	// Convert publisher ID to int32
+	publisherIDInt, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+
 	// Delete ALL zmanim for this publisher (wizard will re-import)
-	_, err := h.db.Pool.Exec(ctx, `
-		DELETE FROM publisher_zmanim WHERE publisher_id = $1
-	`, publisherID)
+	err = h.db.Queries.DeleteAllPublisherZmanim(ctx, publisherIDInt)
 	if err != nil {
 		slog.Error("ResetOnboarding failed to delete zmanim", "error", err)
 		RespondInternalError(w, r, "Failed to reset onboarding")
@@ -518,19 +559,14 @@ func (h *Handlers) ResetOnboarding(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete coverage for this publisher (wizard will re-import)
-	_, err = h.db.Pool.Exec(ctx, `
-		DELETE FROM publisher_coverage WHERE publisher_id = $1
-	`, publisherID)
+	err = h.db.Queries.DeleteAllPublisherCoverage(ctx, publisherIDInt)
 	if err != nil {
 		slog.Error("ResetOnboarding failed to delete coverage", "error", err)
 		// Continue anyway, coverage deletion is not critical
 	}
 
 	// Delete onboarding state
-	_, err = h.db.Pool.Exec(ctx, `
-		DELETE FROM publisher_onboarding WHERE publisher_id = $1
-	`, publisherID)
-
+	err = h.db.Queries.DeleteOnboardingState(ctx, publisherIDInt)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to reset onboarding")
 		return

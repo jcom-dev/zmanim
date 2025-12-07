@@ -5,97 +5,177 @@
 package sqlcgen
 
 import (
-	"time"
-
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 )
 
 type AiAuditLog struct {
-	ID             string         `json:"id"`
-	PublisherID    pgtype.UUID    `json:"publisher_id"`
-	UserID         *string        `json:"user_id"`
-	RequestType    string         `json:"request_type"`
-	InputText      *string        `json:"input_text"`
-	OutputText     *string        `json:"output_text"`
-	TokensUsed     *int32         `json:"tokens_used"`
-	Model          *string        `json:"model"`
-	Confidence     pgtype.Numeric `json:"confidence"`
-	Success        *bool          `json:"success"`
-	ErrorMessage   *string        `json:"error_message"`
-	DurationMs     *int32         `json:"duration_ms"`
-	RagContextUsed *bool          `json:"rag_context_used"`
-	CreatedAt      time.Time      `json:"created_at"`
+	ID             int32              `json:"id"`
+	PublisherID    *int32             `json:"publisher_id"`
+	UserID         *string            `json:"user_id"`
+	RequestType    string             `json:"request_type"`
+	InputText      *string            `json:"input_text"`
+	OutputText     *string            `json:"output_text"`
+	TokensUsed     *int32             `json:"tokens_used"`
+	Model          *string            `json:"model"`
+	Confidence     pgtype.Numeric     `json:"confidence"`
+	Success        *bool              `json:"success"`
+	ErrorMessage   *string            `json:"error_message"`
+	DurationMs     *int32             `json:"duration_ms"`
+	RagContextUsed *bool              `json:"rag_context_used"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type AiContentSource struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type AiIndex struct {
+	ID            int32              `json:"id"`
+	SourceID      int16              `json:"source_id"`
+	TotalChunks   int32              `json:"total_chunks"`
+	LastIndexedAt pgtype.Timestamptz `json:"last_indexed_at"`
+	StatusID      int16              `json:"status_id"`
+	ErrorMessage  *string            `json:"error_message"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type AiIndexStatus struct {
-	ID            string             `json:"id"`
-	Source        string             `json:"source"`
-	TotalChunks   int32              `json:"total_chunks"`
-	LastIndexedAt pgtype.Timestamptz `json:"last_indexed_at"`
-	Status        string             `json:"status"`
-	ErrorMessage  *string            `json:"error_message"`
-	CreatedAt     time.Time          `json:"created_at"`
-	UpdatedAt     time.Time          `json:"updated_at"`
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	Color              *string            `json:"color"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type Algorithm struct {
-	ID              string             `json:"id"`
-	PublisherID     string             `json:"publisher_id"`
+	ID              int32              `json:"id"`
+	PublisherID     int32              `json:"publisher_id"`
 	Name            string             `json:"name"`
 	Description     *string            `json:"description"`
 	Configuration   []byte             `json:"configuration"`
-	Status          *string            `json:"status"`
+	StatusID        *int16             `json:"status_id"`
 	IsPublic        *bool              `json:"is_public"`
-	ForkedFrom      pgtype.UUID        `json:"forked_from"`
+	ForkedFrom      *int32             `json:"forked_from"`
 	AttributionText *string            `json:"attribution_text"`
 	ForkCount       *int32             `json:"fork_count"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Audit log for algorithm rollback operations
+type AlgorithmRollbackAudit struct {
+	ID            int32              `json:"id"`
+	AlgorithmID   int32              `json:"algorithm_id"`
+	SourceVersion int32              `json:"source_version"`
+	TargetVersion int32              `json:"target_version"`
+	NewVersion    int32              `json:"new_version"`
+	Reason        *string            `json:"reason"`
+	RolledBackBy  *string            `json:"rolled_back_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type AlgorithmStatus struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	Color              *string            `json:"color"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type AlgorithmTemplate struct {
-	ID            string    `json:"id"`
-	TemplateKey   string    `json:"template_key"`
-	Name          string    `json:"name"`
-	Description   *string   `json:"description"`
-	Configuration []byte    `json:"configuration"`
-	SortOrder     int32     `json:"sort_order"`
-	IsActive      bool      `json:"is_active"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            int32              `json:"id"`
+	TemplateKey   string             `json:"template_key"`
+	Name          string             `json:"name"`
+	Description   *string            `json:"description"`
+	Configuration []byte             `json:"configuration"`
+	SortOrder     int32              `json:"sort_order"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Stores version snapshots of algorithm configurations for tracking changes and enabling rollback
+type AlgorithmVersionHistory struct {
+	ID             string             `json:"id"`
+	AlgorithmID    int32              `json:"algorithm_id"`
+	VersionNumber  int32              `json:"version_number"`
+	Status         string             `json:"status"`
+	Description    *string            `json:"description"`
+	ConfigSnapshot []byte             `json:"config_snapshot"`
+	CreatedBy      *string            `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	PublishedAt    pgtype.Timestamptz `json:"published_at"`
 }
 
 type AstronomicalPrimitive struct {
-	ID              string             `json:"id"`
-	VariableName    string             `json:"variable_name"`
-	DisplayName     string             `json:"display_name"`
-	Description     *string            `json:"description"`
-	FormulaDsl      string             `json:"formula_dsl"`
-	Category        string             `json:"category"`
-	CalculationType string             `json:"calculation_type"`
-	SolarAngle      pgtype.Numeric     `json:"solar_angle"`
-	IsDawn          *bool              `json:"is_dawn"`
-	EdgeType        *string            `json:"edge_type"`
-	SortOrder       *int32             `json:"sort_order"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID                int32              `json:"id"`
+	VariableName      string             `json:"variable_name"`
+	DisplayName       string             `json:"display_name"`
+	Description       *string            `json:"description"`
+	FormulaDsl        string             `json:"formula_dsl"`
+	CategoryID        int16              `json:"category_id"`
+	CalculationTypeID int16              `json:"calculation_type_id"`
+	SolarAngle        pgtype.Numeric     `json:"solar_angle"`
+	IsDawn            *bool              `json:"is_dawn"`
+	EdgeTypeID        *int16             `json:"edge_type_id"`
+	SortOrder         *int32             `json:"sort_order"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
-// DEPRECATED: Use jewish_events instead
+type CalculationType struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type CoverageLevel struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type DataType struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type DayType struct {
-	ID                 string    `json:"id"`
-	Name               string    `json:"name"`
-	DisplayNameHebrew  string    `json:"display_name_hebrew"`
-	DisplayNameEnglish string    `json:"display_name_english"`
-	Description        *string   `json:"description"`
-	ParentType         *string   `json:"parent_type"`
-	SortOrder          *int32    `json:"sort_order"`
-	CreatedAt          time.Time `json:"created_at"`
+	ID                 int32              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	ParentID           *int32             `json:"parent_id"`
+	SortOrder          *int32             `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type DisplayGroup struct {
-	ID                 string             `json:"id"`
+	ID                 int32              `json:"id"`
 	Key                string             `json:"key"`
 	DisplayNameHebrew  string             `json:"display_name_hebrew"`
 	DisplayNameEnglish string             `json:"display_name_english"`
@@ -107,20 +187,29 @@ type DisplayGroup struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
+type EdgeType struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type Embedding struct {
-	ID          string             `json:"id"`
-	Source      string             `json:"source"`
+	ID          int32              `json:"id"`
+	SourceID    int16              `json:"source_id"`
 	ContentType string             `json:"content_type"`
 	ChunkIndex  int32              `json:"chunk_index"`
 	Content     string             `json:"content"`
 	Metadata    []byte             `json:"metadata"`
-	Embedding   *pgvector.Vector   `json:"embedding"`
+	Embedding   interface{}        `json:"embedding"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EventCategory struct {
-	ID                 string             `json:"id"`
+	ID                 int32              `json:"id"`
 	Key                string             `json:"key"`
 	DisplayNameHebrew  string             `json:"display_name_hebrew"`
 	DisplayNameEnglish string             `json:"display_name_english"`
@@ -132,19 +221,35 @@ type EventCategory struct {
 }
 
 type ExplanationCache struct {
-	ID          string    `json:"id"`
-	FormulaHash string    `json:"formula_hash"`
-	Language    string    `json:"language"`
-	Explanation string    `json:"explanation"`
-	Source      string    `json:"source"`
-	CreatedAt   time.Time `json:"created_at"`
-	ExpiresAt   time.Time `json:"expires_at"`
+	ID          int32              `json:"id"`
+	FormulaHash string             `json:"formula_hash"`
+	Language    string             `json:"language"`
+	Explanation string             `json:"explanation"`
+	SourceID    int16              `json:"source_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+}
+
+type ExplanationSource struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type FastStartType struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type GeoBoundaryImport struct {
 	ID               int32              `json:"id"`
-	Source           string             `json:"source"`
-	Level            string             `json:"level"`
+	SourceID         int32              `json:"source_id"`
+	LevelID          int16              `json:"level_id"`
 	CountryCode      *string            `json:"country_code"`
 	Version          *string            `json:"version"`
 	RecordsImported  *int32             `json:"records_imported"`
@@ -154,30 +259,30 @@ type GeoBoundaryImport struct {
 	Notes            *string            `json:"notes"`
 }
 
-// Level 4: Cities with coordinates for zmanim calculations
 type GeoCity struct {
-	ID          string             `json:"id"`
-	RegionID    *int32             `json:"region_id"`
-	DistrictID  *int32             `json:"district_id"`
-	Name        string             `json:"name"`
-	NameAscii   *string            `json:"name_ascii"`
-	Latitude    float64            `json:"latitude"`
-	Longitude   float64            `json:"longitude"`
-	Location    interface{}        `json:"location"`
-	Timezone    string             `json:"timezone"`
-	ElevationM  *int32             `json:"elevation_m"`
-	Population  *int32             `json:"population"`
-	Geonameid   *int32             `json:"geonameid"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	WofID       *int64             `json:"wof_id"`
-	ContinentID *int16             `json:"continent_id"`
-	CountryID   *int32             `json:"country_id"`
+	ID                 int32              `json:"id"`
+	RegionID           *int32             `json:"region_id"`
+	DistrictID         *int32             `json:"district_id"`
+	Name               string             `json:"name"`
+	NameAscii          *string            `json:"name_ascii"`
+	Latitude           float64            `json:"latitude"`
+	Longitude          float64            `json:"longitude"`
+	Location           interface{}        `json:"location"`
+	Timezone           string             `json:"timezone"`
+	ElevationM         *int32             `json:"elevation_m"`
+	Population         *int32             `json:"population"`
+	Geonameid          *int32             `json:"geonameid"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	WofID              *int32             `json:"wof_id"`
+	ContinentID        *int16             `json:"continent_id"`
+	CountryID          *int32             `json:"country_id"`
+	CoordinateSourceID *int32             `json:"coordinate_source_id"`
+	ElevationSourceID  *int32             `json:"elevation_source_id"`
 }
 
-// City/locality boundaries from WOF
 type GeoCityBoundary struct {
-	CityID             string             `json:"city_id"`
+	CityID             int32              `json:"city_id"`
 	Boundary           interface{}        `json:"boundary"`
 	BoundarySimplified interface{}        `json:"boundary_simplified"`
 	AreaKm2            *float64           `json:"area_km2"`
@@ -185,15 +290,46 @@ type GeoCityBoundary struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
-// Level 0: 7 continents with ISO codes
+type GeoCityCoordinate struct {
+	ID          int32              `json:"id"`
+	CityID      int32              `json:"city_id"`
+	SourceID    int32              `json:"source_id"`
+	ExternalID  *string            `json:"external_id"`
+	Latitude    float64            `json:"latitude"`
+	Longitude   float64            `json:"longitude"`
+	AccuracyM   *int32             `json:"accuracy_m"`
+	SubmittedBy *string            `json:"submitted_by"`
+	PublisherID *int32             `json:"publisher_id"`
+	VerifiedAt  pgtype.Timestamptz `json:"verified_at"`
+	VerifiedBy  *string            `json:"verified_by"`
+	Notes       *string            `json:"notes"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GeoCityElevation struct {
+	ID                 int32              `json:"id"`
+	CityID             int32              `json:"city_id"`
+	CoordinateSourceID int32              `json:"coordinate_source_id"`
+	SourceID           int32              `json:"source_id"`
+	ElevationM         int32              `json:"elevation_m"`
+	AccuracyM          *int32             `json:"accuracy_m"`
+	SubmittedBy        *string            `json:"submitted_by"`
+	PublisherID        *int32             `json:"publisher_id"`
+	VerifiedAt         pgtype.Timestamptz `json:"verified_at"`
+	VerifiedBy         *string            `json:"verified_by"`
+	Notes              *string            `json:"notes"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type GeoContinent struct {
 	ID    int16  `json:"id"`
 	Code  string `json:"code"`
 	Name  string `json:"name"`
-	WofID *int64 `json:"wof_id"`
+	WofID *int32 `json:"wof_id"`
 }
 
-// Level 1 (ADM0): Countries with ISO 3166-1 codes
 type GeoCountry struct {
 	ID          int16              `json:"id"`
 	Code        string             `json:"code"`
@@ -207,7 +343,7 @@ type GeoCountry struct {
 	IsCityState *bool              `json:"is_city_state"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	WofID       *int64             `json:"wof_id"`
+	WofID       *int32             `json:"wof_id"`
 }
 
 type GeoCountryBoundary struct {
@@ -220,7 +356,35 @@ type GeoCountryBoundary struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
-// Level 3 (ADM2): Counties, boroughs, districts
+type GeoDataImport struct {
+	ID               int32              `json:"id"`
+	SourceID         int32              `json:"source_id"`
+	ImportType       string             `json:"import_type"`
+	Version          *string            `json:"version"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
+	RecordsProcessed *int32             `json:"records_processed"`
+	RecordsImported  *int32             `json:"records_imported"`
+	RecordsUpdated   *int32             `json:"records_updated"`
+	RecordsSkipped   *int32             `json:"records_skipped"`
+	Errors           []string           `json:"errors"`
+	Notes            *string            `json:"notes"`
+}
+
+type GeoDataSource struct {
+	ID               int32              `json:"id"`
+	Key              string             `json:"key"`
+	Name             string             `json:"name"`
+	Description      *string            `json:"description"`
+	DataTypeID       int16              `json:"data_type_id"`
+	Priority         int16              `json:"priority"`
+	DefaultAccuracyM *int32             `json:"default_accuracy_m"`
+	Attribution      *string            `json:"attribution"`
+	Url              *string            `json:"url"`
+	IsActive         *bool              `json:"is_active"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type GeoDistrict struct {
 	ID          int32              `json:"id"`
 	RegionID    *int32             `json:"region_id"`
@@ -228,7 +392,7 @@ type GeoDistrict struct {
 	Name        string             `json:"name"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	WofID       *int64             `json:"wof_id"`
+	WofID       *int32             `json:"wof_id"`
 	ContinentID int16              `json:"continent_id"`
 	CountryID   *int16             `json:"country_id"`
 }
@@ -243,25 +407,30 @@ type GeoDistrictBoundary struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
-// Multi-language names for geographic entities
+type GeoLevel struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type GeoName struct {
-	ID int64 `json:"id"`
-	// continent, country, region, district, city
-	EntityType string `json:"entity_type"`
-	// ID of the entity (text to support both integer and uuid)
-	EntityID     string `json:"entity_id"`
-	LanguageCode string `json:"language_code"`
-	Name         string `json:"name"`
-	// True if this is the preferred name for this language
-	IsPreferred *bool              `json:"is_preferred"`
-	Source      *string            `json:"source"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID           int32              `json:"id"`
+	EntityTypeID int16              `json:"entity_type_id"`
+	EntityID     int32              `json:"entity_id"`
+	LanguageCode string             `json:"language_code"`
+	Name         string             `json:"name"`
+	IsPreferred  *bool              `json:"is_preferred"`
+	SourceID     *int32             `json:"source_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type GeoNameMapping struct {
 	ID                int32              `json:"id"`
-	Level             string             `json:"level"`
-	Source            string             `json:"source"`
+	LevelID           int16              `json:"level_id"`
+	SourceID          int32              `json:"source_id"`
 	SourceName        string             `json:"source_name"`
 	SourceCountryCode *string            `json:"source_country_code"`
 	TargetID          int32              `json:"target_id"`
@@ -269,7 +438,6 @@ type GeoNameMapping struct {
 	Notes             *string            `json:"notes"`
 }
 
-// Level 2 (ADM1): States, provinces, regions
 type GeoRegion struct {
 	ID          int32              `json:"id"`
 	CountryID   *int16             `json:"country_id"`
@@ -277,7 +445,7 @@ type GeoRegion struct {
 	Name        string             `json:"name"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	WofID       *int64             `json:"wof_id"`
+	WofID       *int32             `json:"wof_id"`
 	ContinentID int16              `json:"continent_id"`
 }
 
@@ -292,20 +460,29 @@ type GeoRegionBoundary struct {
 }
 
 type JewishEvent struct {
-	ID                   string    `json:"id"`
-	Code                 string    `json:"code"`
-	NameHebrew           string    `json:"name_hebrew"`
-	NameEnglish          string    `json:"name_english"`
-	EventType            string    `json:"event_type"`
-	DurationDaysIsrael   *int32    `json:"duration_days_israel"`
-	DurationDaysDiaspora *int32    `json:"duration_days_diaspora"`
-	FastStartType        *string   `json:"fast_start_type"`
-	ParentEventCode      *string   `json:"parent_event_code"`
-	SortOrder            *int32    `json:"sort_order"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                   int32              `json:"id"`
+	Code                 string             `json:"code"`
+	NameHebrew           string             `json:"name_hebrew"`
+	NameEnglish          string             `json:"name_english"`
+	EventTypeID          int16              `json:"event_type_id"`
+	DurationDaysIsrael   *int32             `json:"duration_days_israel"`
+	DurationDaysDiaspora *int32             `json:"duration_days_diaspora"`
+	FastStartTypeID      *int16             `json:"fast_start_type_id"`
+	ParentEventID        *int32             `json:"parent_event_id"`
+	SortOrder            *int32             `json:"sort_order"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
-// ISO 639-3 language codes for multi-language name support
+type JewishEventType struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type Language struct {
 	Code       string  `json:"code"`
 	Name       string  `json:"name"`
@@ -316,30 +493,30 @@ type Language struct {
 }
 
 type MasterZmanDayType struct {
-	MasterZmanID string    `json:"master_zman_id"`
-	DayTypeID    string    `json:"day_type_id"`
-	CreatedAt    time.Time `json:"created_at"`
+	MasterZmanID int32              `json:"master_zman_id"`
+	DayTypeID    int32              `json:"day_type_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type MasterZmanEvent struct {
-	ID                  string    `json:"id"`
-	MasterZmanID        string    `json:"master_zman_id"`
-	JewishEventID       string    `json:"jewish_event_id"`
-	IsPrimary           *bool     `json:"is_primary"`
-	OverrideHebrewName  *string   `json:"override_hebrew_name"`
-	OverrideEnglishName *string   `json:"override_english_name"`
-	CreatedAt           time.Time `json:"created_at"`
+	ID                  int32              `json:"id"`
+	MasterZmanID        int32              `json:"master_zman_id"`
+	JewishEventID       int32              `json:"jewish_event_id"`
+	IsPrimary           *bool              `json:"is_primary"`
+	OverrideHebrewName  *string            `json:"override_hebrew_name"`
+	OverrideEnglishName *string            `json:"override_english_name"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
 type MasterZmanTag struct {
-	MasterZmanID string    `json:"master_zman_id"`
-	TagID        string    `json:"tag_id"`
-	IsNegated    bool      `json:"is_negated"`
-	CreatedAt    time.Time `json:"created_at"`
+	MasterZmanID int32              `json:"master_zman_id"`
+	TagID        int32              `json:"tag_id"`
+	IsNegated    bool               `json:"is_negated"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type MasterZmanimRegistry struct {
-	ID                   string             `json:"id"`
+	ID                   int32              `json:"id"`
 	ZmanKey              string             `json:"zman_key"`
 	CanonicalHebrewName  string             `json:"canonical_hebrew_name"`
 	CanonicalEnglishName string             `json:"canonical_english_name"`
@@ -347,7 +524,7 @@ type MasterZmanimRegistry struct {
 	Description          *string            `json:"description"`
 	HalachicSource       *string            `json:"halachic_source"`
 	HalachicNotes        *string            `json:"halachic_notes"`
-	TimeCategory         *string            `json:"time_category"`
+	TimeCategoryID       *int32             `json:"time_category_id"`
 	DefaultFormulaDsl    *string            `json:"default_formula_dsl"`
 	IsHidden             bool               `json:"is_hidden"`
 	IsCore               *bool              `json:"is_core"`
@@ -357,16 +534,25 @@ type MasterZmanimRegistry struct {
 }
 
 type PasswordResetToken struct {
-	ID        string             `json:"id"`
+	ID        int32              `json:"id"`
 	Email     string             `json:"email"`
 	Token     string             `json:"token"`
-	ExpiresAt time.Time          `json:"expires_at"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
-// Publishers who provide zmanim calculations
+type PrimitiveCategory struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type Publisher struct {
-	ID                string             `json:"id"`
+	ID                int32              `json:"id"`
 	Name              string             `json:"name"`
 	Email             string             `json:"email"`
 	Phone             *string            `json:"phone"`
@@ -377,7 +563,7 @@ type Publisher struct {
 	Latitude          *float64           `json:"latitude"`
 	Longitude         *float64           `json:"longitude"`
 	Timezone          *string            `json:"timezone"`
-	Status            string             `json:"status"`
+	StatusID          int16              `json:"status_id"`
 	VerificationToken *string            `json:"verification_token"`
 	VerifiedAt        pgtype.Timestamptz `json:"verified_at"`
 	ClerkUserID       *string            `json:"clerk_user_id"`
@@ -395,33 +581,33 @@ type Publisher struct {
 }
 
 type PublisherCoverage struct {
-	ID            string             `json:"id"`
-	PublisherID   string             `json:"publisher_id"`
-	CoverageLevel string             `json:"coverage_level"`
-	CityID        pgtype.UUID        `json:"city_id"`
-	DistrictID    *int32             `json:"district_id"`
-	RegionID      *int32             `json:"region_id"`
-	CountryID     *int16             `json:"country_id"`
-	ContinentCode *string            `json:"continent_code"`
-	IsActive      bool               `json:"is_active"`
-	Priority      *int32             `json:"priority"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID              int32              `json:"id"`
+	PublisherID     int32              `json:"publisher_id"`
+	CoverageLevelID int16              `json:"coverage_level_id"`
+	CityID          *int32             `json:"city_id"`
+	DistrictID      *int32             `json:"district_id"`
+	RegionID        *int32             `json:"region_id"`
+	CountryID       *int16             `json:"country_id"`
+	ContinentID     *int16             `json:"continent_id"`
+	IsActive        bool               `json:"is_active"`
+	Priority        *int32             `json:"priority"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublisherInvitation struct {
-	ID          string             `json:"id"`
-	PublisherID string             `json:"publisher_id"`
+	ID          int32              `json:"id"`
+	PublisherID int32              `json:"publisher_id"`
 	Email       string             `json:"email"`
-	Role        string             `json:"role"`
+	RoleID      int16              `json:"role_id"`
 	Token       string             `json:"token"`
-	ExpiresAt   time.Time          `json:"expires_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type PublisherOnboarding struct {
-	ID                string             `json:"id"`
-	PublisherID       string             `json:"publisher_id"`
+	ID                int32              `json:"id"`
+	PublisherID       int32              `json:"publisher_id"`
 	ProfileComplete   *bool              `json:"profile_complete"`
 	AlgorithmSelected *bool              `json:"algorithm_selected"`
 	ZmanimConfigured  *bool              `json:"zmanim_configured"`
@@ -431,84 +617,106 @@ type PublisherOnboarding struct {
 }
 
 type PublisherRequest struct {
-	ID           string             `json:"id"`
+	ID           int32              `json:"id"`
 	Email        string             `json:"email"`
 	Name         string             `json:"name"`
 	Organization *string            `json:"organization"`
 	Message      *string            `json:"message"`
-	Status       string             `json:"status"`
+	StatusID     int16              `json:"status_id"`
 	ReviewedBy   *string            `json:"reviewed_by"`
 	ReviewedAt   pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type PublisherRole struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	Permissions        []byte             `json:"permissions"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type PublisherSnapshot struct {
-	ID           string    `json:"id"`
-	PublisherID  string    `json:"publisher_id"`
-	Description  *string   `json:"description"`
-	SnapshotData []byte    `json:"snapshot_data"`
-	CreatedBy    *string   `json:"created_by"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID           int32              `json:"id"`
+	PublisherID  int32              `json:"publisher_id"`
+	Description  *string            `json:"description"`
+	SnapshotData []byte             `json:"snapshot_data"`
+	CreatedBy    *string            `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type PublisherStatus struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	Color              *string            `json:"color"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type PublisherZmanAlias struct {
-	ID                   string    `json:"id"`
-	PublisherZmanID      string    `json:"publisher_zman_id"`
-	PublisherID          string    `json:"publisher_id"`
-	AliasHebrew          string    `json:"alias_hebrew"`
-	AliasEnglish         *string   `json:"alias_english"`
-	AliasTransliteration *string   `json:"alias_transliteration"`
-	Context              *string   `json:"context"`
-	IsPrimary            bool      `json:"is_primary"`
-	SortOrder            *int32    `json:"sort_order"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                   int32              `json:"id"`
+	PublisherZmanID      int32              `json:"publisher_zman_id"`
+	PublisherID          int32              `json:"publisher_id"`
+	AliasHebrew          string             `json:"alias_hebrew"`
+	AliasEnglish         *string            `json:"alias_english"`
+	AliasTransliteration *string            `json:"alias_transliteration"`
+	Context              *string            `json:"context"`
+	IsPrimary            bool               `json:"is_primary"`
+	SortOrder            *int32             `json:"sort_order"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 type PublisherZmanDayType struct {
-	PublisherZmanID     string    `json:"publisher_zman_id"`
-	DayTypeID           string    `json:"day_type_id"`
-	OverrideFormulaDsl  *string   `json:"override_formula_dsl"`
-	OverrideHebrewName  *string   `json:"override_hebrew_name"`
-	OverrideEnglishName *string   `json:"override_english_name"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	PublisherZmanID     int32              `json:"publisher_zman_id"`
+	DayTypeID           int32              `json:"day_type_id"`
+	OverrideFormulaDsl  *string            `json:"override_formula_dsl"`
+	OverrideHebrewName  *string            `json:"override_hebrew_name"`
+	OverrideEnglishName *string            `json:"override_english_name"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublisherZmanEvent struct {
-	ID                  string    `json:"id"`
-	PublisherZmanID     string    `json:"publisher_zman_id"`
-	JewishEventID       string    `json:"jewish_event_id"`
-	OverrideFormulaDsl  *string   `json:"override_formula_dsl"`
-	OverrideHebrewName  *string   `json:"override_hebrew_name"`
-	OverrideEnglishName *string   `json:"override_english_name"`
-	IsEnabled           bool      `json:"is_enabled"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	ID                  int32              `json:"id"`
+	PublisherZmanID     int32              `json:"publisher_zman_id"`
+	JewishEventID       int32              `json:"jewish_event_id"`
+	OverrideFormulaDsl  *string            `json:"override_formula_dsl"`
+	OverrideHebrewName  *string            `json:"override_hebrew_name"`
+	OverrideEnglishName *string            `json:"override_english_name"`
+	IsEnabled           bool               `json:"is_enabled"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublisherZmanTag struct {
-	PublisherZmanID string    `json:"publisher_zman_id"`
-	TagID           string    `json:"tag_id"`
-	IsNegated       bool      `json:"is_negated"`
-	CreatedAt       time.Time `json:"created_at"`
+	PublisherZmanID int32              `json:"publisher_zman_id"`
+	TagID           int32              `json:"tag_id"`
+	IsNegated       bool               `json:"is_negated"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type PublisherZmanVersion struct {
-	ID              string    `json:"id"`
-	PublisherZmanID string    `json:"publisher_zman_id"`
-	VersionNumber   int32     `json:"version_number"`
-	HebrewName      string    `json:"hebrew_name"`
-	EnglishName     *string   `json:"english_name"`
-	FormulaDsl      *string   `json:"formula_dsl"`
-	HalachicNotes   *string   `json:"halachic_notes"`
-	CreatedBy       *string   `json:"created_by"`
-	ChangeReason    *string   `json:"change_reason"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID              int32              `json:"id"`
+	PublisherZmanID int32              `json:"publisher_zman_id"`
+	VersionNumber   int32              `json:"version_number"`
+	HebrewName      string             `json:"hebrew_name"`
+	EnglishName     *string            `json:"english_name"`
+	FormulaDsl      *string            `json:"formula_dsl"`
+	HalachicNotes   *string            `json:"halachic_notes"`
+	CreatedBy       *string            `json:"created_by"`
+	ChangeReason    *string            `json:"change_reason"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type PublisherZmanim struct {
-	ID                    string             `json:"id"`
-	PublisherID           string             `json:"publisher_id"`
+	ID                    int32              `json:"id"`
+	PublisherID           int32              `json:"publisher_id"`
 	ZmanKey               string             `json:"zman_key"`
 	HebrewName            string             `json:"hebrew_name"`
 	EnglishName           string             `json:"english_name"`
@@ -517,30 +725,41 @@ type PublisherZmanim struct {
 	FormulaDsl            string             `json:"formula_dsl"`
 	AiExplanation         *string            `json:"ai_explanation"`
 	PublisherComment      *string            `json:"publisher_comment"`
-	MasterZmanID          pgtype.UUID        `json:"master_zman_id"`
+	MasterZmanID          *int32             `json:"master_zman_id"`
 	HalachicNotes         *string            `json:"halachic_notes"`
 	IsEnabled             bool               `json:"is_enabled"`
 	IsVisible             bool               `json:"is_visible"`
 	IsPublished           bool               `json:"is_published"`
 	IsBeta                bool               `json:"is_beta"`
 	IsCustom              bool               `json:"is_custom"`
-	Category              string             `json:"category"`
+	TimeCategoryID        *int32             `json:"time_category_id"`
 	Aliases               []string           `json:"aliases"`
 	Dependencies          []string           `json:"dependencies"`
-	LinkedPublisherZmanID pgtype.UUID        `json:"linked_publisher_zman_id"`
+	LinkedPublisherZmanID *int32             `json:"linked_publisher_zman_id"`
 	CurrentVersion        *int32             `json:"current_version"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
 	DeletedBy             *string            `json:"deleted_by"`
 	CertifiedAt           pgtype.Timestamptz `json:"certified_at"`
-	SourceType            string             `json:"source_type"`
+	SourceTypeID          int16              `json:"source_type_id"`
 	DisplayNameHebrew     *string            `json:"display_name_hebrew"`
 	DisplayNameEnglish    *string            `json:"display_name_english"`
 }
 
+type RequestStatus struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	Color              *string            `json:"color"`
+	SortOrder          int16              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type SystemConfig struct {
-	ID          string             `json:"id"`
+	ID          int32              `json:"id"`
 	Key         string             `json:"key"`
 	Value       []byte             `json:"value"`
 	Description *string            `json:"description"`
@@ -549,28 +768,29 @@ type SystemConfig struct {
 }
 
 type TagEventMapping struct {
-	ID                 string    `json:"id"`
-	TagID              string    `json:"tag_id"`
-	HebcalEventPattern *string   `json:"hebcal_event_pattern"`
-	HebrewMonth        *int32    `json:"hebrew_month"`
-	HebrewDayStart     *int32    `json:"hebrew_day_start"`
-	HebrewDayEnd       *int32    `json:"hebrew_day_end"`
-	Priority           *int32    `json:"priority"`
-	CreatedAt          time.Time `json:"created_at"`
+	ID                 int32              `json:"id"`
+	TagID              int32              `json:"tag_id"`
+	HebcalEventPattern *string            `json:"hebcal_event_pattern"`
+	HebrewMonth        *int32             `json:"hebrew_month"`
+	HebrewDayStart     *int32             `json:"hebrew_day_start"`
+	HebrewDayEnd       *int32             `json:"hebrew_day_end"`
+	Priority           *int32             `json:"priority"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type TagType struct {
-	ID                 string             `json:"id"`
+	ID                 int32              `json:"id"`
 	Key                string             `json:"key"`
 	DisplayNameHebrew  string             `json:"display_name_hebrew"`
 	DisplayNameEnglish string             `json:"display_name_english"`
 	Color              *string            `json:"color"`
+	Description        *string            `json:"description"`
 	SortOrder          int32              `json:"sort_order"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type TimeCategory struct {
-	ID                 string             `json:"id"`
+	ID                 int32              `json:"id"`
 	Key                string             `json:"key"`
 	DisplayNameHebrew  string             `json:"display_name_hebrew"`
 	DisplayNameEnglish string             `json:"display_name_english"`
@@ -583,28 +803,28 @@ type TimeCategory struct {
 }
 
 type ZmanDisplayContext struct {
-	ID                 string    `json:"id"`
-	MasterZmanID       string    `json:"master_zman_id"`
-	ContextCode        string    `json:"context_code"`
-	DisplayNameHebrew  string    `json:"display_name_hebrew"`
-	DisplayNameEnglish string    `json:"display_name_english"`
-	SortOrder          *int32    `json:"sort_order"`
-	CreatedAt          time.Time `json:"created_at"`
+	ID                 int32              `json:"id"`
+	MasterZmanID       int32              `json:"master_zman_id"`
+	ContextCode        string             `json:"context_code"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	SortOrder          *int32             `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type ZmanRegistryRequest struct {
-	ID                   string             `json:"id"`
-	PublisherID          string             `json:"publisher_id"`
+	ID                   int32              `json:"id"`
+	PublisherID          int32              `json:"publisher_id"`
 	RequestedKey         string             `json:"requested_key"`
 	RequestedHebrewName  string             `json:"requested_hebrew_name"`
 	RequestedEnglishName string             `json:"requested_english_name"`
 	RequestedFormulaDsl  *string            `json:"requested_formula_dsl"`
-	TimeCategory         string             `json:"time_category"`
-	Status               string             `json:"status"`
+	TimeCategoryID       int32              `json:"time_category_id"`
+	StatusID             int16              `json:"status_id"`
 	ReviewedBy           *string            `json:"reviewed_by"`
 	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
 	ReviewerNotes        *string            `json:"reviewer_notes"`
-	CreatedAt            time.Time          `json:"created_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	Transliteration      *string            `json:"transliteration"`
 	Description          *string            `json:"description"`
 	HalachicNotes        *string            `json:"halachic_notes"`
@@ -615,37 +835,33 @@ type ZmanRegistryRequest struct {
 }
 
 type ZmanRequestTag struct {
-	ID               string      `json:"id"`
-	RequestID        string      `json:"request_id"`
-	TagID            pgtype.UUID `json:"tag_id"`
-	RequestedTagName *string     `json:"requested_tag_name"`
-	RequestedTagType *string     `json:"requested_tag_type"`
-	IsNewTagRequest  bool        `json:"is_new_tag_request"`
-	CreatedAt        time.Time   `json:"created_at"`
+	ID               int32              `json:"id"`
+	RequestID        int32              `json:"request_id"`
+	TagID            *int32             `json:"tag_id"`
+	RequestedTagName *string            `json:"requested_tag_name"`
+	RequestedTagType *string            `json:"requested_tag_type"`
+	IsNewTagRequest  bool               `json:"is_new_tag_request"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type ZmanSourceType struct {
+	ID                 int16              `json:"id"`
+	Key                string             `json:"key"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	Description        *string            `json:"description"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type ZmanTag struct {
-	ID                 string    `json:"id"`
-	TagKey             string    `json:"tag_key"`
-	Name               string    `json:"name"`
-	DisplayNameHebrew  string    `json:"display_name_hebrew"`
-	DisplayNameEnglish string    `json:"display_name_english"`
-	TagType            string    `json:"tag_type"`
-	Description        *string   `json:"description"`
-	Color              *string   `json:"color"`
-	SortOrder          *int32    `json:"sort_order"`
-	CreatedAt          time.Time `json:"created_at"`
-}
-
-type ZmanimTemplate struct {
-	ID          string    `json:"id"`
-	ZmanKey     string    `json:"zman_key"`
-	HebrewName  string    `json:"hebrew_name"`
-	EnglishName string    `json:"english_name"`
-	FormulaDsl  string    `json:"formula_dsl"`
-	Category    string    `json:"category"`
-	Description *string   `json:"description"`
-	IsRequired  bool      `json:"is_required"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                 int32              `json:"id"`
+	TagKey             string             `json:"tag_key"`
+	Name               string             `json:"name"`
+	DisplayNameHebrew  string             `json:"display_name_hebrew"`
+	DisplayNameEnglish string             `json:"display_name_english"`
+	TagTypeID          int32              `json:"tag_type_id"`
+	Description        *string            `json:"description"`
+	Color              *string            `json:"color"`
+	SortOrder          *int32             `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }

@@ -376,6 +376,126 @@ await page.locator('.some-class > div:nth-child(2)').click();
 
 ---
 
+## Database Standards
+
+### Schema Normalization (STRICTLY ENFORCED)
+
+**CRITICAL RULE:** All data must be normalized with lookup tables using integer IDs. ZERO VARCHAR lookups allowed.
+
+#### Primary Key Pattern (MANDATORY)
+```sql
+-- REQUIRED - All tables use 'id' as primary key
+CREATE TABLE public.example_table (
+    id SERIAL PRIMARY KEY,              -- or BIGSERIAL for high-volume tables
+    -- fields...
+);
+
+-- Lookup tables use GENERATED ALWAYS AS IDENTITY
+CREATE TABLE public.example_statuses (
+    id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key character varying(20) NOT NULL UNIQUE,
+    display_name_hebrew text NOT NULL,
+    display_name_english text NOT NULL,
+    description text,
+    created_at timestamp with time zone DEFAULT now()
+);
+```
+
+#### Lookup Table Pattern (id + key)
+Every lookup/reference table MUST follow this exact pattern:
+
+```sql
+CREATE TABLE public.{name}_statuses|_types|_levels|_sources|_roles|_categories (
+    id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key character varying(20) NOT NULL UNIQUE,           -- Programmatic identifier
+    display_name_hebrew text NOT NULL,                   -- UI display (Hebrew)
+    display_name_english text NOT NULL,                  -- UI display (English)
+    description text,                                     -- Optional documentation
+    -- Optional metadata fields (color, sort_order, etc.)
+    created_at timestamp with time zone DEFAULT now()
+);
+```
+
+**Verified Lookup Tables (21):**
+- `publisher_statuses`, `algorithm_statuses`, `ai_index_statuses`, `request_statuses`
+- `publisher_roles`, `coverage_levels`
+- `jewish_event_types`, `fast_start_types`, `calculation_types`, `edge_types`
+- `primitive_categories`, `zman_source_types`, `ai_content_sources`
+- `geo_levels`, `data_types`, `explanation_sources`
+- `day_types`, `event_categories`, `geo_data_sources`, `tag_types`, `time_categories`
+
+#### Foreign Key Rules
+
+```sql
+-- REQUIRED - All FKs reference integer id columns
+ALTER TABLE ONLY public.example_table
+    ADD CONSTRAINT example_table_status_id_fkey
+    FOREIGN KEY (status_id) REFERENCES public.example_statuses(id);
+
+-- FORBIDDEN - VARCHAR foreign keys (except languages.code - see exceptions)
+status character varying(20) NOT NULL  -- ✗ FORBIDDEN
+status_id smallint NOT NULL            -- ✓ REQUIRED
+```
+
+**Naming Convention:**
+- FK column: `{table_name}_id` (e.g., `publisher_id`, `status_id`)
+- FK constraint: `{table}_{column}_fkey` (e.g., `publishers_status_id_fkey`)
+
+#### Intentional Exceptions (ONLY these)
+
+**1. Languages Table** (ISO 639 standard)
+```sql
+CREATE TABLE public.languages (
+    code character varying(3) NOT NULL PRIMARY KEY,  -- 'en', 'he', 'yi'
+    name text NOT NULL,
+    -- ...
+);
+-- FK: geo_names.language_code → languages.code
+```
+
+**2. Junction Tables** (Many-to-Many with composite PKs)
+```sql
+CREATE TABLE public.master_zman_tags (
+    master_zman_id integer NOT NULL,
+    tag_id integer NOT NULL,
+    PRIMARY KEY (master_zman_id, tag_id)
+);
+```
+
+**3. Boundary Tables** (1:1 with parent entity)
+```sql
+CREATE TABLE public.geo_city_boundaries (
+    city_id integer NOT NULL PRIMARY KEY,  -- Parent's ID is the PK
+    boundary geography(MultiPolygon,4326) NOT NULL,
+    -- ...
+);
+```
+
+**4. Schema Migrations** (Framework standard)
+```sql
+CREATE TABLE public.schema_migrations (
+    version text NOT NULL PRIMARY KEY
+);
+```
+
+#### Validation Checklist
+
+Before committing schema changes, verify:
+- [ ] All tables have `id` field (except 10 documented exceptions)
+- [ ] All lookup tables follow id + key pattern
+- [ ] All foreign keys reference integer `id` columns (except `languages.code`)
+- [ ] Zero VARCHAR/TEXT primary keys or foreign key columns
+- [ ] Lookup table seed data uses `key` column, not hardcoded IDs
+
+```bash
+# Detection commands
+grep -E "_id\s+(character varying|varchar|text)" db/migrations/*.sql  # Should be 0 results
+grep "FOREIGN KEY.*REFERENCES.*[(]id[)]" db/migrations/*.sql | wc -l  # Should be 88
+grep "FOREIGN KEY.*REFERENCES.*[(]code[)]" db/migrations/*.sql | wc -l  # Should be 1
+```
+
+---
+
 ## Database Migrations
 
 ### Run Migrations
@@ -390,6 +510,61 @@ await page.locator('.some-class > div:nth-child(2)').click();
 # 3. Run: ./scripts/migrate.sh
 # 4. Regenerate SQLc: cd api && sqlc generate
 # 5. Rebuild: go build ./...
+```
+
+### Migration Patterns
+
+#### Adding a Lookup Table
+```sql
+-- 1. Create lookup table (always use this pattern)
+CREATE TABLE public.example_types (
+    id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key character varying(20) NOT NULL UNIQUE,
+    display_name_hebrew text NOT NULL,
+    display_name_english text NOT NULL,
+    description text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- 2. Seed data (use key, not id)
+INSERT INTO example_types (key, display_name_hebrew, display_name_english, description) VALUES
+('type_a', 'סוג א', 'Type A', 'First type'),
+('type_b', 'סוג ב', 'Type B', 'Second type');
+
+-- 3. Add FK column to existing table
+ALTER TABLE public.example_table
+    ADD COLUMN type_id smallint;
+
+-- 4. Backfill existing data (if applicable)
+UPDATE example_table
+SET type_id = (SELECT id FROM example_types WHERE key = 'type_a')
+WHERE legacy_type_column = 'A';
+
+-- 5. Add FK constraint
+ALTER TABLE ONLY public.example_table
+    ADD CONSTRAINT example_table_type_id_fkey
+    FOREIGN KEY (type_id) REFERENCES public.example_types(id);
+
+-- 6. Drop old VARCHAR column (after verification)
+ALTER TABLE public.example_table DROP COLUMN legacy_type_column;
+```
+
+#### Converting VARCHAR Lookups to Normalized Tables
+```sql
+-- BEFORE (bad)
+CREATE TABLE publishers (
+    status character varying(20) -- 'pending', 'active', 'suspended'
+);
+
+-- AFTER (good)
+CREATE TABLE publisher_statuses (
+    id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key character varying(20) NOT NULL UNIQUE
+);
+
+CREATE TABLE publishers (
+    status_id smallint REFERENCES publisher_statuses(id)
+);
 ```
 
 ---
@@ -490,6 +665,150 @@ grep -r "waitForTimeout" tests/e2e --include="*.ts" | wc -l  # Should be 0
 
 ---
 
+## AI Agent Optimization
+
+### File Headers (RECOMMENDED)
+Add metadata headers to aid AI navigation and pattern recognition.
+
+**TypeScript/React:**
+```tsx
+/**
+ * @file ComponentName.tsx
+ * @module components/publisher
+ * @pattern client-component
+ * @compliance useApi:✓ design-tokens:✓ clerk-isloaded:✓
+ * @dependencies api:/publisher/profile hooks:useApi,usePublisherQuery
+ */
+```
+
+**Go:**
+```go
+// File: handler_name.go
+// Module: handlers
+// Pattern: 6-step-handler
+// Compliance: PublisherResolver:✓ SQLc:✓ slog:✓
+// Dependencies: Queries:zmanim.sql,algorithms.sql Services:algorithm_service
+```
+
+### Directory Index Files (HIGH PRIORITY)
+Create `INDEX.md` in major directories for quick AI navigation.
+
+**Example:** `api/internal/handlers/INDEX.md`
+```markdown
+# Handler Registry
+
+| File | Endpoints | Pattern | Dependencies |
+|------|-----------|---------|--------------|
+| publisher_zmanim.go | GET/POST/PUT /publisher/zmanim | 6-step | zmanim.sql |
+| coverage.go | GET/POST /publisher/coverage | 6-step | coverage.sql |
+
+Pattern Compliance: PublisherResolver 15/18 | SQLc 100% | Raw SQL 0
+```
+
+### Architecture Decision Records (CRITICAL)
+Document **why** patterns exist: `docs/adr/{nnn}-{title}.md`
+
+**Template:**
+```markdown
+# ADR-001: SQLc Mandatory for All Queries
+
+Status: Accepted | Date: 2025-11-15
+
+## Context
+Raw SQL caused 20+ runtime type bugs, no compile-time safety.
+
+## Decision
+ALL database queries MUST use SQLc-generated code.
+
+## Consequences
+✓ Type safety | ✓ Zero SQL injection | ✗ Two-step workflow
+
+## Compliance
+grep -rE "db\.Pool\.Query" api/internal/handlers/ --include="*.go"  # Must be 0
+
+## Examples
+Good: h.db.Queries.GetPublisher(ctx, id)
+Bad: db.Pool.Query(ctx, "SELECT * FROM publishers WHERE id = $1", id)
+```
+
+### Compliance Dashboard (HIGH PRIORITY)
+Machine-readable status file: `docs/compliance/status.yaml`
+
+```yaml
+last_updated: "2025-12-07T10:30:00Z"
+
+metrics:
+  backend:
+    raw_sql_violations: 0
+    slog_adoption: 88%
+  frontend:
+    raw_fetch_calls: 73
+    use_api_adoption: 62%
+  testing:
+    parallel_mode: 79%
+
+violations:
+  - file: web/components/onboarding/ReviewPublishStep.tsx
+    line: 45
+    issue: Raw fetch() call
+    fix: Replace with useApi()
+    priority: critical
+```
+
+### Dependency Maps (RECOMMENDED)
+Explicit graphs in `docs/architecture/dependency-map.md`
+
+```markdown
+## Handler → Query Dependencies
+- publisher_zmanim.go → zmanim.sql, algorithms.sql
+- coverage.go → coverage.sql, geo_boundaries.sql
+
+## Frontend → Backend
+- WeeklyPreviewDialog.tsx → GET /zmanim/preview (auth required)
+- CoverageMap.tsx → GET /geo/boundaries (auth optional)
+```
+
+### Compliance Check Script (CRITICAL)
+Automated detection: `scripts/check-compliance.sh`
+
+```bash
+#!/bin/bash
+echo "Backend:"
+echo "  Raw SQL: $(grep -rE "db\.Pool\.Query" api/internal/handlers/ --include="*.go" | wc -l)"
+echo "Frontend:"
+echo "  Raw fetch: $(grep -r "await fetch(" web/app web/components --include="*.tsx" | wc -l)"
+exit 0
+```
+
+### AI-Optimized File Structure
+
+```
+zmanim-lab/
+├── .ai/                          # AI-specific metadata
+│   ├── compliance/
+│   │   └── status.yaml           # Machine-readable metrics
+│   └── context/
+│       ├── backend-patterns.md   # Quick reference
+│       └── frontend-patterns.md
+├── docs/
+│   ├── adr/                      # Architecture decisions
+│   │   ├── 001-sqlc-mandatory.md
+│   │   └── 002-use-api-pattern.md
+│   └── architecture/
+│       └── dependency-map.md
+└── api/internal/handlers/
+    └── INDEX.md                  # Handler registry
+```
+
+### Implementation Priority
+
+**Week 1:** Compliance dashboard + check script
+**Week 2:** INDEX.md for handlers/, components/, queries/
+**Week 3:** ADRs for top 5 patterns
+**Week 4:** File headers for 20 most-used files
+
+---
+
 ## Quick Reference Checklists
 
 ### Frontend
@@ -515,6 +834,13 @@ grep -r "waitForTimeout" tests/e2e --include="*.ts" | wc -l  # Should be 0
 4. Role/text selectors
 5. `TEST_` prefix if creating data
 
+### Database Schema
+1. All tables use `id` primary key (except documented exceptions)
+2. All lookup tables follow id + key pattern
+3. All foreign keys reference integer `id` (except `languages.code`)
+4. Zero VARCHAR/TEXT lookup fields
+5. Lookup seed data uses `key` column, not hardcoded IDs
+
 ### PR Checklist
 - [ ] Publisher zmanim linked (master_registry or linked_zman)
 - [ ] Service restarts via `./restart.sh`
@@ -525,3 +851,9 @@ grep -r "waitForTimeout" tests/e2e --include="*.ts" | wc -l  # Should be 0
 - [ ] slog logging
 - [ ] 12-hour time format
 - [ ] E2E tests with parallel mode
+- [ ] Database normalization (if schema changes):
+  - [ ] All new tables use `id` primary key
+  - [ ] Lookup tables follow id + key pattern with bilingual display names
+  - [ ] Foreign keys reference integer `id` columns
+  - [ ] Zero VARCHAR lookups or foreign keys
+  - [ ] Seed data uses `key` column

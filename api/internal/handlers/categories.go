@@ -76,7 +76,7 @@ func (h *Handlers) GetTimeCategories(w http.ResponseWriter, r *http.Request) {
 	result := make([]TimeCategory, len(categories))
 	for i, c := range categories {
 		result[i] = TimeCategory{
-			ID:                 c.ID,
+			ID:                 int32ToString(c.ID),
 			Key:                c.Key,
 			DisplayNameHebrew:  c.DisplayNameHebrew,
 			DisplayNameEnglish: c.DisplayNameEnglish,
@@ -114,7 +114,7 @@ func (h *Handlers) GetEventCategories(w http.ResponseWriter, r *http.Request) {
 	result := make([]EventCategory, len(categories))
 	for i, c := range categories {
 		result[i] = EventCategory{
-			ID:                 c.ID,
+			ID:                 int32ToString(c.ID),
 			Key:                c.Key,
 			DisplayNameHebrew:  c.DisplayNameHebrew,
 			DisplayNameEnglish: c.DisplayNameEnglish,
@@ -151,7 +151,7 @@ func (h *Handlers) GetTagTypes(w http.ResponseWriter, r *http.Request) {
 	result := make([]TagType, len(tagTypes))
 	for i, t := range tagTypes {
 		result[i] = TagType{
-			ID:                 t.ID,
+			ID:                 int32ToString(t.ID),
 			Key:                t.Key,
 			DisplayNameHebrew:  t.DisplayNameHebrew,
 			DisplayNameEnglish: t.DisplayNameEnglish,
@@ -186,7 +186,7 @@ func (h *Handlers) GetDisplayGroups(w http.ResponseWriter, r *http.Request) {
 	result := make([]DisplayGroup, len(groups))
 	for i, g := range groups {
 		result[i] = DisplayGroup{
-			ID:                 g.ID,
+			ID:                 int32ToString(g.ID),
 			Key:                g.Key,
 			DisplayNameHebrew:  g.DisplayNameHebrew,
 			DisplayNameEnglish: g.DisplayNameEnglish,

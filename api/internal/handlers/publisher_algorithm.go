@@ -4,11 +4,23 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jcom-dev/zmanim-lab/internal/algorithm"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 )
+
+// Helper function to convert string publisher ID to int32
+func publisherIDToInt32(publisherID string) (int32, error) {
+	id, err := strconv.Atoi(publisherID)
+	if err != nil {
+		return 0, err
+	}
+	return int32(id), nil
+}
 
 // AlgorithmResponse represents the algorithm configuration response
 type AlgorithmResponse struct {
@@ -16,24 +28,19 @@ type AlgorithmResponse struct {
 	Name          string                     `json:"name"`
 	Description   string                     `json:"description"`
 	Configuration *algorithm.AlgorithmConfig `json:"configuration"`
-	Version       int                        `json:"version"`
 	Status        string                     `json:"status"`
-	IsActive      bool                       `json:"is_active"`
-	PublishedAt   *time.Time                 `json:"published_at,omitempty"`
+	IsPublic      bool                       `json:"is_public"`
 	CreatedAt     time.Time                  `json:"created_at"`
 	UpdatedAt     time.Time                  `json:"updated_at"`
 }
 
 // AlgorithmVersionResponse represents a version in the history
 type AlgorithmVersionResponse struct {
-	ID           string     `json:"id"`
-	Name         string     `json:"name"`
-	Version      int        `json:"version"`
-	Status       string     `json:"status"`
-	IsActive     bool       `json:"is_active"`
-	PublishedAt  *time.Time `json:"published_at,omitempty"`
-	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"`
+	IsPublic  bool      `json:"is_public"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // AlgorithmUpdateRequest represents the request to update an algorithm
@@ -68,53 +75,41 @@ func (h *Handlers) GetPublisherAlgorithmHandler(w http.ResponseWriter, r *http.R
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
 
-	// Get algorithm for this publisher (prefer draft, then published)
-	var err error
-	var algID, algName, description, status string
-	var configJSON []byte
-	var isActive bool
-	var version int
-	var publishedAt *time.Time
-	var createdAt, updatedAt time.Time
-
-	// First try to get draft
-	query := `
-		SELECT id, name, COALESCE(description, ''),
-		       COALESCE(configuration::text, '{}')::jsonb,
-		       COALESCE(validation_status, 'draft'), is_active,
-		       COALESCE(CAST(SPLIT_PART(version, '.', 1) AS INTEGER), 1),
-		       published_at, created_at, updated_at
-		FROM algorithms
-		WHERE publisher_id = $1 AND validation_status = 'draft'
-		ORDER BY created_at DESC
-		LIMIT 1
-	`
-	err = h.db.Pool.QueryRow(ctx, query, publisherID).Scan(
-		&algID, &algName, &description, &configJSON, &status, &isActive,
-		&version, &publishedAt, &createdAt, &updatedAt,
-	)
+	publisherID, err := publisherIDToInt32(pc.PublisherID)
 	if err != nil {
-		// No draft, try to get active/published algorithm
-		query = `
-			SELECT id, name, COALESCE(description, ''),
-			       COALESCE(configuration::text, '{}')::jsonb,
-			       COALESCE(validation_status, 'draft'), is_active,
-			       COALESCE(CAST(SPLIT_PART(version, '.', 1) AS INTEGER), 1),
-			       published_at, created_at, updated_at
-			FROM algorithms
-			WHERE publisher_id = $1 AND (is_active = true OR validation_status = 'published')
-			ORDER BY created_at DESC
-			LIMIT 1
-		`
-		err = h.db.Pool.QueryRow(ctx, query, publisherID).Scan(
-			&algID, &algName, &description, &configJSON, &status, &isActive,
-			&version, &publishedAt, &createdAt, &updatedAt,
-		)
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
 	}
 
-	if err != nil {
+	// Get algorithm for this publisher (prefer draft, then active)
+	var alg interface{}
+	var status string
+	var isPublic bool
+
+	// First try to get draft
+	draftAlg, err := h.db.Queries.GetPublisherDraftAlgorithm(ctx, publisherID)
+	if err == nil {
+		alg = draftAlg
+		status = draftAlg.StatusKey
+		isPublic = draftAlg.IsPublic != nil && *draftAlg.IsPublic
+	} else if err == pgx.ErrNoRows {
+		// No draft, try to get active algorithm
+		activeAlg, err := h.db.Queries.GetPublisherActiveAlgorithm(ctx, publisherID)
+		if err == nil {
+			alg = activeAlg
+			status = activeAlg.StatusKey
+			isPublic = activeAlg.IsPublic != nil && *activeAlg.IsPublic
+		} else if err != pgx.ErrNoRows {
+			RespondInternalError(w, r, "Failed to fetch algorithm")
+			return
+		}
+	} else {
+		RespondInternalError(w, r, "Failed to fetch algorithm")
+		return
+	}
+
+	if alg == nil {
 		// No algorithm exists, return default configuration
 		defaultAlg := algorithm.DefaultAlgorithm()
 		RespondJSON(w, r, http.StatusOK, AlgorithmResponse{
@@ -123,11 +118,34 @@ func (h *Handlers) GetPublisherAlgorithmHandler(w http.ResponseWriter, r *http.R
 			Description:   "Standard zmanim calculation algorithm",
 			Configuration: defaultAlg,
 			Status:        "draft",
-			IsActive:      false,
+			IsPublic:      false,
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 		})
 		return
+	}
+
+	// Extract common fields based on type
+	var algID int32
+	var algName, description string
+	var configJSON []byte
+	var createdAt, updatedAt time.Time
+
+	switch v := alg.(type) {
+	case sqlcgen.GetPublisherDraftAlgorithmRow:
+		algID = v.ID
+		algName = v.Name
+		description = v.Description
+		configJSON = v.Configuration
+		createdAt = v.CreatedAt.Time
+		updatedAt = v.UpdatedAt.Time
+	case sqlcgen.GetPublisherActiveAlgorithmRow:
+		algID = v.ID
+		algName = v.Name
+		description = v.Description
+		configJSON = v.Configuration
+		createdAt = v.CreatedAt.Time
+		updatedAt = v.UpdatedAt.Time
 	}
 
 	// Parse configuration
@@ -142,14 +160,12 @@ func (h *Handlers) GetPublisherAlgorithmHandler(w http.ResponseWriter, r *http.R
 	}
 
 	RespondJSON(w, r, http.StatusOK, AlgorithmResponse{
-		ID:            algID,
+		ID:            strconv.Itoa(int(algID)),
 		Name:          algName,
 		Description:   description,
 		Configuration: &config,
-		Version:       version,
 		Status:        status,
-		IsActive:      isActive,
-		PublishedAt:   publishedAt,
+		IsPublic:      isPublic,
 		CreatedAt:     createdAt,
 		UpdatedAt:     updatedAt,
 	})
@@ -164,7 +180,12 @@ func (h *Handlers) UpdatePublisherAlgorithmHandler(w http.ResponseWriter, r *htt
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+
+	publisherID, err := publisherIDToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// Parse request body
 	var req AlgorithmUpdateRequest
@@ -186,32 +207,11 @@ func (h *Handlers) UpdatePublisherAlgorithmHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Check for existing algorithms
-	// Priority: 1. Update existing draft, 2. Create new draft if published exists, 3. Create first draft
-	var draftID, publishedID string
-	var draftStatus, publishedStatus string
-
-	// Check for existing draft
-	err = h.db.Pool.QueryRow(ctx,
-		`SELECT id, validation_status FROM algorithms
-		 WHERE publisher_id = $1 AND validation_status = 'draft'
-		 ORDER BY created_at DESC LIMIT 1`,
-		publisherID,
-	).Scan(&draftID, &draftStatus)
+	// Check for existing draft algorithm
+	draftAlg, err := h.db.Queries.GetPublisherDraftAlgorithm(ctx, publisherID)
 	hasDraft := err == nil
 
-	// Check for published algorithm (if no draft)
-	if !hasDraft {
-		err = h.db.Pool.QueryRow(ctx,
-			`SELECT id, validation_status FROM algorithms
-			 WHERE publisher_id = $1 AND is_active = true
-			 ORDER BY created_at DESC LIMIT 1`,
-			publisherID,
-		).Scan(&publishedID, &publishedStatus)
-	}
-	hasPublished := publishedID != ""
-
-	var algID string
+	var algID int32
 	var createdAt, updatedAt time.Time
 
 	algName := req.Name
@@ -225,65 +225,47 @@ func (h *Handlers) UpdatePublisherAlgorithmHandler(w http.ResponseWriter, r *htt
 
 	if hasDraft {
 		// Update existing draft
-		updateQuery := `
-			UPDATE algorithms
-			SET configuration = $1,
-			    name = COALESCE(NULLIF($2, ''), name),
-			    description = COALESCE(NULLIF($3, ''), description),
-			    updated_at = NOW()
-			WHERE id = $4
-			RETURNING id, created_at, updated_at
-		`
-		err = h.db.Pool.QueryRow(ctx, updateQuery,
-			configJSON, req.Name, req.Description, draftID,
-		).Scan(&algID, &createdAt, &updatedAt)
+		result, err := h.db.Queries.UpdateAlgorithmDraft(ctx, sqlcgen.UpdateAlgorithmDraftParams{
+			Configuration: configJSON,
+			Column2:       req.Name,
+			Column3:       req.Description,
+			ID:            draftAlg.ID,
+		})
 		if err != nil {
 			RespondInternalError(w, r, "Failed to update draft")
 			return
 		}
-	} else if hasPublished {
-		// Create new draft (published exists, changes saved as new draft)
-		insertQuery := `
-			INSERT INTO algorithms (
-				publisher_id, name, description, configuration,
-				version, calculation_type, validation_status, is_active
-			)
-			VALUES ($1, $2, $3, $4, '1.0.0', 'custom', 'draft', false)
-			RETURNING id, created_at, updated_at
-		`
-		err = h.db.Pool.QueryRow(ctx, insertQuery,
-			publisherID, algName, description, configJSON,
-		).Scan(&algID, &createdAt, &updatedAt)
+		algID = result.ID
+		createdAt = result.CreatedAt.Time
+		updatedAt = result.UpdatedAt.Time
+	} else {
+		// Create new draft (either published exists or first draft)
+		var descPtr *string
+		if description != "" {
+			descPtr = &description
+		}
+		result, err := h.db.Queries.CreateAlgorithm(ctx, sqlcgen.CreateAlgorithmParams{
+			PublisherID:   publisherID,
+			Name:          algName,
+			Description:   descPtr,
+			Configuration: configJSON,
+		})
 		if err != nil {
 			RespondInternalError(w, r, "Failed to create draft")
 			return
 		}
-	} else {
-		// No algorithm exists - create first draft
-		insertQuery := `
-			INSERT INTO algorithms (
-				publisher_id, name, description, configuration,
-				version, calculation_type, validation_status, is_active
-			)
-			VALUES ($1, $2, $3, $4, '1.0.0', 'custom', 'draft', false)
-			RETURNING id, created_at, updated_at
-		`
-		err = h.db.Pool.QueryRow(ctx, insertQuery,
-			publisherID, algName, description, configJSON,
-		).Scan(&algID, &createdAt, &updatedAt)
-		if err != nil {
-			RespondInternalError(w, r, "Failed to create algorithm")
-			return
-		}
+		algID = result.ID
+		createdAt = result.CreatedAt.Time
+		updatedAt = result.UpdatedAt.Time
 	}
 
 	RespondJSON(w, r, http.StatusOK, AlgorithmResponse{
-		ID:            algID,
-		Name:          req.Name,
-		Description:   req.Description,
+		ID:            strconv.Itoa(int(algID)),
+		Name:          algName,
+		Description:   description,
 		Configuration: &req.Configuration,
 		Status:        "draft",
-		IsActive:      false,
+		IsPublic:      false,
 		CreatedAt:     createdAt,
 		UpdatedAt:     updatedAt,
 	})
@@ -383,46 +365,6 @@ func (h *Handlers) PreviewAlgorithm(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, r, http.StatusOK, response)
 }
 
-// GetAlgorithmTemplates returns the available algorithm templates from the database
-// GET /api/v1/publisher/algorithm/templates
-func (h *Handlers) GetAlgorithmTemplates(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Fetch templates from database
-	dbTemplates, err := h.db.Queries.GetAlgorithmTemplates(ctx)
-	if err != nil {
-		slog.Error("failed to fetch algorithm templates", "error", err)
-		RespondInternalError(w, r, "Failed to fetch algorithm templates")
-		return
-	}
-
-	// Transform database rows to API response format
-	templates := make([]map[string]interface{}, 0, len(dbTemplates))
-	for _, t := range dbTemplates {
-		// Parse configuration JSON
-		var config map[string]interface{}
-		if err := json.Unmarshal(t.Configuration, &config); err != nil {
-			slog.Error("failed to parse template configuration", "template_key", t.TemplateKey, "error", err)
-			continue
-		}
-
-		description := ""
-		if t.Description != nil {
-			description = *t.Description
-		}
-
-		templates = append(templates, map[string]interface{}{
-			"id":            t.TemplateKey,
-			"name":          t.Name,
-			"description":   description,
-			"configuration": config,
-		})
-	}
-
-	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"templates": templates,
-	})
-}
 
 // GetZmanMethods returns available calculation methods for zmanim
 // GET /api/v1/publisher/algorithm/methods
@@ -535,35 +477,27 @@ func (h *Handlers) PublishAlgorithm(w http.ResponseWriter, r *http.Request) {
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+
+	publisherID, err := publisherIDToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// Get the draft algorithm
-	var algID, algName, description string
-	var configJSON []byte
-	var currentVersion int
-	var err error
-
-	query := `
-		SELECT id, name, COALESCE(description, ''),
-		       COALESCE(configuration::text, '{}')::jsonb,
-		       COALESCE(CAST(SPLIT_PART(version, '.', 1) AS INTEGER), 1)
-		FROM algorithms
-		WHERE publisher_id = $1
-		  AND (validation_status = 'draft' OR validation_status IS NULL)
-		ORDER BY created_at DESC
-		LIMIT 1
-	`
-	err = h.db.Pool.QueryRow(ctx, query, publisherID).Scan(
-		&algID, &algName, &description, &configJSON, &currentVersion,
-	)
+	draftAlg, err := h.db.Queries.GetPublisherDraftAlgorithm(ctx, publisherID)
 	if err != nil {
-		RespondNotFound(w, r, "No draft algorithm found to publish")
+		if err == pgx.ErrNoRows {
+			RespondNotFound(w, r, "No draft algorithm found to publish")
+		} else {
+			RespondInternalError(w, r, "Failed to fetch draft algorithm")
+		}
 		return
 	}
 
 	// Validate configuration before publishing
 	var config algorithm.AlgorithmConfig
-	if err := json.Unmarshal(configJSON, &config); err != nil {
+	if err := json.Unmarshal(draftAlg.Configuration, &config); err != nil {
 		RespondBadRequest(w, r, "Invalid algorithm configuration")
 		return
 	}
@@ -581,32 +515,18 @@ func (h *Handlers) PublishAlgorithm(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// Create queries with transaction
+	qtx := h.db.Queries.WithTx(tx)
+
 	// Archive any currently active algorithm
-	_, err = tx.Exec(ctx, `
-		UPDATE algorithms
-		SET validation_status = 'archived', is_active = false, updated_at = NOW()
-		WHERE publisher_id = $1 AND is_active = true
-	`, publisherID)
+	err = qtx.ArchiveActiveAlgorithms(ctx, publisherID)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to archive current algorithm")
 		return
 	}
 
 	// Publish the draft
-	newVersion := currentVersion + 1
-	var publishedAt time.Time
-	var updatedAt time.Time
-
-	err = tx.QueryRow(ctx, `
-		UPDATE algorithms
-		SET validation_status = 'published',
-		    is_active = true,
-		    version = $1,
-		    published_at = NOW(),
-		    updated_at = NOW()
-		WHERE id = $2
-		RETURNING published_at, updated_at
-	`, newVersion, algID).Scan(&publishedAt, &updatedAt)
+	updatedAt, err := qtx.PublishAlgorithm(ctx, draftAlg.ID)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to publish algorithm")
 		return
@@ -620,23 +540,23 @@ func (h *Handlers) PublishAlgorithm(w http.ResponseWriter, r *http.Request) {
 
 	// Invalidate all cache for this publisher (zmanim calculations are now stale)
 	if h.cache != nil {
-		if err := h.cache.InvalidatePublisherCache(ctx, publisherID); err != nil {
+		publisherIDStr := strconv.Itoa(int(publisherID))
+		if err := h.cache.InvalidatePublisherCache(ctx, publisherIDStr); err != nil {
 			slog.Error("cache invalidation error after publish", "error", err)
 		} else {
-			slog.Info("cache invalidated after algorithm publish", "publisher_id", publisherID)
+			slog.Info("cache invalidated after algorithm publish", "publisher_id", publisherIDStr)
 		}
 	}
 
 	RespondJSON(w, r, http.StatusOK, AlgorithmResponse{
-		ID:            algID,
-		Name:          algName,
-		Description:   description,
+		ID:            strconv.Itoa(int(draftAlg.ID)),
+		Name:          draftAlg.Name,
+		Description:   draftAlg.Description,
 		Configuration: &config,
-		Version:       newVersion,
-		Status:        "published",
-		IsActive:      true,
-		PublishedAt:   &publishedAt,
-		UpdatedAt:     updatedAt,
+		Status:        "active",
+		IsPublic:      draftAlg.IsPublic != nil && *draftAlg.IsPublic,
+		CreatedAt:     draftAlg.CreatedAt.Time,
+		UpdatedAt:     updatedAt.Time,
 	})
 }
 
@@ -650,45 +570,29 @@ func (h *Handlers) GetAlgorithmVersions(w http.ResponseWriter, r *http.Request) 
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
 
-	// Get all versions
-	query := `
-		SELECT id, name,
-		       COALESCE(CAST(SPLIT_PART(version, '.', 1) AS INTEGER), 1) as ver,
-		       COALESCE(validation_status, 'draft'),
-		       is_active,
-		       published_at,
-		       deprecated_at,
-		       created_at
-		FROM algorithms
-		WHERE publisher_id = $1
-		ORDER BY created_at DESC
-	`
+	publisherID, err := publisherIDToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
-	rows, err := h.db.Pool.Query(ctx, query, publisherID)
+	// Get all versions using SQLc
+	rows, err := h.db.Queries.GetAlgorithmVersions(ctx, publisherID)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to fetch versions")
 		return
 	}
-	defer rows.Close()
 
-	versions := []AlgorithmVersionResponse{}
-	for rows.Next() {
-		var v AlgorithmVersionResponse
-		var publishedAt, deprecatedAt *time.Time
-
-		err := rows.Scan(
-			&v.ID, &v.Name, &v.Version, &v.Status, &v.IsActive,
-			&publishedAt, &deprecatedAt, &v.CreatedAt,
-		)
-		if err != nil {
-			continue
-		}
-
-		v.PublishedAt = publishedAt
-		v.DeprecatedAt = deprecatedAt
-		versions = append(versions, v)
+	versions := make([]AlgorithmVersionResponse, 0, len(rows))
+	for _, row := range rows {
+		versions = append(versions, AlgorithmVersionResponse{
+			ID:        strconv.Itoa(int(row.ID)),
+			Name:      row.Name,
+			Status:    row.StatusKey,
+			IsPublic:  row.IsPublic != nil && *row.IsPublic,
+			CreatedAt: row.CreatedAt.Time,
+		})
 	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
@@ -707,36 +611,46 @@ func (h *Handlers) DeprecateAlgorithmVersion(w http.ResponseWriter, r *http.Requ
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+
+	publisherID, err := publisherIDToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// Get version ID from URL using chi
-	versionID := chi.URLParam(r, "id")
-	if versionID == "" {
+	versionIDStr := chi.URLParam(r, "id")
+	if versionIDStr == "" {
 		RespondBadRequest(w, r, "Version ID is required")
 		return
 	}
 
-	// Verify version belongs to publisher and update
-	result, err := h.db.Pool.Exec(ctx, `
-		UPDATE algorithms
-		SET validation_status = 'deprecated',
-		    deprecated_at = NOW(),
-		    updated_at = NOW()
-		WHERE id = $1 AND publisher_id = $2
-	`, versionID, publisherID)
+	// Convert to int32
+	versionIDInt, err := strconv.Atoi(versionIDStr)
 	if err != nil {
+		RespondBadRequest(w, r, "Invalid version ID")
+		return
+	}
+	versionID := int32(versionIDInt)
+
+	// Verify version belongs to publisher and archive it using SQLc
+	rowsAffected, err2 := h.db.Queries.DeprecateAlgorithmVersion(ctx, sqlcgen.DeprecateAlgorithmVersionParams{
+		ID:          versionID,
+		PublisherID: publisherID,
+	})
+	if err2 != nil {
 		RespondInternalError(w, r, "Failed to deprecate version")
 		return
 	}
 
-	if result.RowsAffected() == 0 {
+	if rowsAffected == 0 {
 		RespondNotFound(w, r, "Version not found")
 		return
 	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"message":    "Version deprecated successfully",
-		"version_id": versionID,
+		"version_id": versionIDStr,
 	})
 }
 
@@ -750,58 +664,53 @@ func (h *Handlers) GetAlgorithmVersion(w http.ResponseWriter, r *http.Request) {
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+
+	publisherID, err := publisherIDToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	// Get version ID from URL using chi
-	versionID := chi.URLParam(r, "id")
-	if versionID == "" {
+	versionIDStr := chi.URLParam(r, "id")
+	if versionIDStr == "" {
 		RespondBadRequest(w, r, "Version ID is required")
 		return
 	}
 
-	// Get version
-	var algID, algName, description, status string
-	var configJSON []byte
-	var version int
-	var isActive bool
-	var publishedAt, deprecatedAt *time.Time
-	var createdAt, updatedAt time.Time
-	var err error
+	// Convert to int32
+	versionIDInt, err2 := strconv.Atoi(versionIDStr)
+	if err2 != nil {
+		RespondBadRequest(w, r, "Invalid version ID")
+		return
+	}
+	versionID := int32(versionIDInt)
 
-	query := `
-		SELECT id, name, COALESCE(description, ''),
-		       COALESCE(configuration::text, '{}')::jsonb,
-		       COALESCE(CAST(SPLIT_PART(version, '.', 1) AS INTEGER), 1),
-		       COALESCE(validation_status, 'draft'),
-		       is_active,
-		       published_at, deprecated_at,
-		       created_at, updated_at
-		FROM algorithms
-		WHERE id = $1 AND publisher_id = $2
-	`
-	err = h.db.Pool.QueryRow(ctx, query, versionID, publisherID).Scan(
-		&algID, &algName, &description, &configJSON, &version,
-		&status, &isActive, &publishedAt, &deprecatedAt,
-		&createdAt, &updatedAt,
-	)
-	if err != nil {
-		RespondNotFound(w, r, "Version not found")
+	// Get version using SQLc
+	alg, err2 := h.db.Queries.GetAlgorithmByID(ctx, sqlcgen.GetAlgorithmByIDParams{
+		ID:          versionID,
+		PublisherID: publisherID,
+	})
+	if err2 != nil {
+		if err2 == pgx.ErrNoRows {
+			RespondNotFound(w, r, "Version not found")
+		} else {
+			RespondInternalError(w, r, "Failed to fetch version")
+		}
 		return
 	}
 
 	var config algorithm.AlgorithmConfig
-	_ = json.Unmarshal(configJSON, &config)
+	_ = json.Unmarshal(alg.Configuration, &config)
 
 	RespondJSON(w, r, http.StatusOK, AlgorithmResponse{
-		ID:            algID,
-		Name:          algName,
-		Description:   description,
+		ID:            strconv.Itoa(int(alg.ID)),
+		Name:          alg.Name,
+		Description:   alg.Description,
 		Configuration: &config,
-		Version:       version,
-		Status:        status,
-		IsActive:      isActive,
-		PublishedAt:   publishedAt,
-		CreatedAt:     createdAt,
-		UpdatedAt:     updatedAt,
+		Status:        alg.StatusKey,
+		IsPublic:      alg.IsPublic != nil && *alg.IsPublic,
+		CreatedAt:     alg.CreatedAt.Time,
+		UpdatedAt:     alg.UpdatedAt.Time,
 	})
 }

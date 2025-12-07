@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jcom-dev/zmanim-lab/internal/algorithm"
@@ -15,7 +16,7 @@ import (
 
 // ZmanimRequest represents a request for zmanim calculations
 type ZmanimRequestParams struct {
-	CityID      string `json:"city_id"`
+	CityID      int64  `json:"city_id"`
 	PublisherID string `json:"publisher_id,omitempty"`
 	Date        string `json:"date"` // YYYY-MM-DD format
 }
@@ -40,7 +41,7 @@ type ZmanimPublisherInfo struct {
 
 // ZmanimLocationInfo contains location details for the response
 type ZmanimLocationInfo struct {
-	CityID    string  `json:"city_id,omitempty"`
+	CityID    int64   `json:"city_id,omitempty"`
 	CityName  string  `json:"city_name,omitempty"`
 	Country   string  `json:"country,omitempty"`
 	Region    *string `json:"region"`
@@ -90,13 +91,19 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Parse query parameters
-	cityID := r.URL.Query().Get("cityId")
+	cityIDStr := r.URL.Query().Get("cityId")
 	publisherID := r.URL.Query().Get("publisherId")
 	dateStr := r.URL.Query().Get("date")
 
 	// Validate required parameters
-	if cityID == "" {
+	if cityIDStr == "" {
 		RespondBadRequest(w, r, "cityId parameter is required")
+		return
+	}
+
+	cityID, err := strconv.ParseInt(cityIDStr, 10, 64)
+	if err != nil {
+		RespondBadRequest(w, r, "cityId must be a valid integer")
 		return
 	}
 
@@ -118,9 +125,12 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cache key uses string representation of city ID
+	cityIDCacheKey := strconv.FormatInt(cityID, 10)
+
 	// Check cache first (if available)
 	if h.cache != nil {
-		cached, err := h.cache.GetZmanim(ctx, cachePublisherID, cityID, dateStr)
+		cached, err := h.cache.GetZmanim(ctx, cachePublisherID, cityIDCacheKey, dateStr)
 		if err != nil {
 			slog.Error("cache read error", "error", err)
 		} else if cached != nil {
@@ -136,24 +146,18 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get city details
-	var cityName, country, timezone string
-	var region *string
-	var latitude, longitude float64
-
-	cityQuery := `
-		SELECT c.name, co.name as country, r.name as region, c.timezone, c.latitude, c.longitude
-		FROM cities c
-		JOIN geo_regions r ON c.region_id = r.id
-		JOIN geo_countries co ON r.country_id = co.id
-		WHERE c.id = $1
-	`
-	err = h.db.Pool.QueryRow(ctx, cityQuery, cityID).Scan(
-		&cityName, &country, &region, &timezone, &latitude, &longitude,
-	)
+	cityDetails, err := h.db.Queries.GetCityDetailsForZmanim(ctx, int32(cityID))
 	if err != nil {
 		RespondNotFound(w, r, "City not found")
 		return
 	}
+
+	cityName := cityDetails.Name
+	country := cityDetails.Country
+	region := &cityDetails.Region
+	timezone := cityDetails.Timezone
+	latitude := cityDetails.Latitude
+	longitude := cityDetails.Longitude
 
 	// Load timezone
 	loc, err := time.LoadLocation(timezone)
@@ -166,30 +170,26 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 	var algorithmConfig *algorithm.AlgorithmConfig
 	var publisherInfo *ZmanimPublisherInfo
 	if publisherID != "" {
+		// Convert publisherID to int32
+		pubID, err := stringToInt32(publisherID)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
+			return
+		}
+
 		// First, get publisher info (logo_data is the base64 embedded logo)
-		pubQuery := `SELECT name, logo_data, is_certified FROM publishers WHERE id = $1`
-		var pubName string
-		var pubLogo *string
-		var isCertified bool
-		err = h.db.Pool.QueryRow(ctx, pubQuery, publisherID).Scan(&pubName, &pubLogo, &isCertified)
+		pubInfo, err := h.db.Queries.GetPublisherInfoForZmanim(ctx, pubID)
 		if err == nil {
 			publisherInfo = &ZmanimPublisherInfo{
 				ID:          publisherID,
-				Name:        pubName,
-				Logo:        pubLogo,
-				IsCertified: isCertified,
+				Name:        pubInfo.Name,
+				Logo:        pubInfo.LogoData,
+				IsCertified: pubInfo.IsCertified,
 			}
 		}
 
 		// Try to get publisher's algorithm
-		algQuery := `
-			SELECT configuration
-			FROM algorithms
-			WHERE publisher_id = $1 AND status = 'published'
-			LIMIT 1
-		`
-		var configJSON []byte
-		err = h.db.Pool.QueryRow(ctx, algQuery, publisherID).Scan(&configJSON)
+		configJSON, err := h.db.Queries.GetPublisherAlgorithm(ctx, pubID)
 		if err == nil && len(configJSON) > 2 {
 			algorithmConfig, _ = algorithm.ParseAlgorithm(configJSON)
 		}
@@ -211,19 +211,12 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 	// Fetch beta status for zmanim if a publisher is specified
 	betaStatusMap := make(map[string]bool)
 	if publisherID != "" {
-		betaQuery := `
-			SELECT zman_key, is_beta
-			FROM publisher_zmanim
-			WHERE publisher_id = $1 AND deleted_at IS NULL AND is_beta = true
-		`
-		betaRows, betaErr := h.db.Pool.Query(ctx, betaQuery, publisherID)
-		if betaErr == nil {
-			defer betaRows.Close()
-			for betaRows.Next() {
-				var zmanKey string
-				var isBeta bool
-				if err := betaRows.Scan(&zmanKey, &isBeta); err == nil {
-					betaStatusMap[zmanKey] = isBeta
+		pubID, err := stringToInt32(publisherID)
+		if err == nil {
+			betaZmanim, betaErr := h.db.Queries.GetPublisherBetaZmanim(ctx, pubID)
+			if betaErr == nil {
+				for _, zman := range betaZmanim {
+					betaStatusMap[zman.ZmanKey] = zman.IsBeta
 				}
 			}
 		}
@@ -239,46 +232,46 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 		HalachicSource string
 	}
 	zmanMetadataMap := make(map[string]zmanMetadata)
-	metadataQuery := `SELECT zman_key, COALESCE(time_category, ''), COALESCE(canonical_hebrew_name, ''), COALESCE(canonical_english_name, ''), COALESCE(default_formula_dsl, ''), is_core, COALESCE(halachic_source, '') FROM master_zmanim_registry`
-	metadataRows, metadataErr := h.db.Pool.Query(ctx, metadataQuery)
+	metadataRows, metadataErr := h.db.Queries.GetAllMasterZmanimMetadata(ctx)
 	if metadataErr == nil {
-		defer metadataRows.Close()
-		for metadataRows.Next() {
-			var zmanKey, timeCategory, hebrewName, englishName, dsl, halachicSource string
-			var isCore bool
-			if err := metadataRows.Scan(&zmanKey, &timeCategory, &hebrewName, &englishName, &dsl, &isCore, &halachicSource); err == nil {
-				zmanMetadataMap[zmanKey] = zmanMetadata{
-					TimeCategory: timeCategory,
-					HebrewName:   hebrewName,
-					EnglishName:  englishName,
-					DSL:          dsl,
-					IsCore:       isCore,
-					HalachicSource: halachicSource,
-				}
+		for _, row := range metadataRows {
+			isCore := false
+			if row.IsCore != nil {
+				isCore = *row.IsCore
+			}
+			zmanMetadataMap[row.ZmanKey] = zmanMetadata{
+				TimeCategory: row.TimeCategory,
+				HebrewName:   row.CanonicalHebrewName,
+				EnglishName:  row.CanonicalEnglishName,
+				DSL:          row.DefaultFormulaDsl,
+				IsCore:       isCore,
+				HalachicSource: row.HalachicSource,
 			}
 		}
 	}
 
 	// Fetch tags for all zmanim
 	tagsMap := make(map[string][]ZmanTag)
-	tagsQuery := `
-		SELECT mr.zman_key, t.id, t.tag_key, t.name, t.display_name_english, t.display_name_hebrew, t.tag_type, t.color, t.sort_order, t.created_at
-		FROM master_zmanim_registry mr
-		JOIN master_zman_tags mzt ON mr.id = mzt.master_zman_id
-		JOIN zman_tags t ON mzt.tag_id = t.id
-		ORDER BY mr.zman_key, t.tag_type, t.sort_order
-	`
-	tagsRows, tagsErr := h.db.Pool.Query(ctx, tagsQuery)
+	tagsRows, tagsErr := h.db.Queries.GetAllZmanimTags(ctx)
 	if tagsErr == nil {
-		defer tagsRows.Close()
-		for tagsRows.Next() {
-			var zmanKey string
-			var tag ZmanTag
-			var description *string
-			if err := tagsRows.Scan(&zmanKey, &tag.ID, &tag.TagKey, &tag.Name, &tag.DisplayNameEnglish, &tag.DisplayNameHebrew, &tag.TagType, &tag.Color, &tag.SortOrder, &tag.CreatedAt); err == nil {
-				tag.Description = description
-				tagsMap[zmanKey] = append(tagsMap[zmanKey], tag)
+		for _, row := range tagsRows {
+			sortOrder := 0
+			if row.SortOrder != nil {
+				sortOrder = int(*row.SortOrder)
 			}
+			tag := ZmanTag{
+				ID:                 int32ToString(row.ID),
+				TagKey:             row.TagKey,
+				Name:               row.Name,
+				DisplayNameEnglish: row.DisplayNameEnglish,
+				DisplayNameHebrew:  row.DisplayNameHebrew,
+				TagType:            row.TagType,
+				Color:              row.Color,
+				SortOrder:          sortOrder,
+				CreatedAt:          row.CreatedAt.Time,
+				Description:        nil,
+			}
+			tagsMap[row.ZmanKey] = append(tagsMap[row.ZmanKey], tag)
 		}
 	}
 
@@ -403,7 +396,7 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 
 	// Cache the result (if cache available)
 	if h.cache != nil {
-		if err := h.cache.SetZmanim(ctx, cachePublisherID, cityID, dateStr, response); err != nil {
+		if err := h.cache.SetZmanim(ctx, cachePublisherID, cityIDCacheKey, dateStr, response); err != nil {
 			slog.Error("cache write error", "error", err)
 		}
 	}
@@ -484,19 +477,15 @@ func (h *Handlers) InvalidatePublisherCache(w http.ResponseWriter, r *http.Reque
 	// Get publisher ID from header or database lookup
 	publisherID := r.Header.Get("X-Publisher-Id")
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
-
+		pubID, err := h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = int32ToString(pubID)
 	}
 
 	var redisDeleted int64
-	var dbDeleted int64
 
 	// Invalidate Redis cache (if available)
 	if h.cache != nil {
@@ -508,23 +497,8 @@ func (h *Handlers) InvalidatePublisherCache(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	// Also clear database cache (legacy)
-	query := `
-		DELETE FROM calculation_cache
-		WHERE algorithm_id IN (
-			SELECT id FROM algorithms WHERE publisher_id = $1
-		)
-	`
-	result, err := h.db.Pool.Exec(ctx, query, publisherID)
-	if err != nil {
-		slog.Error("database cache invalidation error", "error", err)
-	} else {
-		dbDeleted = result.RowsAffected()
-	}
-
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"message":            "Cache invalidated",
-		"redis_invalidated":  redisDeleted > 0,
-		"db_entries_deleted": dbDeleted,
+		"message":           "Cache invalidated",
+		"redis_invalidated": redisDeleted > 0,
 	})
 }

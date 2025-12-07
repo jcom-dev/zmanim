@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jcom-dev/zmanim-lab/internal/db"
 	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 )
@@ -46,9 +44,9 @@ type SnapshotZman struct {
 	IsBeta                bool    `json:"is_beta"`
 	IsCustom              bool    `json:"is_custom"`
 	Category              string  `json:"category"`
-	MasterZmanID          *string `json:"master_zman_id,omitempty"`
-	LinkedPublisherZmanID *string `json:"linked_publisher_zman_id,omitempty"`
-	SourceType            string  `json:"source_type"`
+	MasterZmanID          *int32  `json:"master_zman_id,omitempty"`
+	LinkedPublisherZmanID *int32  `json:"linked_publisher_zman_id,omitempty"`
+	SourceType            *string `json:"source_type,omitempty"`
 }
 
 // SnapshotMeta contains snapshot metadata (for listing)
@@ -60,7 +58,7 @@ type SnapshotMeta struct {
 }
 
 // BuildSnapshot creates a snapshot of the current publisher zmanim state
-func (s *SnapshotService) BuildSnapshot(ctx context.Context, publisherID string, description string) (*PublisherSnapshot, error) {
+func (s *SnapshotService) BuildSnapshot(ctx context.Context, publisherID int32, description string) (*PublisherSnapshot, error) {
 	// Get zmanim (only active, non-deleted)
 	zmanimRows, err := s.db.Queries.GetPublisherZmanimForSnapshot(ctx, publisherID)
 	if err != nil {
@@ -77,19 +75,6 @@ func (s *SnapshotService) BuildSnapshot(ctx context.Context, publisherID string,
 
 	// Map zmanim
 	for i, z := range zmanimRows {
-		var masterZmanID, linkedZmanID *string
-		if z.MasterZmanID.Valid {
-			id := uuidBytesToString(z.MasterZmanID.Bytes)
-			masterZmanID = &id
-		}
-		if z.LinkedPublisherZmanID.Valid {
-			id := uuidBytesToString(z.LinkedPublisherZmanID.Bytes)
-			linkedZmanID = &id
-		}
-		sourceType := z.SourceType
-		if sourceType == "" {
-			sourceType = "registry"
-		}
 		snapshot.Zmanim[i] = SnapshotZman{
 			ZmanKey:               z.ZmanKey,
 			HebrewName:            z.HebrewName,
@@ -105,9 +90,9 @@ func (s *SnapshotService) BuildSnapshot(ctx context.Context, publisherID string,
 			IsBeta:                z.IsBeta,
 			IsCustom:              z.IsCustom,
 			Category:              z.Category,
-			MasterZmanID:          masterZmanID,
-			LinkedPublisherZmanID: linkedZmanID,
-			SourceType:            sourceType,
+			MasterZmanID:          z.MasterZmanID,
+			LinkedPublisherZmanID: z.LinkedPublisherZmanID,
+			SourceType:            z.SourceType,
 		}
 	}
 
@@ -115,7 +100,7 @@ func (s *SnapshotService) BuildSnapshot(ctx context.Context, publisherID string,
 }
 
 // SaveSnapshot saves a snapshot to the database
-func (s *SnapshotService) SaveSnapshot(ctx context.Context, publisherID string, userID string, description string) (*SnapshotMeta, error) {
+func (s *SnapshotService) SaveSnapshot(ctx context.Context, publisherID int32, userID string, description string) (*SnapshotMeta, error) {
 	// Build the snapshot
 	snapshot, err := s.BuildSnapshot(ctx, publisherID, description)
 	if err != nil {
@@ -140,15 +125,15 @@ func (s *SnapshotService) SaveSnapshot(ctx context.Context, publisherID string, 
 	}
 
 	return &SnapshotMeta{
-		ID:          result.ID,
+		ID:          int32ToString(result.ID),
 		Description: ptrToString(result.Description),
 		CreatedBy:   ptrToString(result.CreatedBy),
-		CreatedAt:   result.CreatedAt,
+		CreatedAt:   result.CreatedAt.Time,
 	}, nil
 }
 
 // ListSnapshots returns all snapshots for a publisher
-func (s *SnapshotService) ListSnapshots(ctx context.Context, publisherID string) ([]SnapshotMeta, error) {
+func (s *SnapshotService) ListSnapshots(ctx context.Context, publisherID int32) ([]SnapshotMeta, error) {
 	rows, err := s.db.Queries.ListPublisherSnapshots(ctx, publisherID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list snapshots: %w", err)
@@ -157,10 +142,10 @@ func (s *SnapshotService) ListSnapshots(ctx context.Context, publisherID string)
 	snapshots := make([]SnapshotMeta, len(rows))
 	for i, row := range rows {
 		snapshots[i] = SnapshotMeta{
-			ID:          row.ID,
+			ID:          int32ToString(row.ID),
 			Description: ptrToString(row.Description),
 			CreatedBy:   ptrToString(row.CreatedBy),
-			CreatedAt:   row.CreatedAt,
+			CreatedAt:   row.CreatedAt.Time,
 		}
 	}
 
@@ -168,7 +153,7 @@ func (s *SnapshotService) ListSnapshots(ctx context.Context, publisherID string)
 }
 
 // GetSnapshot returns a single snapshot with full data
-func (s *SnapshotService) GetSnapshot(ctx context.Context, snapshotID, publisherID string) (*PublisherSnapshot, error) {
+func (s *SnapshotService) GetSnapshot(ctx context.Context, snapshotID int32, publisherID int32) (*PublisherSnapshot, error) {
 	row, err := s.db.Queries.GetPublisherSnapshot(ctx, sqlcgen.GetPublisherSnapshotParams{
 		ID:          snapshotID,
 		PublisherID: publisherID,
@@ -186,7 +171,7 @@ func (s *SnapshotService) GetSnapshot(ctx context.Context, snapshotID, publisher
 }
 
 // DeleteSnapshot deletes a snapshot
-func (s *SnapshotService) DeleteSnapshot(ctx context.Context, snapshotID, publisherID string) error {
+func (s *SnapshotService) DeleteSnapshot(ctx context.Context, snapshotID int32, publisherID int32) error {
 	err := s.db.Queries.DeletePublisherSnapshot(ctx, sqlcgen.DeletePublisherSnapshotParams{
 		ID:          snapshotID,
 		PublisherID: publisherID,
@@ -201,7 +186,7 @@ func (s *SnapshotService) DeleteSnapshot(ctx context.Context, snapshotID, publis
 // - Zmanim in snapshot but not in current state: insert new or restore if soft-deleted
 // - Zmanim in both: update only if different (creates new version)
 // - Zmanim in current state but not in snapshot: soft-delete
-func (s *SnapshotService) ApplySnapshot(ctx context.Context, publisherID string, userID string, snapshot *PublisherSnapshot) error {
+func (s *SnapshotService) ApplySnapshot(ctx context.Context, publisherID int32, userID string, snapshot *PublisherSnapshot) error {
 	// Build a map of snapshot zmanim for quick lookup
 	snapshotZmanim := make(map[string]SnapshotZman)
 	for _, z := range snapshot.Zmanim {
@@ -259,7 +244,7 @@ func (s *SnapshotService) ApplySnapshot(ctx context.Context, publisherID string,
 				PublisherID: publisherID,
 				ZmanKey:     snapZman.ZmanKey,
 			})
-			if err == nil && deleted.ID != "" {
+			if err == nil && deleted.ID != 0 {
 				// Restore soft-deleted zman and then update
 				err = s.db.Queries.RestoreDeletedZmanForSnapshot(ctx, sqlcgen.RestoreDeletedZmanForSnapshotParams{
 					PublisherID: publisherID,
@@ -327,13 +312,13 @@ func (s *SnapshotService) zmanDiffers(existing sqlcgen.GetPublisherZmanForSnapsh
 	if existing.Category != snap.Category {
 		return true
 	}
-	if !uuidPtrEqual(existing.MasterZmanID, snap.MasterZmanID) {
+	if !int32PtrEqual(existing.MasterZmanID, snap.MasterZmanID) {
 		return true
 	}
-	if !uuidPtrEqual(existing.LinkedPublisherZmanID, snap.LinkedPublisherZmanID) {
+	if !int32PtrEqual(existing.LinkedPublisherZmanID, snap.LinkedPublisherZmanID) {
 		return true
 	}
-	if existing.SourceType != snap.SourceType {
+	if !ptrStringEqual(existing.SourceType, snap.SourceType) {
 		return true
 	}
 	return false
@@ -350,63 +335,33 @@ func ptrStringEqual(a *string, b *string) bool {
 	return *a == *b
 }
 
-// Helper to compare pgtype.UUID with string pointer
-func uuidPtrEqual(a pgtype.UUID, b *string) bool {
-	if !a.Valid && b == nil {
+// Helper to compare optional int32 pointers
+func int32PtrEqual(a *int32, b *int32) bool {
+	if a == nil && b == nil {
 		return true
 	}
-	if !a.Valid || b == nil {
+	if a == nil || b == nil {
 		return false
 	}
-	return uuidBytesToString(a.Bytes) == *b
+	return *a == *b
 }
 
 // updateZmanFromSnapshot updates an existing zman with snapshot data
-func (s *SnapshotService) updateZmanFromSnapshot(ctx context.Context, publisherID string, z SnapshotZman) error {
-	return s.db.Queries.UpdateZmanFromSnapshot(ctx, sqlcgen.UpdateZmanFromSnapshotParams{
-		PublisherID:           publisherID,
-		ZmanKey:               z.ZmanKey,
-		HebrewName:            z.HebrewName,
-		EnglishName:           z.EnglishName,
-		Transliteration:       z.Transliteration,
-		Description:           z.Description,
-		FormulaDsl:            z.FormulaDSL,
-		AiExplanation:         z.AIExplanation,
-		PublisherComment:      z.PublisherComment,
-		IsEnabled:             z.IsEnabled,
-		IsVisible:             z.IsVisible,
-		IsPublished:           z.IsPublished,
-		IsBeta:                z.IsBeta,
-		IsCustom:              z.IsCustom,
-		Category:              z.Category,
-		MasterZmanID:          stringToPgtypeUUID(ptrToString(z.MasterZmanID)),
-		LinkedPublisherZmanID: stringToPgtypeUUID(ptrToString(z.LinkedPublisherZmanID)),
-		SourceType:            z.SourceType,
-	})
+// NOTE: This method is currently broken as it needs TimeCategoryID and SourceTypeID
+// but the snapshot only has Category string. This needs lookup logic or schema changes.
+func (s *SnapshotService) updateZmanFromSnapshot(ctx context.Context, publisherID int32, z SnapshotZman) error {
+	// TODO: Need to resolve Category string to TimeCategoryID
+	// TODO: Need to resolve SourceType string to SourceTypeID
+	return fmt.Errorf("updateZmanFromSnapshot not yet implemented for normalized schema")
 }
 
 // insertZmanFromSnapshot inserts a new zman from snapshot
-func (s *SnapshotService) insertZmanFromSnapshot(ctx context.Context, publisherID string, z SnapshotZman) error {
-	return s.db.Queries.InsertZmanFromSnapshot(ctx, sqlcgen.InsertZmanFromSnapshotParams{
-		PublisherID:           publisherID,
-		ZmanKey:               z.ZmanKey,
-		HebrewName:            z.HebrewName,
-		EnglishName:           z.EnglishName,
-		Transliteration:       z.Transliteration,
-		Description:           z.Description,
-		FormulaDsl:            z.FormulaDSL,
-		AiExplanation:         z.AIExplanation,
-		PublisherComment:      z.PublisherComment,
-		IsEnabled:             z.IsEnabled,
-		IsVisible:             z.IsVisible,
-		IsPublished:           z.IsPublished,
-		IsBeta:                z.IsBeta,
-		IsCustom:              z.IsCustom,
-		Category:              z.Category,
-		MasterZmanID:          stringToPgtypeUUID(ptrToString(z.MasterZmanID)),
-		LinkedPublisherZmanID: stringToPgtypeUUID(ptrToString(z.LinkedPublisherZmanID)),
-		SourceType:            z.SourceType,
-	})
+// NOTE: This method is currently broken as it needs TimeCategoryID and SourceTypeID
+// but the snapshot only has Category string. This needs lookup logic or schema changes.
+func (s *SnapshotService) insertZmanFromSnapshot(ctx context.Context, publisherID int32, z SnapshotZman) error {
+	// TODO: Need to resolve Category string to TimeCategoryID
+	// TODO: Need to resolve SourceType string to SourceTypeID
+	return fmt.Errorf("insertZmanFromSnapshot not yet implemented for normalized schema")
 }
 
 // Helper to convert pointer to string (empty if nil)
@@ -418,7 +373,7 @@ func ptrToString(p *string) string {
 }
 
 // RestoreSnapshot restores from a saved snapshot (auto-saves current state first)
-func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID, publisherID string, userID string) (*SnapshotMeta, error) {
+func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID int32, publisherID int32, userID string) (*SnapshotMeta, error) {
 	// 1. Get the snapshot to restore
 	snapshot, err := s.GetSnapshot(ctx, snapshotID, publisherID)
 	if err != nil {
@@ -441,7 +396,7 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID, publi
 }
 
 // ImportSnapshot applies a snapshot from JSON (uploaded by user)
-func (s *SnapshotService) ImportSnapshot(ctx context.Context, publisherID string, userID string, snapshot *PublisherSnapshot) error {
+func (s *SnapshotService) ImportSnapshot(ctx context.Context, publisherID int32, userID string, snapshot *PublisherSnapshot) error {
 	// Validate snapshot version
 	if snapshot.Version != 1 {
 		return fmt.Errorf("unsupported snapshot version: %d", snapshot.Version)
@@ -458,23 +413,7 @@ func (s *SnapshotService) ImportSnapshot(ctx context.Context, publisherID string
 	return s.ApplySnapshot(ctx, publisherID, userID, snapshot)
 }
 
-// Helper to convert pgtype.UUID bytes to string
-func uuidBytesToString(bytes [16]byte) string {
-	u, err := uuid.FromBytes(bytes[:])
-	if err != nil {
-		return ""
-	}
-	return u.String()
-}
-
-// Helper to convert string to pgtype.UUID
-func stringToPgtypeUUID(s string) pgtype.UUID {
-	if s == "" {
-		return pgtype.UUID{Valid: false}
-	}
-	parsed, err := uuid.Parse(s)
-	if err != nil {
-		return pgtype.UUID{Valid: false}
-	}
-	return pgtype.UUID{Bytes: parsed, Valid: true}
+// Helper to convert int32 to string
+func int32ToString(i int32) string {
+	return fmt.Sprintf("%d", i)
 }

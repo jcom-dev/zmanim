@@ -10,20 +10,23 @@ INSERT INTO zman_registry_requests (
     requested_english_name,
     transliteration,
     requested_formula_dsl,
-    time_category,
+    time_category_id,
     description,
     halachic_notes,
     halachic_source,
     publisher_email,
     publisher_name,
-    auto_add_on_approval
+    auto_add_on_approval,
+    status_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+    (SELECT rs.id FROM request_statuses rs WHERE rs.key = 'pending')
 )
-RETURNING id, publisher_id, requested_key, requested_hebrew_name, requested_english_name,
-    transliteration, requested_formula_dsl, time_category, description,
+RETURNING
+    id, publisher_id, requested_key, requested_hebrew_name, requested_english_name,
+    transliteration, requested_formula_dsl, time_category_id, description,
     halachic_notes, halachic_source, publisher_email, publisher_name, auto_add_on_approval,
-    status, created_at;
+    status_id, created_at;
 
 -- name: GetZmanRequest :one
 -- Get a specific zman request by ID
@@ -35,14 +38,16 @@ SELECT
     zrr.requested_english_name,
     zrr.transliteration,
     zrr.requested_formula_dsl,
-    zrr.time_category,
+    zrr.time_category_id,
+    tc.key as time_category,
     zrr.description,
     zrr.halachic_notes,
     zrr.halachic_source,
     zrr.publisher_email,
     zrr.publisher_name,
     zrr.auto_add_on_approval,
-    zrr.status,
+    zrr.status_id,
+    rs.key as status,
     zrr.reviewed_by,
     zrr.reviewed_at,
     zrr.reviewer_notes,
@@ -50,25 +55,31 @@ SELECT
     p.name as submitter_name
 FROM zman_registry_requests zrr
 JOIN publishers p ON zrr.publisher_id = p.id
+JOIN request_statuses rs ON zrr.status_id = rs.id
+JOIN time_categories tc ON zrr.time_category_id = tc.id
 WHERE zrr.id = $1;
 
 -- name: GetPublisherZmanRequests :many
 -- Get all zman requests for a specific publisher
 SELECT
-    id,
-    publisher_id,
-    requested_key,
-    requested_hebrew_name,
-    requested_english_name,
-    transliteration,
-    time_category,
-    status,
-    reviewed_at,
-    reviewer_notes,
-    created_at
-FROM zman_registry_requests
-WHERE publisher_id = $1
-ORDER BY created_at DESC;
+    zrr.id,
+    zrr.publisher_id,
+    zrr.requested_key,
+    zrr.requested_hebrew_name,
+    zrr.requested_english_name,
+    zrr.transliteration,
+    zrr.time_category_id,
+    tc.key as time_category,
+    zrr.status_id,
+    rs.key as status,
+    zrr.reviewed_at,
+    zrr.reviewer_notes,
+    zrr.created_at
+FROM zman_registry_requests zrr
+JOIN request_statuses rs ON zrr.status_id = rs.id
+JOIN time_categories tc ON zrr.time_category_id = tc.id
+WHERE zrr.publisher_id = $1
+ORDER BY zrr.created_at DESC;
 
 -- name: GetAllZmanRequests :many
 -- Get all zman requests (for admin) with optional status filter
@@ -79,40 +90,46 @@ SELECT
     zrr.requested_hebrew_name,
     zrr.requested_english_name,
     zrr.transliteration,
-    zrr.time_category,
-    zrr.status,
+    zrr.time_category_id,
+    tc.key as time_category,
+    zrr.status_id,
+    rs.key as status,
     zrr.reviewed_by,
     zrr.reviewed_at,
     zrr.created_at,
     p.name as publisher_name
 FROM zman_registry_requests zrr
 JOIN publishers p ON zrr.publisher_id = p.id
-WHERE ($1::text IS NULL OR zrr.status = $1)
+JOIN request_statuses rs ON zrr.status_id = rs.id
+JOIN time_categories tc ON zrr.time_category_id = tc.id
+WHERE ($1::text IS NULL OR rs.key = $1)
 ORDER BY
-    CASE WHEN zrr.status = 'pending' THEN 0 ELSE 1 END,
+    CASE WHEN rs.key = 'pending' THEN 0 ELSE 1 END,
     zrr.created_at DESC;
 
 -- name: ApproveZmanRequest :one
 -- Approve a zman request
 UPDATE zman_registry_requests
 SET
-    status = 'approved',
+    status_id = (SELECT rs.id FROM request_statuses rs WHERE rs.key = 'approved'),
     reviewed_by = $2,
     reviewed_at = NOW(),
     reviewer_notes = $3
-WHERE id = $1
-RETURNING id, status, reviewed_by, reviewed_at, reviewer_notes, auto_add_on_approval, publisher_id;
+WHERE zman_registry_requests.id = $1
+RETURNING
+    id, status_id, reviewed_by, reviewed_at, reviewer_notes,
+    auto_add_on_approval, publisher_id;
 
 -- name: RejectZmanRequest :one
 -- Reject a zman request
 UPDATE zman_registry_requests
 SET
-    status = 'rejected',
+    status_id = (SELECT rs.id FROM request_statuses rs WHERE rs.key = 'rejected'),
     reviewed_by = $2,
     reviewed_at = NOW(),
     reviewer_notes = $3
-WHERE id = $1
-RETURNING id, status, reviewed_by, reviewed_at, reviewer_notes;
+WHERE zman_registry_requests.id = $1
+RETURNING id, status_id, reviewed_by, reviewed_at, reviewer_notes;
 
 -- name: AddZmanRequestTag :one
 -- Add an existing tag to a zman request
@@ -145,9 +162,11 @@ SELECT
     zrt.created_at,
     zt.tag_key as existing_tag_key,
     zt.name as existing_tag_name,
-    zt.tag_type as existing_tag_type
+    zt.tag_type_id as existing_tag_type_id,
+    tt.key as existing_tag_type
 FROM zman_request_tags zrt
 LEFT JOIN zman_tags zt ON zrt.tag_id = zt.id
+LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
 WHERE zrt.request_id = $1;
 
 -- name: DeleteZmanRequestTags :exec
@@ -157,8 +176,9 @@ DELETE FROM zman_request_tags WHERE request_id = $1;
 -- name: GetPendingZmanRequestCount :one
 -- Get count of pending zman requests (for admin dashboard)
 SELECT COUNT(*) as count
-FROM zman_registry_requests
-WHERE status = 'pending';
+FROM zman_registry_requests zrr
+JOIN request_statuses rs ON zrr.status_id = rs.id
+WHERE rs.key = 'pending';
 
 -- name: GetZmanRequestTag :one
 -- Get a specific tag request by ID
@@ -182,15 +202,15 @@ INSERT INTO zman_tags (
     name,
     display_name_hebrew,
     display_name_english,
-    tag_type
+    tag_type_id
 ) VALUES (
     $1, -- tag_key (generated from requested_tag_name)
     $2, -- name (requested_tag_name)
     $3, -- display_name_hebrew (same as name for now)
     $4, -- display_name_english (same as name)
-    $5  -- tag_type (from requested_tag_type)
+    (SELECT tt.id FROM tag_types tt WHERE tt.key = $5)  -- tag_type_id (from requested_tag_type key)
 )
-RETURNING id, tag_key, name, display_name_hebrew, display_name_english, tag_type, created_at;
+RETURNING id, tag_key, name, display_name_hebrew, display_name_english, tag_type_id, created_at;
 
 -- name: LinkTagToRequest :exec
 -- Update the tag request to link the newly created tag
@@ -205,9 +225,18 @@ WHERE id = $1;
 
 -- name: FindTagByName :one
 -- Find an existing tag by name (case-insensitive match)
-SELECT id, tag_key, name, display_name_hebrew, display_name_english, tag_type, created_at
-FROM zman_tags
-WHERE LOWER(name) = LOWER($1)
+SELECT
+    zt.id,
+    zt.tag_key,
+    zt.name,
+    zt.display_name_hebrew,
+    zt.display_name_english,
+    zt.tag_type_id,
+    tt.key as tag_type,
+    zt.created_at
+FROM zman_tags zt
+JOIN tag_types tt ON zt.tag_type_id = tt.id
+WHERE LOWER(zt.name) = LOWER($1)
 LIMIT 1;
 
 -- name: RejectTagRequest :exec
@@ -222,7 +251,7 @@ INSERT INTO publisher_zmanim (
     id, publisher_id, zman_key, hebrew_name, english_name,
     transliteration, description,
     formula_dsl, ai_explanation, publisher_comment,
-    is_enabled, is_visible, is_published, is_custom, category,
+    is_enabled, is_visible, is_published, is_custom, time_category_id,
     dependencies, current_version
 )
 SELECT
@@ -240,13 +269,14 @@ SELECT
     true AS is_visible,
     false AS is_published,
     true AS is_custom,
-    zrr.time_category AS category,
+    tc.id AS time_category_id,
     '{}'::text[] AS dependencies,
     1 AS current_version
 FROM zman_registry_requests zrr
+JOIN time_categories tc ON zrr.time_category_id = tc.id
 WHERE zrr.id = $1
 ON CONFLICT (publisher_id, zman_key) DO NOTHING
 RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
     transliteration, description, formula_dsl, ai_explanation, publisher_comment,
-    is_enabled, is_visible, is_published, is_custom, category,
+    is_enabled, is_visible, is_published, is_custom, time_category_id,
     dependencies, created_at, updated_at, current_version;

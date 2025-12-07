@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/models"
 )
@@ -35,8 +33,15 @@ func (h *Handlers) GetPublisherCoverage(w http.ResponseWriter, r *http.Request) 
 		return // Response already sent
 	}
 
+	// Convert publisher ID to int32
+	publisherIDInt, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
 	// Query coverage areas using SQLc
-	rows, err := h.db.Queries.GetPublisherCoverage(ctx, pc.PublisherID)
+	rows, err := h.db.Queries.GetPublisherCoverage(ctx, publisherIDInt)
 	if err != nil {
 		slog.Error("failed to fetch coverage", "error", err, "publisher_id", pc.PublisherID)
 		RespondInternalError(w, r, "Failed to fetch coverage areas")
@@ -100,6 +105,13 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 
 	var coverage models.PublisherCoverage
 
+	// Convert publisher ID to int32
+	publisherIDInt, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
 	// Create coverage based on level using appropriate SQLc query
 	switch req.CoverageLevel {
 	case "continent":
@@ -107,20 +119,28 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 			RespondBadRequest(w, r, "continent_code is required for continent-level coverage")
 			return
 		}
+		// Look up continent ID from code
+		continent, err := h.db.Queries.GetContinentByCode(ctx, *req.ContinentCode)
+		if err != nil {
+			slog.Error("failed to find continent", "code", *req.ContinentCode, "error", err)
+			RespondBadRequest(w, r, "Invalid continent code")
+			return
+		}
+		continentID := continent.ID
 		// Check for duplicate
 		exists, _ := h.db.Queries.CheckDuplicateCoverageContinent(ctx, sqlcgen.CheckDuplicateCoverageContinentParams{
-			PublisherID:   pc.PublisherID,
-			ContinentCode: req.ContinentCode,
+			PublisherID: publisherIDInt,
+			ContinentID: &continentID,
 		})
 		if exists {
 			RespondBadRequest(w, r, "Coverage already exists for this continent")
 			return
 		}
 		row, err := h.db.Queries.CreateCoverageContinent(ctx, sqlcgen.CreateCoverageContinentParams{
-			PublisherID:   pc.PublisherID,
-			ContinentCode: req.ContinentCode,
-			Priority:      &priority,
-			IsActive:      true,
+			PublisherID: publisherIDInt,
+			ContinentID: &continentID,
+			Priority:    &priority,
+			IsActive:    true,
 		})
 		if err != nil {
 			slog.Error("failed to create continent coverage", "error", err)
@@ -136,7 +156,7 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		}
 		// Check for duplicate
 		exists, _ := h.db.Queries.CheckDuplicateCoverageCountry(ctx, sqlcgen.CheckDuplicateCoverageCountryParams{
-			PublisherID: pc.PublisherID,
+			PublisherID: publisherIDInt,
 			CountryID:   req.CountryID,
 		})
 		if exists {
@@ -144,7 +164,7 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		row, err := h.db.Queries.CreateCoverageCountry(ctx, sqlcgen.CreateCoverageCountryParams{
-			PublisherID: pc.PublisherID,
+			PublisherID: publisherIDInt,
 			CountryID:   req.CountryID,
 			Priority:    &priority,
 			IsActive:    true,
@@ -163,7 +183,7 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		}
 		// Check for duplicate
 		exists, _ := h.db.Queries.CheckDuplicateCoverageRegion(ctx, sqlcgen.CheckDuplicateCoverageRegionParams{
-			PublisherID: pc.PublisherID,
+			PublisherID: publisherIDInt,
 			RegionID:    req.RegionID,
 		})
 		if exists {
@@ -171,7 +191,7 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		row, err := h.db.Queries.CreateCoverageRegion(ctx, sqlcgen.CreateCoverageRegionParams{
-			PublisherID: pc.PublisherID,
+			PublisherID: publisherIDInt,
 			RegionID:    req.RegionID,
 			Priority:    &priority,
 			IsActive:    true,
@@ -190,7 +210,7 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		}
 		// Check for duplicate
 		exists, _ := h.db.Queries.CheckDuplicateCoverageDistrict(ctx, sqlcgen.CheckDuplicateCoverageDistrictParams{
-			PublisherID: pc.PublisherID,
+			PublisherID: publisherIDInt,
 			DistrictID:  req.DistrictID,
 		})
 		if exists {
@@ -198,7 +218,7 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		row, err := h.db.Queries.CreateCoverageDistrict(ctx, sqlcgen.CreateCoverageDistrictParams{
-			PublisherID: pc.PublisherID,
+			PublisherID: publisherIDInt,
 			DistrictID:  req.DistrictID,
 			Priority:    &priority,
 			IsActive:    true,
@@ -211,30 +231,24 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		coverage = createCoverageDistrictRowToModel(row)
 
 	case "city":
-		if req.CityID == nil || *req.CityID == "" {
+		if req.CityID == nil {
 			RespondBadRequest(w, r, "city_id is required for city-level coverage")
 			return
 		}
-		// Parse city UUID
-		cityUUID, err := uuid.Parse(*req.CityID)
-		if err != nil {
-			RespondBadRequest(w, r, "Invalid city_id format: must be a valid UUID")
-			return
-		}
-		cityPgUUID := pgtype.UUID{Bytes: cityUUID, Valid: true}
+		cityID := int32(*req.CityID)
 
 		// Check for duplicate
 		exists, _ := h.db.Queries.CheckDuplicateCoverageCity(ctx, sqlcgen.CheckDuplicateCoverageCityParams{
-			PublisherID: pc.PublisherID,
-			CityID:      cityPgUUID,
+			PublisherID: publisherIDInt,
+			CityID:      &cityID,
 		})
 		if exists {
 			RespondBadRequest(w, r, "Coverage already exists for this city")
 			return
 		}
 		row, err := h.db.Queries.CreateCoverageCity(ctx, sqlcgen.CreateCoverageCityParams{
-			PublisherID: pc.PublisherID,
-			CityID:      cityPgUUID,
+			PublisherID: publisherIDInt,
+			CityID:      &cityID,
 			Priority:    &priority,
 			IsActive:    true,
 		})
@@ -280,13 +294,26 @@ func (h *Handlers) UpdatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		return // Response already sent
 	}
 
+	// Convert IDs to int32
+	coverageIDInt, err := stringToInt32(coverageID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid coverage ID")
+		return
+	}
+
+	publisherIDInt, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
 	// Verify ownership by fetching the coverage
-	existingCoverage, err := h.db.Queries.GetPublisherCoverageByID(ctx, coverageID)
+	existingCoverage, err := h.db.Queries.GetPublisherCoverageByID(ctx, coverageIDInt)
 	if err != nil {
 		RespondNotFound(w, r, "Coverage not found")
 		return
 	}
-	if existingCoverage.PublisherID != pc.PublisherID {
+	if existingCoverage.PublisherID != publisherIDInt {
 		RespondNotFound(w, r, "Coverage not found or not owned by publisher")
 		return
 	}
@@ -313,7 +340,7 @@ func (h *Handlers) UpdatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		}
 		priority := int32(*req.Priority)
 		row, err := h.db.Queries.UpdateCoveragePriority(ctx, sqlcgen.UpdateCoveragePriorityParams{
-			ID:       coverageID,
+			ID:       coverageIDInt,
 			Priority: &priority,
 		})
 		if err != nil {
@@ -327,7 +354,7 @@ func (h *Handlers) UpdatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 	// Update active status if provided
 	if req.IsActive != nil {
 		row, err := h.db.Queries.UpdateCoverageActive(ctx, sqlcgen.UpdateCoverageActiveParams{
-			ID:       coverageID,
+			ID:       coverageIDInt,
 			IsActive: *req.IsActive,
 		})
 		if err != nil {
@@ -370,19 +397,32 @@ func (h *Handlers) DeletePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		return // Response already sent
 	}
 
+	// Convert IDs to int32
+	coverageIDInt, err := stringToInt32(coverageID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid coverage ID")
+		return
+	}
+
+	publisherIDInt, err := stringToInt32(pc.PublisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
 	// Verify ownership by fetching the coverage
-	existingCoverage, err := h.db.Queries.GetPublisherCoverageByID(ctx, coverageID)
+	existingCoverage, err := h.db.Queries.GetPublisherCoverageByID(ctx, coverageIDInt)
 	if err != nil {
 		RespondNotFound(w, r, "Coverage not found")
 		return
 	}
-	if existingCoverage.PublisherID != pc.PublisherID {
+	if existingCoverage.PublisherID != publisherIDInt {
 		RespondNotFound(w, r, "Coverage not found or not owned by publisher")
 		return
 	}
 
 	// Delete coverage
-	if err := h.db.Queries.DeleteCoverage(ctx, coverageID); err != nil {
+	if err := h.db.Queries.DeleteCoverage(ctx, coverageIDInt); err != nil {
 		slog.Error("failed to delete coverage", "error", err)
 		RespondInternalError(w, r, "Failed to delete coverage")
 		return
@@ -398,43 +438,44 @@ func (h *Handlers) DeletePublisherCoverage(w http.ResponseWriter, r *http.Reques
 // @Description Returns all publishers that have coverage for the specified city (via city, district, region, country, or continent level)
 // @Tags Cities
 // @Produce json
-// @Param cityId path string true "City ID (UUID)"
+// @Param cityId path int true "City ID"
 // @Success 200 {object} APIResponse{data=models.PublishersForCityResponse} "Publishers serving this city"
 // @Failure 400 {object} APIResponse{error=APIError} "Invalid request"
 // @Failure 500 {object} APIResponse{error=APIError} "Internal server error"
 // @Router /cities/{cityId}/publishers [get]
 func (h *Handlers) GetPublishersForCity(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	cityID := chi.URLParam(r, "cityId")
+	cityIDStr := chi.URLParam(r, "cityId")
 
-	if cityID == "" {
+	if cityIDStr == "" {
 		RespondBadRequest(w, r, "City ID is required")
 		return
 	}
 
-	// Use raw SQL since SQLc can't type the result of a SQL function
-	query := `SELECT publisher_id, publisher_name, coverage_level, priority, match_type
-			  FROM get_publishers_for_city($1)`
+	cityID, err := strconv.ParseInt(cityIDStr, 10, 64)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid city_id format: must be an integer")
+		return
+	}
 
-	rows, err := h.db.Pool.Query(ctx, query, cityID)
+	// Get publishers for city using SQLc
+	rows, err := h.db.Queries.GetPublishersForCity(ctx, int32(cityID))
 	if err != nil {
 		slog.Error("failed to get publishers for city", "error", err, "city_id", cityID)
 		RespondInternalError(w, r, "Failed to fetch publishers for city")
 		return
 	}
-	defer rows.Close()
 
-	var publishers []models.PublisherForCity
-	for rows.Next() {
-		var p models.PublisherForCity
-		if err := rows.Scan(&p.PublisherID, &p.PublisherName, &p.CoverageLevel, &p.Priority, &p.MatchType); err != nil {
-			continue
-		}
-		publishers = append(publishers, p)
-	}
-
-	if publishers == nil {
-		publishers = []models.PublisherForCity{}
+	// Convert SQLc rows to models
+	publishers := make([]models.PublisherForCity, 0, len(rows))
+	for _, row := range rows {
+		publishers = append(publishers, models.PublisherForCity{
+			PublisherID:   int32ToString(row.PublisherID),
+			PublisherName: row.PublisherName,
+			CoverageLevel: row.CoverageLevel,
+			Priority:      int(row.Priority),
+			MatchType:     row.MatchType,
+		})
 	}
 
 	RespondJSON(w, r, http.StatusOK, models.PublishersForCityResponse{
@@ -540,208 +581,197 @@ func (h *Handlers) GetRegions(w http.ResponseWriter, r *http.Request) {
 
 func coverageRowToModel(row sqlcgen.GetPublisherCoverageRow) models.PublisherCoverage {
 	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-		ContinentName: row.ContinentName,
-		CountryCode:   row.CountryCode,
-		CountryName:   row.CountryName,
-		RegionCode:    row.RegionCode,
-		RegionName:    row.RegionName,
-		DistrictCode:  row.DistrictCode,
-		DistrictName:  row.DistrictName,
-		CityName:      row.CityName,
+		ID:               row.ID,
+		PublisherID:      row.PublisherID,
+		CoverageLevelID:  row.CoverageLevelID,
+		CoverageLevelKey: &row.CoverageLevelKey,
+		ContinentID:      row.ContinentID,
+		CountryID:        row.CountryID,
+		RegionID:         row.RegionID,
+		DistrictID:       row.DistrictID,
+		CityID:           row.CityID,
+		IsActive:         row.IsActive,
+		CreatedAt:        row.CreatedAt.Time,
+		UpdatedAt:        row.UpdatedAt.Time,
+		ContinentName:    row.ContinentName,
+		CountryCode:      row.CountryCode,
+		CountryName:      row.CountryName,
+		RegionCode:       row.RegionCode,
+		RegionName:       row.RegionName,
+		DistrictCode:     row.DistrictCode,
+		DistrictName:     row.DistrictName,
+		CityName:         row.CityName,
 	}
 	if row.Priority != nil {
 		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
 	}
 	return c
 }
 
-func createCoverageContinentRowToModel(row sqlcgen.CreateCoverageContinentRow) models.PublisherCoverage {
-	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-	}
-	if row.Priority != nil {
-		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
+// Generic converter for Create/Update rows (they all have the same structure)
+type coverageRowLike interface {
+	sqlcgen.CreateCoverageContinentRow | sqlcgen.CreateCoverageCountryRow | sqlcgen.CreateCoverageRegionRow | sqlcgen.CreateCoverageDistrictRow | sqlcgen.CreateCoverageCityRow | sqlcgen.UpdateCoveragePriorityRow | sqlcgen.UpdateCoverageActiveRow
+}
+
+func createCoverageRowToModel[T coverageRowLike](row T) models.PublisherCoverage {
+	// Use type assertion to access the common fields
+	var c models.PublisherCoverage
+	switch any(row).(type) {
+	case sqlcgen.CreateCoverageContinentRow:
+		r := any(row).(sqlcgen.CreateCoverageContinentRow)
+		c = models.PublisherCoverage{
+			ID:              r.ID,
+			PublisherID:     r.PublisherID,
+			CoverageLevelID: r.CoverageLevelID,
+			ContinentID:     r.ContinentID,
+			CountryID:       r.CountryID,
+			RegionID:        r.RegionID,
+			DistrictID:      r.DistrictID,
+			CityID:          r.CityID,
+			IsActive:        r.IsActive,
+			CreatedAt:       r.CreatedAt.Time,
+			UpdatedAt:       r.UpdatedAt.Time,
+		}
+		if r.Priority != nil {
+			c.Priority = int(*r.Priority)
+		}
+	case sqlcgen.CreateCoverageCountryRow:
+		r := any(row).(sqlcgen.CreateCoverageCountryRow)
+		c = models.PublisherCoverage{
+			ID:              r.ID,
+			PublisherID:     r.PublisherID,
+			CoverageLevelID: r.CoverageLevelID,
+			ContinentID:     r.ContinentID,
+			CountryID:       r.CountryID,
+			RegionID:        r.RegionID,
+			DistrictID:      r.DistrictID,
+			CityID:          r.CityID,
+			IsActive:        r.IsActive,
+			CreatedAt:       r.CreatedAt.Time,
+			UpdatedAt:       r.UpdatedAt.Time,
+		}
+		if r.Priority != nil {
+			c.Priority = int(*r.Priority)
+		}
+	case sqlcgen.CreateCoverageRegionRow:
+		r := any(row).(sqlcgen.CreateCoverageRegionRow)
+		c = models.PublisherCoverage{
+			ID:              r.ID,
+			PublisherID:     r.PublisherID,
+			CoverageLevelID: r.CoverageLevelID,
+			ContinentID:     r.ContinentID,
+			CountryID:       r.CountryID,
+			RegionID:        r.RegionID,
+			DistrictID:      r.DistrictID,
+			CityID:          r.CityID,
+			IsActive:        r.IsActive,
+			CreatedAt:       r.CreatedAt.Time,
+			UpdatedAt:       r.UpdatedAt.Time,
+		}
+		if r.Priority != nil {
+			c.Priority = int(*r.Priority)
+		}
+	case sqlcgen.CreateCoverageDistrictRow:
+		r := any(row).(sqlcgen.CreateCoverageDistrictRow)
+		c = models.PublisherCoverage{
+			ID:              r.ID,
+			PublisherID:     r.PublisherID,
+			CoverageLevelID: r.CoverageLevelID,
+			ContinentID:     r.ContinentID,
+			CountryID:       r.CountryID,
+			RegionID:        r.RegionID,
+			DistrictID:      r.DistrictID,
+			CityID:          r.CityID,
+			IsActive:        r.IsActive,
+			CreatedAt:       r.CreatedAt.Time,
+			UpdatedAt:       r.UpdatedAt.Time,
+		}
+		if r.Priority != nil {
+			c.Priority = int(*r.Priority)
+		}
+	case sqlcgen.CreateCoverageCityRow:
+		r := any(row).(sqlcgen.CreateCoverageCityRow)
+		c = models.PublisherCoverage{
+			ID:              r.ID,
+			PublisherID:     r.PublisherID,
+			CoverageLevelID: r.CoverageLevelID,
+			ContinentID:     r.ContinentID,
+			CountryID:       r.CountryID,
+			RegionID:        r.RegionID,
+			DistrictID:      r.DistrictID,
+			CityID:          r.CityID,
+			IsActive:        r.IsActive,
+			CreatedAt:       r.CreatedAt.Time,
+			UpdatedAt:       r.UpdatedAt.Time,
+		}
+		if r.Priority != nil {
+			c.Priority = int(*r.Priority)
+		}
+	case sqlcgen.UpdateCoveragePriorityRow:
+		r := any(row).(sqlcgen.UpdateCoveragePriorityRow)
+		c = models.PublisherCoverage{
+			ID:              r.ID,
+			PublisherID:     r.PublisherID,
+			CoverageLevelID: r.CoverageLevelID,
+			ContinentID:     r.ContinentID,
+			CountryID:       r.CountryID,
+			RegionID:        r.RegionID,
+			DistrictID:      r.DistrictID,
+			CityID:          r.CityID,
+			IsActive:        r.IsActive,
+			CreatedAt:       r.CreatedAt.Time,
+			UpdatedAt:       r.UpdatedAt.Time,
+		}
+		if r.Priority != nil {
+			c.Priority = int(*r.Priority)
+		}
+	case sqlcgen.UpdateCoverageActiveRow:
+		r := any(row).(sqlcgen.UpdateCoverageActiveRow)
+		c = models.PublisherCoverage{
+			ID:              r.ID,
+			PublisherID:     r.PublisherID,
+			CoverageLevelID: r.CoverageLevelID,
+			ContinentID:     r.ContinentID,
+			CountryID:       r.CountryID,
+			RegionID:        r.RegionID,
+			DistrictID:      r.DistrictID,
+			CityID:          r.CityID,
+			IsActive:        r.IsActive,
+			CreatedAt:       r.CreatedAt.Time,
+			UpdatedAt:       r.UpdatedAt.Time,
+		}
+		if r.Priority != nil {
+			c.Priority = int(*r.Priority)
+		}
 	}
 	return c
+}
+
+// Simple wrappers for backward compatibility
+func createCoverageContinentRowToModel(row sqlcgen.CreateCoverageContinentRow) models.PublisherCoverage {
+	return createCoverageRowToModel(row)
 }
 
 func createCoverageCountryRowToModel(row sqlcgen.CreateCoverageCountryRow) models.PublisherCoverage {
-	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-	}
-	if row.Priority != nil {
-		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
-	}
-	return c
+	return createCoverageRowToModel(row)
 }
 
 func createCoverageRegionRowToModel(row sqlcgen.CreateCoverageRegionRow) models.PublisherCoverage {
-	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-	}
-	if row.Priority != nil {
-		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
-	}
-	return c
+	return createCoverageRowToModel(row)
 }
 
 func createCoverageDistrictRowToModel(row sqlcgen.CreateCoverageDistrictRow) models.PublisherCoverage {
-	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-	}
-	if row.Priority != nil {
-		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
-	}
-	return c
+	return createCoverageRowToModel(row)
 }
 
 func createCoverageCityRowToModel(row sqlcgen.CreateCoverageCityRow) models.PublisherCoverage {
-	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-	}
-	if row.Priority != nil {
-		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
-	}
-	return c
+	return createCoverageRowToModel(row)
 }
 
 func updateCoverageRowToModel(row sqlcgen.UpdateCoveragePriorityRow) models.PublisherCoverage {
-	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-	}
-	if row.Priority != nil {
-		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
-	}
-	return c
+	return createCoverageRowToModel(row)
 }
 
 func updateCoverageActiveRowToModel(row sqlcgen.UpdateCoverageActiveRow) models.PublisherCoverage {
-	c := models.PublisherCoverage{
-		ID:            row.ID,
-		PublisherID:   row.PublisherID,
-		CoverageLevel: row.CoverageLevel,
-		ContinentCode: row.ContinentCode,
-		CountryID:     row.CountryID,
-		RegionID:      row.RegionID,
-		DistrictID:    row.DistrictID,
-		IsActive:      row.IsActive,
-		CreatedAt:     row.CreatedAt.Time,
-		UpdatedAt:     row.UpdatedAt.Time,
-	}
-	if row.Priority != nil {
-		c.Priority = int(*row.Priority)
-	}
-	if row.CityID.Valid {
-		cityStr := row.CityID.Bytes[:]
-		cityUUID, _ := uuid.FromBytes(cityStr)
-		s := cityUUID.String()
-		c.CityID = &s
-	}
-	return c
+	return createCoverageRowToModel(row)
 }

@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 	"unicode/utf8"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jcom-dev/zmanim-lab/internal/ai"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/middleware"
 )
 
@@ -220,22 +224,19 @@ func hashFormula(formula string) string {
 
 // getCachedExplanation retrieves a cached explanation if available
 func (h *Handlers) getCachedExplanation(ctx context.Context, formulaHash, language string) (string, error) {
-	var explanation string
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT explanation FROM explanation_cache
-		WHERE formula_hash = $1 AND language = $2 AND expires_at > NOW()
-	`, formulaHash, language).Scan(&explanation)
-	return explanation, err
+	return h.db.Queries.GetCachedExplanation(ctx, sqlcgen.GetCachedExplanationParams{
+		FormulaHash: formulaHash,
+		Language:    language,
+	})
 }
 
 // cacheExplanation stores an explanation in the cache
 func (h *Handlers) cacheExplanation(ctx context.Context, formulaHash, language, explanation string) {
-	_, _ = h.db.Pool.Exec(ctx, `
-		INSERT INTO explanation_cache (formula_hash, language, explanation, expires_at)
-		VALUES ($1, $2, $3, NOW() + INTERVAL '7 days')
-		ON CONFLICT (formula_hash, language)
-		DO UPDATE SET explanation = EXCLUDED.explanation, expires_at = NOW() + INTERVAL '7 days'
-	`, formulaHash, language, explanation)
+	_ = h.db.Queries.UpsertExplanationCache(ctx, sqlcgen.UpsertExplanationCacheParams{
+		FormulaHash: formulaHash,
+		Language:    language,
+		Explanation: explanation,
+	})
 }
 
 // validateDSL validates a DSL formula using the parser
@@ -251,7 +252,7 @@ func (h *Handlers) logAIAudit(ctx context.Context, r *http.Request, requestType 
 	userID := middleware.GetUserID(r.Context())
 
 	// Get publisher ID from header if available
-	publisherID := r.Header.Get("X-Publisher-Id")
+	publisherIDStr := r.Header.Get("X-Publisher-Id")
 
 	var outputText string
 	var tokensUsed int
@@ -269,23 +270,63 @@ func (h *Handlers) logAIAudit(ctx context.Context, r *http.Request, requestType 
 		errorMessage = err.Error()
 	}
 
-	// Insert audit log
-	query := `
-		INSERT INTO ai_audit_logs (
-			publisher_id, user_id, request_type, input_text, output_text,
-			tokens_used, model, confidence, success, error_message,
-			duration_ms, rag_context_used
-		) VALUES (
-			NULLIF($1, '')::uuid, NULLIF($2, ''), $3, $4, $5,
-			$6, $7, $8, $9, $10, $11, $12
-		)
-	`
+	// Convert publisher ID string to nullable int32
+	var publisherID *int32
+	if publisherIDStr != "" {
+		if id, err := strconv.ParseInt(publisherIDStr, 10, 32); err == nil {
+			id32 := int32(id)
+			publisherID = &id32
+		}
+	}
 
-	_, _ = h.db.Pool.Exec(ctx, query,
-		publisherID, userID, requestType, input, outputText,
-		tokensUsed, "claude-3-5-sonnet-20241022", confidence, success, errorMessage,
-		durationMs, ragUsed,
-	)
+	// Convert values to nullable pointers
+	var userIDPtr *string
+	if userID != "" {
+		userIDPtr = &userID
+	}
+
+	var outputTextPtr *string
+	if outputText != "" {
+		outputTextPtr = &outputText
+	}
+
+	tokensUsedInt32 := int32(tokensUsed)
+	tokensUsedPtr := &tokensUsedInt32
+
+	model := "claude-3-5-sonnet-20241022"
+	modelPtr := &model
+
+	// Convert confidence to pgtype.Numeric
+	var confidenceNumeric pgtype.Numeric
+	_ = confidenceNumeric.Scan(confidence)
+
+	successPtr := &success
+
+	var errorMessagePtr *string
+	if errorMessage != "" {
+		errorMessagePtr = &errorMessage
+	}
+
+	durationMsInt32 := int32(durationMs)
+	durationMsPtr := &durationMsInt32
+
+	ragUsedPtr := &ragUsed
+
+	// Insert audit log using SQLc
+	_ = h.db.Queries.InsertAIAuditLog(ctx, sqlcgen.InsertAIAuditLogParams{
+		PublisherID:    publisherID,
+		UserID:         userIDPtr,
+		RequestType:    requestType,
+		InputText:      &input,
+		OutputText:     outputTextPtr,
+		TokensUsed:     tokensUsedPtr,
+		Model:          modelPtr,
+		Confidence:     confidenceNumeric,
+		Success:        successPtr,
+		ErrorMessage:   errorMessagePtr,
+		DurationMs:     durationMsPtr,
+		RagContextUsed: ragUsedPtr,
+	})
 }
 
 // GetAIAuditLogs returns AI audit logs for admin
@@ -294,62 +335,67 @@ func (h *Handlers) GetAIAuditLogs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Parse query params
-	limit := 50
+	limit := int32(50)
 	requestType := r.URL.Query().Get("type")
 
-	query := `
-		SELECT id, publisher_id, user_id, request_type, input_text, output_text,
-		       tokens_used, model, confidence, success, error_message,
-		       duration_ms, rag_context_used, created_at
-		FROM ai_audit_logs
-		WHERE ($1 = '' OR request_type = $1)
-		ORDER BY created_at DESC
-		LIMIT $2
-	`
-
-	rows, err := h.db.Pool.Query(ctx, query, requestType, limit)
-	if err != nil {
+	// Query using SQLc
+	dbLogs, err := h.db.Queries.GetAIAuditLogs(ctx, sqlcgen.GetAIAuditLogsParams{
+		Column1: requestType,
+		Limit:   limit,
+	})
+	if err != nil && err != pgx.ErrNoRows {
 		RespondInternalError(w, r, "Failed to query audit logs")
 		return
 	}
-	defer rows.Close()
 
 	type AuditLog struct {
 		ID             string   `json:"id"`
-		PublisherID    *string  `json:"publisher_id"`
+		PublisherID    *int32   `json:"publisher_id"`
 		UserID         *string  `json:"user_id"`
 		RequestType    string   `json:"request_type"`
-		InputText      string   `json:"input_text"`
+		InputText      *string  `json:"input_text"`
 		OutputText     *string  `json:"output_text"`
-		TokensUsed     *int     `json:"tokens_used"`
+		TokensUsed     *int32   `json:"tokens_used"`
 		Model          *string  `json:"model"`
 		Confidence     *float64 `json:"confidence"`
-		Success        bool     `json:"success"`
+		Success        *bool    `json:"success"`
 		ErrorMessage   *string  `json:"error_message"`
-		DurationMs     *int     `json:"duration_ms"`
-		RAGContextUsed bool     `json:"rag_context_used"`
+		DurationMs     *int32   `json:"duration_ms"`
+		RAGContextUsed *bool    `json:"rag_context_used"`
 		CreatedAt      string   `json:"created_at"`
 	}
 
-	var logs []AuditLog
-	for rows.Next() {
-		var log AuditLog
-		var createdAt time.Time
-		err := rows.Scan(
-			&log.ID, &log.PublisherID, &log.UserID, &log.RequestType,
-			&log.InputText, &log.OutputText, &log.TokensUsed, &log.Model,
-			&log.Confidence, &log.Success, &log.ErrorMessage, &log.DurationMs,
-			&log.RAGContextUsed, &createdAt,
-		)
-		if err != nil {
-			continue
+	// Convert to response format
+	logs := make([]AuditLog, 0, len(dbLogs))
+	for _, dbLog := range dbLogs {
+		var confidence *float64
+		if dbLog.Confidence.Valid {
+			if f, err := dbLog.Confidence.Float64Value(); err == nil {
+				confidence = &f.Float64
+			}
 		}
-		log.CreatedAt = createdAt.Format(time.RFC3339)
-		logs = append(logs, log)
-	}
 
-	if logs == nil {
-		logs = []AuditLog{}
+		var createdAt string
+		if dbLog.CreatedAt.Valid {
+			createdAt = dbLog.CreatedAt.Time.Format(time.RFC3339)
+		}
+
+		logs = append(logs, AuditLog{
+			ID:             fmt.Sprintf("%d", dbLog.ID),
+			PublisherID:    dbLog.PublisherID,
+			UserID:         dbLog.UserID,
+			RequestType:    dbLog.RequestType,
+			InputText:      dbLog.InputText,
+			OutputText:     dbLog.OutputText,
+			TokensUsed:     dbLog.TokensUsed,
+			Model:          dbLog.Model,
+			Confidence:     confidence,
+			Success:        dbLog.Success,
+			ErrorMessage:   dbLog.ErrorMessage,
+			DurationMs:     dbLog.DurationMs,
+			RAGContextUsed: dbLog.RagContextUsed,
+			CreatedAt:      createdAt,
+		})
 	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{

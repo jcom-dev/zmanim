@@ -250,7 +250,7 @@ type PublisherCoverageResponse struct {
 	// Region/State name
 	Region *string `json:"region,omitempty" example:"New York"`
 	// City ID (if city-level coverage)
-	CityID *string `json:"city_id,omitempty"`
+	CityID *int64 `json:"city_id,omitempty"`
 	// City name for display
 	CityName string `json:"city_name,omitempty" example:"Brooklyn"`
 	// Country name for display
@@ -277,7 +277,7 @@ type CreateCoverageRequest struct {
 	// Region name (required for region level)
 	Region *string `json:"region,omitempty" example:"New York"`
 	// City ID (required for city level)
-	CityID *string `json:"city_id,omitempty"`
+	CityID *int64 `json:"city_id,omitempty"`
 	// Priority (1-10, default: 5)
 	Priority *int `json:"priority,omitempty" example:"5"`
 }

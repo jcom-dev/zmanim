@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim-lab/internal/ai"
 	"github.com/jcom-dev/zmanim-lab/internal/cache"
 	"github.com/jcom-dev/zmanim-lab/internal/db"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/middleware"
 	"github.com/jcom-dev/zmanim-lab/internal/models"
 	"github.com/jcom-dev/zmanim-lab/internal/services"
@@ -156,55 +156,8 @@ func (h *Handlers) GetPublishers(w http.ResponseWriter, r *http.Request) {
 
 // searchPublishers handles publisher search with optional algorithm filter
 func (h *Handlers) searchPublishers(w http.ResponseWriter, r *http.Request, ctx context.Context, query string, hasAlgorithm bool, page, pageSize int) {
-	offset := (page - 1) * pageSize
+	offset := int32((page - 1) * pageSize)
 	searchPattern := "%" + query + "%"
-
-	var sqlQuery string
-	var args []interface{}
-
-	if hasAlgorithm {
-		// Search publishers that have at least one published zman
-		sqlQuery = `
-			SELECT DISTINCT
-				p.id, p.name, p.description, p.logo_url,
-				(p.status = 'verified' OR p.status = 'active') as is_verified,
-				COUNT(DISTINCT pz.id) as zmanim_count
-			FROM publishers p
-			JOIN publisher_zmanim pz ON pz.publisher_id = p.id
-				AND pz.is_published = true
-				AND pz.is_enabled = true
-				AND pz.deleted_at IS NULL
-			WHERE (p.status = 'verified' OR p.status = 'active')
-			  AND (p.name ILIKE $1 OR p.description ILIKE $1)
-			GROUP BY p.id, p.name, p.description, p.logo_url, p.status
-			HAVING COUNT(DISTINCT pz.id) > 0
-			ORDER BY p.name
-			LIMIT $2 OFFSET $3
-		`
-		args = []interface{}{searchPattern, pageSize, offset}
-	} else {
-		// Search all active publishers
-		sqlQuery = `
-			SELECT
-				p.id, p.name, p.description, p.logo_url,
-				(p.status = 'verified' OR p.status = 'active') as is_verified,
-				0 as zmanim_count
-			FROM publishers p
-			WHERE (p.status = 'verified' OR p.status = 'active')
-			  AND (p.name ILIKE $1 OR p.description ILIKE $1)
-			ORDER BY p.name
-			LIMIT $2 OFFSET $3
-		`
-		args = []interface{}{searchPattern, pageSize, offset}
-	}
-
-	rows, err := h.db.Pool.Query(ctx, sqlQuery, args...)
-	if err != nil {
-		slog.Error("failed to search publishers", "error", err)
-		RespondInternalError(w, r, "Failed to search publishers")
-		return
-	}
-	defer rows.Close()
 
 	type PublisherSearchResult struct {
 		ID          string  `json:"id"`
@@ -212,19 +165,64 @@ func (h *Handlers) searchPublishers(w http.ResponseWriter, r *http.Request, ctx 
 		Description *string `json:"description,omitempty"`
 		LogoURL     *string `json:"logo_url,omitempty"`
 		IsVerified  bool    `json:"is_verified"`
-		ZmanimCount int     `json:"zmanim_count"`
+		ZmanimCount int64   `json:"zmanim_count"`
 	}
 
 	var publishers []PublisherSearchResult
-	for rows.Next() {
-		var p PublisherSearchResult
-		err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.LogoURL, &p.IsVerified, &p.ZmanimCount)
-		if err != nil {
-			slog.Error("failed to scan publisher", "error", err)
-			RespondInternalError(w, r, "Failed to search publishers")
-			return
+	var err error
+
+	if hasAlgorithm {
+		results, queryErr := h.db.Queries.SearchPublishersWithAlgorithm(ctx, sqlcgen.SearchPublishersWithAlgorithmParams{
+			Name:   searchPattern,
+			Limit:  int32(pageSize),
+			Offset: offset,
+		})
+		err = queryErr
+		if err == nil {
+			for _, p := range results {
+				isVerified := false
+				if p.IsVerified != nil {
+					isVerified = *p.IsVerified
+				}
+				publishers = append(publishers, PublisherSearchResult{
+					ID:          p.ID,
+					Name:        p.Name,
+					Description: p.Description,
+					LogoURL:     p.LogoUrl,
+					IsVerified:  isVerified,
+					ZmanimCount: p.ZmanimCount,
+				})
+			}
 		}
-		publishers = append(publishers, p)
+	} else {
+		results, queryErr := h.db.Queries.SearchPublishersAll(ctx, sqlcgen.SearchPublishersAllParams{
+			Name:   searchPattern,
+			Limit:  int32(pageSize),
+			Offset: offset,
+		})
+		err = queryErr
+		if err == nil {
+			for _, p := range results {
+				isVerified := false
+				if p.IsVerified != nil {
+					isVerified = *p.IsVerified
+				}
+				publishers = append(publishers, PublisherSearchResult{
+					ID:          p.ID,
+					Name:        p.Name,
+					Description: p.Description,
+					LogoURL:     p.LogoUrl,
+					IsVerified:  isVerified,
+					ZmanimCount: int64(p.ZmanimCount),
+				})
+			}
+		}
+	}
+
+	if err != nil {
+		slog.Error("failed to search publishers", "error", err)
+		RespondInternalError(w, r, "Failed to search publishers")
+		return
 	}
 
 	if publishers == nil {
@@ -307,37 +305,21 @@ func (h *Handlers) CalculateZmanim(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetLocations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Query geographic regions as locations
-	query := `
-		SELECT id, name,
-		       ST_Y(ST_Centroid(bounds::geometry)) as latitude,
-		       ST_X(ST_Centroid(bounds::geometry)) as longitude
-		FROM geographic_regions
-		WHERE type = 'city'
-		ORDER BY name
-		LIMIT 100
-	`
-
-	rows, err := h.db.Pool.Query(ctx, query)
+	cities, err := h.db.Queries.GetTopCitiesAsLocations(ctx, 100)
 	if err != nil {
+		slog.Error("failed to get locations", "error", err)
 		RespondInternalError(w, r, "Failed to get locations")
 		return
 	}
-	defer rows.Close()
 
 	var locations []map[string]interface{}
-	for rows.Next() {
-		var id, name string
-		var latitude, longitude float64
-		if err := rows.Scan(&id, &name, &latitude, &longitude); err != nil {
-			continue
-		}
+	for _, city := range cities {
 		locations = append(locations, map[string]interface{}{
-			"id":        id,
-			"name":      name,
-			"latitude":  latitude,
-			"longitude": longitude,
-			"timezone":  "UTC", // In production, derive from location
+			"id":        city.ID,
+			"name":      city.Name,
+			"latitude":  city.Latitude,
+			"longitude": city.Longitude,
+			"timezone":  city.Timezone,
 		})
 	}
 
@@ -405,66 +387,77 @@ func (h *Handlers) GetPublisherProfile(w http.ResponseWriter, r *http.Request) {
 		publisherID = r.URL.Query().Get("publisher_id")
 	}
 
-	var query string
-	var queryArg interface{}
+	var publisher models.Publisher
 
 	if publisherID != "" {
-		// Query by publisher ID
-		query = `
-			SELECT id, clerk_user_id, name, email,
-			       COALESCE(description, ''), COALESCE(bio, ''),
-			       website, logo_url, logo_data, status, is_certified, created_at, updated_at
-			FROM publishers
-			WHERE id = $1
-		`
-		queryArg = publisherID
-	} else {
-		// Fall back to query by clerk_user_id
-		query = `
-			SELECT id, clerk_user_id, name, email,
-			       COALESCE(description, ''), COALESCE(bio, ''),
-			       website, logo_url, logo_data, status, is_certified, created_at, updated_at
-			FROM publishers
-			WHERE clerk_user_id = $1
-		`
-		queryArg = userID
-	}
-
-	var publisher models.Publisher
-	var description, bio string
-	err := h.db.Pool.QueryRow(ctx, query, queryArg).Scan(
-		&publisher.ID,
-		&publisher.ClerkUserID,
-		&publisher.Name,
-		&publisher.Email,
-		&description,
-		&bio,
-		&publisher.Website,
-		&publisher.LogoURL,
-		&publisher.LogoData,
-		&publisher.Status,
-		&publisher.IsCertified,
-		&publisher.CreatedAt,
-		&publisher.UpdatedAt,
-	)
-	publisher.Description = description
-	if bio != "" {
-		publisher.Bio = &bio
-	}
-
-	if err != nil {
-		slog.Error("GetPublisherProfile query failed", "error", err, "publisher_id", publisherID, "user_id", userID)
-		if err.Error() == "no rows in result set" {
-			RespondNotFound(w, r, "Publisher profile not found")
+		// Convert string ID to int32
+		id, convErr := stringToInt32(publisherID)
+		if convErr != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
 			return
 		}
-		RespondInternalError(w, r, "Failed to fetch publisher profile")
-		return
-	}
+		publisherRow, err := h.db.Queries.GetPublisherFullProfileByID(ctx, id)
+		if err != nil {
+			slog.Error("GetPublisherProfile query failed", "error", err, "publisher_id", publisherID, "user_id", userID)
+			if err.Error() == "no rows in result set" {
+				RespondNotFound(w, r, "Publisher profile not found")
+				return
+			}
+			RespondInternalError(w, r, "Failed to fetch publisher profile")
+			return
+		}
 
-	// Set derived fields
-	publisher.IsVerified = publisher.Status == "verified"
-	publisher.ContactEmail = publisher.Email
+		publisher = models.Publisher{
+			ID:           int32ToString(publisherRow.ID),
+			ClerkUserID:  publisherRow.ClerkUserID,
+			Name:         publisherRow.Name,
+			Email:        publisherRow.Email,
+			Description:  publisherRow.Description,
+			Website:      publisherRow.Website,
+			LogoURL:      publisherRow.LogoUrl,
+			LogoData:     publisherRow.LogoData,
+			Status:       publisherRow.StatusKey,
+			IsVerified:   publisherRow.IsVerified,
+			ContactEmail: publisherRow.Email,
+			CreatedAt:    publisherRow.CreatedAt.Time,
+			UpdatedAt:    publisherRow.UpdatedAt.Time,
+		}
+
+		if publisherRow.Bio != "" {
+			publisher.Bio = &publisherRow.Bio
+		}
+	} else {
+		publisherRow, err := h.db.Queries.GetPublisherFullProfileByClerkUserID(ctx, &userID)
+		if err != nil {
+			slog.Error("GetPublisherProfile query failed", "error", err, "publisher_id", publisherID, "user_id", userID)
+			if err.Error() == "no rows in result set" {
+				RespondNotFound(w, r, "Publisher profile not found")
+				return
+			}
+			RespondInternalError(w, r, "Failed to fetch publisher profile")
+			return
+		}
+
+		publisher = models.Publisher{
+			ID:           int32ToString(publisherRow.ID),
+			ClerkUserID:  publisherRow.ClerkUserID,
+			Name:         publisherRow.Name,
+			Email:        publisherRow.Email,
+			Description:  publisherRow.Description,
+			Website:      publisherRow.Website,
+			LogoURL:      publisherRow.LogoUrl,
+			LogoData:     publisherRow.LogoData,
+			Status:       publisherRow.StatusKey,
+			IsVerified:   publisherRow.IsVerified,
+			ContactEmail: publisherRow.Email,
+			CreatedAt:    publisherRow.CreatedAt.Time,
+			UpdatedAt:    publisherRow.UpdatedAt.Time,
+		}
+
+		if publisherRow.Bio != "" {
+			publisher.Bio = &publisherRow.Bio
+		}
+	}
 
 	RespondJSON(w, r, http.StatusOK, publisher)
 }
@@ -490,14 +483,7 @@ func (h *Handlers) GetAccessiblePublishers(w http.ResponseWriter, r *http.Reques
 
 	// If no Clerk service, fall back to getting publisher by clerk_user_id
 	if h.clerkService == nil {
-		// Query publisher by clerk_user_id (legacy single-publisher mode)
-		query := `
-			SELECT id, name, status
-			FROM publishers
-			WHERE clerk_user_id = $1
-		`
-		var id, name, status string
-		err := h.db.Pool.QueryRow(ctx, query, userID).Scan(&id, &name, &status)
+		publisher, err := h.db.Queries.GetAccessiblePublishersByClerkUserID(ctx, &userID)
 		if err != nil {
 			// No publisher found - return empty list
 			RespondJSON(w, r, http.StatusOK, map[string]interface{}{
@@ -508,9 +494,9 @@ func (h *Handlers) GetAccessiblePublishers(w http.ResponseWriter, r *http.Reques
 
 		RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 			"publishers": []map[string]string{{
-				"id":     id,
-				"name":   name,
-				"status": status,
+				"id":     publisher.ID,
+				"name":   publisher.Name,
+				"status": publisher.StatusKey,
 			}},
 		})
 		return
@@ -520,13 +506,7 @@ func (h *Handlers) GetAccessiblePublishers(w http.ResponseWriter, r *http.Reques
 	metadata, err := h.clerkService.GetUserPublicMetadata(ctx, userID)
 	if err != nil {
 		// Fall back to database lookup
-		query := `
-			SELECT id, name, status
-			FROM publishers
-			WHERE clerk_user_id = $1
-		`
-		var id, name, status string
-		err := h.db.Pool.QueryRow(ctx, query, userID).Scan(&id, &name, &status)
+		publisher, err := h.db.Queries.GetAccessiblePublishersByClerkUserID(ctx, &userID)
 		if err != nil {
 			// No publisher found - return empty list
 			RespondJSON(w, r, http.StatusOK, map[string]interface{}{
@@ -537,9 +517,9 @@ func (h *Handlers) GetAccessiblePublishers(w http.ResponseWriter, r *http.Reques
 
 		RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 			"publishers": []map[string]string{{
-				"id":     id,
-				"name":   name,
-				"status": status,
+				"id":     publisher.ID,
+				"name":   publisher.Name,
+				"status": publisher.StatusKey,
 			}},
 		})
 		return
@@ -566,30 +546,19 @@ func (h *Handlers) GetAccessiblePublishers(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Fetch publisher details from database
-	query := `
-		SELECT id, name, status
-		FROM publishers
-		WHERE id = ANY($1)
-		ORDER BY name
-	`
-
-	rows, err := h.db.Pool.Query(ctx, query, publisherIDs)
+	publisherRows, err := h.db.Queries.GetAccessiblePublishersByIDs(ctx, publisherIDs)
 	if err != nil {
+		slog.Error("failed to get accessible publishers", "error", err)
 		RespondInternalError(w, r, "Failed to get publishers")
 		return
 	}
-	defer rows.Close()
 
 	publishers := make([]map[string]string, 0)
-	for rows.Next() {
-		var id, name, status string
-		if err := rows.Scan(&id, &name, &status); err != nil {
-			continue
-		}
+	for _, p := range publisherRows {
 		publishers = append(publishers, map[string]string{
-			"id":     id,
-			"name":   name,
-			"status": status,
+			"id":     p.ID,
+			"name":   p.Name,
+			"status": p.StatusKey,
 		})
 	}
 
@@ -646,78 +615,106 @@ func (h *Handlers) UpdatePublisherProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Build update query dynamically
-	updates := []string{}
-	args := []interface{}{}
-	argCount := 1
-
-	if req.Name != nil {
-		updates = append(updates, "name = $"+fmt.Sprint(argCount))
-		args = append(args, *req.Name)
-		argCount++
-	}
-	if req.Email != nil {
-		updates = append(updates, "email = $"+fmt.Sprint(argCount))
-		args = append(args, *req.Email)
-		argCount++
-	}
-	if req.Website != nil {
-		updates = append(updates, "website = $"+fmt.Sprint(argCount))
-		args = append(args, *req.Website)
-		argCount++
-	}
-	if req.Bio != nil {
-		updates = append(updates, "bio = $"+fmt.Sprint(argCount))
-		args = append(args, *req.Bio)
-		argCount++
-	}
-
-	if len(updates) == 0 {
+	// Check if at least one field is being updated
+	if req.Name == nil && req.Email == nil && req.Website == nil && req.Bio == nil {
 		RespondBadRequest(w, r, "No fields to update")
 		return
 	}
 
-	// Add updated_at
-	updates = append(updates, "updated_at = NOW()")
-
-	// Build WHERE clause based on whether we have publisherID or userID
-	var query string
-	if publisherID != "" {
-		args = append(args, publisherID)
-		query = "UPDATE publishers SET " + strings.Join(updates, ", ") + " WHERE id = $" + fmt.Sprint(argCount) + " RETURNING id, clerk_user_id, name, email, COALESCE(description, ''), bio, website, logo_url, logo_data, status, created_at, updated_at"
-	} else {
-		args = append(args, userID)
-		query = "UPDATE publishers SET " + strings.Join(updates, ", ") + " WHERE clerk_user_id = $" + fmt.Sprint(argCount) + " RETURNING id, clerk_user_id, name, email, COALESCE(description, ''), bio, website, logo_url, logo_data, status, created_at, updated_at"
-	}
-
 	var publisher models.Publisher
-	err := h.db.Pool.QueryRow(ctx, query, args...).Scan(
-		&publisher.ID,
-		&publisher.ClerkUserID,
-		&publisher.Name,
-		&publisher.Email,
-		&publisher.Description,
-		&publisher.Bio,
-		&publisher.Website,
-		&publisher.LogoURL,
-		&publisher.LogoData,
-		&publisher.Status,
-		&publisher.CreatedAt,
-		&publisher.UpdatedAt,
-	)
 
-	if err != nil {
-		slog.Error("UpdatePublisherProfile query failed", "error", err, "query", query, "publisher_id", publisherID, "user_id", userID)
-		if err.Error() == "no rows in result set" {
-			RespondNotFound(w, r, "Publisher profile not found")
+	if publisherID != "" {
+		// Convert string ID to int32
+		id, convErr := stringToInt32(publisherID)
+		if convErr != nil {
+			RespondBadRequest(w, r, "Invalid publisher ID")
 			return
 		}
-		RespondInternalError(w, r, "Failed to update publisher profile")
-		return
-	}
 
-	publisher.IsVerified = publisher.Status == "verified"
-	publisher.ContactEmail = publisher.Email
+		publisherRow, err := h.db.Queries.UpdatePublisherProfile(ctx, sqlcgen.UpdatePublisherProfileParams{
+			ID:            id,
+			UpdateName:    req.Name,
+			UpdateEmail:   req.Email,
+			UpdateWebsite: req.Website,
+			UpdateBio:     req.Bio,
+		})
+
+		if err != nil {
+			slog.Error("UpdatePublisherProfile query failed", "error", err, "publisher_id", publisherID, "user_id", userID)
+			if err.Error() == "no rows in result set" {
+				RespondNotFound(w, r, "Publisher profile not found")
+				return
+			}
+			RespondInternalError(w, r, "Failed to update publisher profile")
+			return
+		}
+
+		// Map to Publisher model
+		description := ""
+		if publisherRow.Description != nil {
+			description = *publisherRow.Description
+		}
+
+		publisher = models.Publisher{
+			ID:           int32ToString(publisherRow.ID),
+			ClerkUserID:  publisherRow.ClerkUserID,
+			Name:         publisherRow.Name,
+			Email:        publisherRow.Email,
+			Description:  description,
+			Website:      publisherRow.Website,
+			LogoURL:      publisherRow.LogoUrl,
+			LogoData:     publisherRow.LogoData,
+			ContactEmail: publisherRow.Email,
+			CreatedAt:    publisherRow.CreatedAt.Time,
+			UpdatedAt:    publisherRow.UpdatedAt.Time,
+		}
+
+		if publisherRow.Bio != nil {
+			publisher.Bio = publisherRow.Bio
+		}
+	} else {
+		publisherRow, err := h.db.Queries.UpdatePublisherProfileByClerkUserID(ctx, sqlcgen.UpdatePublisherProfileByClerkUserIDParams{
+			ClerkUserID:   &userID,
+			UpdateName:    req.Name,
+			UpdateEmail:   req.Email,
+			UpdateWebsite: req.Website,
+			UpdateBio:     req.Bio,
+		})
+
+		if err != nil {
+			slog.Error("UpdatePublisherProfile query failed", "error", err, "publisher_id", publisherID, "user_id", userID)
+			if err.Error() == "no rows in result set" {
+				RespondNotFound(w, r, "Publisher profile not found")
+				return
+			}
+			RespondInternalError(w, r, "Failed to update publisher profile")
+			return
+		}
+
+		// Map to Publisher model
+		description := ""
+		if publisherRow.Description != nil {
+			description = *publisherRow.Description
+		}
+
+		publisher = models.Publisher{
+			ID:           int32ToString(publisherRow.ID),
+			ClerkUserID:  publisherRow.ClerkUserID,
+			Name:         publisherRow.Name,
+			Email:        publisherRow.Email,
+			Description:  description,
+			Website:      publisherRow.Website,
+			LogoURL:      publisherRow.LogoUrl,
+			LogoData:     publisherRow.LogoData,
+			ContactEmail: publisherRow.Email,
+			CreatedAt:    publisherRow.CreatedAt.Time,
+			UpdatedAt:    publisherRow.UpdatedAt.Time,
+		}
+
+		if publisherRow.Bio != nil {
+			publisher.Bio = publisherRow.Bio
+		}
+	}
 
 	RespondJSON(w, r, http.StatusOK, publisher)
 }
@@ -742,14 +739,13 @@ func (h *Handlers) GetPublisherActivity(w http.ResponseWriter, r *http.Request) 
 
 	// If no publisher ID provided, get from database using clerk_user_id
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		pubID, err := h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
+			slog.Error("failed to get publisher by clerk user ID", "error", err)
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = int32ToString(pubID)
 	}
 
 	// For now, return empty activities (will be populated when activity_logs table is created)
@@ -799,48 +795,35 @@ func (h *Handlers) GetPublisherAnalytics(w http.ResponseWriter, r *http.Request)
 
 	// If no publisher ID provided, get from database using clerk_user_id
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		pubID, err := h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
+			slog.Error("failed to get publisher by clerk user ID", "error", err)
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = int32ToString(pubID)
+	}
+
+	// Convert publisherID to int32 for queries
+	pubID, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
 	}
 
 	// Get coverage counts
-	var coverageAreas int
-	_ = h.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM publisher_coverage
-		WHERE publisher_id = $1 AND is_active = true
-	`, publisherID).Scan(&coverageAreas)
+	coverageAreas, err := h.db.Queries.GetPublisherCoverageCount(ctx, pubID)
+	if err != nil {
+		slog.Error("failed to get coverage count", "error", err)
+		coverageAreas = 0
+	}
 
 	// Estimate cities count
-	// Note: country derived via city.region_id → region.country_id
-	var citiesCovered int
-	_ = h.db.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(
-			CASE coverage_level
-				WHEN 'city' THEN 1
-				WHEN 'region' THEN (
-					SELECT COUNT(*) FROM cities c
-					JOIN geo_regions r ON c.region_id = r.id
-					JOIN geo_countries co ON r.country_id = co.id
-					WHERE co.code = pc.country_code AND r.name = pc.region
-				)
-				WHEN 'country' THEN (
-					SELECT COUNT(*) FROM cities c
-					JOIN geo_regions r ON c.region_id = r.id
-					JOIN geo_countries co ON r.country_id = co.id
-					WHERE co.code = pc.country_code
-				)
-				ELSE 0
-			END
-		), 0)
-		FROM publisher_coverage pc
-		WHERE publisher_id = $1 AND is_active = true
-	`, publisherID).Scan(&citiesCovered)
+	citiesCovered, err := h.db.Queries.GetPublisherCitiesCovered(ctx, pubID)
+	if err != nil {
+		slog.Error("failed to get cities covered", "error", err)
+		citiesCovered = 0
+	}
 
 	// For now, calculations are placeholders (will be implemented with calculation_logs table)
 	calculationsTotal := 0
@@ -883,84 +866,64 @@ func (h *Handlers) GetPublisherDashboardSummary(w http.ResponseWriter, r *http.R
 
 	// If no publisher ID provided, get from database using clerk_user_id
 	if publisherID == "" {
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT id FROM publishers WHERE clerk_user_id = $1",
-			userID,
-		).Scan(&publisherID)
+		pubID, err := h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
 		if err != nil {
+			slog.Error("failed to get publisher by clerk user ID", "error", err)
 			RespondNotFound(w, r, "Publisher not found")
 			return
 		}
+		publisherID = int32ToString(pubID)
+	}
+
+	// Convert publisherID to int32 for queries
+	pubID, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
 	}
 
 	// Get profile summary
-	var profileSummary struct {
-		Name       string `json:"name"`
-		IsVerified bool   `json:"is_verified"`
-		Status     string `json:"status"`
-	}
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT name, status = 'verified', status
-		FROM publishers WHERE id = $1
-	`, publisherID).Scan(&profileSummary.Name, &profileSummary.IsVerified, &profileSummary.Status)
+	profileData, err := h.db.Queries.GetPublisherDashboardSummary(ctx, pubID)
 	if err != nil {
+		slog.Error("failed to get publisher dashboard summary", "error", err)
 		RespondNotFound(w, r, "Publisher not found")
 		return
 	}
 
-	// Get algorithm summary
-	var algorithmSummary struct {
-		Status    string  `json:"status"`
-		Name      *string `json:"name"`
-		UpdatedAt *string `json:"updated_at"`
+	profileSummary := map[string]interface{}{
+		"name":        profileData.Name,
+		"is_verified": profileData.IsVerified,
+		"status":      profileData.StatusKey,
 	}
-	algorithmSummary.Status = "none" // default if no algorithm
-	_ = h.db.Pool.QueryRow(ctx, `
-		SELECT
-			CASE WHEN is_published THEN 'published' ELSE 'draft' END,
-			name,
-			TO_CHAR(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-		FROM publisher_algorithms
-		WHERE publisher_id = $1
-		ORDER BY updated_at DESC
-		LIMIT 1
-	`, publisherID).Scan(&algorithmSummary.Status, &algorithmSummary.Name, &algorithmSummary.UpdatedAt)
+
+	// Get algorithm summary
+	algorithmSummary := map[string]interface{}{
+		"status": "none",
+	}
+	algorithmData, err := h.db.Queries.GetPublisherAlgorithmSummary(ctx, pubID)
+	if err == nil {
+		algorithmSummary["status"] = algorithmData.StatusKey
+		algorithmSummary["name"] = algorithmData.Name
+		algorithmSummary["updated_at"] = algorithmData.UpdatedAt
+	}
 
 	// Get coverage summary
-	var coverageSummary struct {
-		TotalAreas  int `json:"total_areas"`
-		TotalCities int `json:"total_cities"`
+	coverageAreas, err := h.db.Queries.GetPublisherCoverageCount(ctx, pubID)
+	if err != nil {
+		slog.Error("failed to get coverage count", "error", err)
+		coverageAreas = 0
 	}
-	_ = h.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(*), 0
-		FROM publisher_coverage
-		WHERE publisher_id = $1 AND is_active = true
-	`, publisherID).Scan(&coverageSummary.TotalAreas, &coverageSummary.TotalCities)
 
-	// Estimate cities count based on coverage type
-	// Note: country derived via city.region_id → region.country_id
-	_ = h.db.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(
-			CASE coverage_level
-				WHEN 'city' THEN 1
-				WHEN 'region' THEN (
-					SELECT COUNT(*) FROM cities c
-					JOIN geo_regions r ON c.region_id = r.id
-					JOIN geo_countries co ON r.country_id = co.id
-					WHERE co.code = pc.country_code AND r.name = pc.region
-				)
-				WHEN 'country' THEN (
-					SELECT COUNT(*) FROM cities c
-					JOIN geo_regions r ON c.region_id = r.id
-					JOIN geo_countries co ON r.country_id = co.id
-					WHERE co.code = pc.country_code
-				)
-				ELSE 0
-			END
-		), 0)
-		FROM publisher_coverage pc
-		WHERE publisher_id = $1 AND is_active = true
-	`, publisherID).Scan(&coverageSummary.TotalCities)
+	citiesCovered, err := h.db.Queries.GetPublisherCitiesCovered(ctx, pubID)
+	if err != nil {
+		slog.Error("failed to get cities covered", "error", err)
+		citiesCovered = 0
+	}
+
+	coverageSummary := map[string]interface{}{
+		"total_areas":  coverageAreas,
+		"total_cities": citiesCovered,
+	}
 
 	// Analytics placeholder (will be enhanced in Story 2-7)
 	var analyticsSummary struct {

@@ -61,12 +61,7 @@ SELECT id, key, display_name_hebrew, display_name_english,
 FROM tag_types
 ORDER BY sort_order;
 
--- name: GetTagTypeByKey :one
--- Get a tag type by its key
-SELECT id, key, display_name_hebrew, display_name_english,
-       color, sort_order, created_at
-FROM tag_types
-WHERE key = $1;
+-- Removed: Duplicate of GetTagTypeByKey in lookups.sql
 
 -- name: GetTagTypeByID :one
 -- Get a tag type by its ID

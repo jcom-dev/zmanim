@@ -25,10 +25,14 @@ SELECT DISTINCT
     t.name,
     t.display_name_hebrew,
     t.display_name_english,
-    t.tag_type,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
     t.description,
     t.sort_order
 FROM zman_tags t
+JOIN tag_types tt ON tt.id = t.tag_type_id
 JOIN tag_event_mappings m ON m.tag_id = t.id
 WHERE m.hebcal_event_pattern IS NOT NULL
   AND (
@@ -48,10 +52,14 @@ SELECT DISTINCT
     t.name,
     t.display_name_hebrew,
     t.display_name_english,
-    t.tag_type,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
     t.description,
     t.sort_order
 FROM zman_tags t
+JOIN tag_types tt ON tt.id = t.tag_type_id
 JOIN tag_event_mappings m ON m.tag_id = t.id
 WHERE m.hebrew_month = $1
   AND $2 BETWEEN m.hebrew_day_start AND COALESCE(m.hebrew_day_end, m.hebrew_day_start)
@@ -64,92 +72,86 @@ ORDER BY m.priority DESC, t.sort_order;
 -- name: GetAllTagsWithKey :many
 -- Get all tags ordered by type and sort order (includes tag_key)
 SELECT
-    id,
-    tag_key,
-    name,
-    display_name_hebrew,
-    display_name_english,
-    tag_type,
-    description,
-    color,
-    sort_order
-FROM zman_tags
-ORDER BY
-    CASE tag_type
-        WHEN 'behavior' THEN 1
-        WHEN 'event' THEN 2
-        WHEN 'jewish_day' THEN 3
-        WHEN 'timing' THEN 4
-        WHEN 'shita' THEN 5
-        WHEN 'calculation' THEN 6
-        WHEN 'category' THEN 7
-        ELSE 8
-    END,
-    sort_order,
-    display_name_english;
+    t.id,
+    t.tag_key,
+    t.name,
+    t.display_name_hebrew,
+    t.display_name_english,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
+    t.description,
+    t.color,
+    t.sort_order
+FROM zman_tags t
+JOIN tag_types tt ON tt.id = t.tag_type_id
+ORDER BY tt.sort_order, t.sort_order, t.display_name_english;
 
 -- name: GetJewishDayTags :many
 -- Get all jewish_day type tags (for calendar filtering)
 SELECT
-    id,
-    tag_key,
-    name,
-    display_name_hebrew,
-    display_name_english,
-    tag_type,
-    description,
-    color,
-    sort_order
-FROM zman_tags
-WHERE tag_type = 'jewish_day'
-ORDER BY sort_order, display_name_english;
+    t.id,
+    t.tag_key,
+    t.name,
+    t.display_name_hebrew,
+    t.display_name_english,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
+    t.description,
+    t.color,
+    t.sort_order
+FROM zman_tags t
+JOIN tag_types tt ON tt.id = t.tag_type_id
+WHERE tt.key = 'jewish_day'
+ORDER BY t.sort_order, t.display_name_english;
 
 -- name: GetTagByKey :one
 -- Get a single tag by its key
 SELECT
-    id,
-    tag_key,
-    name,
-    display_name_hebrew,
-    display_name_english,
-    tag_type,
-    description,
-    color,
-    sort_order
-FROM zman_tags
-WHERE tag_key = $1;
+    t.id,
+    t.tag_key,
+    t.name,
+    t.display_name_hebrew,
+    t.display_name_english,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
+    t.description,
+    t.color,
+    t.sort_order
+FROM zman_tags t
+JOIN tag_types tt ON tt.id = t.tag_type_id
+WHERE t.tag_key = $1;
 
 -- name: GetTagsByKeys :many
 -- Get multiple tags by their keys
 SELECT
-    id,
-    tag_key,
-    name,
-    display_name_hebrew,
-    display_name_english,
-    tag_type,
-    description,
-    color,
-    sort_order
-FROM zman_tags
-WHERE tag_key = ANY($1::text[])
-ORDER BY sort_order, display_name_english;
+    t.id,
+    t.tag_key,
+    t.name,
+    t.display_name_hebrew,
+    t.display_name_english,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
+    t.description,
+    t.color,
+    t.sort_order
+FROM zman_tags t
+JOIN tag_types tt ON tt.id = t.tag_type_id
+WHERE t.tag_key = ANY($1::text[])
+ORDER BY t.sort_order, t.display_name_english;
 
 -- ============================================================================
 -- Tag Types Metadata
 -- ============================================================================
 
--- name: GetTagTypes :many
--- Get all tag types with their styling
-SELECT
-    id,
-    key,
-    display_name_hebrew,
-    display_name_english,
-    color,
-    sort_order
-FROM tag_types
-ORDER BY sort_order;
+-- Removed: Duplicate of GetTagTypes in lookups.sql
 
 -- ============================================================================
 -- Publisher Zmanim by Active Tags
@@ -166,8 +168,12 @@ SELECT DISTINCT
     pz.formula_dsl,
     pz.is_enabled,
     pz.is_published,
-    pz.category
+    pz.time_category_id,
+    tc.key AS category,
+    tc.display_name_hebrew AS category_display_hebrew,
+    tc.display_name_english AS category_display_english
 FROM publisher_zmanim pz
+JOIN time_categories tc ON tc.id = pz.time_category_id
 JOIN publisher_zman_tags pzt ON pzt.publisher_zman_id = pz.id
 JOIN zman_tags t ON t.id = pzt.tag_id
 WHERE pz.publisher_id = $1
@@ -184,9 +190,13 @@ SELECT DISTINCT
     mr.canonical_hebrew_name,
     mr.canonical_english_name,
     mr.default_formula_dsl,
-    mr.time_category,
+    mr.time_category_id,
+    tc.key AS time_category,
+    tc.display_name_hebrew AS time_category_display_hebrew,
+    tc.display_name_english AS time_category_display_english,
     mr.is_core
 FROM master_zmanim_registry mr
+LEFT JOIN time_categories tc ON tc.id = mr.time_category_id
 JOIN master_zman_tags mzt ON mzt.master_zman_id = mr.id
 JOIN zman_tags t ON t.id = mzt.tag_id
 WHERE t.tag_key = ANY($1::text[])
@@ -196,18 +206,12 @@ ORDER BY mr.canonical_hebrew_name;
 -- name: CountTagsByType :many
 -- Get count of tags per type (for UI display)
 SELECT
-    tag_type,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
     COUNT(*) AS count
-FROM zman_tags
-GROUP BY tag_type
-ORDER BY
-    CASE tag_type
-        WHEN 'behavior' THEN 1
-        WHEN 'event' THEN 2
-        WHEN 'jewish_day' THEN 3
-        WHEN 'timing' THEN 4
-        WHEN 'shita' THEN 5
-        WHEN 'calculation' THEN 6
-        WHEN 'category' THEN 7
-        ELSE 8
-    END;
+FROM zman_tags t
+JOIN tag_types tt ON tt.id = t.tag_type_id
+GROUP BY t.tag_type_id, tt.key, tt.display_name_hebrew, tt.display_name_english
+ORDER BY tt.sort_order;

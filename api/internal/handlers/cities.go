@@ -183,14 +183,21 @@ func (h *Handlers) GetNearbyCity(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetCityByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Get city ID from URL path (ID is a string in the database)
-	id := chi.URLParam(r, "id")
-	if id == "" {
+	// Get city ID from URL path
+	idStr := chi.URLParam(r, "id")
+	if idStr == "" {
 		RespondBadRequest(w, r, "City ID is required")
 		return
 	}
 
-	row, err := h.db.Queries.GetCityByID(ctx, id)
+	// Convert string ID to int32
+	cityID, err := stringToInt32(idStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid city ID")
+		return
+	}
+
+	row, err := h.db.Queries.GetCityByID(ctx, cityID)
 	if err != nil {
 		RespondNotFound(w, r, "City not found")
 		return
@@ -362,7 +369,7 @@ func (h *Handlers) GetDistrictsByRegion(w http.ResponseWriter, r *http.Request) 
 
 func searchCitiesRowToCity(row sqlcgen.SearchCitiesRow) models.City {
 	city := models.City{
-		ID:          row.ID,
+		ID:          int32ToString(row.ID),
 		Name:        row.Name,
 		Country:     row.Country,
 		CountryCode: row.CountryCode,
@@ -386,7 +393,7 @@ func searchCitiesRowToCity(row sqlcgen.SearchCitiesRow) models.City {
 
 func searchCitiesFuzzyRowToCity(row sqlcgen.SearchCitiesFuzzyRow) models.City {
 	city := models.City{
-		ID:          row.ID,
+		ID:          int32ToString(row.ID),
 		Name:        row.Name,
 		Country:     row.Country,
 		CountryCode: row.CountryCode,
@@ -410,7 +417,7 @@ func searchCitiesFuzzyRowToCity(row sqlcgen.SearchCitiesFuzzyRow) models.City {
 
 func getCityByIDRowToCity(row sqlcgen.GetCityByIDRow) models.City {
 	city := models.City{
-		ID:          row.ID,
+		ID:          int32ToString(row.ID),
 		Name:        row.Name,
 		Country:     row.Country,
 		CountryCode: row.CountryCode,
@@ -434,7 +441,7 @@ func getCityByIDRowToCity(row sqlcgen.GetCityByIDRow) models.City {
 
 func nearestCityRowToCity(row sqlcgen.GetNearestCityRow) models.City {
 	city := models.City{
-		ID:          row.ID,
+		ID:          int32ToString(row.ID),
 		Name:        row.Name,
 		Country:     row.Country,
 		CountryCode: row.CountryCode,

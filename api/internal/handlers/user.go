@@ -7,6 +7,9 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 )
 
 // RequestPasswordReset sends a password reset email
@@ -40,12 +43,11 @@ func (h *Handlers) RequestPasswordReset(w http.ResponseWriter, r *http.Request) 
 
 	// Store the token (expires in 1 hour)
 	expiresAt := time.Now().Add(1 * time.Hour)
-	_, err = h.db.Pool.Exec(ctx, `
-		INSERT INTO password_reset_tokens (email, token, expires_at)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (email) DO UPDATE
-		SET token = $2, expires_at = $3, created_at = NOW()
-	`, email, token, expiresAt)
+	err = h.db.Queries.StorePasswordResetToken(ctx, sqlcgen.StorePasswordResetTokenParams{
+		Email:     email,
+		Token:     token,
+		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+	})
 
 	if err != nil {
 		slog.Error("failed to store password reset token", "error", err)
@@ -93,26 +95,18 @@ func (h *Handlers) GetPublisherNames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query publishers
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT id, name FROM publishers WHERE id = ANY($1)
-	`, ids)
-
+	results, err := h.db.Queries.GetPublisherNamesByIDs(ctx, ids)
 	if err != nil {
 		slog.Error("failed to get publisher names", "error", err)
 		RespondInternalError(w, r, "Failed to retrieve publishers")
 		return
 	}
-	defer rows.Close()
 
-	publishers := make([]map[string]string, 0)
-	for rows.Next() {
-		var id, name string
-		if err := rows.Scan(&id, &name); err != nil {
-			continue
-		}
-		publishers = append(publishers, map[string]string{
-			"id":   id,
-			"name": name,
+	publishers := make([]map[string]interface{}, 0)
+	for _, result := range results {
+		publishers = append(publishers, map[string]interface{}{
+			"id":   result.ID,
+			"name": result.Name,
 		})
 	}
 

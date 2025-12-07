@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jcom-dev/zmanim-lab/internal/calendar"
 	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
@@ -59,19 +58,6 @@ type PublisherZman struct {
 	SourceFormulaDSL      *string `json:"source_formula_dsl,omitempty" db:"source_formula_dsl"`
 }
 
-// ZmanimTemplate represents a system-wide default zman template
-type ZmanimTemplate struct {
-	ID          string    `json:"id" db:"id"`
-	ZmanKey     string    `json:"zman_key" db:"zman_key"`
-	HebrewName  string    `json:"hebrew_name" db:"hebrew_name"`
-	EnglishName string    `json:"english_name" db:"english_name"`
-	FormulaDSL  string    `json:"formula_dsl" db:"formula_dsl"`
-	Category    string    `json:"category" db:"category"`
-	Description *string   `json:"description" db:"description"`
-	IsRequired  bool      `json:"is_required" db:"is_required"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
-}
 
 // CreateZmanRequest represents the request body for creating a zman
 type CreateZmanRequest struct {
@@ -471,124 +457,110 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 
 // fetchPublisherZmanim retrieves all zmanim for a publisher from the database
 func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string) ([]PublisherZman, error) {
-	query := `
-		SELECT
-			pz.id, pz.publisher_id, pz.zman_key, pz.hebrew_name, pz.english_name,
-			pz.transliteration, pz.description,
-			COALESCE(linked_pz.formula_dsl, pz.formula_dsl) AS formula_dsl,
-			pz.ai_explanation, pz.publisher_comment,
-			pz.is_enabled, pz.is_visible, pz.is_published, pz.is_beta, pz.is_custom, pz.category,
-			pz.dependencies, pz.created_at, pz.updated_at,
-			pz.master_zman_id, pz.linked_publisher_zman_id, pz.source_type,
-			-- Source/original values from registry or linked publisher (for diff/revert UI)
-			COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name) AS source_hebrew_name,
-			COALESCE(mr.canonical_english_name, linked_pz.english_name) AS source_english_name,
-			COALESCE(mr.transliteration, linked_pz.transliteration) AS source_transliteration,
-			COALESCE(mr.description, linked_pz.description) AS source_description,
-			COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl) AS source_formula_dsl,
-			-- Check if this zman is an event zman (has event or behavior tags like is_candle_lighting, is_havdalah, etc.)
-			EXISTS (
-				SELECT 1 FROM (
-					-- Check master zman tags
-					SELECT zt.tag_type FROM master_zman_tags mzt
-					JOIN zman_tags zt ON mzt.tag_id = zt.id
-					WHERE mzt.master_zman_id = pz.master_zman_id
-					UNION ALL
-					-- Check publisher-specific tags
-					SELECT zt.tag_type FROM publisher_zman_tags pzt
-					JOIN zman_tags zt ON pzt.tag_id = zt.id
-					WHERE pzt.publisher_zman_id = pz.id
-				) all_tags
-				WHERE all_tags.tag_type IN ('event', 'behavior')
-			) AS is_event_zman,
-			-- Combine tags from master registry AND publisher-specific tags (with is_negated)
-			COALESCE(
-				(SELECT json_agg(json_build_object(
-					'id', sub.id,
-					'tag_key', sub.tag_key,
-					'name', sub.name,
-					'display_name_hebrew', sub.display_name_hebrew,
-					'display_name_english', sub.display_name_english,
-					'tag_type', sub.tag_type,
-					'is_negated', sub.is_negated
-				) ORDER BY sub.sort_order)
-				FROM (
-					-- Tags from master registry
-					SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
-					       t.tag_type, t.sort_order, mzt.is_negated
-					FROM master_zman_tags mzt
-					JOIN zman_tags t ON mzt.tag_id = t.id
-					WHERE mzt.master_zman_id = pz.master_zman_id
-					UNION ALL
-					-- Tags added by publisher
-					SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
-					       t.tag_type, t.sort_order, pzt.is_negated
-					FROM publisher_zman_tags pzt
-					JOIN zman_tags t ON pzt.tag_id = t.id
-					WHERE pzt.publisher_zman_id = pz.id
-				) sub),
-				'[]'::json
-			) AS tags,
-			CASE WHEN pz.linked_publisher_zman_id IS NOT NULL THEN true ELSE false END AS is_linked,
-			linked_pub.name AS linked_source_publisher_name,
-			CASE WHEN pz.linked_publisher_zman_id IS NOT NULL AND linked_pz.deleted_at IS NOT NULL
-				 THEN true ELSE false END AS linked_source_is_deleted,
-			COALESCE(mr.time_category, pz.category) AS time_category
-		FROM publisher_zmanim pz
-		LEFT JOIN publisher_zmanim linked_pz ON pz.linked_publisher_zman_id = linked_pz.id
-		LEFT JOIN publishers linked_pub ON linked_pz.publisher_id = linked_pub.id
-		LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
-		WHERE pz.publisher_id = $1
-		  AND pz.deleted_at IS NULL
-		ORDER BY
-			CASE COALESCE(mr.time_category, pz.category)
-				WHEN 'dawn' THEN 1
-				WHEN 'sunrise' THEN 2
-				WHEN 'morning' THEN 3
-				WHEN 'midday' THEN 4
-				WHEN 'afternoon' THEN 5
-				WHEN 'sunset' THEN 6
-				WHEN 'nightfall' THEN 7
-				WHEN 'midnight' THEN 8
-				ELSE 9
-			END,
-			pz.hebrew_name
-	`
+	// Convert publisherID to int32
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid publisher ID: %w", err)
+	}
 
-	rows, err := h.db.Pool.Query(ctx, query, publisherID)
+	// Use SQLc generated query
+	sqlcResults, err := h.db.Queries.FetchPublisherZmanim(ctx, publisherIDInt32)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var zmanim []PublisherZman
-	for rows.Next() {
-		var z PublisherZman
-		var tagsJSON []byte
-		err := rows.Scan(
-			&z.ID, &z.PublisherID, &z.ZmanKey, &z.HebrewName, &z.EnglishName,
-			&z.Transliteration, &z.Description,
-			&z.FormulaDSL, &z.AIExplanation, &z.PublisherComment,
-			&z.IsEnabled, &z.IsVisible, &z.IsPublished, &z.IsBeta, &z.IsCustom, &z.Category,
-			&z.Dependencies, &z.CreatedAt, &z.UpdatedAt,
-			&z.MasterZmanID, &z.LinkedPublisherZmanID, &z.SourceType,
-			&z.SourceHebrewName, &z.SourceEnglishName, &z.SourceTransliteration, &z.SourceDescription, &z.SourceFormulaDSL,
-			&z.IsEventZman, &tagsJSON, &z.IsLinked, &z.LinkedSourcePublisherName, &z.LinkedSourceIsDeleted,
-			&z.TimeCategory,
-		)
-		if err != nil {
-			return nil, err
+	// Convert SQLc results to PublisherZman slice
+	zmanim := make([]PublisherZman, 0, len(sqlcResults))
+	for _, row := range sqlcResults {
+		var tags []ZmanTag
+		if row.Tags != nil {
+			if tagsBytes, err := json.Marshal(row.Tags); err == nil {
+				_ = json.Unmarshal(tagsBytes, &tags)
+			}
+		}
+		if tags == nil {
+			tags = []ZmanTag{}
 		}
 
-		// Parse tags JSON
-		if len(tagsJSON) > 0 {
-			_ = json.Unmarshal(tagsJSON, &z.Tags)
+		// Convert nullable fields
+		var masterZmanID, linkedPublisherZmanID, linkedSourcePublisherName *string
+		if row.MasterZmanID != nil {
+			idStr := int32ToString(*row.MasterZmanID)
+			masterZmanID = &idStr
 		}
-		if z.Tags == nil {
-			z.Tags = []ZmanTag{}
+		if row.LinkedPublisherZmanID != nil {
+			idStr := int32ToString(*row.LinkedPublisherZmanID)
+			linkedPublisherZmanID = &idStr
+		}
+		if row.LinkedSourcePublisherName != nil {
+			linkedSourcePublisherName = row.LinkedSourcePublisherName
 		}
 
-		zmanim = append(zmanim, z)
+		// Convert source values
+		var sourceHebrewName, sourceEnglishName, sourceTransliteration, sourceDescription, sourceFormulaDSL *string
+		if row.SourceHebrewName != "" {
+			sourceHebrewName = &row.SourceHebrewName
+		}
+		if row.SourceEnglishName != "" {
+			sourceEnglishName = &row.SourceEnglishName
+		}
+		if row.SourceTransliteration != nil && *row.SourceTransliteration != "" {
+			sourceTransliteration = row.SourceTransliteration
+		}
+		if row.SourceDescription != nil && *row.SourceDescription != "" {
+			sourceDescription = row.SourceDescription
+		}
+		if row.SourceFormulaDsl != "" {
+			sourceFormulaDSL = &row.SourceFormulaDsl
+		}
+
+		// Convert category from *string to string
+		category := ""
+		if row.Category != nil {
+			category = *row.Category
+		}
+
+		// Convert source_type from *string to *string (already nullable)
+		var sourceType *string
+		if row.SourceType != nil {
+			sourceType = row.SourceType
+		}
+
+		zmanim = append(zmanim, PublisherZman{
+			ID:                        int32ToString(row.ID),
+			PublisherID:               int32ToString(row.PublisherID),
+			ZmanKey:                   row.ZmanKey,
+			HebrewName:                row.HebrewName,
+			EnglishName:               row.EnglishName,
+			Transliteration:           row.Transliteration,
+			Description:               row.Description,
+			FormulaDSL:                row.FormulaDsl,
+			AIExplanation:             row.AiExplanation,
+			PublisherComment:          row.PublisherComment,
+			IsEnabled:                 row.IsEnabled,
+			IsVisible:                 row.IsVisible,
+			IsPublished:               row.IsPublished,
+			IsBeta:                    row.IsBeta,
+			IsCustom:                  row.IsCustom,
+			IsEventZman:               row.IsEventZman,
+			Category:                  category,
+			TimeCategory:              row.TimeCategory,
+			Dependencies:              row.Dependencies,
+			CreatedAt:                 row.CreatedAt.Time,
+			UpdatedAt:                 row.UpdatedAt.Time,
+			Tags:                      tags,
+			MasterZmanID:              masterZmanID,
+			LinkedPublisherZmanID:     linkedPublisherZmanID,
+			SourceType:                sourceType,
+			IsLinked:                  row.IsLinked,
+			LinkedSourcePublisherName: linkedSourcePublisherName,
+			LinkedSourceIsDeleted:     row.LinkedSourceIsDeleted,
+			SourceHebrewName:          sourceHebrewName,
+			SourceEnglishName:         sourceEnglishName,
+			SourceTransliteration:     sourceTransliteration,
+			SourceDescription:         sourceDescription,
+			SourceFormulaDSL:          sourceFormulaDSL,
+		})
 	}
 
 	return zmanim, nil
@@ -716,14 +688,12 @@ type sqlcZmanRow interface {
 // Convert GetPublisherZmanimRow to PublisherZman
 func getPublisherZmanimRowToPublisherZman(z sqlcgen.GetPublisherZmanimRow) PublisherZman {
 	var masterZmanID, linkedPublisherZmanID, linkedSourcePublisherName *string
-	if z.MasterZmanID.Valid {
-		id := z.MasterZmanID.Bytes[:]
-		idStr := fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:16])
+	if z.MasterZmanID != nil {
+		idStr := int32ToString(*z.MasterZmanID)
 		masterZmanID = &idStr
 	}
-	if z.LinkedPublisherZmanID.Valid {
-		id := z.LinkedPublisherZmanID.Bytes[:]
-		idStr := fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:16])
+	if z.LinkedPublisherZmanID != nil {
+		idStr := int32ToString(*z.LinkedPublisherZmanID)
 		linkedPublisherZmanID = &idStr
 	}
 	if z.LinkedSourcePublisherName != nil {
@@ -756,9 +726,15 @@ func getPublisherZmanimRowToPublisherZman(z sqlcgen.GetPublisherZmanimRow) Publi
 		}
 	}
 
+	// Convert Category from *string to string (use empty string if nil)
+	category := ""
+	if z.Category != nil {
+		category = *z.Category
+	}
+
 	return PublisherZman{
-		ID:                        z.ID,
-		PublisherID:               z.PublisherID,
+		ID:                        int32ToString(z.ID),
+		PublisherID:               int32ToString(z.PublisherID),
 		ZmanKey:                   z.ZmanKey,
 		HebrewName:                z.HebrewName,
 		EnglishName:               z.EnglishName,
@@ -773,7 +749,7 @@ func getPublisherZmanimRowToPublisherZman(z sqlcgen.GetPublisherZmanimRow) Publi
 		IsBeta:                    z.IsBeta,
 		IsCustom:                  z.IsCustom,
 		IsEventZman:               z.IsEventZman,
-		Category:                  z.Category,
+		Category:                  category,
 		TimeCategory:              z.TimeCategory,
 		Dependencies:              z.Dependencies,
 		CreatedAt:                 z.CreatedAt.Time,
@@ -781,7 +757,7 @@ func getPublisherZmanimRowToPublisherZman(z sqlcgen.GetPublisherZmanimRow) Publi
 		Tags:                      tags,
 		MasterZmanID:              masterZmanID,
 		LinkedPublisherZmanID:     linkedPublisherZmanID,
-		SourceType:                &z.SourceType,
+		SourceType:                z.SourceType,
 		IsLinked:                  z.IsLinked,
 		LinkedSourcePublisherName: linkedSourcePublisherName,
 		LinkedSourceIsDeleted:     z.LinkedSourceIsDeleted,
@@ -796,14 +772,12 @@ func getPublisherZmanimRowToPublisherZman(z sqlcgen.GetPublisherZmanimRow) Publi
 // Convert GetPublisherZmanByKeyRow to PublisherZman
 func getPublisherZmanByKeyRowToPublisherZman(z sqlcgen.GetPublisherZmanByKeyRow) PublisherZman {
 	var masterZmanID, linkedPublisherZmanID, linkedSourcePublisherName *string
-	if z.MasterZmanID.Valid {
-		id := z.MasterZmanID.Bytes[:]
-		idStr := fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:16])
+	if z.MasterZmanID != nil {
+		idStr := int32ToString(*z.MasterZmanID)
 		masterZmanID = &idStr
 	}
-	if z.LinkedPublisherZmanID.Valid {
-		id := z.LinkedPublisherZmanID.Bytes[:]
-		idStr := fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:16])
+	if z.LinkedPublisherZmanID != nil {
+		idStr := int32ToString(*z.LinkedPublisherZmanID)
 		linkedPublisherZmanID = &idStr
 	}
 	if z.LinkedSourcePublisherName != nil {
@@ -828,9 +802,15 @@ func getPublisherZmanByKeyRowToPublisherZman(z sqlcgen.GetPublisherZmanByKeyRow)
 		sourceFormulaDSL = &z.SourceFormulaDsl
 	}
 
+	// Convert Category from *string to string (use empty string if nil)
+	category := ""
+	if z.Category != nil {
+		category = *z.Category
+	}
+
 	return PublisherZman{
-		ID:                        z.ID,
-		PublisherID:               z.PublisherID,
+		ID:                        int32ToString(z.ID),
+		PublisherID:               int32ToString(z.PublisherID),
 		ZmanKey:                   z.ZmanKey,
 		HebrewName:                z.HebrewName,
 		EnglishName:               z.EnglishName,
@@ -844,14 +824,14 @@ func getPublisherZmanByKeyRowToPublisherZman(z sqlcgen.GetPublisherZmanByKeyRow)
 		IsPublished:               z.IsPublished,
 		IsBeta:                    z.IsBeta,
 		IsCustom:                  z.IsCustom,
-		Category:                  z.Category,
+		Category:                  category,
 		TimeCategory:              z.TimeCategory,
 		Dependencies:              z.Dependencies,
 		CreatedAt:                 z.CreatedAt.Time,
 		UpdatedAt:                 z.UpdatedAt.Time,
 		MasterZmanID:              masterZmanID,
 		LinkedPublisherZmanID:     linkedPublisherZmanID,
-		SourceType:                &z.SourceType,
+		SourceType:                z.SourceType,
 		IsLinked:                  z.IsLinked,
 		LinkedSourcePublisherName: linkedSourcePublisherName,
 		SourceHebrewName:          sourceHebrewName,
@@ -865,8 +845,8 @@ func getPublisherZmanByKeyRowToPublisherZman(z sqlcgen.GetPublisherZmanByKeyRow)
 // Convert CreatePublisherZmanRow to PublisherZman
 func createPublisherZmanRowToPublisherZman(z sqlcgen.CreatePublisherZmanRow) PublisherZman {
 	return PublisherZman{
-		ID:               z.ID,
-		PublisherID:      z.PublisherID,
+		ID:               int32ToString(z.ID),
+		PublisherID:      int32ToString(z.PublisherID),
 		ZmanKey:          z.ZmanKey,
 		HebrewName:       z.HebrewName,
 		EnglishName:      z.EnglishName,
@@ -878,7 +858,7 @@ func createPublisherZmanRowToPublisherZman(z sqlcgen.CreatePublisherZmanRow) Pub
 		IsPublished:      z.IsPublished,
 		IsBeta:           z.IsBeta,
 		IsCustom:         z.IsCustom,
-		Category:         z.Category,
+		Category:         "", // CreatePublisherZmanRow doesn't have Category field
 		Dependencies:     z.Dependencies,
 		CreatedAt:        z.CreatedAt.Time,
 		UpdatedAt:        z.UpdatedAt.Time,
@@ -888,8 +868,8 @@ func createPublisherZmanRowToPublisherZman(z sqlcgen.CreatePublisherZmanRow) Pub
 // Convert UpdatePublisherZmanRow to PublisherZman
 func updatePublisherZmanRowToPublisherZman(z sqlcgen.UpdatePublisherZmanRow) PublisherZman {
 	return PublisherZman{
-		ID:               z.ID,
-		PublisherID:      z.PublisherID,
+		ID:               int32ToString(z.ID),
+		PublisherID:      int32ToString(z.PublisherID),
 		ZmanKey:          z.ZmanKey,
 		HebrewName:       z.HebrewName,
 		EnglishName:      z.EnglishName,
@@ -903,56 +883,57 @@ func updatePublisherZmanRowToPublisherZman(z sqlcgen.UpdatePublisherZmanRow) Pub
 		IsPublished:      z.IsPublished,
 		IsBeta:           z.IsBeta,
 		IsCustom:         z.IsCustom,
-		Category:         z.Category,
+		Category:         "", // UpdatePublisherZmanRow doesn't have Category field
 		Dependencies:     z.Dependencies,
 		CreatedAt:        z.CreatedAt.Time,
 		UpdatedAt:        z.UpdatedAt.Time,
 	}
 }
 
+// NOTE: Template import functions removed - template system no longer used
 // Convert ImportZmanimFromTemplatesRow to PublisherZman
-func importZmanimFromTemplatesRowToPublisherZman(z sqlcgen.ImportZmanimFromTemplatesRow) PublisherZman {
-	return PublisherZman{
-		ID:               z.ID,
-		PublisherID:      z.PublisherID,
-		ZmanKey:          z.ZmanKey,
-		HebrewName:       z.HebrewName,
-		EnglishName:      z.EnglishName,
-		FormulaDSL:       z.FormulaDsl,
-		AIExplanation:    z.AiExplanation,
-		PublisherComment: z.PublisherComment,
-		IsEnabled:        z.IsEnabled,
-		IsVisible:        z.IsVisible,
-		IsPublished:      z.IsPublished,
-		IsCustom:         z.IsCustom,
-		Category:         z.Category,
-		Dependencies:     z.Dependencies,
-		CreatedAt:        z.CreatedAt.Time,
-		UpdatedAt:        z.UpdatedAt.Time,
-	}
-}
+// func importZmanimFromTemplatesRowToPublisherZman(z sqlcgen.ImportZmanimFromTemplatesRow) PublisherZman {
+// 	return PublisherZman{
+// 		ID:               z.ID,
+// 		PublisherID:      z.PublisherID,
+// 		ZmanKey:          z.ZmanKey,
+// 		HebrewName:       z.HebrewName,
+// 		EnglishName:      z.EnglishName,
+// 		FormulaDSL:       z.FormulaDsl,
+// 		AIExplanation:    z.AiExplanation,
+// 		PublisherComment: z.PublisherComment,
+// 		IsEnabled:        z.IsEnabled,
+// 		IsVisible:        z.IsVisible,
+// 		IsPublished:      z.IsPublished,
+// 		IsCustom:         z.IsCustom,
+// 		Category:         z.Category,
+// 		Dependencies:     z.Dependencies,
+// 		CreatedAt:        z.CreatedAt.Time,
+// 		UpdatedAt:        z.UpdatedAt.Time,
+// 	}
+// }
 
 // Convert ImportZmanimFromTemplatesByKeysRow to PublisherZman
-func importZmanimFromTemplatesByKeysRowToPublisherZman(z sqlcgen.ImportZmanimFromTemplatesByKeysRow) PublisherZman {
-	return PublisherZman{
-		ID:               z.ID,
-		PublisherID:      z.PublisherID,
-		ZmanKey:          z.ZmanKey,
-		HebrewName:       z.HebrewName,
-		EnglishName:      z.EnglishName,
-		FormulaDSL:       z.FormulaDsl,
-		AIExplanation:    z.AiExplanation,
-		PublisherComment: z.PublisherComment,
-		IsEnabled:        z.IsEnabled,
-		IsVisible:        z.IsVisible,
-		IsPublished:      z.IsPublished,
-		IsCustom:         z.IsCustom,
-		Category:         z.Category,
-		Dependencies:     z.Dependencies,
-		CreatedAt:        z.CreatedAt.Time,
-		UpdatedAt:        z.UpdatedAt.Time,
-	}
-}
+// func importZmanimFromTemplatesByKeysRowToPublisherZman(z sqlcgen.ImportZmanimFromTemplatesByKeysRow) PublisherZman {
+// 	return PublisherZman{
+// 		ID:               z.ID,
+// 		PublisherID:      z.PublisherID,
+// 		ZmanKey:          z.ZmanKey,
+// 		HebrewName:       z.HebrewName,
+// 		EnglishName:      z.EnglishName,
+// 		FormulaDSL:       z.FormulaDsl,
+// 		AIExplanation:    z.AiExplanation,
+// 		PublisherComment: z.PublisherComment,
+// 		IsEnabled:        z.IsEnabled,
+// 		IsVisible:        z.IsVisible,
+// 		IsPublished:      z.IsPublished,
+// 		IsCustom:         z.IsCustom,
+// 		Category:         z.Category,
+// 		Dependencies:     z.Dependencies,
+// 		CreatedAt:        z.CreatedAt.Time,
+// 		UpdatedAt:        z.UpdatedAt.Time,
+// 	}
+// }
 
 // GetPublisherZman returns a single zman by key
 // @Summary Get single zman
@@ -974,7 +955,14 @@ func (h *Handlers) GetPublisherZman(w http.ResponseWriter, r *http.Request) {
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
+
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(publisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	zmanKey := chi.URLParam(r, "zmanKey")
 
@@ -1020,7 +1008,14 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
+
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(publisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	var req CreateZmanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1048,11 +1043,9 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 		isVisible = *req.IsVisible
 	}
 
-	id := uuid.New().String()
-
 	// Use SQLc generated query
 	sqlcZman, insertErr := h.db.Queries.CreatePublisherZman(ctx, sqlcgen.CreatePublisherZmanParams{
-		ID:               id,
+		ID:               0, // Let database generate SERIAL ID
 		PublisherID:      publisherID,
 		ZmanKey:          req.ZmanKey,
 		HebrewName:       req.HebrewName,
@@ -1064,8 +1057,11 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 		IsVisible:        isVisible,
 		IsPublished:      false, // New zmanim start unpublished
 		IsCustom:         true,  // Custom zmanim are always user-created
-		Category:         "custom",
+		TimeCategoryID:   nil,   // No category for custom zmanim
 		Dependencies:     dependencies,
+		MasterZmanID:     nil,
+		LinkedPublisherZmanID: nil,
+		SourceTypeID:     1, // Default source type (e.g., "custom")
 	})
 
 	if insertErr != nil {
@@ -1080,8 +1076,8 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	// Invalidate cache - new zman affects calculations
 	if h.cache != nil {
-		if err := h.cache.InvalidatePublisherCache(ctx, publisherID); err != nil {
-			slog.Warn("failed to invalidate cache after creating zman", "error", err, "publisher_id", publisherID)
+		if err := h.cache.InvalidatePublisherCache(ctx, publisherIDStr); err != nil {
+			slog.Warn("failed to invalidate cache after creating zman", "error", err, "publisher_id", publisherIDStr)
 		}
 	}
 
@@ -1114,7 +1110,14 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
+
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(publisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	zmanKey := chi.URLParam(r, "zmanKey")
 
@@ -1169,7 +1172,6 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 		IsVisible:        req.IsVisible,
 		IsPublished:      req.IsPublished,
 		IsBeta:           req.IsBeta,
-		Category:         req.Category,
 		Dependencies:     dependencies,
 	})
 
@@ -1184,10 +1186,10 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	// Invalidate all cached data for this publisher when formula or is_enabled changes
 	if h.cache != nil && (req.FormulaDSL != nil || req.IsEnabled != nil) {
-		if err := h.cache.InvalidatePublisherCache(ctx, publisherID); err != nil {
-			slog.Warn("failed to invalidate cache", "error", err, "publisher_id", publisherID)
+		if err := h.cache.InvalidatePublisherCache(ctx, publisherIDStr); err != nil {
+			slog.Warn("failed to invalidate cache", "error", err, "publisher_id", publisherIDStr)
 		} else {
-			slog.Info("invalidated cache", "publisher_id", publisherID, "reason", "zman_updated")
+			slog.Info("invalidated cache", "publisher_id", publisherIDStr, "reason", "zman_updated")
 		}
 	}
 
@@ -1206,7 +1208,14 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
+
+	// Convert publisher ID from string to int32
+	publisherID, err := stringToInt32(publisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
 	zmanKey := chi.URLParam(r, "zmanKey")
 
@@ -1227,7 +1236,7 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	// Invalidate cache - deleted zman affects calculations
 	if h.cache != nil {
-		if err := h.cache.InvalidatePublisherCache(ctx, publisherID); err != nil {
+		if err := h.cache.InvalidatePublisherCache(ctx, fmt.Sprintf("%d", publisherID)); err != nil {
 			slog.Warn("failed to invalidate cache after deleting zman", "error", err, "publisher_id", publisherID)
 		}
 	}
@@ -1238,223 +1247,12 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ImportZmanimRequest represents the request body for importing zmanim
-type ImportZmanimRequest struct {
-	Source      string   `json:"source"`       // "defaults" or "publisher"
-	PublisherID *string  `json:"publisher_id"` // Required if source is "publisher"
-	ZmanKeys    []string `json:"zman_keys"`    // Optional: specific keys to import (empty = all)
-}
-
-// ImportZmanim bulk imports zmanim from defaults or another publisher
+// ImportZmanim bulk imports zmanim from another publisher
 // POST /api/v1/publisher/zmanim/import
 func (h *Handlers) ImportZmanim(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Use PublisherResolver to get publisher context
-	pc := h.publisherResolver.MustResolve(w, r)
-	if pc == nil {
-		return // Response already sent
-	}
-	publisherID := pc.PublisherID
-
-	var req ImportZmanimRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondBadRequest(w, r, "Invalid request body")
-		return
-	}
-
-	// Validate source
-	if req.Source != "defaults" && req.Source != "publisher" {
-		RespondBadRequest(w, r, "Source must be 'defaults' or 'publisher'")
-		return
-	}
-
-	if req.Source == "publisher" && (req.PublisherID == nil || *req.PublisherID == "") {
-		RespondBadRequest(w, r, "publisher_id is required when source is 'publisher'")
-		return
-	}
-
-	var imported []PublisherZman
-
-	if req.Source == "defaults" {
-		// Import from zmanim_templates table using SQLc
-		var err error
-
-		if len(req.ZmanKeys) > 0 {
-			// Import specific templates
-			sqlcImported, importErr := h.db.Queries.ImportZmanimFromTemplatesByKeys(ctx, sqlcgen.ImportZmanimFromTemplatesByKeysParams{
-				PublisherID: publisherID,
-				Column2:     req.ZmanKeys,
-			})
-			err = importErr
-			if err == nil {
-				for _, z := range sqlcImported {
-					imported = append(imported, importZmanimFromTemplatesByKeysRowToPublisherZman(z))
-				}
-			}
-		} else {
-			// Import all templates
-			sqlcImported, importErr := h.db.Queries.ImportZmanimFromTemplates(ctx, publisherID)
-			err = importErr
-			if err == nil {
-				for _, z := range sqlcImported {
-					imported = append(imported, importZmanimFromTemplatesRowToPublisherZman(z))
-				}
-			}
-		}
-
-		if err != nil {
-			RespondInternalError(w, r, "Failed to import templates: "+err.Error())
-			return
-		}
-
-	} else {
-		// Import from another publisher
-		sourcePublisherID := *req.PublisherID
-
-		// Verify source publisher exists and has public algorithm
-		var isPublic bool
-		err := h.db.Pool.QueryRow(ctx,
-			"SELECT COALESCE(algorithm_public, false) FROM publishers WHERE id = $1",
-			sourcePublisherID,
-		).Scan(&isPublic)
-		if err == pgx.ErrNoRows {
-			RespondNotFound(w, r, "Source publisher not found")
-			return
-		}
-		if err != nil {
-			RespondInternalError(w, r, "Failed to check source publisher")
-			return
-		}
-		if !isPublic {
-			RespondForbidden(w, r, "Source publisher's algorithm is not public")
-			return
-		}
-
-		// Note: Import from publisher still uses raw SQL as it's not in SQLc queries
-		// This is intentional - less common operation, more complex query
-		var query string
-		var args []interface{}
-
-		if len(req.ZmanKeys) > 0 {
-			query = `
-				INSERT INTO publisher_zmanim (
-					id, publisher_id, zman_key, hebrew_name, english_name,
-					formula_dsl, ai_explanation, publisher_comment,
-					is_enabled, is_visible, is_custom, category,
-					dependencies
-				)
-				SELECT
-					gen_random_uuid(), $1, zman_key, hebrew_name, english_name,
-					formula_dsl, ai_explanation, NULL,
-					true, true, false, category,
-					dependencies
-				FROM publisher_zmanim
-				WHERE publisher_id = $2 AND zman_key = ANY($3)
-				ON CONFLICT (publisher_id, zman_key) DO NOTHING
-				RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
-					formula_dsl, ai_explanation, publisher_comment,
-					is_enabled, is_visible, is_custom, category,
-					dependencies, created_at, updated_at
-			`
-			args = []interface{}{publisherID, sourcePublisherID, req.ZmanKeys}
-		} else {
-			query = `
-				INSERT INTO publisher_zmanim (
-					id, publisher_id, zman_key, hebrew_name, english_name,
-					formula_dsl, ai_explanation, publisher_comment,
-					is_enabled, is_visible, is_custom, category,
-					dependencies
-				)
-				SELECT
-					gen_random_uuid(), $1, zman_key, hebrew_name, english_name,
-					formula_dsl, ai_explanation, NULL,
-					true, true, false, category,
-					dependencies
-				FROM publisher_zmanim
-				WHERE publisher_id = $2
-				ON CONFLICT (publisher_id, zman_key) DO NOTHING
-				RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
-					formula_dsl, ai_explanation, publisher_comment,
-					is_enabled, is_visible, is_custom, category,
-					dependencies, created_at, updated_at
-			`
-			args = []interface{}{publisherID, sourcePublisherID}
-		}
-
-		rows, err := h.db.Pool.Query(ctx, query, args...)
-		if err != nil {
-			RespondInternalError(w, r, "Failed to import from publisher: "+err.Error())
-			return
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var z PublisherZman
-			err := rows.Scan(
-				&z.ID, &z.PublisherID, &z.ZmanKey, &z.HebrewName, &z.EnglishName,
-				&z.FormulaDSL, &z.AIExplanation, &z.PublisherComment,
-				&z.IsEnabled, &z.IsVisible, &z.IsCustom, &z.Category,
-				&z.Dependencies, &z.CreatedAt, &z.UpdatedAt,
-			)
-			if err != nil {
-				RespondInternalError(w, r, "Failed to scan imported zman")
-				return
-			}
-			imported = append(imported, z)
-		}
-	}
-
-	// Invalidate cache - imported zmanim affect calculations
-	if h.cache != nil && len(imported) > 0 {
-		if err := h.cache.InvalidatePublisherCache(ctx, publisherID); err != nil {
-			slog.Warn("failed to invalidate cache after import", "error", err, "publisher_id", publisherID)
-		}
-	}
-
-	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"imported": imported,
-		"count":    len(imported),
-		"message":  fmt.Sprintf("Successfully imported %d zmanim", len(imported)),
-	})
+	RespondBadRequest(w, r, "Import feature is currently under maintenance. Please use the master registry instead.")
 }
 
-// GetZmanimTemplates returns all system templates
-// GET /api/v1/zmanim/templates
-func (h *Handlers) GetZmanimTemplates(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Use SQLc generated query
-	sqlcTemplates, err := h.db.Queries.GetZmanimTemplates(ctx)
-	if err != nil {
-		RespondInternalError(w, r, "Failed to fetch templates")
-		return
-	}
-
-	// Convert to handler types
-	templates := make([]ZmanimTemplate, len(sqlcTemplates))
-	for i, t := range sqlcTemplates {
-		templates[i] = sqlcTemplateToZmanimTemplate(t)
-	}
-
-	RespondJSON(w, r, http.StatusOK, templates)
-}
-
-// sqlcTemplateToZmanimTemplate converts SQLc generated type to handler type
-func sqlcTemplateToZmanimTemplate(t sqlcgen.ZmanimTemplate) ZmanimTemplate {
-	return ZmanimTemplate{
-		ID:          t.ID,
-		ZmanKey:     t.ZmanKey,
-		HebrewName:  t.HebrewName,
-		EnglishName: t.EnglishName,
-		FormulaDSL:  t.FormulaDsl,
-		Category:    t.Category,
-		Description: t.Description,
-		IsRequired:  t.IsRequired,
-		CreatedAt:   t.CreatedAt,
-		UpdatedAt:   t.UpdatedAt,
-	}
-}
 
 // BrowsePublicZmanim allows browsing public zmanim from other publishers
 // GET /api/v1/zmanim/browse?q=search&category=optional
@@ -1463,10 +1261,21 @@ func (h *Handlers) BrowsePublicZmanim(w http.ResponseWriter, r *http.Request) {
 	searchQuery := r.URL.Query().Get("q")
 	category := r.URL.Query().Get("category")
 
+	// Parse category to int32 if provided
+	var categoryID int32
+	if category != "" {
+		catID, err := stringToInt32(category)
+		if err != nil {
+			RespondBadRequest(w, r, "Invalid category ID")
+			return
+		}
+		categoryID = catID
+	}
+
 	// Use SQLc generated query
 	sqlcResults, err := h.db.Queries.BrowsePublicZmanim(ctx, sqlcgen.BrowsePublicZmanimParams{
 		Column1: searchQuery, // Search term (can be empty)
-		Column2: category,    // Category filter (can be empty)
+		Column2: categoryID,  // Category filter (can be empty)
 	})
 	if err != nil {
 		RespondInternalError(w, r, "Failed to browse zmanim")
@@ -1487,15 +1296,19 @@ func (h *Handlers) BrowsePublicZmanim(w http.ResponseWriter, r *http.Request) {
 
 	results := make([]BrowseResult, len(sqlcResults))
 	for i, r := range sqlcResults {
+		categoryStr := ""
+		if r.Category != nil {
+			categoryStr = *r.Category
+		}
 		results[i] = BrowseResult{
-			ID:            r.ID,
-			PublisherID:   r.PublisherID,
+			ID:            int32ToString(r.ID),
+			PublisherID:   int32ToString(r.PublisherID),
 			PublisherName: r.PublisherName,
 			ZmanKey:       r.ZmanKey,
 			HebrewName:    r.HebrewName,
 			EnglishName:   r.EnglishName,
 			FormulaDSL:    r.FormulaDsl,
-			Category:      r.Category,
+			Category:      categoryStr,
 			UsageCount:    int(r.UsageCount),
 		}
 	}
@@ -1540,43 +1353,32 @@ func (h *Handlers) GetVerifiedPublishers(w http.ResponseWriter, r *http.Request)
 	if pc == nil {
 		return // Response already sent
 	}
-	publisherID := pc.PublisherID
+	publisherIDStr := pc.PublisherID
 
-	query := `
-		SELECT
-			p.id, p.name, p.logo_url,
-			COUNT(pz.id) AS zmanim_count
-		FROM publishers p
-		JOIN publisher_zmanim pz ON pz.publisher_id = p.id
-			AND pz.is_published = true
-			AND pz.is_enabled = true
-			AND pz.deleted_at IS NULL
-		WHERE p.is_verified = true
-		  AND p.status = 'active'
-		  AND p.id != $1
-		GROUP BY p.id, p.name, p.logo_url
-		HAVING COUNT(pz.id) > 0
-		ORDER BY p.name
-	`
+	// Convert publisher ID to int32
+	publisherID, err := stringToInt32(publisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
-	rows, err := h.db.Pool.Query(ctx, query, publisherID)
+	// Use SQLc generated query
+	sqlcResults, err := h.db.Queries.GetVerifiedPublishers(ctx, publisherID)
 	if err != nil {
 		slog.Error("failed to fetch verified publishers", "error", err)
 		RespondInternalError(w, r, "Failed to fetch publishers")
 		return
 	}
-	defer rows.Close()
 
-	var publishers []VerifiedPublisher
-	for rows.Next() {
-		var p VerifiedPublisher
-		err := rows.Scan(&p.ID, &p.Name, &p.LogoURL, &p.ZmanimCount)
-		if err != nil {
-			slog.Error("failed to scan publisher", "error", err)
-			RespondInternalError(w, r, "Failed to fetch publishers")
-			return
-		}
-		publishers = append(publishers, p)
+	// Convert SQLc results to VerifiedPublisher slice
+	publishers := make([]VerifiedPublisher, 0, len(sqlcResults))
+	for _, row := range sqlcResults {
+		publishers = append(publishers, VerifiedPublisher{
+			ID:          int32ToString(row.ID),
+			Name:        row.Name,
+			LogoURL:     row.LogoUrl,
+			ZmanimCount: int(row.ZmanimCount),
+		})
 	}
 
 	RespondJSON(w, r, http.StatusOK, publishers)
@@ -1592,21 +1394,29 @@ func (h *Handlers) GetPublisherZmanimForLinking(w http.ResponseWriter, r *http.R
 	if pc == nil {
 		return // Response already sent
 	}
-	currentPublisherID := pc.PublisherID
+	currentPublisherIDStr := pc.PublisherID
 
 	// Get target publisher ID from URL
-	sourcePublisherID := chi.URLParam(r, "publisherId")
-	if sourcePublisherID == "" {
+	sourcePublisherIDStr := chi.URLParam(r, "publisherId")
+	if sourcePublisherIDStr == "" {
 		RespondBadRequest(w, r, "Publisher ID is required")
 		return
 	}
 
-	// Verify source publisher is verified
-	var isVerified bool
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT is_verified FROM publishers WHERE id = $1 AND status = 'active'",
-		sourcePublisherID,
-	).Scan(&isVerified)
+	// Convert IDs to int32
+	sourcePublisherID, err := stringToInt32(sourcePublisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid source publisher ID")
+		return
+	}
+	currentPublisherID, err := stringToInt32(currentPublisherIDStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid current publisher ID")
+		return
+	}
+
+	// Verify source publisher is verified using SQLc
+	isVerified, err := h.db.Queries.CheckPublisherVerified(ctx, sourcePublisherID)
 	if err == pgx.ErrNoRows {
 		RespondNotFound(w, r, "Publisher not found")
 		return
@@ -1620,42 +1430,40 @@ func (h *Handlers) GetPublisherZmanimForLinking(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	query := `
-		SELECT
-			pz.id, pz.publisher_id, pz.zman_key, pz.hebrew_name, pz.english_name,
-			pz.formula_dsl, pz.category, pz.source_type,
-			p.name AS publisher_name
-		FROM publisher_zmanim pz
-		JOIN publishers p ON p.id = pz.publisher_id
-		WHERE pz.publisher_id = $1
-		  AND pz.is_published = true
-		  AND pz.is_enabled = true
-		  AND pz.deleted_at IS NULL
-		  AND pz.zman_key NOT IN (
-			  SELECT zman_key FROM publisher_zmanim WHERE publisher_id = $2 AND deleted_at IS NULL
-		  )
-		ORDER BY pz.hebrew_name
-	`
-
-	rows, err := h.db.Pool.Query(ctx, query, sourcePublisherID, currentPublisherID)
+	// Use SQLc generated query to get zmanim for linking
+	sqlcResults, err := h.db.Queries.GetPublisherZmanimForLinking(ctx, sqlcgen.GetPublisherZmanimForLinkingParams{
+		PublisherID: sourcePublisherID,
+		Column2:     currentPublisherID, // Exclude zmanim already owned by current publisher
+	})
 	if err != nil {
 		slog.Error("failed to fetch zmanim for linking", "error", err)
 		RespondInternalError(w, r, "Failed to fetch zmanim")
 		return
 	}
-	defer rows.Close()
 
-	var zmanim []PublisherZmanForLinking
-	for rows.Next() {
-		var z PublisherZmanForLinking
-		err := rows.Scan(&z.ID, &z.PublisherID, &z.ZmanKey, &z.HebrewName, &z.EnglishName,
-			&z.FormulaDSL, &z.Category, &z.SourceType, &z.PublisherName)
-		if err != nil {
-			slog.Error("failed to scan zman", "error", err)
-			RespondInternalError(w, r, "Failed to fetch zmanim")
-			return
+	// Convert SQLc results to PublisherZmanForLinking slice
+	zmanim := make([]PublisherZmanForLinking, 0, len(sqlcResults))
+	for _, row := range sqlcResults {
+		category := ""
+		if row.Category != nil {
+			category = *row.Category
 		}
-		zmanim = append(zmanim, z)
+		var sourceType *string
+		if row.SourceType != nil {
+			sourceType = row.SourceType
+		}
+
+		zmanim = append(zmanim, PublisherZmanForLinking{
+			ID:            int32ToString(row.ID),
+			PublisherID:   int32ToString(row.PublisherID),
+			PublisherName: row.PublisherName,
+			ZmanKey:       row.ZmanKey,
+			HebrewName:    row.HebrewName,
+			EnglishName:   row.EnglishName,
+			FormulaDSL:    row.FormulaDsl,
+			Category:      category,
+			SourceType:    sourceType,
+		})
 	}
 
 	RespondJSON(w, r, http.StatusOK, zmanim)
@@ -1685,37 +1493,15 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Fetch source zman
-	var sourceZman struct {
-		ID           string
-		PublisherID  string
-		ZmanKey      string
-		HebrewName   string
-		EnglishName  string
-		FormulaDSL   string
-		Category     string
-		Dependencies []string
-		MasterZmanID *string
-		IsVerified   bool
+	// Convert source zman ID to int32
+	sourceZmanIDInt32, err := stringToInt32(req.SourcePublisherZmanID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid source zman ID")
+		return
 	}
 
-	err := h.db.Pool.QueryRow(ctx, `
-		SELECT
-			pz.id, pz.publisher_id, pz.zman_key, pz.hebrew_name, pz.english_name,
-			pz.formula_dsl, pz.category, pz.dependencies, pz.master_zman_id,
-			p.is_verified
-		FROM publisher_zmanim pz
-		JOIN publishers p ON p.id = pz.publisher_id
-		WHERE pz.id = $1
-		  AND pz.is_published = true
-		  AND pz.is_enabled = true
-		  AND pz.deleted_at IS NULL
-	`, req.SourcePublisherZmanID).Scan(
-		&sourceZman.ID, &sourceZman.PublisherID, &sourceZman.ZmanKey, &sourceZman.HebrewName,
-		&sourceZman.EnglishName, &sourceZman.FormulaDSL, &sourceZman.Category,
-		&sourceZman.Dependencies, &sourceZman.MasterZmanID, &sourceZman.IsVerified,
-	)
-
+	// Fetch source zman using SQLc
+	sourceZman, err := h.db.Queries.GetSourceZmanForLinking(ctx, sourceZmanIDInt32)
 	if err == pgx.ErrNoRows {
 		RespondNotFound(w, r, "Source zman not found or not available")
 		return
@@ -1732,54 +1518,57 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check if zman_key already exists for this publisher
-	var exists bool
-	err = h.db.Pool.QueryRow(ctx,
-		"SELECT EXISTS(SELECT 1 FROM publisher_zmanim WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL)",
-		publisherID, sourceZman.ZmanKey,
-	).Scan(&exists)
+	// Convert publisherID to int32
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
+	// Check if zman_key already exists for this publisher using SQLc
+	existsResult, err := h.db.Queries.CheckZmanKeyExists(ctx, sqlcgen.CheckZmanKeyExistsParams{
+		PublisherID: publisherIDInt32,
+		ZmanKey:     sourceZman.ZmanKey,
+	})
 	if err != nil {
 		RespondInternalError(w, r, "Failed to check existing zman")
 		return
 	}
-	if exists {
+	if existsResult {
 		RespondBadRequest(w, r, fmt.Sprintf("Zman with key '%s' already exists", sourceZman.ZmanKey))
 		return
 	}
 
-	newID := uuid.New().String()
-	var sourceType string
-	var linkedID *string
+	// Prepare parameters for insert
+	var linkedID *int32
 	var formulaDSL string
-
 	if req.Mode == "copy" {
-		sourceType = "copied"
 		linkedID = nil
-		formulaDSL = sourceZman.FormulaDSL
+		formulaDSL = sourceZman.FormulaDsl
 	} else {
-		sourceType = "linked"
-		linkedID = &sourceZman.ID
+		// Mode is "link"
+		linkedID = &sourceZmanIDInt32
 		formulaDSL = "" // For linked zmanim, formula is resolved at query time
 	}
 
-	// Insert the new zman
-	query := `
-		INSERT INTO publisher_zmanim (
-			id, publisher_id, zman_key, hebrew_name, english_name,
-			formula_dsl, is_enabled, is_visible, is_published, is_custom, category,
-			dependencies, master_zman_id, linked_publisher_zman_id, source_type
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, true, true, false, false, $7, $8, $9, $10, $11
-		)
-		RETURNING id, created_at, updated_at
-	`
+	// Convert master_zman_id if present
+	var masterZmanIDInt32 *int32
+	if sourceZman.MasterZmanID != nil {
+		masterZmanIDInt32 = sourceZman.MasterZmanID
+	}
 
-	var createdAt, updatedAt time.Time
-	err = h.db.Pool.QueryRow(ctx, query,
-		newID, publisherID, sourceZman.ZmanKey, sourceZman.HebrewName, sourceZman.EnglishName,
-		formulaDSL, sourceZman.Category, sourceZman.Dependencies,
-		sourceZman.MasterZmanID, linkedID, sourceType,
-	).Scan(&newID, &createdAt, &updatedAt)
+	// Insert the new zman using SQLc
+	result, err := h.db.Queries.CreateLinkedOrCopiedZman(ctx, sqlcgen.CreateLinkedOrCopiedZmanParams{
+		PublisherID:           publisherIDInt32,
+		ZmanKey:               sourceZman.ZmanKey,
+		HebrewName:            sourceZman.HebrewName,
+		EnglishName:           sourceZman.EnglishName,
+		FormulaDsl:            formulaDSL,
+		TimeCategoryID:        nil, // Will be inherited from source if needed
+		Dependencies:          sourceZman.Dependencies,
+		MasterZmanID:          masterZmanIDInt32,
+		LinkedPublisherZmanID: linkedID,
+	})
 
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
@@ -1798,29 +1587,55 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Convert IDs to strings for response
+	var linkedIDStr *string
+	if linkedID != nil {
+		linkedStr := int32ToString(*linkedID)
+		linkedIDStr = &linkedStr
+	}
+	var masterZmanIDStr *string
+	if masterZmanIDInt32 != nil {
+		masterStr := int32ToString(*masterZmanIDInt32)
+		masterZmanIDStr = &masterStr
+	}
+
+	// Convert category to string
+	category := ""
+	if sourceZman.Category != nil {
+		category = *sourceZman.Category
+	}
+
+	// Determine source type string
+	var sourceTypeStr string
+	if req.Mode == "copy" {
+		sourceTypeStr = "copied"
+	} else {
+		sourceTypeStr = "linked"
+	}
+
 	// Return the created zman
-	result := PublisherZman{
-		ID:                    newID,
+	response := PublisherZman{
+		ID:                    int32ToString(result.ID),
 		PublisherID:           publisherID,
 		ZmanKey:               sourceZman.ZmanKey,
 		HebrewName:            sourceZman.HebrewName,
 		EnglishName:           sourceZman.EnglishName,
-		FormulaDSL:            sourceZman.FormulaDSL, // Return the resolved formula
+		FormulaDSL:            sourceZman.FormulaDsl, // Return the resolved formula
 		IsEnabled:             true,
 		IsVisible:             true,
 		IsPublished:           false,
 		IsCustom:              false,
-		Category:              sourceZman.Category,
+		Category:              category,
 		Dependencies:          sourceZman.Dependencies,
-		CreatedAt:             createdAt,
-		UpdatedAt:             updatedAt,
-		MasterZmanID:          sourceZman.MasterZmanID,
-		LinkedPublisherZmanID: linkedID,
-		SourceType:            &sourceType,
+		CreatedAt:             result.CreatedAt.Time,
+		UpdatedAt:             result.UpdatedAt.Time,
+		MasterZmanID:          masterZmanIDStr,
+		LinkedPublisherZmanID: linkedIDStr,
+		SourceType:            &sourceTypeStr,
 		IsLinked:              req.Mode == "link",
 	}
 
-	RespondJSON(w, r, http.StatusCreated, result)
+	RespondJSON(w, r, http.StatusCreated, response)
 }
 
 // ============================================================================
@@ -1839,13 +1654,17 @@ func (h *Handlers) GetPublisherZmanTags(w http.ResponseWriter, r *http.Request) 
 	publisherID := pc.PublisherID
 	zmanKey := chi.URLParam(r, "zmanKey")
 
-	// First get the publisher_zman_id
-	var zmanID string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM publisher_zmanim WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL",
-		publisherID, zmanKey,
-	).Scan(&zmanID)
+	// First get the publisher_zman_id using SQLc
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
+	zmanID, err := h.db.Queries.GetPublisherZmanIDByKey(ctx, sqlcgen.GetPublisherZmanIDByKeyParams{
+		PublisherID: publisherIDInt32,
+		ZmanKey:     zmanKey,
+	})
 	if err == pgx.ErrNoRows {
 		RespondNotFound(w, r, "Zman not found")
 		return
@@ -1856,6 +1675,7 @@ func (h *Handlers) GetPublisherZmanTags(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Get tags using SQLc
 	tags, err := h.db.Queries.GetPublisherZmanTags(ctx, zmanID)
 	if err != nil {
 		slog.Error("failed to get tags", "error", err)
@@ -1864,12 +1684,6 @@ func (h *Handlers) GetPublisherZmanTags(w http.ResponseWriter, r *http.Request) 
 	}
 
 	RespondJSON(w, r, http.StatusOK, tags)
-}
-
-// TagAssignment represents a tag with its negation state
-type TagAssignment struct {
-	TagID     string `json:"tag_id"`
-	IsNegated bool   `json:"is_negated"`
 }
 
 // UpdatePublisherZmanTagsRequest represents the request body for updating tags
@@ -1895,13 +1709,17 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// First get the publisher_zman_id
-	var zmanID string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM publisher_zmanim WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL",
-		publisherID, zmanKey,
-	).Scan(&zmanID)
+	// First get the publisher_zman_id using SQLc
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
+	zmanID, err := h.db.Queries.GetPublisherZmanIDByKey(ctx, sqlcgen.GetPublisherZmanIDByKeyParams{
+		PublisherID: publisherIDInt32,
+		ZmanKey:     zmanKey,
+	})
 	if err == pgx.ErrNoRows {
 		RespondNotFound(w, r, "Zman not found")
 		return
@@ -1912,41 +1730,33 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Start a transaction
-	tx, err := h.db.Pool.Begin(ctx)
-	if err != nil {
-		slog.Error("failed to begin transaction", "error", err)
-		RespondInternalError(w, r, "Failed to update tags")
-		return
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	// Delete existing tags
-	_, err = tx.Exec(ctx, "DELETE FROM publisher_zman_tags WHERE publisher_zman_id = $1", zmanID)
+	// Delete existing tags using SQLc
+	err = h.db.Queries.DeletePublisherZmanTags(ctx, zmanID)
 	if err != nil {
 		slog.Error("failed to delete existing tags", "error", err)
 		RespondInternalError(w, r, "Failed to update tags")
 		return
 	}
 
-	// Insert new tags with is_negated
+	// Insert new tags with is_negated using SQLc
 	for _, tag := range req.Tags {
-		_, err = tx.Exec(ctx,
-			"INSERT INTO publisher_zman_tags (publisher_zman_id, tag_id, is_negated) VALUES ($1, $2, $3) ON CONFLICT (publisher_zman_id, tag_id) DO UPDATE SET is_negated = $3",
-			zmanID, tag.TagID, tag.IsNegated,
-		)
+		tagID, err := stringToInt32(tag.TagID)
+		if err != nil {
+			slog.Error("invalid tag ID", "error", err, "tag_id", tag.TagID)
+			RespondBadRequest(w, r, "Invalid tag ID")
+			return
+		}
+
+		err = h.db.Queries.InsertPublisherZmanTag(ctx, sqlcgen.InsertPublisherZmanTagParams{
+			PublisherZmanID: zmanID,
+			TagID:           tagID,
+			IsNegated:       tag.IsNegated,
+		})
 		if err != nil {
 			slog.Error("failed to insert tag", "error", err, "tag_id", tag.TagID)
 			RespondInternalError(w, r, "Failed to update tags")
 			return
 		}
-	}
-
-	// Commit
-	if err = tx.Commit(ctx); err != nil {
-		slog.Error("failed to commit transaction", "error", err)
-		RespondInternalError(w, r, "Failed to update tags")
-		return
 	}
 
 	// Fetch updated tags
@@ -1986,13 +1796,17 @@ func (h *Handlers) AddTagToPublisherZman(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Get the publisher_zman_id
-	var zmanID string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM publisher_zmanim WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL",
-		publisherID, zmanKey,
-	).Scan(&zmanID)
+	// Get the publisher_zman_id using SQLc
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
+	zmanID, err := h.db.Queries.GetPublisherZmanIDByKey(ctx, sqlcgen.GetPublisherZmanIDByKeyParams{
+		PublisherID: publisherIDInt32,
+		ZmanKey:     zmanKey,
+	})
 	if err == pgx.ErrNoRows {
 		RespondNotFound(w, r, "Zman not found")
 		return
@@ -2003,10 +1817,17 @@ func (h *Handlers) AddTagToPublisherZman(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Add the tag with is_negated
+	// Convert tagID to int32
+	tagIDInt32, err := stringToInt32(tagID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid tag ID")
+		return
+	}
+
+	// Add the tag with is_negated using SQLc
 	err = h.db.Queries.AddTagToPublisherZman(ctx, sqlcgen.AddTagToPublisherZmanParams{
 		PublisherZmanID: zmanID,
-		TagID:           tagID,
+		TagID:           tagIDInt32,
 		IsNegated:       req.IsNegated,
 	})
 	if err != nil {
@@ -2034,13 +1855,17 @@ func (h *Handlers) RemoveTagFromPublisherZman(w http.ResponseWriter, r *http.Req
 	zmanKey := chi.URLParam(r, "zmanKey")
 	tagID := chi.URLParam(r, "tagId")
 
-	// Get the publisher_zman_id
-	var zmanID string
-	err := h.db.Pool.QueryRow(ctx,
-		"SELECT id FROM publisher_zmanim WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL",
-		publisherID, zmanKey,
-	).Scan(&zmanID)
+	// Get the publisher_zman_id using SQLc
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
+	zmanID, err := h.db.Queries.GetPublisherZmanIDByKey(ctx, sqlcgen.GetPublisherZmanIDByKeyParams{
+		PublisherID: publisherIDInt32,
+		ZmanKey:     zmanKey,
+	})
 	if err == pgx.ErrNoRows {
 		RespondNotFound(w, r, "Zman not found")
 		return
@@ -2051,10 +1876,17 @@ func (h *Handlers) RemoveTagFromPublisherZman(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Remove the tag
+	// Convert tagID to int32
+	tagIDInt32, err := stringToInt32(tagID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid tag ID")
+		return
+	}
+
+	// Remove the tag using SQLc
 	err = h.db.Queries.RemoveTagFromPublisherZman(ctx, sqlcgen.RemoveTagFromPublisherZmanParams{
 		PublisherZmanID: zmanID,
-		TagID:           tagID,
+		TagID:           tagIDInt32,
 	})
 	if err != nil {
 		slog.Error("failed to remove tag", "error", err)
