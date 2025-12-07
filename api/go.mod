@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/clerk/clerk-sdk-go/v2 v2.5.0
+	github.com/gden173/geotiff v0.0.0-20240912224008-f9783b944902
 	github.com/go-chi/chi/v5 v5.0.11
 	github.com/go-chi/cors v1.2.1
 	github.com/google/uuid v1.6.0
@@ -11,11 +12,12 @@ require (
 	github.com/hebcal/hebcal-go v0.10.6
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/joho/godotenv v1.5.1
-	github.com/lib/pq v1.10.9
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/pgvector/pgvector-go v0.3.0
 	github.com/redis/go-redis/v9 v9.17.1
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
+	golang.org/x/text v0.31.0
 )
 
 require (
@@ -40,14 +42,11 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/nathan-osman/go-sunrise v1.1.0 // indirect
 	github.com/swaggo/files/v2 v2.0.2 // indirect
-	github.com/tkrajina/go-elevations v0.1.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
 )

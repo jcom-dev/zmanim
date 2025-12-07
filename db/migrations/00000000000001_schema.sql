@@ -96,6 +96,153 @@ BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$;
 
 -- ============================================================================
+-- COORDINATE/ELEVATION PRIORITY RESOLUTION FUNCTIONS (geo-data-accuracy-enhancement)
+-- ============================================================================
+
+-- Get the best available coordinates for a city based on source priority from geo_data_sources table
+CREATE OR REPLACE FUNCTION public.get_effective_geo_city_coordinates(p_city_id uuid, p_publisher_id uuid DEFAULT NULL)
+RETURNS TABLE (
+    latitude double precision,
+    longitude double precision,
+    source_id varchar(20),
+    accuracy_m integer
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT cc.latitude, cc.longitude, cc.source_id, COALESCE(cc.accuracy_m, s.default_accuracy_m)
+    FROM geo_city_coordinates cc
+    JOIN geo_data_sources s ON s.id = cc.source_id
+    WHERE cc.city_id = p_city_id
+      AND s.is_active = true
+      AND (
+          -- Include publisher overrides only for the specified publisher
+          (cc.source_id = 'publisher' AND cc.publisher_id = p_publisher_id)
+          -- Include all non-publisher sources
+          OR (cc.source_id != 'publisher')
+      )
+    ORDER BY
+        s.priority,
+        cc.verified_at DESC NULLS LAST
+    LIMIT 1;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION public.get_effective_geo_city_coordinates IS 'Returns best available coordinates based on source priority from geo_data_sources table';
+
+-- Get the best available elevation for a city based on source priority from geo_data_sources table
+CREATE OR REPLACE FUNCTION public.get_effective_city_elevation(
+    p_city_id uuid,
+    p_coordinate_source_id varchar(20) DEFAULT NULL,
+    p_publisher_id uuid DEFAULT NULL
+)
+RETURNS TABLE (
+    elevation_m integer,
+    source_id varchar(20),
+    accuracy_m integer
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT ce.elevation_m, ce.source_id, COALESCE(ce.accuracy_m, s.default_accuracy_m)
+    FROM geo_city_elevations ce
+    JOIN geo_data_sources s ON s.id = ce.source_id
+    WHERE ce.city_id = p_city_id
+      AND s.is_active = true
+      AND (p_coordinate_source_id IS NULL OR ce.coordinate_source_id = p_coordinate_source_id)
+      AND (
+          (ce.source_id = 'publisher' AND ce.publisher_id = p_publisher_id)
+          OR (ce.source_id != 'publisher')
+      )
+    ORDER BY
+        s.priority,
+        ce.verified_at DESC NULLS LAST
+    LIMIT 1;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION public.get_effective_city_elevation IS 'Returns best available elevation based on source priority from geo_data_sources table';
+
+-- Update the effective coordinates/elevation for a city based on current sources
+-- NOTE: This EXCLUDES publisher-specific overrides. The effective_* columns store
+-- the best "global" coordinates that all publishers share as a baseline.
+-- Publishers get their overrides via get_effective_geo_city_coordinates() at query time.
+CREATE OR REPLACE FUNCTION public.update_effective_city_data(p_city_id uuid)
+RETURNS void AS $$
+DECLARE
+    v_lat double precision;
+    v_lng double precision;
+    v_coord_source_id varchar(20);
+    v_elev integer;
+    v_elev_source_id varchar(20);
+BEGIN
+    -- Get best NON-PUBLISHER coordinates (community > simplemaps > wof)
+    SELECT cc.latitude, cc.longitude, cc.source_id
+    INTO v_lat, v_lng, v_coord_source_id
+    FROM geo_city_coordinates cc
+    JOIN geo_data_sources s ON s.id = cc.source_id
+    WHERE cc.city_id = p_city_id
+      AND s.is_active = true
+      AND cc.source_id != 'publisher'  -- Exclude publisher overrides
+    ORDER BY s.priority, cc.verified_at DESC NULLS LAST
+    LIMIT 1;
+
+    -- Get best NON-PUBLISHER elevation for the best coordinate source
+    SELECT ce.elevation_m, ce.source_id
+    INTO v_elev, v_elev_source_id
+    FROM geo_city_elevations ce
+    JOIN geo_data_sources s ON s.id = ce.source_id
+    WHERE ce.city_id = p_city_id
+      AND s.is_active = true
+      AND ce.source_id != 'publisher'  -- Exclude publisher overrides
+      AND (v_coord_source_id IS NULL OR ce.coordinate_source_id = v_coord_source_id)
+    ORDER BY s.priority, ce.verified_at DESC NULLS LAST
+    LIMIT 1;
+
+    -- Update geo_cities latitude/longitude/elevation_m with best global (non-publisher) values
+    -- Only update if we found a better source (don't overwrite with NULL)
+    UPDATE geo_cities
+    SET latitude = COALESCE(v_lat, latitude),
+        longitude = COALESCE(v_lng, longitude),
+        elevation_m = COALESCE(v_elev, elevation_m),
+        coordinate_source = COALESCE(v_coord_source_id, coordinate_source),
+        elevation_source = COALESCE(v_elev_source_id, elevation_source),
+        updated_at = now()
+    WHERE id = p_city_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION public.update_effective_city_data IS 'Updates geo_cities latitude/longitude/elevation_m from best non-publisher sources in geo_city_coordinates/geo_city_elevations';
+
+-- Trigger function to update geo_cities.latitude/longitude when geo_city_coordinates change
+CREATE OR REPLACE FUNCTION public.trg_update_effective_geo_city_coordinates()
+RETURNS trigger AS $$
+BEGIN
+    -- Skip publisher overrides - they don't affect the global baseline
+    IF NEW.source_id = 'publisher' THEN
+        RETURN NEW;
+    END IF;
+
+    -- Update latitude/longitude on geo_cities from best source
+    PERFORM update_effective_city_data(NEW.city_id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger function to update geo_cities.elevation_m when geo_city_elevations change
+CREATE OR REPLACE FUNCTION public.trg_update_effective_city_elevation()
+RETURNS trigger AS $$
+BEGIN
+    -- Skip publisher overrides - they don't affect the global baseline
+    IF NEW.source_id = 'publisher' THEN
+        RETURN NEW;
+    END IF;
+
+    -- Update elevation_m on geo_cities from best source
+    PERFORM update_effective_city_data(NEW.city_id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
 -- GEO HIERARCHY ASSIGNMENT FUNCTIONS
 -- ============================================================================
 
@@ -556,9 +703,19 @@ CREATE TABLE public.geo_cities (
     updated_at timestamptz DEFAULT now(),
     wof_id bigint,
     continent_id smallint,
-    country_id integer
+    country_id integer,
+    -- Multi-source coordinate/elevation support (Phase 1 geo-data-accuracy-enhancement)
+    -- latitude/longitude are updated by trigger to best non-publisher source
+    -- Original WOF coordinates are stored in geo_city_coordinates table with source='wof'
+    coordinate_source varchar(20) DEFAULT 'wof',
+    elevation_source varchar(20)
 );
 COMMENT ON TABLE public.geo_cities IS 'Level 4: Cities with coordinates for zmanim calculations';
+COMMENT ON COLUMN public.geo_cities.latitude IS 'Best available latitude (auto-updated by trigger from geo_city_coordinates, excludes publisher overrides)';
+COMMENT ON COLUMN public.geo_cities.longitude IS 'Best available longitude (auto-updated by trigger from geo_city_coordinates, excludes publisher overrides)';
+COMMENT ON COLUMN public.geo_cities.elevation_m IS 'Best available elevation (auto-updated by trigger from geo_city_elevations, excludes publisher overrides)';
+COMMENT ON COLUMN public.geo_cities.coordinate_source IS 'Source of latitude/longitude: community, simplemaps, wof (not publisher)';
+COMMENT ON COLUMN public.geo_cities.elevation_source IS 'Source of elevation_m: community, glo90 (not publisher)';
 
 -- ============================================================================
 -- GEO NAMES TABLE (multi-language support)
@@ -649,6 +806,128 @@ CREATE TABLE public.geo_name_mappings (
 CREATE SEQUENCE public.geo_name_mappings_id_seq AS integer START WITH 1;
 ALTER TABLE public.geo_name_mappings ALTER COLUMN id SET DEFAULT nextval('public.geo_name_mappings_id_seq'::regclass);
 ALTER SEQUENCE public.geo_name_mappings_id_seq OWNED BY public.geo_name_mappings.id;
+
+-- ============================================================================
+-- MULTI-SOURCE COORDINATE/ELEVATION TABLES (geo-data-accuracy-enhancement)
+-- ============================================================================
+
+-- geo_data_sources: Lookup table for coordinate and elevation data sources
+CREATE TABLE public.geo_data_sources (
+    id varchar(20) PRIMARY KEY,
+    name text NOT NULL,
+    description text,
+    data_type varchar(20) NOT NULL CHECK (data_type IN ('coordinates', 'elevation', 'both')),
+    priority smallint NOT NULL, -- Lower = higher priority (1 = highest)
+    default_accuracy_m integer, -- Default accuracy estimate in meters
+    attribution text, -- Required attribution text
+    url text, -- Source URL
+    is_active boolean DEFAULT true,
+    created_at timestamptz DEFAULT now()
+);
+
+COMMENT ON TABLE public.geo_data_sources IS 'Lookup table for geographic data sources with priority and metadata';
+
+-- geo_city_coordinates: Multiple coordinate sources per city with priority system
+CREATE TABLE public.geo_city_coordinates (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    city_id uuid NOT NULL, -- FK added later (geo_cities PK not yet defined)
+    source_id varchar(20) NOT NULL REFERENCES geo_data_sources(id),
+    external_id text, -- External ID from source (e.g., simplemaps id, wof_id)
+    latitude double precision NOT NULL,
+    longitude double precision NOT NULL,
+    accuracy_m integer, -- Estimated accuracy in meters (NULL = use source default)
+
+    -- For publisher/community sources
+    submitted_by text, -- clerk_user_id or publisher_id
+    publisher_id uuid, -- FK added later (publishers table not yet defined)
+    verified_at timestamptz,
+    verified_by text,
+
+    -- Metadata
+    notes text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+COMMENT ON TABLE public.geo_city_coordinates IS 'Multiple coordinate sources per city with priority system';
+COMMENT ON COLUMN public.geo_city_coordinates.accuracy_m IS 'Estimated accuracy in meters. If NULL, use geo_data_sources.default_accuracy_m';
+
+-- Unique constraint: one coordinate per city/source/publisher combination
+-- Uses COALESCE to treat NULL publisher_id as a single value for non-publisher sources
+CREATE UNIQUE INDEX idx_geo_city_coordinates_unique ON geo_city_coordinates(city_id, source_id, COALESCE(publisher_id, '00000000-0000-0000-0000-000000000000'::uuid));
+
+-- Primary lookup: get best coordinates for a city (covers get_effective_geo_city_coordinates query)
+-- Covering index includes all columns needed so query is index-only scan
+CREATE INDEX idx_geo_city_coordinates_priority_lookup ON geo_city_coordinates(city_id, source_id)
+    INCLUDE (latitude, longitude, accuracy_m, publisher_id, verified_at);
+
+-- Publisher override lookups (for publisher-specific coordinates)
+CREATE INDEX idx_geo_city_coordinates_publisher_override ON geo_city_coordinates(city_id, publisher_id)
+    WHERE source_id = 'publisher';
+
+-- Admin: list all coordinates by source type
+CREATE INDEX idx_geo_city_coordinates_source ON geo_city_coordinates(source_id);
+
+-- geo_city_elevations: Multiple elevation sources per coordinate
+CREATE TABLE public.geo_city_elevations (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    city_id uuid NOT NULL, -- FK added later (geo_cities PK not yet defined)
+    coordinate_source_id varchar(20) NOT NULL REFERENCES geo_data_sources(id), -- Which coordinate set this elevation is for
+    source_id varchar(20) NOT NULL REFERENCES geo_data_sources(id),
+
+    elevation_m integer NOT NULL,
+    accuracy_m integer, -- Estimated accuracy (NULL = use source default)
+
+    -- For publisher/community sources
+    submitted_by text,
+    publisher_id uuid, -- FK added later (publishers table not yet defined)
+    verified_at timestamptz,
+    verified_by text,
+
+    -- Metadata
+    notes text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+COMMENT ON TABLE public.geo_city_elevations IS 'Elevation data from multiple sources linked to coordinate sources';
+COMMENT ON COLUMN public.geo_city_elevations.coordinate_source_id IS 'Which coordinate source this elevation was looked up for';
+
+-- Unique constraint: one elevation per city/coordinate_source/source/publisher combination
+CREATE UNIQUE INDEX idx_geo_city_elevations_unique ON geo_city_elevations(city_id, coordinate_source_id, source_id, COALESCE(publisher_id, '00000000-0000-0000-0000-000000000000'::uuid));
+
+-- Primary lookup: get best elevation for a city+coordinate_source (covers get_effective_city_elevation query)
+-- Covering index includes all columns needed so query is index-only scan
+CREATE INDEX idx_geo_city_elevations_priority_lookup ON geo_city_elevations(city_id, coordinate_source_id, source_id)
+    INCLUDE (elevation_m, accuracy_m, publisher_id, verified_at);
+
+-- Publisher override lookups (for publisher-specific elevations)
+CREATE INDEX idx_geo_city_elevations_publisher_override ON geo_city_elevations(city_id, publisher_id)
+    WHERE source_id = 'publisher';
+
+-- Admin: list all elevations by source type
+CREATE INDEX idx_geo_city_elevations_source ON geo_city_elevations(source_id);
+
+-- geo_data_imports: Audit log of geographic data imports
+CREATE TABLE public.geo_data_imports (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    source varchar(20) NOT NULL, -- 'wof', 'simplemaps', 'glo90'
+    import_type varchar(20) NOT NULL, -- 'coordinates', 'elevation', 'hierarchy', 'full'
+    version text,
+    started_at timestamptz DEFAULT now(),
+    completed_at timestamptz,
+    records_processed integer DEFAULT 0,
+    records_imported integer DEFAULT 0,
+    records_updated integer DEFAULT 0,
+    records_skipped integer DEFAULT 0,
+    errors text[],
+    notes text
+);
+
+COMMENT ON TABLE public.geo_data_imports IS 'Audit log of geographic data imports';
+
+-- Index for listing recent imports
+CREATE INDEX idx_geo_data_imports_source_started ON geo_data_imports(source, started_at DESC);
 
 -- ============================================================================
 -- CORE DOMAIN TABLES
@@ -1399,6 +1678,11 @@ ALTER TABLE ONLY public.geo_names ADD CONSTRAINT geo_names_language_code_fkey FO
 ALTER TABLE ONLY public.geo_region_boundaries ADD CONSTRAINT geo_region_boundaries_region_id_fkey FOREIGN KEY (region_id) REFERENCES public.geo_regions(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.geo_regions ADD CONSTRAINT geo_regions_continent_id_fkey FOREIGN KEY (continent_id) REFERENCES public.geo_continents(id);
 ALTER TABLE ONLY public.geo_regions ADD CONSTRAINT geo_regions_country_id_fkey FOREIGN KEY (country_id) REFERENCES public.geo_countries(id) ON DELETE CASCADE;
+-- Multi-source coordinate/elevation FKs (geo-data-accuracy-enhancement)
+ALTER TABLE ONLY public.geo_city_coordinates ADD CONSTRAINT geo_city_coordinates_city_id_fkey FOREIGN KEY (city_id) REFERENCES public.geo_cities(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.geo_city_coordinates ADD CONSTRAINT geo_city_coordinates_publisher_id_fkey FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.geo_city_elevations ADD CONSTRAINT geo_city_elevations_city_id_fkey FOREIGN KEY (city_id) REFERENCES public.geo_cities(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.geo_city_elevations ADD CONSTRAINT geo_city_elevations_publisher_id_fkey FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.master_zman_day_types ADD CONSTRAINT master_zman_day_types_day_type_id_fkey FOREIGN KEY (day_type_id) REFERENCES public.day_types(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.master_zman_day_types ADD CONSTRAINT master_zman_day_types_master_zman_id_fkey FOREIGN KEY (master_zman_id) REFERENCES public.master_zmanim_registry(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.master_zman_events ADD CONSTRAINT master_zman_events_jewish_event_id_fkey FOREIGN KEY (jewish_event_id) REFERENCES public.jewish_events(id) ON DELETE CASCADE;
@@ -1476,6 +1760,11 @@ CREATE INDEX idx_geo_cities_region ON public.geo_cities USING btree (region_id);
 CREATE INDEX idx_geo_cities_region_population ON public.geo_cities USING btree (region_id, population DESC NULLS LAST, name) WHERE (region_id IS NOT NULL);
 CREATE INDEX idx_geo_cities_district_population ON public.geo_cities USING btree (district_id, population DESC NULLS LAST, name) WHERE (district_id IS NOT NULL);
 CREATE INDEX idx_geo_cities_wof_id ON public.geo_cities USING btree (wof_id) WHERE (wof_id IS NOT NULL);
+-- Covering index for fast zmanim lookups - includes all data needed for calculations (geo-data-accuracy-enhancement)
+CREATE INDEX idx_geo_cities_zmanim_lookup ON public.geo_cities(id)
+    INCLUDE (latitude, longitude, elevation_m, timezone, coordinate_source, elevation_source);
+-- Coordinate source filtering (admin queries - find cities with enhanced data)
+CREATE INDEX idx_geo_cities_coord_source ON public.geo_cities(coordinate_source) WHERE coordinate_source != 'wof';
 
 -- Day Types
 CREATE INDEX idx_day_types_name ON public.day_types USING btree (name);
@@ -1691,6 +1980,11 @@ CREATE TRIGGER update_geo_districts_updated_at BEFORE UPDATE ON public.geo_distr
 CREATE TRIGGER update_geo_region_boundaries_updated_at BEFORE UPDATE ON public.geo_region_boundaries FOR EACH ROW EXECUTE FUNCTION public.update_geo_updated_at();
 CREATE TRIGGER update_geo_regions_updated_at BEFORE UPDATE ON public.geo_regions FOR EACH ROW EXECUTE FUNCTION public.update_geo_updated_at();
 CREATE TRIGGER update_publisher_coverage_updated_at BEFORE UPDATE ON public.publisher_coverage FOR EACH ROW EXECUTE FUNCTION public.update_geo_updated_at();
+
+-- Triggers to auto-update geo_cities.effective_* columns when coordinates/elevations change
+-- These only fire for non-publisher sources (community, simplemaps, wof, glo90)
+CREATE TRIGGER trg_geo_city_coordinates_update_effective AFTER INSERT OR UPDATE ON public.geo_city_coordinates FOR EACH ROW EXECUTE FUNCTION public.trg_update_effective_geo_city_coordinates();
+CREATE TRIGGER trg_geo_city_elevations_update_effective AFTER INSERT OR UPDATE ON public.geo_city_elevations FOR EACH ROW EXECUTE FUNCTION public.trg_update_effective_city_elevation();
 
 -- ============================================================================
 -- Data Migration: Populate is_city_state for existing countries

@@ -2,6 +2,22 @@
 -- Description: Core reference data for Zmanim Lab (no publisher data)
 
 -- ============================================================================
+-- SEEDING OPTIMIZATIONS
+-- ============================================================================
+-- Disable all triggers for faster bulk inserts (no trigger overhead)
+-- This is safe for seeding because:
+--   1. We're inserting clean, validated reference data
+--   2. No FK violations possible (insert order respects dependencies)
+--   3. updated_at triggers are only needed for UPDATE, not INSERT
+SET session_replication_role = 'replica';
+
+-- Disable synchronous commit for faster WAL writes during bulk insert
+SET synchronous_commit = OFF;
+
+-- Increase work_mem for this session (helps with index maintenance)
+SET work_mem = '256MB';
+
+-- ============================================================================
 -- LANGUAGES (ISO 639-3 codes used by WOF)
 -- ============================================================================
 INSERT INTO languages (code, name, native_name, script, direction, is_active) VALUES
@@ -26,6 +42,16 @@ INSERT INTO languages (code, name, native_name, script, direction, is_active) VA
 ('fas', 'Persian', 'فارسی', 'Arab', 'rtl', true),
 ('hin', 'Hindi', 'हिन्दी', 'Deva', 'ltr', true),
 ('und', 'Undetermined', NULL, NULL, 'ltr', true);
+
+-- ============================================================================
+-- GEO DATA SOURCES (for multi-source coordinate/elevation system)
+-- ============================================================================
+INSERT INTO geo_data_sources (id, name, description, data_type, priority, default_accuracy_m, attribution, url) VALUES
+('publisher', 'Publisher Override', 'Publisher-specific coordinate/elevation override', 'both', 1, NULL, NULL, NULL),
+('community', 'Community Contribution', 'User-submitted corrections (verified)', 'both', 2, NULL, NULL, NULL),
+('simplemaps', 'SimpleMaps World Cities', 'Government-surveyed coordinates (NGIA, USGS, Census)', 'coordinates', 3, 50, 'Data provided by SimpleMaps', 'https://simplemaps.com/data/world-cities'),
+('wof', 'Who''s On First', 'Polygon centroids from WOF gazetteer', 'coordinates', 4, 1000, 'Data from Who''s On First, a gazetteer of places', 'https://whosonfirst.org/'),
+('glo90', 'Copernicus GLO-90', 'Copernicus 90m Digital Elevation Model', 'elevation', 3, 1, '© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA', 'https://copernicus-dem-90m.s3.amazonaws.com/');
 
 -- ============================================================================
 -- DAY TYPES
@@ -418,4 +444,16 @@ INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonic
 ('a37ca4f4-a2a1-42d2-8d4e-4967e26707e8', 'fast_begins', 'תחילת הצום', 'Fast Begins', 'Techilas Hatzom', 'Beginning of dawn-start fasts (minor fasts begin at alos)', 'dawn', 'solar(16.1, before_sunrise)', false, false),
 ('753cfe5d-5875-4b98-b92f-72e084cc7af5', 'fast_begins_72', 'תחילת הצום 72 דקות', 'Fast Begins (72 min)', 'Techilas Hatzom 72', 'Fast begins 72 minutes before sunrise', 'dawn', 'sunrise - 72min', false, false),
 ('114b86e5-5579-406b-bf50-617dcb3533c5', 'fast_begins_90', 'תחילת הצום 90 דקות', 'Fast Begins (90 min)', 'Techilas Hatzom 90', 'Fast begins 90 minutes before sunrise', 'dawn', 'sunrise - 90min', false, false),
-('822c9e96-5fbf-4a1f-bc34-b13189b9d677', 'fast_begins_sunset', 'תחילת הצום (שקיעה)', 'Fast Begins (Sunset)', 'Techilas Hatzom Shkiah', 'Beginning of sunset-start fasts (Yom Kippur, Tisha B''Av)', 'sunset', 'sunset', false, false)
+('822c9e96-5fbf-4a1f-bc34-b13189b9d677', 'fast_begins_sunset', 'תחילת הצום (שקיעה)', 'Fast Begins (Sunset)', 'Techilas Hatzom Shkiah', 'Beginning of sunset-start fasts (Yom Kippur, Tisha B''Av)', 'sunset', 'sunset', false, false);
+
+-- ============================================================================
+-- RESTORE SETTINGS
+-- ============================================================================
+-- Re-enable triggers (restores normal operation for application)
+SET session_replication_role = 'origin';
+
+-- Restore synchronous commit (ensures durability for subsequent operations)
+SET synchronous_commit = ON;
+
+-- Reset work_mem to default
+RESET work_mem;
