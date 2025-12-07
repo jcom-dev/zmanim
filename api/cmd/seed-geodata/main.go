@@ -453,6 +453,16 @@ func restoreDatabase(dumpFile, dbURL string, jobs int) error {
 }
 
 func resetGeoData(ctx context.Context, pool *pgxpool.Pool) error {
+	// Disable triggers for the session to allow fast truncation
+	_, err := pool.Exec(ctx, "SET session_replication_role = 'replica'")
+	if err != nil {
+		return fmt.Errorf("failed to disable triggers: %w", err)
+	}
+	defer func() {
+		// Re-enable triggers
+		pool.Exec(ctx, "SET session_replication_role = 'origin'")
+	}()
+
 	// Truncate all geo tables
 	geoTables := []string{
 		"geo_location_references",
@@ -472,6 +482,7 @@ func resetGeoData(ctx context.Context, pool *pgxpool.Pool) error {
 		"geo_boundary_imports",
 		"geo_data_imports",
 		"geo_data_sources",
+		"geo_levels",
 	}
 
 	for _, table := range geoTables {
