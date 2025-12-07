@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -120,7 +121,7 @@ func (h *Handlers) GetVersionHistory(w http.ResponseWriter, r *http.Request) {
 		}
 
 		versions = append(versions, VersionHistoryEntry{
-			ID:            row.ID,
+			ID:            fmt.Sprintf("%d", row.ID),
 			VersionNumber: int(row.VersionNumber),
 			Status:        row.Status,
 			Description:   row.Description,
@@ -193,7 +194,7 @@ func (h *Handlers) GetVersionDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondJSON(w, r, http.StatusOK, VersionDetail{
-		ID:            detail.ID,
+		ID:            fmt.Sprintf("%d", detail.ID),
 		VersionNumber: int(detail.VersionNumber),
 		Status:        detail.Status,
 		Description:   detail.Description,

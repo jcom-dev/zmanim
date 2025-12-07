@@ -1,16 +1,27 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { PendingRequests } from '@/components/admin/PendingRequests';
 import Link from 'next/link';
 
 import { useApi } from '@/lib/api-client';
+import { useAuth } from '@clerk/nextjs';
 import { getStatusBadgeClasses } from '@/lib/badge-colors';
 import { StatusTooltip } from '@/components/shared/InfoTooltip';
 import { STATUS_TOOLTIPS, ADMIN_TOOLTIPS } from '@/lib/tooltip-content';
-import { ShieldCheck, ShieldAlert, Trash2, RotateCcw } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Trash2, RotateCcw, Upload } from 'lucide-react';
 
 interface Publisher {
   id: string;
@@ -31,12 +42,18 @@ interface Publisher {
 
 export default function AdminPublishersPage() {
   const api = useApi();
+  const router = useRouter();
+  const { getToken } = useAuth();
   const [publishers, setPublishers] = useState<Publisher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showDeleted, setShowDeleted] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
 
   const fetchPublishers = useCallback(async () => {
     try {
@@ -75,6 +92,50 @@ export default function AdminPublishersPage() {
     }
   };
 
+  const handleImportPublisher = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImportLoading(true);
+      setImportError(null);
+      setImportSuccess(null);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = await getToken();
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+      // Use a dummy ID since we're creating new - the backend ignores it when create_new=true
+      const response = await fetch(`${API_BASE}/api/v1/admin/publishers/0/import?create_new=true`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || errorData.error || 'Failed to import publisher');
+      }
+
+      const result = await response.json();
+      setImportSuccess(result.message || 'Publisher created successfully');
+
+      // Redirect to the new publisher page
+      if (result.publisher_id) {
+        setTimeout(() => {
+          router.push(`/admin/publishers/${result.publisher_id}`);
+        }, 1500);
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const filteredPublishers = publishers.filter((publisher) => {
     const matchesSearch =
@@ -133,9 +194,55 @@ export default function AdminPublishersPage() {
           <h1 className="text-2xl md:text-3xl font-bold">Publisher Management</h1>
           <p className="text-sm md:text-base text-muted-foreground mt-1">Manage publisher accounts and permissions</p>
         </div>
-        <Link href="/admin/publishers/new" className="w-full md:w-auto">
-          <Button className="w-full md:w-auto">Create New Publisher</Button>
-        </Link>
+        <div className="flex gap-2 w-full md:w-auto">
+          <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex-1 md:flex-none">
+                <Upload className="w-4 h-4 mr-2" />
+                Import Publisher
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Import Publisher from Export File</DialogTitle>
+                <DialogDescription>
+                  Upload a complete publisher export file (.json) to create a new publisher with all their zmanim.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportPublisher}
+                  disabled={importLoading}
+                  className="block w-full text-sm text-muted-foreground
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-medium
+                    file:bg-primary file:text-primary-foreground
+                    hover:file:bg-primary/90
+                    file:cursor-pointer cursor-pointer"
+                />
+                {importError && (
+                  <div className="mt-3 p-3 rounded-md bg-red-500/15 border border-red-500/40">
+                    <p className="text-red-600 dark:text-red-400 text-sm font-bold">{importError}</p>
+                  </div>
+                )}
+                {importSuccess && (
+                  <p className="text-green-600 dark:text-green-400 text-sm mt-2">{importSuccess}</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportError(null); setImportSuccess(null); }}>
+                  {importSuccess ? 'Close' : 'Cancel'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Link href="/admin/publishers/new" className="flex-1 md:flex-none">
+            <Button className="w-full">Create New Publisher</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Pending Requests */}

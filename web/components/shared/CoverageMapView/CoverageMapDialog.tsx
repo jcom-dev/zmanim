@@ -61,11 +61,34 @@ export function CoverageMapDialog({
       setShowResults(true);
 
       try {
-        const data = await api.public.get<{ cities: City[] }>(
-          `/cities?search=${encodeURIComponent(searchQuery)}&limit=8`
+        // Use unified coverage search (fast materialized view with GIN indexes)
+        const data = await api.public.get<{ results: Array<{
+          type: string;
+          id: string;
+          name: string;
+          description: string;
+          country_code: string;
+        }> }>(
+          `/coverage/search?search=${encodeURIComponent(searchQuery)}&limit=8`
         );
         console.log('Search results:', data);
-        setSearchResults(data?.cities || []);
+
+        // Filter to cities only and convert to City format
+        const cityResults = (data?.results || [])
+          .filter(r => r.type === 'city')
+          .map(r => ({
+            id: r.id,
+            name: r.name,
+            country: r.description.split(', ').pop() || '', // Extract country from description
+            country_code: r.country_code,
+            region: r.description.split(', ')[0] || null, // Extract region from description
+            latitude: 0, // Will be fetched on selection
+            longitude: 0,
+            timezone: '',
+            display_name: `${r.name}, ${r.description}`,
+          } as City));
+
+        setSearchResults(cityResults);
       } catch (err) {
         console.error('City search failed:', err);
         setSearchResults([]);
@@ -95,7 +118,19 @@ export function CoverageMapDialog({
   }, []);
 
   const handleCitySelect = useCallback(
-    (city: City) => {
+    async (city: City) => {
+      // If coordinates are missing (from coverage search), fetch them
+      if (city.latitude === 0 && city.longitude === 0) {
+        try {
+          const fullCity = await api.public.get<City>(`/cities/${city.id}`);
+          city.latitude = fullCity.latitude;
+          city.longitude = fullCity.longitude;
+        } catch (err) {
+          console.error('Failed to fetch city coordinates:', err);
+          return;
+        }
+      }
+
       // Fly to the city on the map at city-level zoom
       mapRef.current?.flyTo({
         center: [city.longitude, city.latitude],
@@ -110,7 +145,7 @@ export function CoverageMapDialog({
       setSearchResults([]);
       setShowResults(false);
     },
-    []
+    [api]
   );
 
   const handleRemoveSelection = useCallback((code: string) => {

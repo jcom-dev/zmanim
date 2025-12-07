@@ -227,8 +227,8 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 		timezone = "UTC"
 	}
 
-	// Check cache first
-	cacheKey := fmt.Sprintf("%s:%s:%.4f:%.4f", publisherID, dateStr, latitude, longitude)
+	// Check cache first (include timezone to avoid serving UTC times for local requests)
+	cacheKey := fmt.Sprintf("%s:%s:%.4f:%.4f:%s", publisherID, dateStr, latitude, longitude, timezone)
 	if h.cache != nil {
 		cached, err := h.cache.GetZmanim(ctx, publisherID, cacheKey, dateStr)
 		if err == nil && cached != nil {
@@ -367,8 +367,8 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 		timezone = "UTC"
 	}
 
-	// Check cache first - use week start date as key
-	cacheKey := fmt.Sprintf("week:%s:%s:%.4f:%.4f", publisherID, startDateStr, latitude, longitude)
+	// Check cache first - use week start date as key (include timezone to avoid serving UTC times for local requests)
+	cacheKey := fmt.Sprintf("week:%s:%s:%.4f:%.4f:%s", publisherID, startDateStr, latitude, longitude, timezone)
 	if h.cache != nil {
 		cached, err := h.cache.GetZmanim(ctx, publisherID, cacheKey, startDateStr)
 		if err == nil && cached != nil {
@@ -458,7 +458,7 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	slog.Info("fetched week zmanim", "publisher_id", publisherID, "start_date", startDateStr)
+	slog.Info("fetched week zmanim", "publisher_id", publisherID, "start_date", startDateStr, "timezone", timezone, "lat", latitude, "lon", longitude)
 	RespondJSON(w, r, http.StatusOK, response)
 }
 
@@ -586,6 +586,7 @@ func (h *Handlers) filterAndCalculateZmanim(zmanim []PublisherZman, dayCtx DayCo
 
 	// Set date to start of day in timezone
 	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, tz)
+	slog.Debug("filterAndCalculateZmanim", "timezone_param", timezone, "tz_loaded", tz.String(), "date", date.Format(time.RFC3339))
 
 	// Create DSL execution context for time calculation
 	var execCtx *dsl.ExecutionContext

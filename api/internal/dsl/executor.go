@@ -248,11 +248,13 @@ func (e *Executor) executePrimitive(n *PrimitiveNode) Value {
 	return Value{Type: ValueTypeTime, Time: t}
 }
 
-// executeFunction evaluates a function call (solar, proportional_hours, midpoint)
+// executeFunction evaluates a function call (solar, seasonal_solar, proportional_hours, midpoint)
 func (e *Executor) executeFunction(n *FunctionNode) Value {
 	switch n.Name {
 	case "solar":
 		return e.executeSolar(n)
+	case "seasonal_solar":
+		return e.executeSeasonalSolar(n)
 	case "proportional_hours":
 		return e.executeProportionalHours(n)
 	case "midpoint":
@@ -319,6 +321,62 @@ func (e *Executor) executeSolar(n *FunctionNode) Value {
 
 	// Cache the result
 	stepName := fmt.Sprintf("solar(%.1f, %s)", degrees, direction)
+	e.ctx.ZmanimCache[stepName] = t
+
+	return Value{Type: ValueTypeTime, Time: t}
+}
+
+// executeSeasonalSolar evaluates seasonal_solar(degrees, direction)
+// This uses the seasonal proportional method: calculates the offset from sunrise/sunset
+// at the equinox for the given angle, then scales it by the current day's length ratio.
+// This matches the ROY/Zemaneh-Yosef calculation methodology.
+func (e *Executor) executeSeasonalSolar(n *FunctionNode) Value {
+	if len(n.Args) != 2 {
+		e.addError("seasonal_solar() requires 2 arguments")
+		return Value{}
+	}
+
+	// Get degrees
+	degreesVal := e.executeNode(n.Args[0])
+	if degreesVal.Type != ValueTypeNumber {
+		e.addError("seasonal_solar() first argument must be a number (degrees)")
+		return Value{}
+	}
+	degrees := degreesVal.Number
+
+	// Get direction
+	var direction string
+	switch arg := n.Args[1].(type) {
+	case *DirectionNode:
+		direction = arg.Direction
+	case *StringNode:
+		direction = arg.Value
+	default:
+		dirVal := e.executeNode(n.Args[1])
+		direction = dirVal.String
+	}
+
+	// Calculate seasonal sun time at angle
+	dawn, dusk := astro.SeasonalSunTimeAtAngle(e.ctx.Date, e.ctx.Latitude, e.ctx.Longitude, e.ctx.Timezone, degrees)
+
+	var t time.Time
+	switch direction {
+	case "before_sunrise":
+		t = dawn
+	case "after_sunset":
+		t = dusk
+	default:
+		e.addError("seasonal_solar() invalid direction: %s (must be before_sunrise or after_sunset)", direction)
+		return Value{}
+	}
+
+	if t.IsZero() {
+		e.addError("could not calculate seasonal_solar(%g, %s) - polar region or invalid parameters", degrees, direction)
+		return Value{}
+	}
+
+	// Cache the result
+	stepName := fmt.Sprintf("seasonal_solar(%.1f, %s)", degrees, direction)
 	e.ctx.ZmanimCache[stepName] = t
 
 	return Value{Type: ValueTypeTime, Time: t}

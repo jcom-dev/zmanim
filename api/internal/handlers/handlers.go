@@ -26,6 +26,7 @@ type Handlers struct {
 	clerkService     *services.ClerkService
 	emailService     *services.EmailService
 	snapshotService  *services.SnapshotService
+	completeExportService *services.CompleteExportService
 	// PublisherResolver consolidates publisher ID resolution logic
 	publisherResolver *PublisherResolver
 	// AI services (optional - may be nil if not configured)
@@ -46,6 +47,7 @@ func New(database *db.DB) *Handlers {
 	}
 	emailService := services.NewEmailService()
 	snapshotService := services.NewSnapshotService(database)
+	completeExportService := services.NewCompleteExportService(database)
 	publisherResolver := NewPublisherResolver(database)
 
 	return &Handlers{
@@ -55,6 +57,7 @@ func New(database *db.DB) *Handlers {
 		clerkService:      clerkService,
 		emailService:      emailService,
 		snapshotService:   snapshotService,
+		completeExportService: completeExportService,
 		publisherResolver: publisherResolver,
 	}
 }
@@ -526,11 +529,16 @@ func (h *Handlers) GetAccessiblePublishers(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Extract publisher_access_list from metadata
-	var publisherIDs []string
+	var publisherIDs []int32
 	if accessList, ok := metadata["publisher_access_list"].([]interface{}); ok {
 		for _, v := range accessList {
 			if s, ok := v.(string); ok {
-				publisherIDs = append(publisherIDs, s)
+				id, err := stringToInt32(s)
+				if err != nil {
+					slog.Warn("invalid publisher ID in access list", "id", s, "error", err)
+					continue
+				}
+				publisherIDs = append(publisherIDs, id)
 			}
 		}
 	}

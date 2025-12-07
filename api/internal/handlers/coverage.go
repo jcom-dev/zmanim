@@ -242,12 +242,11 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 			RespondBadRequest(w, r, "city_id is required for city-level coverage")
 			return
 		}
-		cityID := int32(*req.CityID)
 
 		// Check for duplicate
 		exists, _ := h.db.Queries.CheckDuplicateCoverageCity(ctx, sqlcgen.CheckDuplicateCoverageCityParams{
 			PublisherID: publisherIDInt,
-			CityID:      &cityID,
+			CityID:      req.CityID,
 		})
 		if exists {
 			RespondBadRequest(w, r, "Coverage already exists for this city")
@@ -255,7 +254,7 @@ func (h *Handlers) CreatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		}
 		row, err := h.db.Queries.CreateCoverageCity(ctx, sqlcgen.CreateCoverageCityParams{
 			PublisherID: publisherIDInt,
-			CityID:      &cityID,
+			CityID:      req.CityID,
 			Priority:    &priority,
 			IsActive:    true,
 		})
@@ -600,14 +599,17 @@ func coverageRowToModel(row sqlcgen.GetPublisherCoverageRow) models.PublisherCov
 		IsActive:         row.IsActive,
 		CreatedAt:        row.CreatedAt.Time,
 		UpdatedAt:        row.UpdatedAt.Time,
-		ContinentName:    row.ContinentName,
-		CountryCode:      row.CountryCode,
-		CountryName:      row.CountryName,
-		RegionCode:       row.RegionCode,
-		RegionName:       row.RegionName,
-		DistrictCode:     row.DistrictCode,
-		DistrictName:     row.DistrictName,
-		CityName:         row.CityName,
+		ContinentName:    stringPtrIfNotEmpty(row.ContinentName),
+		CountryCode:      stringPtrIfNotEmpty(row.CountryCode),
+		CountryName:      stringPtrIfNotEmpty(row.CountryName),
+		RegionCode:       stringPtrIfNotEmpty(row.RegionCode),
+		RegionName:       stringPtrIfNotEmpty(row.RegionName),
+		DistrictCode:     stringPtrIfNotEmpty(row.DistrictCode),
+		DistrictName:     stringPtrIfNotEmpty(row.DistrictName),
+		CityName:         stringPtrIfNotEmpty(row.CityName),
+		CityLatitude:     row.CityLatitude,
+		CityLongitude:    row.CityLongitude,
+		CityTimezone:     row.CityTimezone,
 	}
 	if row.Priority != nil {
 		c.Priority = int(*row.Priority)

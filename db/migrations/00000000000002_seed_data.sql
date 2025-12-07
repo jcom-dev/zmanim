@@ -403,151 +403,549 @@ INSERT INTO zman_tags (id, tag_key, name, display_name_hebrew, display_name_engl
 (231, 'rosh_chodesh', 'rosh_chodesh', 'ראש חודש', 'Rosh Chodesh', (SELECT id FROM tag_types WHERE key = 'jewish_day'), 'New Moon/Month', NULL, 390),
 (69, 'tu_bshvat', 'tu_bshvat', 'ט"ו בשבט', 'Tu B''Shvat', (SELECT id FROM tag_types WHERE key = 'jewish_day'), 'New Year for Trees', NULL, 391);
 
+
+
 -- ============================================================================
 -- MASTER ZMANIM REGISTRY
 -- ============================================================================
 
 -- Core zmanim (is_core = true)
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(190, 'alos_hashachar', 'עלות השחר', 'Dawn (Alos Hashachar)', 'Alos Hashachar', 'Dawn - when the first light appears on the eastern horizon (16.1° below horizon)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(16.1, before_sunrise)', true, false),
-(287, 'misheyakir', 'משיכיר', 'Misheyakir', 'Misheyakir', 'Earliest time to put on tallit and tefillin', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(11.5, before_sunrise)', true, false),
-(15, 'sunrise', 'הנץ החמה', 'Sunrise', 'Netz Hachama', 'Geometric/sea-level sunrise', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'sunrise', true, false),
-(154, 'sof_zman_shma_gra', 'סוף זמן ק"ש גר"א', 'Latest Shema (GRA)', 'Sof Zman Shma GRA', 'Latest time for Shema - 3 proportional hours (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, gra)', true, false),
-(115, 'sof_zman_shma_mga', 'סוף זמן ק"ש מג"א', 'Latest Shema (MGA)', 'Sof Zman Shma MGA', 'Latest time for Shema - 3 proportional hours (MGA from 72min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga)', true, false),
-(48, 'sof_zman_tfila_gra', 'סוף זמן תפילה גר"א', 'Latest Shacharit (GRA)', 'Sof Zman Tefilla GRA', 'Latest time for Shacharit - 4 proportional hours (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, gra)', true, false),
-(196, 'sof_zman_tfila_mga', 'סוף זמן תפילה מג"א', 'Latest Shacharit (MGA)', 'Sof Zman Tefilla MGA', 'Latest time for Shacharit - 4 proportional hours (MGA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga)', true, false),
-(87, 'chatzos', 'חצות היום', 'Midday (Chatzos)', 'Chatzos', 'Solar noon - midpoint between sunrise and sunset', (SELECT id FROM time_categories WHERE key = 'midday'), 'solar_noon', true, false),
-(182, 'mincha_gedola', 'מנחה גדולה', 'Earliest Mincha (GRA)', 'Mincha Gedola', 'Earliest time for Mincha - 6.5 proportional hours (half shaah zmanis after chatzos)', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, gra)', true, false),
-(126, 'mincha_ketana', 'מנחה קטנה', 'Mincha Ketana', 'Mincha Ketana', 'Mincha Ketana - 9.5 proportional hours', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, gra)', true, false),
-(199, 'plag_hamincha', 'פלג המנחה', 'Plag HaMincha', 'Plag Hamincha', 'Plag HaMincha - 10.75 proportional hours (1.25 hours before sunset)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, gra)', true, false),
-(223, 'sunset', 'שקיעה', 'Sunset', 'Shkiah', 'Geometric/sea-level sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', true, false),
-(132, 'candle_lighting', 'הדלקת נרות', 'Candle Lighting', 'Hadlakas Neiros', 'Shabbat candle lighting - 18 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 18min', true, false),
-(47, 'tzais', 'צאת הכוכבים', 'Nightfall (Tzais)', 'Tzais Hakochavim', 'Three stars visible - standard nightfall at 8.5°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', true, false),
-(257, 'chatzos_layla', 'חצות לילה', 'Midnight (Chatzos Layla)', 'Chatzos Layla', 'Solar midnight - 12 hours after chatzos', (SELECT id FROM time_categories WHERE key = 'midnight'), 'solar_noon + 12hr', true, false);
+INSERT INTO master_zmanim_registry (zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
+('alos_hashachar', 'עלות השחר', 'Dawn (Alos Hashachar)', 'Alos Hashachar', 'Dawn - when the first light appears on the eastern horizon (16.1° below horizon)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(16.1, before_sunrise)', true, false),
+('candle_lighting', 'הדלקת נרות', 'Candle Lighting', 'Hadlakas Neiros', 'Shabbat candle lighting - 18 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 18min', true, false),
+('chatzos', 'חצות היום', 'Midday (Chatzos)', 'Chatzos', 'Solar noon - midpoint between sunrise and sunset', (SELECT id FROM time_categories WHERE key = 'midday'), 'solar_noon', true, false),
+('chatzos_layla', 'חצות לילה', 'Midnight (Chatzos Layla)', 'Chatzos Layla', 'Halachic midnight - 12 hours after solar noon', (SELECT id FROM time_categories WHERE key = 'midnight'), 'solar_noon + 12hr', true, false),
+('fast_ends', 'סוף הצום', 'Fast Ends', 'Sof Hatzom', 'End of fast day', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', true, false),
+('mincha_gedola', 'מנחה גדולה', 'Earliest Mincha (GRA)', 'Mincha Gedola', 'Earliest time for Mincha - 6.5 proportional hours (half shaah zmanis after chatzos)', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, gra)', true, false),
+('mincha_ketana', 'מנחה קטנה', 'Mincha Ketana', 'Mincha Ketana', 'Mincha Ketana - 9.5 proportional hours', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, gra)', true, false),
+('misheyakir', 'משיכיר', 'Misheyakir', 'Misheyakir', 'Earliest time to put on tallit and tefillin', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(11.5, before_sunrise)', true, false),
+('plag_hamincha', 'פלג המנחה', 'Plag HaMincha', 'Plag Hamincha', 'Plag HaMincha - 10.75 proportional hours (1.25 hours before sunset)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, gra)', true, false),
+('shabbos_ends', 'מוצאי שבת', 'Shabbos Ends', 'Motzei Shabbos', 'End of Shabbos - standard tzais', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', true, false),
+('sof_zman_shma_gra', 'סוף זמן ק"ש גר"א', 'Latest Shema (GRA)', 'Sof Zman Shma GRA', 'Latest time for Shema - 3 proportional hours (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, gra)', true, false),
+('sof_zman_shma_mga', 'סוף זמן ק"ש מג"א', 'Latest Shema (MGA)', 'Sof Zman Shma MGA', 'Latest time for Shema - 3 proportional hours (MGA from 72min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga)', true, false),
+('sof_zman_tfila_gra', 'סוף זמן תפילה גר"א', 'Latest Shacharit (GRA)', 'Sof Zman Tefilla GRA', 'Latest time for Shacharit - 4 proportional hours (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, gra)', true, false),
+('sof_zman_tfila_mga', 'סוף זמן תפילה מג"א', 'Latest Shacharit (MGA)', 'Sof Zman Tefilla MGA', 'Latest time for Shacharit - 4 proportional hours (MGA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga)', true, false),
+('sunrise', 'הנץ החמה', 'Sunrise', 'Netz Hachama', 'Geometric/sea-level sunrise', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'sunrise', true, false),
+('sunset', 'שקיעה', 'Sunset', 'Shkiah', 'Geometric/sea-level sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', true, false),
+('tzais', 'צאת הכוכבים', 'Nightfall (Tzais)', 'Tzais Hakochavim', 'Nightfall - when 3 medium stars are visible (8.5°)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', true, false),
+('tzais_72', 'צאת ר"ת 72 דקות', 'Tzais Rabbeinu Tam (72 min)', 'Tzais RT 72', 'Rabbeinu Tam - 72 fixed minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 72min', true, false);
 
--- Dawn variations (alos)
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(23, 'alos_12', 'עלות השחר 12°', 'Dawn (12°)', 'Alos Hashachar 12°', 'Dawn calculated at 12 degrees below the horizon. Used by Manchester and other Northern European communities per Minchas Yitzchak.', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(12, before_sunrise)', false, false),
-(252, 'alos_16_1', 'עלות השחר 16.1°', 'Dawn (16.1°)', 'Alos 16.1', 'Dawn calculated at 16.1° solar depression', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(16.1, before_sunrise)', false, false),
-(64, 'alos_18', 'עלות השחר 18°', 'Dawn (18°)', 'Alos 18', 'Dawn at astronomical twilight (18°)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(18, before_sunrise)', false, false),
-(185, 'alos_19_8', 'עלות השחר 19.8°', 'Dawn (19.8°)', 'Alos 19.8', 'Dawn at 19.8° - stricter opinion', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(19.8, before_sunrise)', false, false),
-(200, 'alos_26', 'עלות השחר 26°', 'Dawn (26°)', 'Alos 26', 'Dawn at 26° - very stringent', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(26, before_sunrise)', false, false),
-(215, 'alos_72', 'עלות השחר 72 דקות', 'Dawn (72 minutes)', 'Alos 72', 'Dawn 72 fixed minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 72min', false, false),
-(189, 'alos_90', 'עלות השחר 90 דקות', 'Dawn (90 minutes)', 'Alos 90', 'Dawn 90 fixed minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 90min', false, false),
-(59, 'alos_96', 'עלות השחר 96 דקות', 'Dawn (96 minutes)', 'Alos 96', 'Dawn 96 fixed minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 96min', false, false),
-(17, 'alos_120', 'עלות השחר 120 דקות', 'Dawn (120 minutes)', 'Alos 120', 'Dawn 120 fixed minutes before sunrise (2 hours)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 120min', false, false);
+-- Zman variations (is_core = false)
+INSERT INTO master_zmanim_registry (zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
+('alos_12', 'עלות השחר 12°', 'Dawn (12°)', 'Alos Hashachar 12°', 'Dawn calculated at 12 degrees below the horizon. Used by Manchester and other Northern European communities per Minchas Yitzchak.', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(12, before_sunrise)', false, false),
+('alos_120', 'עלות השחר 120 דקות', 'Dawn (120 minutes)', 'Alos 120', 'Dawn 120 fixed minutes before sunrise (2 hours)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 120min', false, false),
+('alos_120_zmanis', 'עלות השחר 120 דקות זמניות', 'Dawn (120 Zmaniyos)', 'Alos 120 Zmanis', 'Dawn 120 proportional minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'proportional_minutes(120, before_sunrise)', false, false),
+('alos_16_1', 'עלות השחר 16.1°', 'Dawn (16.1°)', 'Alos 16.1', 'Dawn calculated at 16.1° solar depression', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(16.1, before_sunrise)', false, false),
+('alos_18', 'עלות השחר 18°', 'Dawn (18°)', 'Alos 18', 'Dawn at astronomical twilight (18°)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(18, before_sunrise)', false, false),
+('alos_19', 'עלות השחר 19°', 'Dawn (19°)', 'Alos 19', 'Dawn at 19° solar depression', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(19, before_sunrise)', false, false),
+('alos_19_8', 'עלות השחר 19.8°', 'Dawn (19.8°)', 'Alos 19.8', 'Dawn at 19.8° - stricter opinion', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(19.8, before_sunrise)', false, false),
+('alos_26', 'עלות השחר 26°', 'Dawn (26°)', 'Alos 26', 'Dawn at 26° - very stringent', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(26, before_sunrise)', false, false),
+('alos_60', 'עלות השחר 60 דקות', 'Dawn (60 minutes)', 'Alos 60', 'Dawn 60 fixed minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 60min', false, false),
+('alos_72', 'עלות השחר 72 דקות', 'Dawn (72 minutes)', 'Alos 72', 'Dawn 72 fixed minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 72min', false, false),
+('alos_72_zmanis', 'עלות השחר 72 דקות זמניות', 'Dawn (72 Zmaniyos)', 'Alos 72 Zmanis', 'Dawn 72 proportional minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'proportional_minutes(72, before_sunrise)', false, false),
+('alos_90', 'עלות השחר 90 דקות', 'Dawn (90 minutes)', 'Alos 90', 'Dawn 90 fixed minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 90min', false, false),
+('alos_90_zmanis', 'עלות השחר 90 דקות זמניות', 'Dawn (90 Zmaniyos)', 'Alos 90 Zmanis', 'Dawn 90 proportional minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'proportional_minutes(90, before_sunrise)', false, false),
+('alos_96', 'עלות השחר 96 דקות', 'Dawn (96 minutes)', 'Alos 96', 'Dawn 96 fixed minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 96min', false, false),
+('alos_96_zmanis', 'עלות השחר 96 דקות זמניות', 'Dawn (96 Zmaniyos)', 'Alos 96 Zmanis', 'Dawn 96 proportional minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'proportional_minutes(96, before_sunrise)', false, false),
+('alos_baal_hatanya', 'עלות השחר בעל התניא', 'Dawn (Baal HaTanya)', 'Alos Baal HaTanya', 'Dawn according to Baal HaTanya (16.9° solar depression)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(16.9, before_sunrise)', false, false),
+('alos_shemini_atzeres', 'עלות השחר - שמיני עצרת', 'Dawn for Aravos (Shemini Atzeres)', 'Alos HaShachar - Shemini Atzeret', 'Dawn calculation for the 8th day of Sukkot when Aravos is done early', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 24min', false, false),
+('bein_hashmashos_rt_13_24', 'בין השמשות ר"ת 13.24°', 'Bein Hashmashos R"T (13.24°)', 'BH RT 13.24', 'Bein Hashmashos according to Rabbeinu Tam at 13.24°', (SELECT id FROM time_categories WHERE key = 'sunset'), 'solar(13.24, after_sunset)', false, false),
+('bein_hashmashos_rt_2_stars', 'בין השמשות ר"ת 2 כוכבים', 'Bein Hashmashos R"T (2 Stars)', 'BH RT 2 Stars', 'Bein Hashmashos when 2 stars visible', (SELECT id FROM time_categories WHERE key = 'sunset'), 'solar(7.5, after_sunset)', false, false),
+('bein_hashmashos_rt_58_5', 'בין השמשות ר"ת 58.5 דקות', 'Bein Hashmashos R"T (58.5 min)', 'BH RT 58.5', 'Bein Hashmashos 58.5 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset + 58min', false, false),
+('bein_hashmashos_start', 'תחילת בין השמשות', 'Bein Hashmashos Start', 'Bein Hashmashos', 'Start of twilight period', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', false, false),
+('bein_hashmashos_yereim_13_5', 'בין השמשות יראים 13.5 דקות', 'Bein Hashmashos Yereim (13.5 min)', 'BH Yereim 13.5', 'Bein Hashmashos per Yereim 13.5 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset + 13min', false, false),
+('bein_hashmashos_yereim_16_875', 'בין השמשות יראים 16.875 דקות', 'Bein Hashmashos Yereim (16.875 min)', 'BH Yereim 16.875', 'Bein Hashmashos per Yereim 16.875 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset + 17min', false, false),
+('bein_hashmashos_yereim_18', 'בין השמשות יראים 18 דקות', 'Bein Hashmashos Yereim (18 min)', 'BH Yereim 18', 'Bein Hashmashos per Yereim 18 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset + 18min', false, false),
+('bein_hashmashos_yereim_2_1', 'בין השמשות יראים 2.1°', 'Bein Hashmashos Yereim (2.1°)', 'BH Yereim 2.1', 'Bein Hashmashos per Yereim at 2.1°', (SELECT id FROM time_categories WHERE key = 'sunset'), 'solar(2.1, after_sunset)', false, false),
+('bein_hashmashos_yereim_2_8', 'בין השמשות יראים 2.8°', 'Bein Hashmashos Yereim (2.8°)', 'BH Yereim 2.8', 'Bein Hashmashos per Yereim at 2.8°', (SELECT id FROM time_categories WHERE key = 'sunset'), 'solar(2.8, after_sunset)', false, false),
+('bein_hashmashos_yereim_3_05', 'בין השמשות יראים 3.05°', 'Bein Hashmashos Yereim (3.05°)', 'BH Yereim 3.05', 'Bein Hashmashos per Yereim at 3.05°', (SELECT id FROM time_categories WHERE key = 'sunset'), 'solar(3.05, after_sunset)', false, false),
+('candle_lighting_15', 'הדלקת נרות 15 דקות', 'Candle Lighting (15 min)', 'Hadlakas Neiros 15', 'Candle lighting 15 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 15min', false, false),
+('candle_lighting_18', 'הדלקת נרות 18 דקות', 'Candle Lighting (18 min)', 'Hadlakas Neiros 18', 'Candle lighting 18 minutes before sunset (standard)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 18min', false, false),
+('candle_lighting_20', 'הדלקת נרות 20 דקות', 'Candle Lighting (20 min)', 'Hadlakas Neiros 20', 'Candle lighting 20 minutes before sunset (Jerusalem)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 20min', false, false),
+('candle_lighting_22', 'הדלקת נרות 22 דקות', 'Candle Lighting (22 min)', 'Hadlakas Neiros 22', 'Candle lighting 22 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 22min', false, false),
+('candle_lighting_30', 'הדלקת נרות 30 דקות', 'Candle Lighting (30 min)', 'Hadlakas Neiros 30', 'Candle lighting 30 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 30min', false, false),
+('candle_lighting_40', 'הדלקת נרות 40 דקות', 'Candle Lighting (40 min)', 'Hadlakas Neiros 40', 'Candle lighting 40 minutes before sunset (Jerusalem strict)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 40min', false, false),
+('fast_begins', 'תחילת הצום', 'Fast Begins', 'Techilas Hatzom', 'Beginning of dawn-start fasts (minor fasts begin at alos)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(16.1, before_sunrise)', false, false),
+('fast_begins_72', 'תחילת הצום 72 דקות', 'Fast Begins (72 min)', 'Techilas Hatzom 72', 'Fast begins 72 minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 72min', false, false),
+('fast_begins_90', 'תחילת הצום 90 דקות', 'Fast Begins (90 min)', 'Techilas Hatzom 90', 'Fast begins 90 minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 90min', false, false),
+('fast_begins_sunset', 'תחילת הצום (שקיעה)', 'Fast Begins (Sunset)', 'Techilas Hatzom Shkiah', 'Beginning of sunset-start fasts (Yom Kippur, Tisha B''Av)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', false, false),
+('fast_ends_20', 'סוף הצום 20 דקות', 'Fast Ends (20 min)', 'Sof Hatzom 20', 'Fast ends 20 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 20min', false, false),
+('fast_ends_42', 'סוף הצום 42 דקות', 'Fast Ends (42 min)', 'Sof Hatzom 42', 'Fast ends 42 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
+('fast_ends_50', 'סוף הצום 50 דקות', 'Fast Ends (50 min)', 'Sof Hatzom 50', 'Fast ends 50 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 50min', false, false),
+('fixed_local_chatzos', 'חצות קבוע', 'Fixed Local Chatzos', 'Chatzos Kavua', 'Fixed local chatzos (12:00 PM local standard time)', (SELECT id FROM time_categories WHERE key = 'midday'), '12:00', false, false),
+('havdalah', 'הבדלה', 'Havdalah', 'Havdalah', 'End of Shabbos/Yom Tov - default 42 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
+('mincha_gedola_16_1', 'מנחה גדולה 16.1°', 'Earliest Mincha (16.1°)', 'Mincha Gedola 16.1', 'Earliest Mincha based on 16.1° calculation', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, alos_16_1)', false, false),
+('mincha_gedola_30', 'מנחה גדולה 30 דקות', 'Earliest Mincha (30 min)', 'Mincha Gedola 30', 'Earliest Mincha - exactly 30 minutes after chatzos', (SELECT id FROM time_categories WHERE key = 'midday'), 'solar_noon + 30min', false, false),
+('mincha_gedola_72', 'מנחה גדולה 72 דקות', 'Earliest Mincha (72 min)', 'Mincha Gedola 72', 'Earliest Mincha based on 72 minute day', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, mga)', false, false),
+('mincha_gedola_ateret_torah', 'מנחה גדולה עטרת תורה', 'Earliest Mincha (Ateret Torah)', 'Mincha Gedola AT', 'Earliest Mincha per Chacham Yosef Harari-Raful', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, ateret_torah)', false, false),
+('mincha_gedola_baal_hatanya', 'מנחה גדולה בעל התניא', 'Earliest Mincha (Baal HaTanya)', 'Mincha Gedola BH', 'Earliest Mincha according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, baal_hatanya)', false, false),
+('mincha_ketana_16_1', 'מנחה קטנה 16.1°', 'Mincha Ketana (16.1°)', 'Mincha Ketana 16.1', 'Mincha Ketana based on 16.1° calculation', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, alos_16_1)', false, false),
+('mincha_ketana_72', 'מנחה קטנה 72 דקות', 'Mincha Ketana (72 min)', 'Mincha Ketana 72', 'Mincha Ketana (MGA 72 minute day)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, mga)', false, false),
+('mincha_ketana_ateret_torah', 'מנחה קטנה עטרת תורה', 'Mincha Ketana (Ateret Torah)', 'Mincha Ketana AT', 'Mincha Ketana per Chacham Yosef Harari-Raful', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, ateret_torah)', false, false),
+('mincha_ketana_baal_hatanya', 'מנחה קטנה בעל התניא', 'Mincha Ketana (Baal HaTanya)', 'Mincha Ketana BH', 'Mincha Ketana according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, baal_hatanya)', false, false),
+('misheyakir_10_2', 'משיכיר 10.2°', 'Misheyakir (10.2°)', 'Misheyakir 10.2', 'Misheyakir at 10.2° solar depression', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(10.2, before_sunrise)', false, false),
+('misheyakir_11', 'משיכיר 11°', 'Misheyakir (11°)', 'Misheyakir 11', 'Misheyakir at 11° solar depression', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(11, before_sunrise)', false, false),
+('misheyakir_11_5', 'משיכיר 11.5°', 'Misheyakir (11.5°)', 'Misheyakir 11.5', 'Misheyakir at 11.5° solar depression - standard opinion', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(11.5, before_sunrise)', false, false),
+('misheyakir_7_65', 'משיכיר 7.65°', 'Misheyakir (7.65°)', 'Misheyakir 7.65', 'Misheyakir at 7.65° - lenient opinion', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(7.65, before_sunrise)', false, false),
+('misheyakir_9_5', 'משיכיר 9.5°', 'Misheyakir (9.5°)', 'Misheyakir 9.5', 'Misheyakir at 9.5° solar depression - lenient opinion', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(9.5, before_sunrise)', false, false),
+('plag_hamincha_120', 'פלג המנחה 120 דקות', 'Plag HaMincha (120 min)', 'Plag Hamincha 120', 'Plag HaMincha based on 120 minute day', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga_120)', false, false),
+('plag_hamincha_16_1', 'פלג המנחה 16.1°', 'Plag HaMincha (16.1°)', 'Plag Hamincha 16.1', 'Plag HaMincha based on 16.1° calculation', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, alos_16_1)', false, false),
+('plag_hamincha_18', 'פלג המנחה 18°', 'Plag HaMincha (18°)', 'Plag Hamincha 18', 'Plag HaMincha based on 18° calculation', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga_18)', false, false),
+('plag_hamincha_19_8', 'פלג המנחה 19.8°', 'Plag HaMincha (19.8°)', 'Plag Hamincha 19.8', 'Plag HaMincha based on 19.8° calculation', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga_19_8)', false, false),
+('plag_hamincha_26', 'פלג המנחה 26°', 'Plag HaMincha (26°)', 'Plag Hamincha 26', 'Plag HaMincha based on 26° calculation', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga_26)', false, false),
+('plag_hamincha_60', 'פלג המנחה 60 דקות', 'Plag HaMincha (60 min)', 'Plag Hamincha 60', 'Plag HaMincha based on 60 minute day', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga_60)', false, false),
+('plag_hamincha_72', 'פלג המנחה 72 דקות', 'Plag HaMincha (72 min)', 'Plag Hamincha 72', 'Plag HaMincha (MGA 72 minute day)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga)', false, false),
+('plag_hamincha_90', 'פלג המנחה 90 דקות', 'Plag HaMincha (90 min)', 'Plag Hamincha 90', 'Plag HaMincha based on 90 minute day', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga_90)', false, false),
+('plag_hamincha_96', 'פלג המנחה 96 דקות', 'Plag HaMincha (96 min)', 'Plag Hamincha 96', 'Plag HaMincha based on 96 minute day', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga_96)', false, false),
+('plag_hamincha_ateret_torah', 'פלג המנחה עטרת תורה', 'Plag HaMincha (Ateret Torah)', 'Plag Hamincha AT', 'Plag HaMincha per Chacham Yosef Harari-Raful', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, ateret_torah)', false, false),
+('plag_hamincha_baal_hatanya', 'פלג המנחה בעל התניא', 'Plag HaMincha (Baal HaTanya)', 'Plag Hamincha BH', 'Plag HaMincha according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, baal_hatanya)', false, false),
+('plag_hamincha_terumas_hadeshen', 'פלג המנחה - תרומת הדשן', 'Plag HaMincha (Terumas HaDeshen)', 'Plag HaMincha Terumas HaDeshen', 'Plag HaMincha calculated with day starting from midnight per Terumas HaDeshen', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, custom(sunrise - 90min, sunset + 90min))', false, false),
+('samuch_lmincha_ketana', 'סמוך למנחה קטנה', 'Samuch L''Mincha Ketana', 'Samuch LMincha', 'Half hour before Mincha Ketana', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9, gra)', false, false),
+('samuch_lmincha_ketana_16_1', 'סמוך למנחה קטנה 16.1°', 'Samuch L''Mincha Ketana (16.1°)', 'Samuch LMincha 16.1', 'Half hour before Mincha Ketana (16.1° day)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9, mga_16_1)', false, false),
+('samuch_lmincha_ketana_72', 'סמוך למנחה קטנה 72', 'Samuch L''Mincha Ketana (72 min)', 'Samuch LMincha 72', 'Half hour before Mincha Ketana (72 min day)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9, mga)', false, false),
+('shaah_zmanis_gra', 'שעה זמנית גר"א', 'Shaah Zmanis (GRA)', 'Shaah Zmanis GRA', 'One proportional hour according to GRA', (SELECT id FROM time_categories WHERE key = 'midday'), 'shaah_zmanis(gra)', false, true),
+('shaah_zmanis_mga', 'שעה זמנית מג"א', 'Shaah Zmanis (MGA)', 'Shaah Zmanis MGA', 'One proportional hour according to MGA', (SELECT id FROM time_categories WHERE key = 'midday'), 'shaah_zmanis(mga)', false, true),
+('shabbos_ends_42', 'מוצאי שבת 42 דקות', 'Shabbos Ends (42 min)', 'Motzei Shabbos 42', 'End of Shabbos - 42 minutes', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
+('shabbos_ends_50', 'מוצאי שבת 50 דקות', 'Shabbos Ends (50 min)', 'Motzei Shabbos 50', 'End of Shabbos - 50 minutes', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 50min', false, false),
+('shabbos_ends_72', 'מוצאי שבת 72 דקות', 'Shabbos Ends (72 min)', 'Motzei Shabbos 72', 'End of Shabbos - Rabbeinu Tam', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 72min', false, false),
+('shkia_amitis', 'שקיעה אמיתית', 'True Sunset', 'Shkia Amitis', 'True sunset accounting for elevation', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', false, false),
+('sof_zman_achilas_chametz_baal_hatanya', 'סוף זמן אכילת חמץ בעל התניא', 'Latest Eating Chametz (Baal HaTanya)', 'Sof Achilat Chametz BH', 'Latest time to eat chametz per Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, baal_hatanya)', false, false),
+('sof_zman_achilas_chametz_gra', 'סוף זמן אכילת חמץ גר"א', 'Latest Eating Chametz (GRA)', 'Sof Achilat Chametz GRA', 'Latest time to eat chametz on Erev Pesach (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, gra)', false, false),
+('sof_zman_achilas_chametz_mga', 'סוף זמן אכילת חמץ מג"א', 'Latest Eating Chametz (MGA)', 'Sof Achilat Chametz MGA', 'Latest time to eat chametz on Erev Pesach (MGA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga)', false, false),
+('sof_zman_achilas_chametz_mga_16_1', 'סוף זמן אכילת חמץ מג"א 16.1°', 'Latest Eating Chametz (MGA 16.1°)', 'Sof Achilat Chametz MGA 16.1', 'Latest time to eat chametz based on 16.1° day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_16_1)', false, false),
+('sof_zman_achilas_chametz_mga_72_zmanis', 'סוף זמן אכילת חמץ מג"א 72 זמניות', 'Latest Eating Chametz (MGA 72 Zmaniyos)', 'Sof Achilat Chametz MGA 72Z', 'Latest time to eat chametz based on 72 zmaniyos day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_72_zmanis)', false, false),
+('sof_zman_biur_chametz_baal_hatanya', 'סוף זמן ביעור חמץ בעל התניא', 'Latest Burning Chametz (Baal HaTanya)', 'Sof Biur Chametz BH', 'Latest time to burn chametz per Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(5, baal_hatanya)', false, false),
+('sof_zman_biur_chametz_gra', 'סוף זמן ביעור חמץ גר"א', 'Latest Burning Chametz (GRA)', 'Sof Biur Chametz GRA', 'Latest time to burn chametz on Erev Pesach (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(5, gra)', false, false),
+('sof_zman_biur_chametz_mga', 'סוף זמן ביעור חמץ מג"א', 'Latest Burning Chametz (MGA)', 'Sof Biur Chametz MGA', 'Latest time to burn chametz on Erev Pesach (MGA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(5, mga)', false, false),
+('sof_zman_biur_chametz_mga_16_1', 'סוף זמן ביעור חמץ מג"א 16.1°', 'Latest Burning Chametz (MGA 16.1°)', 'Sof Biur Chametz MGA 16.1', 'Latest time to burn chametz based on 16.1° day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(5, mga_16_1)', false, false),
+('sof_zman_biur_chametz_mga_72_zmanis', 'סוף זמן ביעור חמץ מג"א 72 זמניות', 'Latest Burning Chametz (MGA 72 Zmaniyos)', 'Sof Biur Chametz MGA 72Z', 'Latest time to burn chametz based on 72 zmaniyos day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(5, mga_72_zmanis)', false, false),
+('sof_zman_kiddush_levana_15', 'סוף זמן קידוש לבנה 15 ימים', 'Latest Kiddush Levana (15 Days)', 'Sof Kiddush Levana 15', 'Latest time for Kiddush Levana - 15 days after molad', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'molad + 15days', false, false),
+('sof_zman_kiddush_levana_between_moldos', 'סוף זמן קידוש לבנה בין המולדות', 'Latest Kiddush Levana (Between Molados)', 'Sof Kiddush Levana BM', 'Latest Kiddush Levana - halfway between molados (~14.75 days)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'molad + 14days + 18hr', false, false),
+('sof_zman_shma_16_1', 'סוף זמן ק"ש 16.1°', 'Latest Shema (16.1°)', 'Sof Zman Shma 16.1', 'Latest Shema based on 16.1° alos', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, alos_16_1)', false, false),
+('sof_zman_shma_3_hours', 'סוף זמן ק"ש 3 שעות לפני חצות', 'Latest Shema (3 Hours Before Chatzos)', 'Sof Zman Shma 3H', 'Latest Shema - fixed 3 hours before chatzos', (SELECT id FROM time_categories WHERE key = 'morning'), 'solar_noon - 3hr', false, false),
+('sof_zman_shma_ateret_torah', 'סוף זמן ק"ש עטרת תורה', 'Latest Shema (Ateret Torah)', 'Sof Zman Shma AT', 'Latest Shema per Chacham Yosef Harari-Raful', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, ateret_torah)', false, false),
+('sof_zman_shma_baal_hatanya', 'סוף זמן ק"ש בעל התניא', 'Latest Shema (Baal HaTanya)', 'Sof Zman Shma BH', 'Latest Shema according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, baal_hatanya)', false, false),
+('sof_zman_shma_mga_120', 'סוף זמן ק"ש מג"א 120', 'Latest Shema (MGA 120)', 'Sof Zman Shma MGA 120', 'Latest time for Shema (MGA from 120min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_120)', false, false),
+('sof_zman_shma_mga_16_1', 'סוף זמן שמע - מג"א 16.1°', 'Latest Shema (MGA 16.1°)', 'Sof Zman Shma MGA 16.1', 'Latest time for Shema per MGA using 16.1° dawn and 16.1° tzais', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga)', false, false),
+('sof_zman_shma_mga_18', 'סוף זמן ק"ש מג"א 18°', 'Latest Shema (MGA 18°)', 'Sof Zman Shma MGA 18', 'Latest Shema MGA based on 18° alos/tzais', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_18)', false, false),
+('sof_zman_shma_mga_19_8', 'סוף זמן ק"ש מג"א 19.8°', 'Latest Shema (MGA 19.8°)', 'Sof Zman Shma MGA 19.8', 'Latest Shema MGA based on 19.8° alos/tzais', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_19_8)', false, false),
+('sof_zman_shma_mga_72', 'סוף זמן שמע - מג"א 72', 'Latest Shema (MGA 72)', 'Sof Zman Shma MGA 72', 'Latest time for Shema per MGA using 72-minute dawn and tzais', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_90)', false, false),
+('sof_zman_shma_mga_72_zmanis', 'סוף זמן ק"ש מג"א 72 זמניות', 'Latest Shema (MGA 72 Zmaniyos)', 'Sof Zman Shma MGA 72Z', 'Latest Shema MGA based on 72 proportional minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_72_zmanis)', false, false),
+('sof_zman_shma_mga_90', 'סוף זמן ק"ש מג"א 90', 'Latest Shema (MGA 90)', 'Sof Zman Shma MGA 90', 'Latest time for Shema (MGA from 90min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_90)', false, false),
+('sof_zman_shma_mga_90_zmanis', 'סוף זמן ק"ש מג"א 90 זמניות', 'Latest Shema (MGA 90 Zmaniyos)', 'Sof Zman Shma MGA 90Z', 'Latest Shema MGA based on 90 proportional minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_90_zmanis)', false, false),
+('sof_zman_shma_mga_96', 'סוף זמן ק"ש מג"א 96', 'Latest Shema (MGA 96)', 'Sof Zman Shma MGA 96', 'Latest Shema MGA based on 96 minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_96)', false, false),
+('sof_zman_shma_mga_96_zmanis', 'סוף זמן ק"ש מג"א 96 זמניות', 'Latest Shema (MGA 96 Zmaniyos)', 'Sof Zman Shma MGA 96Z', 'Latest Shema MGA based on 96 proportional minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_96_zmanis)', false, false),
+('sof_zman_tfila_2_hours', 'סוף זמן תפילה 2 שעות לפני חצות', 'Latest Shacharit (2 Hours Before Chatzos)', 'Sof Zman Tfila 2H', 'Latest Shacharit - fixed 2 hours before chatzos', (SELECT id FROM time_categories WHERE key = 'morning'), 'solar_noon - 2hr', false, false),
+('sof_zman_tfila_ateret_torah', 'סוף זמן תפילה עטרת תורה', 'Latest Shacharit (Ateret Torah)', 'Sof Zman Tfila AT', 'Latest Shacharit per Chacham Yosef Harari-Raful', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, ateret_torah)', false, false),
+('sof_zman_tfila_baal_hatanya', 'סוף זמן תפילה בעל התניא', 'Latest Shacharit (Baal HaTanya)', 'Sof Zman Tfila BH', 'Latest Shacharit according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, baal_hatanya)', false, false),
+('sof_zman_tfila_mga_120', 'סוף זמן תפילה מג"א 120', 'Latest Shacharit (MGA 120)', 'Sof Zman Tefilla MGA 120', 'Latest Shacharit (MGA from 120min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_120)', false, false),
+('sof_zman_tfila_mga_18', 'סוף זמן תפילה מג"א 18°', 'Latest Shacharit (MGA 18°)', 'Sof Zman Tfila MGA 18', 'Latest Shacharit MGA based on 18° alos/tzais', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_18)', false, false),
+('sof_zman_tfila_mga_19_8', 'סוף זמן תפילה מג"א 19.8°', 'Latest Shacharit (MGA 19.8°)', 'Sof Zman Tfila MGA 19.8', 'Latest Shacharit MGA based on 19.8° alos/tzais', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_19_8)', false, false),
+('sof_zman_tfila_mga_72_zmanis', 'סוף זמן תפילה מג"א 72 זמניות', 'Latest Shacharit (MGA 72 Zmaniyos)', 'Sof Zman Tfila MGA 72Z', 'Latest Shacharit MGA based on 72 proportional minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_72_zmanis)', false, false),
+('sof_zman_tfila_mga_90', 'סוף זמן תפילה מג"א 90', 'Latest Shacharit (MGA 90)', 'Sof Zman Tefilla MGA 90', 'Latest Shacharit (MGA from 90min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_90)', false, false),
+('sof_zman_tfila_mga_90_zmanis', 'סוף זמן תפילה מג"א 90 זמניות', 'Latest Shacharit (MGA 90 Zmaniyos)', 'Sof Zman Tfila MGA 90Z', 'Latest Shacharit MGA based on 90 proportional minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_90_zmanis)', false, false),
+('sof_zman_tfila_mga_96', 'סוף זמן תפילה מג"א 96', 'Latest Shacharit (MGA 96)', 'Sof Zman Tfila MGA 96', 'Latest Shacharit MGA based on 96 minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_96)', false, false),
+('sof_zman_tfila_mga_96_zmanis', 'סוף זמן תפילה מג"א 96 זמניות', 'Latest Shacharit (MGA 96 Zmaniyos)', 'Sof Zman Tfila MGA 96Z', 'Latest Shacharit MGA based on 96 proportional minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_96_zmanis)', false, false),
+('tchillas_zman_kiddush_levana_3', 'תחילת זמן קידוש לבנה 3 ימים', 'Earliest Kiddush Levana (3 Days)', 'Tchillas Kiddush Levana 3', 'Earliest time for Kiddush Levana - 3 days after molad', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'molad + 3days', false, false),
+('tchillas_zman_kiddush_levana_7', 'תחילת זמן קידוש לבנה 7 ימים', 'Earliest Kiddush Levana (7 Days)', 'Tchillas Kiddush Levana 7', 'Earliest time for Kiddush Levana - 7 days after molad', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'molad + 7days', false, false),
+('tzais_120', 'צאת 120 דקות', 'Tzais (120 min)', 'Tzais 120', 'Fixed 120 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 120min', false, false),
+('tzais_120_zmanis', 'צאת 120 דקות זמניות', 'Tzais (120 Zmaniyos)', 'Tzais 120 Zmanis', 'Nightfall 120 proportional minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'proportional_minutes(120, after_sunset)', false, false),
+('tzais_13_24', 'צאת 13.24°', 'Tzais (13.24 min)', 'Tzais 13.24', 'Fixed 13.24 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 13min', false, false),
+('tzais_13_5', 'צאת 13.5°', 'Tzais (13.5°)', 'Tzais 13.5', 'Stringent nightfall at 13.5°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(13.5, after_sunset)', false, false),
+('tzais_18', 'צאת 18°', 'Tzais (18°)', 'Tzais 18', 'Astronomical nightfall (18°)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(18, after_sunset)', false, false),
+('tzais_19_8', 'צאת 19.8°', 'Tzais (19.8°)', 'Tzais 19.8', 'Very stringent nightfall at 19.8°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(19.8, after_sunset)', false, false),
+('tzais_20', 'צאת 20 דקות', 'Tzais (20 min)', 'Tzais 20', 'Fixed 20 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 20min', false, false),
+('tzais_26', 'צאת 26°', 'Tzais (26°)', 'Tzais 26', 'Extremely stringent nightfall', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(26, after_sunset)', false, false),
+('tzais_3_65', 'צאת 3.65°', 'Tzais (3.65°)', 'Tzais 3.65', 'Nightfall at 3.65° - Geonim opinion', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(3.65, after_sunset)', false, false),
+('tzais_3_676', 'צאת 3.676°', 'Tzais (3.676°)', 'Tzais 3.676', 'Nightfall at 3.676° - Geonim opinion', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(3.676, after_sunset)', false, false),
+('tzais_3_7', 'צאת 3.7°', 'Tzais (3.7°)', 'Tzais 3.7', 'Nightfall at 3.7° - Geonim opinion', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(3.7, after_sunset)', false, false),
+('tzais_3_8', 'צאת 3.8°', 'Tzais (3.8°)', 'Tzais 3.8', 'Nightfall at 3.8° - Geonim opinion', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(3.8, after_sunset)', false, false),
+('tzais_3_stars', 'צאת 3 כוכבים', 'Tzais 3 Stars', 'Tzais 3 Kochavim', 'Three stars visible - standard nightfall', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', false, false),
+('tzais_42', 'צאת 42 דקות', 'Tzais (42 min)', 'Tzais 42', 'Fixed 42 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
+('tzais_4_37', 'צאת 4.37°', 'Tzais (4.37°)', 'Tzais 4.37', 'Nightfall at 4.37° - lenient', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(4.37, after_sunset)', false, false),
+('tzais_4_61', 'צאת 4.61°', 'Tzais (4.61°)', 'Tzais 4.61', 'Nightfall at 4.61°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(4.61, after_sunset)', false, false),
+('tzais_4_8', 'צאת 4.8°', 'Tzais (4.8°)', 'Tzais 4.8', 'Nightfall at 4.8°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(4.8, after_sunset)', false, false),
+('tzais_50', 'צאת 50 דקות', 'Tzais (50 min)', 'Tzais 50', 'Fixed 50 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 50min', false, false),
+('tzais_5_88', 'צאת 5.88°', 'Tzais (5.88°)', 'Tzais 5.88', 'Nightfall at 5.88°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(5.88, after_sunset)', false, false),
+('tzais_5_95', 'צאת 5.95°', 'Tzais (5.95°)', 'Tzais 5.95', 'Nightfall at 5.95°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(5.95, after_sunset)', false, false),
+('tzais_6', 'צאת 6°', 'Tzais (6°)', 'Tzais 6', 'Civil twilight end (6°)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(6, after_sunset)', false, false),
+('tzais_60', 'צאת 60 דקות', 'Tzais (60 min)', 'Tzais 60', 'Fixed 60 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 60min', false, false),
+('tzais_6_45', 'צאת 6.45°', 'Tzais (6.45°)', 'Tzais 6.45', 'Nightfall at 6.45°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(6.45, after_sunset)', false, false),
+('tzais_7_08', 'צאת הכוכבים 7.08°', 'Nightfall (7.08°)', 'Tzais Hakochavim 7.08°', 'Three small stars visible when sun is 7.08 degrees below horizon. Used by Manchester community.', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(7.08, after_sunset)', false, false),
+('tzais_7_083', 'צאת 7.083°', 'Tzais (7.083°)', 'Tzais 7.083', 'Nightfall at 7.083° (Rabbeinu Tam geometric)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(7.083, after_sunset)', false, false),
+('tzais_72_zmanis', 'צאת 72 דקות זמניות', 'Tzais (72 Zmaniyos)', 'Tzais 72 Zmanis', 'Nightfall 72 proportional minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'proportional_minutes(72, after_sunset)', false, false),
+('tzais_7_67', 'צאת 7.67°', 'Tzais (7.67°)', 'Tzais 7.67', 'Nightfall at 7.67°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(7.67, after_sunset)', false, false),
+('tzais_8_5', 'צאת 8.5°', 'Tzais (8.5°)', 'Tzais 8.5', 'Standard nightfall at 8.5°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', false, false),
+('tzais_90', 'צאת 90 דקות', 'Tzais (90 min)', 'Tzais 90', 'Fixed 90 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 90min', false, false),
+('tzais_90_zmanis', 'צאת 90 דקות זמניות', 'Tzais (90 Zmaniyos)', 'Tzais 90 Zmanis', 'Nightfall 90 proportional minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'proportional_minutes(90, after_sunset)', false, false),
+('tzais_9_3', 'צאת 9.3°', 'Tzais (9.3°)', 'Tzais 9.3', 'Nightfall at 9.3°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(9.3, after_sunset)', false, false),
+('tzais_96', 'צאת 96 דקות', 'Tzais (96 min)', 'Tzais 96', 'Fixed 96 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 96min', false, false),
+('tzais_96_zmanis', 'צאת 96 דקות זמניות', 'Tzais (96 Zmaniyos)', 'Tzais 96 Zmanis', 'Nightfall 96 proportional minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'proportional_minutes(96, after_sunset)', false, false),
+('tzais_9_75', 'צאת 9.75°', 'Tzais (9.75°)', 'Tzais 9.75', 'Nightfall at 9.75°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(9.75, after_sunset)', false, false),
+('tzais_ateret_torah', 'צאת עטרת תורה', 'Tzais (Ateret Torah)', 'Tzais AT', 'Nightfall per Chacham Yosef Harari-Raful (sunset + 40 min)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 40min', false, false),
+('tzais_baal_hatanya', 'צאת בעל התניא', 'Tzais (Baal HaTanya)', 'Tzais BH', 'Nightfall according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(6.5, after_sunset)', false, false),
+('visible_sunrise', 'הנץ הנראה', 'Visible Sunrise', 'Hanetz Hanireh', 'Actual visible sunrise accounting for refraction', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'visible_sunrise', false, false),
+('visible_sunset', 'שקיעה נראית', 'Visible Sunset', 'Shkiah Nireis', 'Actual visible sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'visible_sunset', false, false);
 
--- Misheyakir variations
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(187, 'misheyakir_10_2', 'משיכיר 10.2°', 'Misheyakir (10.2°)', 'Misheyakir 10.2', 'Misheyakir at 10.2° solar depression', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(10.2, before_sunrise)', false, false),
-(119, 'misheyakir_11', 'משיכיר 11°', 'Misheyakir (11°)', 'Misheyakir 11', 'Misheyakir at 11° solar depression', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(11, before_sunrise)', false, false),
-(84, 'misheyakir_7_65', 'משיכיר 7.65°', 'Misheyakir (7.65°)', 'Misheyakir 7.65', 'Misheyakir at 7.65° - lenient opinion', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'solar(7.65, before_sunrise)', false, false),
-(33, 'visible_sunrise', 'הנץ הנראה', 'Visible Sunrise', 'Hanetz Hanireh', 'Actual visible sunrise accounting for refraction', (SELECT id FROM time_categories WHERE key = 'sunrise'), 'visible_sunrise', false, false);
 
--- Shema variations
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(280, 'sof_zman_shma_mga_90', 'סוף זמן ק"ש מג"א 90', 'Latest Shema (MGA 90)', 'Sof Zman Shma MGA 90', 'Latest time for Shema (MGA from 90min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_90)', false, false),
-(31, 'sof_zman_shma_mga_120', 'סוף זמן ק"ש מג"א 120', 'Latest Shema (MGA 120)', 'Sof Zman Shma MGA 120', 'Latest time for Shema (MGA from 120min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, mga_120)', false, false),
-(238, 'sof_zman_shma_16_1', 'סוף זמן ק"ש 16.1°', 'Latest Shema (16.1°)', 'Sof Zman Shma 16.1', 'Latest Shema based on 16.1° alos', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, alos_16_1)', false, false),
-(122, 'sof_zman_shma_ateret_torah', 'סוף זמן ק"ש עטרת תורה', 'Latest Shema (Ateret Torah)', 'Sof Zman Shma AT', 'Latest Shema per Chacham Yosef Harari-Raful', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, ateret_torah)', false, false),
-(114, 'sof_zman_shma_baal_hatanya', 'סוף זמן ק"ש בעל התניא', 'Latest Shema (Baal HaTanya)', 'Sof Zman Shma BH', 'Latest Shema according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(3, baal_hatanya)', false, false),
-(237, 'sof_zman_shma_3_hours', 'סוף זמן ק"ש 3 שעות לפני חצות', 'Latest Shema (3 Hours Before Chatzos)', 'Sof Zman Shma 3H', 'Latest Shema - fixed 3 hours before chatzos', (SELECT id FROM time_categories WHERE key = 'morning'), 'solar_noon - 3hr', false, false);
+-- ============================================================================
+-- MASTER ZMAN TAGS (linking master_zmanim_registry to zman_tags)
+-- ============================================================================
 
--- Tefila variations
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(184, 'sof_zman_tfila_mga_90', 'סוף זמן תפילה מג"א 90', 'Latest Shacharit (MGA 90)', 'Sof Zman Tefilla MGA 90', 'Latest Shacharit (MGA from 90min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_90)', false, false),
-(14, 'sof_zman_tfila_mga_120', 'סוף זמן תפילה מג"א 120', 'Latest Shacharit (MGA 120)', 'Sof Zman Tefilla MGA 120', 'Latest Shacharit (MGA from 120min dawn)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_120)', false, false),
-(83, 'sof_zman_tfila_mga_72_zmanis', 'סוף זמן תפילה מג"א 72 זמניות', 'Latest Shacharit (MGA 72 Zmaniyos)', 'Sof Zman Tfila MGA 72Z', 'Latest Shacharit MGA based on 72 proportional minute day', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga_72_zmanis)', false, false),
-(220, 'sof_zman_tfila_ateret_torah', 'סוף זמן תפילה עטרת תורה', 'Latest Shacharit (Ateret Torah)', 'Sof Zman Tfila AT', 'Latest Shacharit per Chacham Yosef Harari-Raful', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, ateret_torah)', false, false),
-(236, 'sof_zman_tfila_baal_hatanya', 'סוף זמן תפילה בעל התניא', 'Latest Shacharit (Baal HaTanya)', 'Sof Zman Tfila BH', 'Latest Shacharit according to Baal HaTanya', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, baal_hatanya)', false, false),
-(103, 'sof_zman_tfila_2_hours', 'סוף זמן תפילה 2 שעות לפני חצות', 'Latest Shacharit (2 Hours Before Chatzos)', 'Sof Zman Tfila 2H', 'Latest Shacharit - fixed 2 hours before chatzos', (SELECT id FROM time_categories WHERE key = 'morning'), 'solar_noon - 2hr', false, false);
+-- Calculation Method
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_72'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_90'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_96'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_120'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_30'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_15'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_18'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_20'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_22'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_30'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_40'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_13_24'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_20'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_42'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_50'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_60'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_90'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_96'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_120'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_72'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_20'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_60'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_13_5'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_16_875'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_18'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_72'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_rt_58_5'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_fixed'), false);
 
--- Chametz times
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(197, 'sof_zman_achilas_chametz_gra', 'סוף זמן אכילת חמץ גר"א', 'Latest Eating Chametz (GRA)', 'Sof Achilat Chametz GRA', 'Latest time to eat chametz on Erev Pesach (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, gra)', false, false),
-(260, 'sof_zman_achilas_chametz_mga', 'סוף זמן אכילת חמץ מג"א', 'Latest Eating Chametz (MGA)', 'Sof Achilat Chametz MGA', 'Latest time to eat chametz on Erev Pesach (MGA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(4, mga)', false, false),
-(183, 'sof_zman_biur_chametz_gra', 'סוף זמן ביעור חמץ גר"א', 'Latest Burning Chametz (GRA)', 'Sof Biur Chametz GRA', 'Latest time to burn chametz on Erev Pesach (GRA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(5, gra)', false, false),
-(98, 'sof_zman_biur_chametz_mga', 'סוף זמן ביעור חמץ מג"א', 'Latest Burning Chametz (MGA)', 'Sof Biur Chametz MGA', 'Latest time to burn chametz on Erev Pesach (MGA)', (SELECT id FROM time_categories WHERE key = 'morning'), 'proportional_hours(5, mga)', false, false);
-
--- Mincha variations
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(62, 'mincha_gedola_16_1', 'מנחה גדולה 16.1°', 'Earliest Mincha (16.1°)', 'Mincha Gedola 16.1', 'Earliest Mincha based on 16.1° calculation', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, alos_16_1)', false, false),
-(49, 'mincha_gedola_30', 'מנחה גדולה 30 דקות', 'Earliest Mincha (30 min)', 'Mincha Gedola 30', 'Earliest Mincha - exactly 30 minutes after chatzos', (SELECT id FROM time_categories WHERE key = 'midday'), 'solar_noon + 30min', false, false),
-(88, 'mincha_gedola_72', 'מנחה גדולה 72 דקות', 'Earliest Mincha (72 min)', 'Mincha Gedola 72', 'Earliest Mincha based on 72 minute day', (SELECT id FROM time_categories WHERE key = 'midday'), 'proportional_hours(6.5, mga)', false, false),
-(273, 'mincha_ketana_16_1', 'מנחה קטנה 16.1°', 'Mincha Ketana (16.1°)', 'Mincha Ketana 16.1', 'Mincha Ketana based on 16.1° calculation', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, alos_16_1)', false, false),
-(19, 'mincha_ketana_72', 'מנחה קטנה 72 דקות', 'Mincha Ketana (72 min)', 'Mincha Ketana 72', 'Mincha Ketana (MGA 72 minute day)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9.5, mga)', false, false),
-(221, 'samuch_lmincha_ketana', 'סמוך למנחה קטנה', 'Samuch L''Mincha Ketana', 'Samuch LMincha', 'Half hour before Mincha Ketana', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(9, gra)', false, false);
-
--- Plag variations
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(143, 'plag_hamincha_16_1', 'פלג המנחה 16.1°', 'Plag HaMincha (16.1°)', 'Plag Hamincha 16.1', 'Plag HaMincha based on 16.1° calculation', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, alos_16_1)', false, false),
-(227, 'plag_hamincha_72', 'פלג המנחה 72 דקות', 'Plag HaMincha (72 min)', 'Plag Hamincha 72', 'Plag HaMincha (MGA 72 minute day)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours(10.75, mga)', false, false),
-(7, 'plag_hamincha_terumas_hadeshen', 'פלג המנחה - תרומת הדשן', 'Plag HaMincha (Terumas HaDeshen)', 'Plag Terumas HaDeshen', 'Plag 1.25 proportional hours before nightfall (used for accepting Shabbos early)', (SELECT id FROM time_categories WHERE key = 'afternoon'), 'proportional_hours_before_tzais(1.25)', false, false);
-
--- Candle lighting variations
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(107, 'candle_lighting_15', 'הדלקת נרות 15 דקות', 'Candle Lighting (15 min)', 'Hadlakas Neiros 15', 'Candle lighting 15 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 15min', false, false),
-(43, 'candle_lighting_18', 'הדלקת נרות 18 דקות', 'Candle Lighting (18 min)', 'Hadlakas Neiros 18', 'Candle lighting 18 minutes before sunset (standard)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 18min', false, false),
-(229, 'candle_lighting_20', 'הדלקת נרות 20 דקות', 'Candle Lighting (20 min)', 'Hadlakas Neiros 20', 'Candle lighting 20 minutes before sunset (Jerusalem)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 20min', false, false),
-(66, 'candle_lighting_22', 'הדלקת נרות 22 דקות', 'Candle Lighting (22 min)', 'Hadlakas Neiros 22', 'Candle lighting 22 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 22min', false, false),
-(188, 'candle_lighting_30', 'הדלקת נרות 30 דקות', 'Candle Lighting (30 min)', 'Hadlakas Neiros 30', 'Candle lighting 30 minutes before sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 30min', false, false),
-(281, 'candle_lighting_40', 'הדלקת נרות 40 דקות', 'Candle Lighting (40 min)', 'Hadlakas Neiros 40', 'Candle lighting 40 minutes before sunset (Jerusalem strict)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset - 40min', false, false);
-
--- Sunset and bein hashmashos
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(20, 'visible_sunset', 'שקיעה נראית', 'Visible Sunset', 'Shkiah Nireis', 'Actual visible sunset', (SELECT id FROM time_categories WHERE key = 'sunset'), 'visible_sunset', false, false),
-(53, 'shkia_amitis', 'שקיעה אמיתית', 'True Sunset', 'Shkia Amitis', 'True sunset accounting for elevation', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', false, false),
-(181, 'bein_hashmashos_start', 'תחילת בין השמשות', 'Bein Hashmashos Start', 'Bein Hashmashos', 'Start of twilight period', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', false, false);
-
--- Tzais (nightfall) variations
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(113, 'tzais_7_08', 'צאת הכוכבים 7.08°', 'Nightfall (7.08°)', 'Tzais Hakochavim 7.08°', 'Three small stars visible when sun is 7.08 degrees below horizon. Used by Manchester community.', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(7.08, after_sunset)', false, false),
-(139, 'tzais_3_stars', 'צאת 3 כוכבים', 'Tzais 3 Stars', 'Tzais 3 Kochavim', 'Three stars visible - standard nightfall', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', false, false),
-(44, 'tzais_4_37', 'צאת 4.37°', 'Tzais (4.37°)', 'Tzais 4.37', 'Nightfall at 4.37° - lenient', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(4.37, after_sunset)', false, false),
-(218, 'tzais_4_61', 'צאת 4.61°', 'Tzais (4.61°)', 'Tzais 4.61', 'Nightfall at 4.61°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(4.61, after_sunset)', false, false),
-(262, 'tzais_4_8', 'צאת 4.8°', 'Tzais (4.8°)', 'Tzais 4.8', 'Nightfall at 4.8°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(4.8, after_sunset)', false, false),
-(6, 'tzais_5_95', 'צאת 5.95°', 'Tzais (5.95°)', 'Tzais 5.95', 'Nightfall at 5.95°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(5.95, after_sunset)', false, false),
-(131, 'tzais_6', 'צאת 6°', 'Tzais (6°)', 'Tzais 6', 'Civil twilight end (6°)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(6, after_sunset)', false, false),
-(136, 'tzais_7_083', 'צאת 7.083°', 'Tzais (7.083°)', 'Tzais 7.083', 'Nightfall at 7.083° (Rabbeinu Tam geometric)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(7.083, after_sunset)', false, false),
-(256, 'tzais_7_67', 'צאת 7.67°', 'Tzais (7.67°)', 'Tzais 7.67', 'Nightfall at 7.67°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(7.67, after_sunset)', false, false),
-(101, 'tzais_8_5', 'צאת 8.5°', 'Tzais (8.5°)', 'Tzais 8.5', 'Standard nightfall at 8.5°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(8.5, after_sunset)', false, false),
-(148, 'tzais_9_3', 'צאת 9.3°', 'Tzais (9.3°)', 'Tzais 9.3', 'Nightfall at 9.3°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(9.3, after_sunset)', false, false),
-(243, 'tzais_9_75', 'צאת 9.75°', 'Tzais (9.75°)', 'Tzais 9.75', 'Nightfall at 9.75°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(9.75, after_sunset)', false, false),
-(208, 'tzais_13_5', 'צאת 13.5°', 'Tzais (13.5°)', 'Tzais 13.5', 'Stringent nightfall at 13.5°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(13.5, after_sunset)', false, false),
-(191, 'tzais_18', 'צאת 18°', 'Tzais (18°)', 'Tzais 18', 'Astronomical nightfall (18°)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(18, after_sunset)', false, false),
-(54, 'tzais_19_8', 'צאת 19.8°', 'Tzais (19.8°)', 'Tzais 19.8', 'Very stringent nightfall at 19.8°', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(19.8, after_sunset)', false, false),
-(201, 'tzais_26', 'צאת 26°', 'Tzais (26°)', 'Tzais 26', 'Extremely stringent nightfall', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'solar(26, after_sunset)', false, false);
-
--- Fixed minute tzais
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(38, 'tzais_20', 'צאת 20 דקות', 'Tzais (20 min)', 'Tzais 20', 'Fixed 20 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 20min', false, false),
-(11, 'tzais_42', 'צאת 42 דקות', 'Tzais (42 min)', 'Tzais 42', 'Fixed 42 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
-(153, 'tzais_50', 'צאת 50 דקות', 'Tzais (50 min)', 'Tzais 50', 'Fixed 50 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 50min', false, false),
-(128, 'tzais_60', 'צאת 60 דקות', 'Tzais (60 min)', 'Tzais 60', 'Fixed 60 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 60min', false, false),
-(150, 'tzais_72', 'צאת 72 דקות', 'Tzais (72 min)', 'Tzais 72', 'Fixed 72 minutes after sunset (Rabbeinu Tam)', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 72min', false, false),
-(65, 'tzais_90', 'צאת 90 דקות', 'Tzais (90 min)', 'Tzais 90', 'Fixed 90 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 90min', false, false),
-(82, 'tzais_96', 'צאת 96 דקות', 'Tzais (96 min)', 'Tzais 96', 'Fixed 96 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 96min', false, false),
-(239, 'tzais_120', 'צאת 120 דקות', 'Tzais (120 min)', 'Tzais 120', 'Fixed 120 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 120min', false, false);
-
--- Shabbos end and havdalah
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(4, 'havdalah', 'הבדלה', 'Havdalah', 'Havdalah', 'End of Shabbos/Yom Tov - default 42 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
-(74, 'shabbos_ends_42', 'מוצאי שבת 42 דקות', 'Shabbos Ends (42 min)', 'Motzei Shabbos 42', 'End of Shabbos - 42 minutes', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
-(37, 'shabbos_ends_50', 'מוצאי שבת 50 דקות', 'Shabbos Ends (50 min)', 'Motzei Shabbos 50', 'End of Shabbos - 50 minutes', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 50min', false, false),
-(138, 'shabbos_ends_72', 'מוצאי שבת 72 דקות', 'Shabbos Ends (72 min)', 'Motzei Shabbos 72', 'End of Shabbos - Rabbeinu Tam', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 72min', false, false);
-
--- Fast end times
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(27, 'fast_ends_20', 'סוף הצום 20 דקות', 'Fast Ends (20 min)', 'Sof Hatzom 20', 'Fast ends 20 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 20min', false, false),
-(105, 'fast_ends_42', 'סוף הצום 42 דקות', 'Fast Ends (42 min)', 'Sof Hatzom 42', 'Fast ends 42 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 42min', false, false),
-(29, 'fast_ends_50', 'סוף הצום 50 דקות', 'Fast Ends (50 min)', 'Sof Hatzom 50', 'Fast ends 50 minutes after sunset', (SELECT id FROM time_categories WHERE key = 'nightfall'), 'sunset + 50min', false, false);
-
--- Fast begin times
-INSERT INTO master_zmanim_registry (id, zman_key, canonical_hebrew_name, canonical_english_name, transliteration, description, time_category_id, default_formula_dsl, is_core, is_hidden) VALUES
-(179, 'fast_begins', 'תחילת הצום', 'Fast Begins', 'Techilas Hatzom', 'Beginning of dawn-start fasts (minor fasts begin at alos)', (SELECT id FROM time_categories WHERE key = 'dawn'), 'solar(16.1, before_sunrise)', false, false),
-(108, 'fast_begins_72', 'תחילת הצום 72 דקות', 'Fast Begins (72 min)', 'Techilas Hatzom 72', 'Fast begins 72 minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 72min', false, false),
-(16, 'fast_begins_90', 'תחילת הצום 90 דקות', 'Fast Begins (90 min)', 'Techilas Hatzom 90', 'Fast begins 90 minutes before sunrise', (SELECT id FROM time_categories WHERE key = 'dawn'), 'sunrise - 90min', false, false),
-(120, 'fast_begins_sunset', 'תחילת הצום (שקיעה)', 'Fast Begins (Sunset)', 'Techilas Hatzom Shkiah', 'Beginning of sunset-start fasts (Yom Kippur, Tisha B''Av)', (SELECT id FROM time_categories WHERE key = 'sunset'), 'sunset', false, false);
+-- Other tags
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'samuch_lmincha_ketana_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_18'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_26'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_60'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_90'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_96'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_120'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'samuch_lmincha_ketana_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_90'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_120'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_90'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_120'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_96'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_18'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_96'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_18'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_mga'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_18'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_26'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'misheyakir_10_2'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'misheyakir_11'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'misheyakir_7_65'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_start'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_stars'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_4_37'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_4_61'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_4_8'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_5_95'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_6'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_7_083'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_7_67'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_8_5'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_9_3'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_9_75'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_13_5'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_18'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_26'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_hashachar'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'misheyakir'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_19'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'misheyakir_9_5'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'misheyakir_11_5'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_65'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_676'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_7'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_8'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_5_88'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_6_45'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_2_1'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_2_8'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_3_05'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_rt_13_24'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_rt_2_stars'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_degrees'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_30'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_72'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'samuch_lmincha_ketana'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_72'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_72'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'samuch_lmincha_ketana_72'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_18'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_26'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_60'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_90'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_96'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_120'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'samuch_lmincha_ketana_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'category_mincha'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'samuch_lmincha_ketana'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_gra'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_15'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_18'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_20'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_22'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_30'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_40'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_72'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_sunset'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_kippur'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_15'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_18'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_20'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_22'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_30'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_40'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_72'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'yom_tov'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_15'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_18'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_20'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_22'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_30'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_40'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'shabbos'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_15'), (SELECT id FROM zman_tags WHERE tag_key = 'is_candle_lighting'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_18'), (SELECT id FROM zman_tags WHERE tag_key = 'is_candle_lighting'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_20'), (SELECT id FROM zman_tags WHERE tag_key = 'is_candle_lighting'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_22'), (SELECT id FROM zman_tags WHERE tag_key = 'is_candle_lighting'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_30'), (SELECT id FROM zman_tags WHERE tag_key = 'is_candle_lighting'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_40'), (SELECT id FROM zman_tags WHERE tag_key = 'is_candle_lighting'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting'), (SELECT id FROM zman_tags WHERE tag_key = 'is_candle_lighting'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_15'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_18'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_20'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_22'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_30'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting_40'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_sunset'), (SELECT id FROM zman_tags WHERE tag_key = 'day_before'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_4_37'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_4_61'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_4_8'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_5_95'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_6'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_7_083'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_7_67'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_8_5'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_9_3'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_9_75'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_65'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_676'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_7'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_3_8'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_5_88'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_6_45'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_geonim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'is_havdalah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'is_havdalah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_72'), (SELECT id FROM zman_tags WHERE tag_key = 'is_havdalah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'is_havdalah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'night_after'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'night_after'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_72'), (SELECT id FROM zman_tags WHERE tag_key = 'night_after'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'night_after'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_rt'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_72'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_rt'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_rt_13_24'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_rt'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_rt_58_5'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_rt'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_rt_2_stars'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_rt'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_20'), (SELECT id FROM zman_tags WHERE tag_key = 'tisha_bav'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'tisha_bav'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'tisha_bav'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'tisha_bav'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_sunset'), (SELECT id FROM zman_tags WHERE tag_key = 'tisha_bav'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_20'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_end'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_end'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_end'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_end'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_20'), (SELECT id FROM zman_tags WHERE tag_key = 'fast_day'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'fast_day'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'fast_day'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'fast_day'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins'), (SELECT id FROM zman_tags WHERE tag_key = 'fast_day'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_72'), (SELECT id FROM zman_tags WHERE tag_key = 'fast_day'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_90'), (SELECT id FROM zman_tags WHERE tag_key = 'fast_day'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_20'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_42'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends_50'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_72'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_90'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'day_of'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_120_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_120_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'calc_zmanis'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_baal_hatanya'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_ateret_torah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_ateret_torah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_ateret_torah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_ateret_torah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_ateret_torah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_ateret_torah'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_2_hours'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_90'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_120'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_96'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_18'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'category_tefila'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_2_1'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_yereim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_2_8'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_yereim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_3_05'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_yereim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_13_5'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_yereim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_16_875'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_yereim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'bein_hashmashos_yereim_18'), (SELECT id FROM zman_tags WHERE tag_key = 'shita_yereim'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'category_chametz'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tchillas_zman_kiddush_levana_3'), (SELECT id FROM zman_tags WHERE tag_key = 'category_kiddush_levana'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'tchillas_zman_kiddush_levana_7'), (SELECT id FROM zman_tags WHERE tag_key = 'category_kiddush_levana'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_kiddush_levana_15'), (SELECT id FROM zman_tags WHERE tag_key = 'category_kiddush_levana'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_kiddush_levana_between_moldos'), (SELECT id FROM zman_tags WHERE tag_key = 'category_kiddush_levana'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_start'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_72'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_start'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_90'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_start'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins_sunset'), (SELECT id FROM zman_tags WHERE tag_key = 'is_fast_start'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_90'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_120'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_16_1'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_72_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_90_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_96'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_96_zmanis'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_18'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_19_8'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_ateret_torah'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_baal_hatanya'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_3_hours'), (SELECT id FROM zman_tags WHERE tag_key = 'category_shema'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'pesach'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_achilas_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'pesach'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_gra'), (SELECT id FROM zman_tags WHERE tag_key = 'pesach'), false);
+INSERT INTO master_zman_tags (master_zman_id, tag_id, is_negated) VALUES ((SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_biur_chametz_mga'), (SELECT id FROM zman_tags WHERE tag_key = 'pesach'), false);
 
 -- ============================================================================
 -- RESTORE SETTINGS
@@ -560,3 +958,128 @@ SET synchronous_commit = ON;
 
 -- Reset work_mem to default
 RESET work_mem;
+
+-- ============================================================================
+-- COVERAGE SEARCH MATERIALIZED VIEW
+-- ============================================================================
+-- Migration: Create materialized view for ultra-fast coverage search
+-- This pre-computes all coverage areas with their descriptions for instant search
+
+-- Drop if exists (for re-running)
+DROP MATERIALIZED VIEW IF EXISTS coverage_search_mv;
+
+-- Create materialized view with all searchable coverage areas
+CREATE MATERIALIZED VIEW coverage_search_mv AS
+-- Cities (largest set, ~163k rows)
+SELECT
+    'city'::text AS coverage_type,
+    c.id::text AS id,
+    c.name AS name,
+    c.name_ascii AS name_ascii,
+    CONCAT(
+        CASE WHEN d.name IS NOT NULL THEN d.name || ', ' ELSE '' END,
+        r.name, ', ', co.name
+    ) AS description,
+    co.code AS country_code,
+    1 AS type_priority,
+    COALESCE(c.population, 0) AS sort_population
+FROM geo_cities c
+JOIN geo_regions r ON c.region_id = r.id
+JOIN geo_countries co ON r.country_id = co.id
+LEFT JOIN geo_districts d ON c.district_id = d.id
+
+UNION ALL
+
+-- Districts
+SELECT
+    'district'::text AS coverage_type,
+    d.id::text AS id,
+    d.name AS name,
+    d.name AS name_ascii,  -- Districts don't have name_ascii, use name
+    CONCAT(r.name, ', ', co.name) AS description,
+    co.code AS country_code,
+    2 AS type_priority,
+    0::bigint AS sort_population
+FROM geo_districts d
+JOIN geo_regions r ON d.region_id = r.id
+JOIN geo_countries co ON r.country_id = co.id
+
+UNION ALL
+
+-- Regions
+SELECT
+    'region'::text AS coverage_type,
+    r.id::text AS id,
+    r.name AS name,
+    r.name AS name_ascii,
+    co.name AS description,
+    co.code AS country_code,
+    3 AS type_priority,
+    0::bigint AS sort_population
+FROM geo_regions r
+JOIN geo_countries co ON r.country_id = co.id
+
+UNION ALL
+
+-- Countries
+SELECT
+    'country'::text AS coverage_type,
+    co.id::text AS id,
+    co.name AS name,
+    co.name AS name_ascii,
+    ct.name AS description,
+    co.code AS country_code,
+    4 AS type_priority,
+    0::bigint AS sort_population
+FROM geo_countries co
+JOIN geo_continents ct ON co.continent_id = ct.id
+
+UNION ALL
+
+-- Continents
+SELECT
+    'continent'::text AS coverage_type,
+    ct.code AS id,
+    ct.name AS name,
+    ct.name AS name_ascii,
+    ''::text AS description,
+    ''::text AS country_code,
+    5 AS type_priority,
+    0::bigint AS sort_population
+FROM geo_continents ct;
+
+-- Create unique index for refresh concurrently
+CREATE UNIQUE INDEX idx_coverage_search_mv_unique
+ON coverage_search_mv (coverage_type, id);
+
+-- GIN trigram indexes for fast fuzzy search (these are the key to performance!)
+CREATE INDEX idx_coverage_search_mv_name_trgm
+ON coverage_search_mv USING gin (name gin_trgm_ops);
+
+CREATE INDEX idx_coverage_search_mv_name_ascii_trgm
+ON coverage_search_mv USING gin (name_ascii gin_trgm_ops);
+
+-- B-tree index for prefix searches (ILIKE 'term%' uses this)
+CREATE INDEX idx_coverage_search_mv_name_lower
+ON coverage_search_mv (lower(name) text_pattern_ops);
+
+CREATE INDEX idx_coverage_search_mv_name_ascii_lower
+ON coverage_search_mv (lower(name_ascii) text_pattern_ops);
+
+-- Composite index for sorting
+CREATE INDEX idx_coverage_search_mv_sort
+ON coverage_search_mv (type_priority, sort_population DESC, name);
+
+-- Analyze the view for query planner
+ANALYZE coverage_search_mv;
+
+-- Create function to refresh the view (call after geo data changes)
+CREATE OR REPLACE FUNCTION refresh_coverage_search_mv()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY coverage_search_mv;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON MATERIALIZED VIEW coverage_search_mv IS
+'Pre-computed coverage search data for lightning-fast autocomplete. Refresh after geo data imports.';

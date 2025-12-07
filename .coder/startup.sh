@@ -50,6 +50,15 @@ else
     print_success "Go 1.25.4 already installed ($(go version))"
 fi
 
+# Step 1b: Install sqlc
+print_status "Installing sqlc..."
+if ! command -v sqlc &> /dev/null; then
+    go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+    print_success "sqlc installed"
+else
+    print_success "sqlc already installed ($(sqlc version 2>/dev/null || echo 'unknown version'))"
+fi
+
 # Step 2: Install Node.js 24.x LTS (Krypton - latest LTS)
 print_status "Installing Node.js 24.x LTS..."
 if ! command -v node &> /dev/null || [[ $(node --version | grep -o 'v24') == "" ]]; then
@@ -280,6 +289,7 @@ sudo apt-get update -qq && sudo apt-get install -y \
     procps \
     psmisc \
     strace \
+    ztsd 
     > /dev/null 2>&1
 print_success "Development utilities installed"
 
@@ -325,6 +335,8 @@ if ! command -v claude &> /dev/null; then
     # Add to PATH for current session
     export PATH="$HOME/.claude/bin:$PATH"
     echo 'export PATH="$HOME/.claude/bin:$PATH"' >> ~/.bashrc
+    cd /home/coder/workspace/zmanim-lab/web
+    claude mcp add --scope user playwright npx '@playwright/mcp@latest'
     print_success "Claude Code installed"
 else
     print_success "Claude Code already installed"
@@ -461,6 +473,7 @@ echo "=========================================="
 echo ""
 echo "📦 Installed:"
 echo "  - Go $(go version 2>/dev/null | awk '{print $3}' || echo 'not found')"
+echo "  - sqlc $(sqlc version 2>/dev/null || echo 'not found')"
 echo "  - Node.js $(node --version 2>/dev/null || echo 'not found')"
 echo "  - npm $(npm --version 2>/dev/null || echo 'not found')"
 echo "  - Jest $(jest --version 2>/dev/null || echo 'not found')"

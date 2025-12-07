@@ -98,7 +98,7 @@ func (h *Handlers) AdminListPublishers(w http.ResponseWriter, r *http.Request) {
 	publishers := make([]map[string]interface{}, 0, len(rows))
 	for _, row := range rows {
 		publisher := map[string]interface{}{
-			"id":           row.ID,
+			"id":           fmt.Sprintf("%d", row.ID),
 			"name":         row.Name,
 			"email":        row.Email,
 			"status":       row.StatusKey,
@@ -1420,4 +1420,130 @@ func generateSlug(text string) string {
 	}
 
 	return slug
+}
+
+// AdminExportPublisher exports complete publisher data (profile, coverage, zmanim)
+// GET /api/v1/admin/publishers/{id}/export
+func (h *Handlers) AdminExportPublisher(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+
+	if id == "" {
+		RespondValidationError(w, r, "Publisher ID is required", nil)
+		return
+	}
+
+	publisherID, err := parseIDParam(id)
+	if err != nil {
+		RespondValidationError(w, r, "Invalid publisher ID", nil)
+		return
+	}
+
+	// Get publisher name for filename
+	publisher, err := h.db.Queries.GetPublisherByID(ctx, publisherID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			RespondNotFound(w, r, "Publisher not found")
+			return
+		}
+		slog.Error("failed to get publisher", "error", err, "id", id)
+		RespondInternalError(w, r, "Failed to retrieve publisher")
+		return
+	}
+
+	description := fmt.Sprintf("Admin Export - %s - %s", publisher.Name, time.Now().Format("Jan 2, 2006 3:04 PM"))
+	exportJSON, err := h.completeExportService.ExportToJSON(ctx, publisherID, description)
+	if err != nil {
+		slog.Error("failed to build complete export", "error", err, "publisher_id", id)
+		RespondInternalError(w, r, "Failed to export publisher data")
+		return
+	}
+
+	// Generate safe filename from publisher name
+	safeName := generateSlug(publisher.Name)
+	filename := fmt.Sprintf("publisher-%s-%s.json", safeName, time.Now().Format("2006-01-02"))
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(exportJSON)
+	if err != nil {
+		slog.Error("failed to write export response", "error", err)
+	}
+}
+
+// AdminImportPublisher imports publisher data from a JSON file
+// POST /api/v1/admin/publishers/{id}/import - imports into existing publisher
+// POST /api/v1/admin/publishers/{id}/import?create_new=true - creates new publisher from export file
+func (h *Handlers) AdminImportPublisher(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+	createNew := r.URL.Query().Get("create_new") == "true"
+
+	var publisherID int32
+
+	// If not creating new, require and validate publisher ID
+	if !createNew {
+		if id == "" {
+			RespondValidationError(w, r, "Publisher ID is required", nil)
+			return
+		}
+
+		var err error
+		publisherID, err = parseIDParam(id)
+		if err != nil {
+			RespondValidationError(w, r, "Invalid publisher ID", nil)
+			return
+		}
+
+		// Verify publisher exists
+		_, err = h.db.Queries.GetPublisherByID(ctx, publisherID)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				RespondNotFound(w, r, "Publisher not found")
+				return
+			}
+			slog.Error("failed to get publisher", "error", err, "id", id)
+			RespondInternalError(w, r, "Failed to retrieve publisher")
+			return
+		}
+	}
+
+	// Parse multipart form for file upload
+	err := r.ParseMultipartForm(10 << 20) // 10 MB max
+	if err != nil {
+		RespondBadRequest(w, r, "Failed to parse form data")
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		RespondBadRequest(w, r, "No file uploaded")
+		return
+	}
+	defer file.Close()
+
+	// Read file content
+	var importData json.RawMessage
+	if err := json.NewDecoder(file).Decode(&importData); err != nil {
+		RespondBadRequest(w, r, "Invalid JSON file")
+		return
+	}
+
+	// Import using the complete export service
+	result, err := h.completeExportService.ImportFromJSON(ctx, publisherID, createNew, importData)
+	if err != nil {
+		slog.Error("failed to import publisher data", "error", err, "publisher_id", id, "create_new", createNew)
+		RespondBadRequest(w, r, fmt.Sprintf("Import failed: %v", err))
+		return
+	}
+
+	// Log appropriately based on operation
+	if createNew {
+		slog.Info("publisher created from import", "publisher_id", result.PublisherID, "name", result.PublisherName)
+		RespondJSON(w, r, http.StatusCreated, result)
+	} else {
+		slog.Info("publisher data imported", "publisher_id", id, "result", result)
+		RespondJSON(w, r, http.StatusOK, result)
+	}
 }

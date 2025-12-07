@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/models"
+	"github.com/jcom-dev/zmanim-lab/internal/services"
 )
 
 // SearchCities handles city search with autocomplete and filtering
@@ -207,6 +209,49 @@ func (h *Handlers) GetCityByID(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, r, http.StatusOK, city)
 }
 
+// GetCityByGeonameID returns a single city by its GeonameID
+// @Summary Get city by geoname ID
+// @Description Returns a single city by its GeonameID
+// @Tags Geographic
+// @Produce json
+// @Param geonameid path int true "Geoname ID"
+// @Success 200 {object} APIResponse{data=object} "City details"
+// @Failure 404 {object} APIResponse "City not found"
+// @Router /cities/by-geonameid/{geonameid} [get]
+func (h *Handlers) GetCityByGeonameID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get geoname ID from URL path
+	idStr := chi.URLParam(r, "geonameid")
+	if idStr == "" {
+		RespondBadRequest(w, r, "Geoname ID is required")
+		return
+	}
+
+	// Convert string ID to int32
+	geonameID, err := stringToInt32(idStr)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid geoname ID")
+		return
+	}
+
+	row, err := h.db.Queries.GetCityByGeonameID(ctx, &geonameID)
+	if err != nil {
+		RespondNotFound(w, r, "City not found")
+		return
+	}
+
+	// Return simple response with just ID and name
+	result := map[string]interface{}{
+		"id":           fmt.Sprintf("%d", row.ID),
+		"name":         row.Name,
+		"country":      row.Country,
+		"country_code": row.CountryCode,
+		"geonameid":    row.Geonameid,
+	}
+	RespondJSON(w, r, http.StatusOK, result)
+}
+
 // GetCountries returns all countries, optionally filtered by continent
 // @Summary List countries
 // @Description Returns all countries with optional continent filter
@@ -368,6 +413,10 @@ func (h *Handlers) GetDistrictsByRegion(w http.ResponseWriter, r *http.Request) 
 // Helper functions to convert SQLc rows to models.City
 
 func searchCitiesRowToCity(row sqlcgen.SearchCitiesRow) models.City {
+	// Fix timezone if it's UTC (missing data) by looking up from coordinates
+	tzService := services.GetTimezoneService()
+	timezone := tzService.FixTimezoneIfUTC(row.Timezone, row.Latitude, row.Longitude)
+
 	city := models.City{
 		ID:          int32ToString(row.ID),
 		Name:        row.Name,
@@ -376,7 +425,7 @@ func searchCitiesRowToCity(row sqlcgen.SearchCitiesRow) models.City {
 		Region:      &row.Region,
 		Latitude:    row.Latitude,
 		Longitude:   row.Longitude,
-		Timezone:    row.Timezone,
+		Timezone:    timezone,
 		Continent:   &row.Continent,
 	}
 	if row.Population != nil {
@@ -392,6 +441,10 @@ func searchCitiesRowToCity(row sqlcgen.SearchCitiesRow) models.City {
 }
 
 func searchCitiesFuzzyRowToCity(row sqlcgen.SearchCitiesFuzzyRow) models.City {
+	// Fix timezone if it's UTC (missing data) by looking up from coordinates
+	tzService := services.GetTimezoneService()
+	timezone := tzService.FixTimezoneIfUTC(row.Timezone, row.Latitude, row.Longitude)
+
 	city := models.City{
 		ID:          int32ToString(row.ID),
 		Name:        row.Name,
@@ -400,7 +453,7 @@ func searchCitiesFuzzyRowToCity(row sqlcgen.SearchCitiesFuzzyRow) models.City {
 		Region:      &row.Region,
 		Latitude:    row.Latitude,
 		Longitude:   row.Longitude,
-		Timezone:    row.Timezone,
+		Timezone:    timezone,
 		Continent:   &row.Continent,
 	}
 	if row.Population != nil {
@@ -416,6 +469,10 @@ func searchCitiesFuzzyRowToCity(row sqlcgen.SearchCitiesFuzzyRow) models.City {
 }
 
 func getCityByIDRowToCity(row sqlcgen.GetCityByIDRow) models.City {
+	// Fix timezone if it's UTC (missing data) by looking up from coordinates
+	tzService := services.GetTimezoneService()
+	timezone := tzService.FixTimezoneIfUTC(row.Timezone, row.Latitude, row.Longitude)
+
 	city := models.City{
 		ID:          int32ToString(row.ID),
 		Name:        row.Name,
@@ -424,7 +481,7 @@ func getCityByIDRowToCity(row sqlcgen.GetCityByIDRow) models.City {
 		Region:      &row.Region,
 		Latitude:    row.Latitude,
 		Longitude:   row.Longitude,
-		Timezone:    row.Timezone,
+		Timezone:    timezone,
 		Continent:   &row.Continent,
 	}
 	if row.Population != nil {
@@ -440,6 +497,10 @@ func getCityByIDRowToCity(row sqlcgen.GetCityByIDRow) models.City {
 }
 
 func nearestCityRowToCity(row sqlcgen.GetNearestCityRow) models.City {
+	// Fix timezone if it's UTC (missing data) by looking up from coordinates
+	tzService := services.GetTimezoneService()
+	timezone := tzService.FixTimezoneIfUTC(row.Timezone, row.Latitude, row.Longitude)
+
 	city := models.City{
 		ID:          int32ToString(row.ID),
 		Name:        row.Name,
@@ -448,7 +509,7 @@ func nearestCityRowToCity(row sqlcgen.GetNearestCityRow) models.City {
 		Region:      &row.Region,
 		Latitude:    row.Latitude,
 		Longitude:   row.Longitude,
-		Timezone:    row.Timezone,
+		Timezone:    timezone,
 		Continent:   &row.Continent,
 	}
 	if row.Population != nil {
@@ -482,4 +543,74 @@ func nullableString(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// SearchCoverageUnified searches across all coverage types (city, district, region, country, continent)
+// @Summary Unified coverage search
+// @Description Search across all geographic levels in a single query. Returns results sorted by match quality and type.
+// @Tags Coverage
+// @Produce json
+// @Param search query string true "Search query (min 2 chars)"
+// @Param limit query int false "Max results (default 20, max 50)"
+// @Success 200 {object} APIResponse{data=object} "List of matching coverage areas"
+// @Failure 400 {object} APIResponse{error=APIError} "Search query too short"
+// @Failure 500 {object} APIResponse{error=APIError} "Internal server error"
+// @Router /coverage/search [get]
+func (h *Handlers) SearchCoverageUnified(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+	if len(search) < 2 {
+		RespondBadRequest(w, r, "Search query must be at least 2 characters")
+		return
+	}
+
+	// Parse limit (default 20, max 50)
+	limit := int32(20)
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 50 {
+			limit = int32(parsed)
+		}
+	}
+
+	rows, err := h.db.Queries.SearchCoverageUnified(ctx, sqlcgen.SearchCoverageUnifiedParams{
+		Search: search,
+		Limit:  limit,
+	})
+	if err != nil {
+		slog.Error("failed to search coverage", "error", err, "search", search)
+		RespondInternalError(w, r, "Failed to search coverage")
+		return
+	}
+
+	type CoverageResult struct {
+		Type        string `json:"type"`
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description,omitempty"`
+		CountryCode string `json:"country_code,omitempty"`
+	}
+
+	results := make([]CoverageResult, 0, len(rows))
+	for _, row := range rows {
+		// Handle interface{} description field
+		desc := ""
+		if row.Description != nil {
+			if s, ok := row.Description.(string); ok {
+				desc = s
+			}
+		}
+		results = append(results, CoverageResult{
+			Type:        row.CoverageType,
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: desc,
+			CountryCode: row.CountryCode,
+		})
+	}
+
+	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+		"results": results,
+		"total":   len(results),
+	})
 }

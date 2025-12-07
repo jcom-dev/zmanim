@@ -491,12 +491,19 @@ SELECT
     cl.display_name_english as coverage_level_display_english,
     pc.continent_id, pc.country_id, pc.region_id, pc.district_id, pc.city_id,
     pc.priority, pc.is_active, pc.created_at, pc.updated_at,
-    -- Resolved names
-    ct.name as continent_name,
-    co.code as country_code, co.name as country_name,
-    r.code as region_code, r.name as region_name,
-    d.code as district_code, d.name as district_name,
-    c.name as city_name
+    -- Resolved names with full hierarchy traversal (empty string fallback for non-NULL types)
+    COALESCE(ct.name, country_continent.name, '') as continent_name,
+    COALESCE(co.code, region_country.code, district_country.code, city_country.code, '') as country_code,
+    COALESCE(co.name, region_country.name, district_country.name, city_country.name, '') as country_name,
+    COALESCE(r.code, district_region.code, city_region.code, '') as region_code,
+    COALESCE(r.name, district_region.name, city_region.name, '') as region_name,
+    COALESCE(d.code, city_district.code, '') as district_code,
+    COALESCE(d.name, city_district.name, '') as district_name,
+    COALESCE(c.name, '') as city_name,
+    -- City coordinates for preview (NULL for non-city coverage)
+    c.latitude as city_latitude,
+    c.longitude as city_longitude,
+    c.timezone as city_timezone
 FROM publisher_coverage pc
 JOIN coverage_levels cl ON cl.id = pc.coverage_level_id
 LEFT JOIN geo_continents ct ON pc.continent_id = ct.id
@@ -504,6 +511,13 @@ LEFT JOIN geo_countries co ON pc.country_id = co.id
 LEFT JOIN geo_regions r ON pc.region_id = r.id
 LEFT JOIN geo_districts d ON pc.district_id = d.id
 LEFT JOIN geo_cities c ON pc.city_id = c.id
+LEFT JOIN geo_continents country_continent ON co.continent_id = country_continent.id
+LEFT JOIN geo_countries region_country ON r.country_id = region_country.id
+LEFT JOIN geo_regions district_region ON d.region_id = district_region.id
+LEFT JOIN geo_countries district_country ON district_region.country_id = district_country.id
+LEFT JOIN geo_districts city_district ON c.district_id = city_district.id
+LEFT JOIN geo_regions city_region ON c.region_id = city_region.id
+LEFT JOIN geo_countries city_country ON city_region.country_id = city_country.id
 WHERE pc.publisher_id = $1 AND pc.is_active = true
 ORDER BY cl.sort_order, pc.priority DESC, pc.created_at DESC
 `
@@ -524,18 +538,27 @@ type GetPublisherCoverageRow struct {
 	IsActive                    bool               `json:"is_active"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
-	ContinentName               *string            `json:"continent_name"`
-	CountryCode                 *string            `json:"country_code"`
-	CountryName                 *string            `json:"country_name"`
-	RegionCode                  *string            `json:"region_code"`
-	RegionName                  *string            `json:"region_name"`
-	DistrictCode                *string            `json:"district_code"`
-	DistrictName                *string            `json:"district_name"`
-	CityName                    *string            `json:"city_name"`
+	ContinentName               string             `json:"continent_name"`
+	CountryCode                 string             `json:"country_code"`
+	CountryName                 string             `json:"country_name"`
+	RegionCode                  string             `json:"region_code"`
+	RegionName                  string             `json:"region_name"`
+	DistrictCode                string             `json:"district_code"`
+	DistrictName                string             `json:"district_name"`
+	CityName                    string             `json:"city_name"`
+	CityLatitude                *float64           `json:"city_latitude"`
+	CityLongitude               *float64           `json:"city_longitude"`
+	CityTimezone                *string            `json:"city_timezone"`
 }
 
 // Coverage SQL Queries (5-Level Hierarchy)
 // Supports: continent, country, region, district, city
+// Returns coverage with full hierarchy resolved (city -> district -> region -> country -> continent)
+// Direct joins for each level
+// Hierarchy traversal: country -> continent
+// Hierarchy traversal: region -> country
+// Hierarchy traversal: district -> region -> country
+// Hierarchy traversal: city -> district, city -> region -> country
 func (q *Queries) GetPublisherCoverage(ctx context.Context, publisherID int32) ([]GetPublisherCoverageRow, error) {
 	rows, err := q.db.Query(ctx, getPublisherCoverage, publisherID)
 	if err != nil {
@@ -569,6 +592,9 @@ func (q *Queries) GetPublisherCoverage(ctx context.Context, publisherID int32) (
 			&i.DistrictCode,
 			&i.DistrictName,
 			&i.CityName,
+			&i.CityLatitude,
+			&i.CityLongitude,
+			&i.CityTimezone,
 		); err != nil {
 			return nil, err
 		}

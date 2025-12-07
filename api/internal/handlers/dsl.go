@@ -148,7 +148,7 @@ func (h *Handlers) PreviewDSLFormula(w http.ResponseWriter, r *http.Request) {
 			RespondBadRequest(w, r, "Invalid location_id format")
 			return
 		}
-		city, err := h.db.Queries.GetCityLocationByID(ctx, cityID)
+		city, err := h.db.Queries.GetCityDetailsForZmanim(ctx, cityID)
 		if err != nil {
 			RespondNotFound(w, r, "Location not found")
 			return
@@ -305,7 +305,7 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 			RespondBadRequest(w, r, "Invalid location_id format")
 			return
 		}
-		city, err := h.db.Queries.GetCityLocationByID(ctx, cityID)
+		city, err := h.db.Queries.GetCityDetailsForZmanim(ctx, cityID)
 		if err != nil {
 			RespondNotFound(w, r, "Location not found")
 			return

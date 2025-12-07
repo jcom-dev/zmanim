@@ -1,746 +1,836 @@
 -- ============================================================================
--- Machzikei Hadass Manchester Publisher Seed Data
+-- MACHZIKEI HADAS - MANCHESTER PUBLISHER EXPORT
 -- ============================================================================
--- This file contains all the data needed to set up the Machzikei Hadass
--- Manchester publisher in a fresh Zmanim Lab database.
+-- Generated: 2025-12-07 22:10:16
+-- Publisher: Machzikei Hadass - Manchester
+-- Email: dniasoff@gmail.com
 --
--- Prerequisites:
---   1. Run the schema migration (00000000000001_schema.sql)
---   2. Run the seed data migration (00000000000002_seed_data.sql)
---
--- Usage:
---   PGPASSWORD=your_password psql -h host -p port -U user -d database -f seed_publisher.sql
+-- USAGE:
+-- 1. Ensure target database has the same schema (run migrations first)
+-- 2. Execute this script: psql -d target_db -f machzikei_hadas_export.sql
 -- ============================================================================
 
--- ============================================================================
--- SEEDING OPTIMIZATIONS
--- ============================================================================
--- Disable all triggers for faster bulk inserts
-SET session_replication_role = 'replica';
-SET synchronous_commit = OFF;
-SET work_mem = '256MB';
+BEGIN;
 
 -- ============================================================================
 -- PUBLISHER
 -- ============================================================================
 
+-- Insert publisher (will update if email already exists)
 INSERT INTO publishers (
-    id,
-    name,
-    email,
-    phone,
-    website,
-    description,
-    logo_url,
-    location,
-    latitude,
-    longitude,
-    timezone,
-    status,
-    verification_token,
-    verified_at,
-    clerk_user_id,
-    is_published,
-    created_at,
-    updated_at,
-    bio,
-    slug,
-    is_verified,
-    logo_data,
-    is_certified,
-    suspension_reason,
-    deleted_at,
-    deleted_by
+    name, email, phone, website, description,
+    latitude, longitude, timezone,
+    status_id, is_published, bio, slug, is_verified, is_certified
 ) VALUES (
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
     'Machzikei Hadass - Manchester',
-    'publications@mhmanchester.org.uk',
+    'dniasoff@gmail.com',
     NULL,
     NULL,
-    'Official zmanim publisher for Machzikei Hadass Manchester community. Calculations based on nearly 80 years of community practice following the rulings of Minchas Yitzchak and local minhag.',
     NULL,
     NULL,
-    53.4808,
-    -2.2426,
-    'Europe/London',
-    'active',
     NULL,
     NULL,
-    NULL,  -- Set this to a valid Clerk user ID if needed
-    true,
-    NOW(),
-    NOW(),
-    NULL,
-    'machzikei-hadass-manchester',
-    true,
-    NULL,  -- Logo data omitted for brevity; can be added separately
+    (SELECT id FROM publisher_statuses WHERE key = 'active'),
     false,
     NULL,
     NULL,
-    NULL
-);
+    false,
+    false
+)
+ON CONFLICT (email) DO UPDATE SET
+    name = EXCLUDED.name,
+    latitude = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude,
+    timezone = EXCLUDED.timezone,
+    slug = EXCLUDED.slug;
+
 
 -- ============================================================================
--- ALGORITHM
+-- ALGORITHMS
 -- ============================================================================
 
+-- Insert algorithm
 INSERT INTO algorithms (
-    id,
-    publisher_id,
-    name,
-    description,
-    config,
-    status,
-    is_default,
-    version,
-    formula_cache,
-    revision,
-    created_at,
-    updated_at
+    publisher_id, name, description, configuration, is_public, fork_count
 ) VALUES (
-    'ac0fcfb7-58cd-4e35-9ca4-1a36f4289687',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
     'Manchester Machzikei Hadass Standard',
     'Official zmanim calculation method for Machzikei Hadass Manchester community. Based on nearly 80 years of community practice, following Minchas Yitzchak 9:9 for Dawn at 12° and custom MGA calculations.',
-    '{
-        "notes": "Per Minchas Yitzchak, 12° dawn corresponds with reality in Northern Europe. Candle lighting 15 min before sunset is ancient custom.",
-        "mga_base": {"end": "7.08_degrees", "start": "12_degrees"},
-        "nightfall": "7.08_degrees",
-        "misheyakir": "11.5_degrees",
-        "primary_dawn": "12_degrees",
-        "shabbos_ends": "8_degrees",
-        "secondary_dawn": "16.1_degrees",
-        "candle_lighting_offset": 15
-    }'::jsonb,
-    'published',
-    true,
-    NULL,
-    NULL,
-    0,
-    NOW(),
-    NOW()
+    '{"notes": "Per Minchas Yitzchak, 12° dawn corresponds with reality in Northern Europe. Candle lighting 15 min before sunset is ancient custom.", "mga_base": {"end": "7.08_degrees", "start": "12_degrees"}, "nightfall": "7.08_degrees", "misheyakir": "11.5_degrees", "primary_dawn": "12_degrees", "shabbos_ends": "8_degrees", "secondary_dawn": "16.1_degrees", "candle_lighting_offset": 15}'::jsonb,
+    false,
+    0
 );
+
 
 -- ============================================================================
 -- PUBLISHER ZMANIM
 -- ============================================================================
--- Note: These are the zmanim configurations for this publisher.
--- They link to master_zmanim_registry entries via master_zman_id.
 
--- Alos HaShachar 1 (16.1°) - Primary Dawn for stringencies
+-- Insert publisher zmanim (27 records)
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    '9d708db2-368b-44ec-8313-dd1aa8b4f30a',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'alos_hashachar',
-    'עלות השחר א׳',
-    'Alos HaShachar 1',
-    'solar(16.1, before_sunrise)',
-    1,
-    'Per Vilna Gaon and Siddur of the Rav. 72 minutes before sunrise in Eretz Yisrael during Nissan/Tishrei. Used as stringency for nighttime mitzvos like evening Shema and counting of the Omer. In polar summer (May-July), the sun does not descend to 16.1° in Manchester, so midnight is used.',
-    true, true, true, false, 'essential', '{}',
-    'ada9beca-6052-4150-9d22-6a875582e3dc',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Alos HaShachar Aleph',
-    'Sun 16.1° below horizon. In polar summer (May-July), the sun does not descend to 16.1° in Manchester, so midnight (chatzos layla) is printed as dawn.'
-);
-
--- Alos HaShachar 2 (12°) - PRIMARY dawn for Manchester MGA
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    '1eb0ec06-eb8c-4a9b-a1b1-4370b8e76567',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
     'alos_12',
     'עלות השחר ב׳',
     'Alos HaShachar 2',
     'solar(12, before_sunrise)',
-    2,
-    'This has been the practice in the Manchester community for nearly 80 years since its founding. This is the PRIMARY dawn used for MGA calculations.',
-    true, true, true, false, 'essential', '{}',
-    '17a26364-11ca-4b16-9e29-18bdba18cf25',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'registry', false, NULL,
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_12'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
     'Alos HaShachar Beis',
-    'Sun 12° below horizon. Per Minchas Yitzchak 9:9, this corresponds with reality in Northern Europe.'
-);
+    'Sun 12° below horizon. Per Minchas Yitzchak 9:9, this corresponds with reality in Northern Europe.',
+    'This has been the practice in the Manchester community for nearly 80 years since its founding. This is the PRIMARY dawn used for MGA calculations.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Alos 72 minutes
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    '73e3f134-386d-4444-9903-23b65124afd0',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
     'alos_72',
     'עלות 72 דק׳',
     'Alos 72 min',
     'sunrise - 72min',
-    3,
-    'For those whose custom it is. Some add in summer to account for mil being 22.5 min, making dawn 90 min before sunrise.',
-    true, true, true, false, 'optional', '{}',
-    'c2b8088d-da9f-4753-a245-eb2ba2346870',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'registry', false, NULL,
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_72'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
     'Alos 72 Dakos',
-    '72 fixed minutes before sunrise throughout the year.'
-);
+    '72 fixed minutes before sunrise throughout the year.',
+    'For those whose custom it is. Some add in summer to account for mil being 22.5 min, making dawn 90 min before sunrise.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Alos 90 minutes
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    'ebc33b7c-5b48-413a-85de-7e5b90b9a7df',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
     'alos_90',
     'עלות 90 דק׳',
     'Alos 90 min',
     'sunrise - 90min',
-    4,
-    'Some add in summer to account for the measure of a mil being 22.5 minutes.',
-    true, true, true, false, 'optional', '{}',
-    'ad46eeac-4a01-43f6-bb59-2e99c0c39824',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'registry', false, NULL,
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_90'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
     'Alos 90 Dakos',
-    '90 fixed minutes before sunrise. For those who calculate a mil as 22.5 minutes (4 x 22.5 = 90).'
-);
+    '90 fixed minutes before sunrise. For those who calculate a mil as 22.5 minutes (4 x 22.5 = 90).',
+    'Some add in summer to account for the measure of a mil being 22.5 minutes.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Misheyakir
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    '8bdb8225-9580-4df1-b477-93620e51cc30',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'misheyakir',
-    'משיכיר',
-    'Misheyakir',
-    'solar(11.5, before_sunrise)',
-    5,
-    'In pressing circumstances (e.g., traveling), one may put on tallis 2 degrees earlier.',
-    true, true, true, false, 'essential', '{}',
-    'fee6ae15-91bb-401d-be34-4a7256ed32cb',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Misheyakir',
-    'Earliest time for tallis and tefillin with a blessing. The printed time is 15 minutes after the actual misheyakir time.'
-);
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'alos_hashachar',
+    'עלות השחר א׳',
+    'Alos HaShachar 1',
+    'if (month >= 5 && month <= 7 && latitude > 50) { solar_noon } else { solar(16.1, before_sunrise) }',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_hashachar'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Alos HaShachar Aleph',
+    'Sun 16.1° below horizon. In polar summer (May-July), the sun does not descend to 16.1° in Manchester, so midnight (chatzos layla) is printed as dawn.',
+    'Per Vilna Gaon and Siddur of the Rav. 72 minutes before sunrise in Eretz Yisrael during Nissan/Tishrei. Used as stringency for nighttime mitzvos like evening Shema and counting of the Omer. In polar summer, midnight is used as the dawn time.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Sunrise
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    'd844f0a4-3b01-4cc8-a0a8-8226f7073c23',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'sunrise',
-    'הנץ',
-    'HaNetz',
-    'sunrise',
-    6,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    '10d89e97-e29b-4a0c-8775-04ccd6c15ba3',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'HaNetz',
-    'The time when the upper edge of the sun rises above the horizon at sea level.'
-);
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'alos_shemini_atzeres',
+    'עלות לערבות',
+    'Alos for Aravos',
+    'proportional_hours(-1.5, custom(solar(12, before_sunrise), solar(7.08, after_sunset)))',
+    true,
+    true,
+    true,
+    true,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'alos_shemini_atzeres'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Alos LaAravos',
+    'Dawn calculated as 1/8th of the day before sunrise, using the Manchester day definition (12° to 7.08°).',
+    'Printed by the Minchas Yitzchak as a stringency.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Sof Zman Shema GRA
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'sof_zman_shma_gra',
-    'ס״ז ק״ש-גר״א',
-    'Sof Zman K"Sh GRA',
-    'proportional_hours(3, gra)',
-    7,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    'a03df06c-8cca-4115-9ff1-4bc04e759ffc',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Sof Zman Krias Shema GRA',
-    'Latest time for Shema according to Vilna Gaon and Rabbi Zalman. One quarter of the day from sunrise to sunset.'
-);
-
--- Sof Zman Shema MGA (Manchester custom - 12° to 7.08°)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'sof_zman_shma_mga',
-    'ס״ז ק״ש-מג״א',
-    'Sof Zman K"Sh MGA',
-    'proportional_hours(3, custom(solar(12, before_sunrise), solar(7.08, after_sunset)))',
-    8,
-    'On Shabbos, additional stringency times are printed from Dawn 1 (16.1°).',
-    true, true, true, false, 'essential', '{}',
-    '7faef612-5f93-4cb0-bf4d-b6ad67f22583',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Sof Zman Krias Shema MGA',
-    'Per Manchester Beth Din / Minchas Yitzchak using 12° dawn and 7.08° nightfall'
-);
-
--- Sof Zman Tfila GRA
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'sof_zman_tfila_gra',
-    'ס״ז תפלה-גר״א',
-    'Sof Zman Tefila GRA',
-    'proportional_hours(4, gra)',
-    9,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    '31ef5cc3-e541-4750-b78b-99840dc7a372',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Sof Zman Tefila GRA',
-    'Latest time for morning prayer according to Vilna Gaon. One third of the day from sunrise to sunset.'
-);
-
--- Sof Zman Tfila MGA (Manchester custom)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'sof_zman_tfila_mga',
-    'ס״ז תפלה-מג״א',
-    'Sof Zman Tefila MGA',
-    'proportional_hours(4, custom(solar(12, before_sunrise), solar(7.08, after_sunset)))',
-    10,
-    'For those using 72 min dawn, this is always 24 min before GRA time.',
-    true, true, true, false, 'essential', '{}',
-    'b32f320e-4fe5-4ba1-99db-78ad7b65cb66',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Sof Zman Tefila MGA',
-    'Per Manchester Beth Din / Minchas Yitzchak using 12° dawn and 7.08° nightfall'
-);
-
--- Chatzos (Midday)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'chatzos',
-    'חצות',
-    'Chatzos',
-    'solar_noon',
-    11,
-    'Per Igros Moshe, OC 2:20. May vary by one minute.',
-    true, true, true, false, 'essential', '{}',
-    '5c1806a7-5c5f-4231-8ea6-f2821a3f74ff',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Chatzos',
-    'The time when the sun stands at highest point between east and west. Half the time between sunrise and sunset.'
-);
-
--- Mincha Gedola
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'mincha_gedola',
-    'מנחה גדולה',
-    'Mincha Gedola',
-    'solar_noon + 30min',
-    12,
-    'The practice is to be stringent - in winter when the proportional half-hour is less than 30 minutes, we use 30 minutes.',
-    true, true, true, false, 'essential', '{}',
-    'a56cc3c5-2210-4945-8c48-85cd0b48d936',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Mincha Gedola',
-    'Earliest time for afternoon prayer. Half a proportional hour after midday, but no less than 30 minutes.'
-);
-
--- Mincha Ketana
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    '1c6e84f2-c916-4111-817b-f37195beaa28',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'mincha_ketana',
-    'מנחה קטנה',
-    'Mincha Ketana',
-    'proportional_hours(9.5, gra)',
-    13,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    '8506c62a-2f48-42b4-a02f-0b18b8e8478c',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Mincha Ketana',
-    'Two and a half proportional hours before sunset.'
-);
-
--- Plag HaMincha (Levush/GRA)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'plag_hamincha',
-    'פלג - לבוש',
-    'Plag - Levush',
-    'proportional_hours(10.75, gra)',
-    14,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    'b4e6778c-cb14-4fe5-b3e8-99c85a19606c',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Plag HaMincha Levush',
-    'Earliest time for Maariv, lighting Shabbos candles, and Chanukah candles. One and a quarter proportional hours before sunset.'
-);
-
--- Plag HaMincha (Terumas HaDeshen - Manchester custom)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'plag_hamincha_terumas_hadeshen',
-    'פלג - תה״ד',
-    'Plag - T"HD',
-    'proportional_hours(10.75, custom(solar(12, before_sunrise), solar(7.08, after_sunset)))',
-    15,
-    'Per Terumas Hadeshen method.',
-    true, true, true, false, 'essential', '{}',
-    '072070ad-c303-4f36-a7ab-f5fee318fafb',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', true, NULL,
-    'Plag HaMincha Terumas HaDeshen',
-    'One and a quarter proportional hours before nightfall, calculating the day from Dawn 2 (12°) until nightfall (7.08°).'
-);
-
--- Plag MA (72 min)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    '2910fbc5-a95b-46c0-9188-d1bf4bc5f2ad',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'plag_hamincha_72',
-    'פלג - מ״א',
-    'Plag - MA',
-    'proportional_hours(10.75, mga)',
-    16,
-    'Since the time for accepting Shabbos, printed for the community.',
-    true, true, true, false, 'optional', '{}',
-    'cfbd81d7-dbc7-4108-b71e-2d9e33dd1a7e',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'registry', false, NULL,
-    'Plag HaMincha MA',
-    'Plag HaMincha according to MA/Terumas Hadeshen practiced in many communities. One and a quarter proportional hours before nightfall, calculating 72 minutes before sunrise to 72 minutes after sunset.'
-);
-
--- Candle Lighting
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    '2f56205d-5999-4bc7-aeae-515493df8840',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
     'candle_lighting',
     'הדלקת נרות',
     'Hadlakas Neiros',
     'sunset - 15min',
-    17,
-    '15 minutes before sunset, as has been the custom from ancient times.',
-    true, true, true, false, 'essential', '{}',
-    '8b861617-e264-4542-a8db-01f7512cab7d',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'candle_lighting'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
     'Hadlakas Neiros',
-    'Time for lighting Shabbos candles and accepting Shabbos.'
-);
+    'Time for lighting Shabbos candles and accepting Shabbos.',
+    '15 minutes before sunset, as has been the custom from ancient times.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Sunset
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'sunset',
-    'שקיעה',
-    'Shkiah',
-    'sunset',
-    18,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    'c92d8740-af5c-4298-a65d-ce5f64d76551',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Shkiah',
-    'The time when the sun is completely hidden from our eyes. Time printed is slightly before actual to be safe.'
-);
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'chatzos',
+    'חצות',
+    'Chatzos',
+    'solar_noon',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'chatzos'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Chatzos',
+    'The time when the sun stands at highest point between east and west. Half the time between sunrise and sunset. Midnight is 12 hours after.',
+    'Per Igros Moshe, OC 2:20. May vary by one minute.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Tzais HaKochavim (7.08°)
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'tzais_7_08',
-    'צאת הכוכבים',
-    'Tzais HaKochavim',
-    'solar(7.08, after_sunset)',
-    19,
-    'For rabbinic fasts, one may be lenient by several minutes - consult a halachic authority.',
-    true, true, true, false, 'essential', '{}',
-    '7949f93d-c348-4e0c-99e9-743212ecb00b',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Tzais HaKochavim',
-    'Time when three small consecutive stars are visible. Sun 7.08° below horizon.'
-);
-
--- Motzei Shabbos (8°)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    '77f0b621-a0c5-4e4d-872f-192b09ab66f0',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'shabbos_ends',
-    'מוצש״ק',
-    'Motzei Shabbos',
-    'solar(8, after_sunset)',
-    20,
-    NULL,
-    true, true, true, false, 'optional', '{}',
-    '888f7113-4a77-44a1-aa1d-22cb297297a5',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Motzei Shabbos Kodesh',
-    'End of Shabbos when three small consecutive stars are visible. Sun 8° below horizon.'
-);
-
--- Tzais Rabbeinu Tam (72 min)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'tzais_72',
-    'ר״ת',
-    'R"T',
-    'sunset + 72min',
-    21,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    'd156b928-3c35-4360-acc9-f767fe425f18',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Rabbeinu Tam',
-    '72 minutes after sunset throughout the year, provided sun is at least 8° below horizon.'
-);
-
--- Chatzos Layla (Midnight)
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    '321a278b-db4e-40a3-a9d7-804e85a372df',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
     'chatzos_layla',
     'חצות לילה',
     'Chatzos Layla',
     'solar_noon + 12hr',
-    22,
-    'May vary by one minute from midday + 12 hours.',
-    true, true, true, false, 'optional', '{}',
-    '6af15b21-1fd8-4958-89d0-8e8df94c059f',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'chatzos_layla'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
     'Chatzos Layla',
-    'Midnight - 12 hours after midday. Per Igros Moshe OC 2:20.'
-);
+    'Midnight - 12 hours after midday. Per Igros Moshe OC 2:20.',
+    'May vary by one minute from midday + 12 hours.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
--- Fast Ends
 INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
 ) VALUES (
-    '255dad2e-9688-4e08-8a3f-357d1a85181a',
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'fast_ends',
-    'סוף התענית',
-    'Sof HaTaanis',
-    'solar(7.08, after_sunset)',
-    23,
-    NULL,
-    true, true, true, false, 'essential', '{}',
-    '5873dd70-0a42-44e7-aba4-d0eeec0457a0',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'custom', false, NULL,
-    'Sof HaTaanis',
-    'End of fast. For rabbinic fasts, one may be lenient by several minutes.'
-);
-
--- Fast Begins
-INSERT INTO publisher_zmanim (
-    id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    sort_order, publisher_comment, is_enabled, is_visible, is_published,
-    is_beta, category, tags, master_zman_id, version,
-    linked_publisher_zman_id, algorithm_id, created_at, updated_at, deleted_at,
-    source_type, is_custom, restored_at, transliteration, description
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
     'fast_begins',
     'התחלת התענית',
     'Haschalas HaTaanis',
     'solar(12, before_sunrise)',
-    24,
-    'Per Orach Chaim 564. Uses Dawn 2 (12°) as the cutoff.',
-    true, true, true, false, 'essential', '{}',
-    'a37ca4f4-a2a1-42d2-8d4e-4967e26707e8',
-    1, NULL, NULL, NOW(), NOW(), NULL, 'registry', false, NULL,
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_begins'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
     'Haschalas HaTaanis',
-    'End time for eating in the morning on a minor fast day. One who sleeps and then wakes must stop eating at this time.'
-);
+    'End time for eating in the morning on a minor fast day. One who sleeps and then wakes must stop eating at this time.',
+    'Per Orach Chaim 564. Uses Dawn 2 (12°) as the cutoff.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
 
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'fast_ends',
+    'סוף התענית',
+    'Sof HaTaanis',
+    'solar(7.08, after_sunset)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'fast_ends'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Sof HaTaanis',
+    'End of fast. For rabbinic fasts, one may be lenient by several minutes.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'mincha_gedola',
+    'מנחה גדולה',
+    'Mincha Gedola',
+    'solar_noon + 30min',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_gedola'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Mincha Gedola',
+    'Earliest time for afternoon prayer. Half a proportional hour after midday, but no less than 30 minutes.',
+    'The practice is to be stringent - in winter when the proportional half-hour is less than 30 minutes, we use 30 minutes.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'mincha_ketana',
+    'מנחה קטנה',
+    'Mincha Ketana',
+    'proportional_hours(9.5, gra)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'mincha_ketana'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Mincha Ketana',
+    'Two and a half proportional hours before sunset.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'misheyakir',
+    'משיכיר',
+    'Misheyakir',
+    'solar(11.5, before_sunrise)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'misheyakir'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Misheyakir',
+    'Earliest time for tallis and tefillin with a blessing. The printed time is 15 minutes after the actual misheyakir time.',
+    'In pressing circumstances (e.g., traveling), one may put on tallis 2 degrees earlier.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'plag_hamincha',
+    'פלג - לבוש',
+    'Plag - Levush',
+    'proportional_hours(10.75, gra)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Plag HaMincha Levush',
+    'Earliest time for Maariv, lighting Shabbos candles, and Chanukah candles. One and a quarter proportional hours before sunset.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'plag_hamincha_72',
+    'פלג - מ״א',
+    'Plag - MA',
+    'proportional_hours(10.75, mga)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_72'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Plag HaMincha MA',
+    'Plag HaMincha according to MA/Terumas Hadeshen practiced in many communities. One and a quarter proportional hours before nightfall, calculating 72 minutes before sunrise to 72 minutes after sunset.',
+    'Since the time for accepting Shabbos, printed for the community.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'plag_hamincha_terumas_hadeshen',
+    'פלג - תה״ד',
+    'Plag - T"HD',
+    'proportional_hours(10.75, custom(solar(12, before_sunrise), solar(7.08, after_sunset)))',
+    true,
+    true,
+    true,
+    true,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'plag_hamincha_terumas_hadeshen'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Plag HaMincha Terumas HaDeshen',
+    'One and a quarter proportional hours before nightfall, calculating the day from Dawn 2 (12°) until nightfall (7.08°).',
+    'Per Terumas Hadeshen method.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'shabbos_ends',
+    'מוצש״ק',
+    'Motzei Shabbos',
+    'solar(8, after_sunset)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'shabbos_ends'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Motzei Shabbos Kodesh',
+    'End of Shabbos when three small consecutive stars are visible. Sun 8° below horizon.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sof_zman_shma_gra',
+    'ס״ז ק״ש-גר״א',
+    'Sof Zman K"Sh GRA',
+    'proportional_hours(3, gra)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_gra'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Sof Zman Krias Shema GRA',
+    'Latest time for Shema according to Vilna Gaon and Rabbi Zalman. One quarter of the day from sunrise to sunset.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sof_zman_shma_mga',
+    'ס״ז ק״ש-מג״א',
+    'Sof Zman K"Sh MGA',
+    'proportional_hours(3, custom(solar(12, before_sunrise), solar(7.08, after_sunset)))',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Sof Zman Krias Shema MGA',
+    'Per Manchester Beth Din / Minchas Yitzchak using 12° dawn and 7.08° nightfall',
+    'On Shabbos, additional stringency times are printed from Dawn 1 (16.1°).'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sof_zman_shma_mga_16_1',
+    'ס״ז ק״ש מ״א (16.1°)',
+    'Sof Zman K"Sh MA (16.1°)',
+    'proportional_hours(3, custom(solar(16.1, before_sunrise), solar(16.1, after_sunset)))',
+    true,
+    true,
+    true,
+    true,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_16_1'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Sof Zman Krias Shema MA 16.1',
+    'Stringency from Dawn 1 (16.1°) to nightfall at 16.1°, so beginning and end of day are equal.',
+    'Printed on Shabbos as additional stringency for Torah-level Shema obligation.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sof_zman_shma_mga_72',
+    'ס״ז ק״ש מ״א (72)',
+    'Sof Zman K"Sh MA (72min)',
+    'proportional_hours(3, mga)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_shma_mga_72'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Sof Zman Krias Shema MA 72',
+    '72 min before sunrise to 72 min after sunset. Always 36 minutes before GRA time.',
+    'Practiced in many communities.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sof_zman_tfila_gra',
+    'ס״ז תפלה-גר״א',
+    'Sof Zman Tefila GRA',
+    'proportional_hours(4, gra)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_gra'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Sof Zman Tefila GRA',
+    'Latest time for morning prayer according to Vilna Gaon. One third of the day from sunrise to sunset.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sof_zman_tfila_mga',
+    'ס״ז תפלה-מג״א',
+    'Sof Zman Tefila MGA',
+    'proportional_hours(4, custom(solar(12, before_sunrise), solar(7.08, after_sunset)))',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sof_zman_tfila_mga'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Sof Zman Tefila MGA',
+    'Per Manchester Beth Din / Minchas Yitzchak using 12° dawn and 7.08° nightfall',
+    'For those using 72 min dawn, this is always 24 min before GRA time.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sunrise',
+    'הנץ',
+    'HaNetz',
+    'sunrise',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sunrise'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'HaNetz',
+    'The time when the upper edge of the sun rises above the horizon at sea level.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'sunset',
+    'שקיעה',
+    'Shkiah',
+    'sunset',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'sunset'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Shkiah',
+    'The time when the sun is completely hidden from our eyes. Time printed is slightly before actual to be safe.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'tzais_7_08',
+    'צאת הכוכבים',
+    'Tzais HaKochavim',
+    'solar(7.08, after_sunset)',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_7_08'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Tzais HaKochavim',
+    'Time when three small consecutive stars are visible. Sun 7.08° below horizon.',
+    'For rabbinic fasts, one may be lenient by several minutes - consult a halachic authority.'
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+INSERT INTO publisher_zmanim (
+    publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
+    is_enabled, is_visible, is_published, is_custom, is_beta,
+    master_zman_id, source_type_id, transliteration, description, publisher_comment
+) VALUES (
+    (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+    'tzais_72',
+    'ר״ת',
+    'R"T',
+    'sunset + 72min',
+    true,
+    true,
+    true,
+    false,
+    false,
+    (SELECT id FROM master_zmanim_registry WHERE zman_key = 'tzais_72'),
+    (SELECT id FROM zman_source_types WHERE key = 'custom'),
+    'Rabbeinu Tam',
+    '72 minutes after sunset throughout the year, provided sun is at least 8° below horizon.',
+    NULL
+)
+ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
+    formula_dsl = EXCLUDED.formula_dsl,
+    hebrew_name = EXCLUDED.hebrew_name,
+    english_name = EXCLUDED.english_name;
+
+
+-- ============================================================================
+
+
+-- ============================================================================
+-- PUBLISHER COVERAGE (OPTIONAL - REQUIRES MANUAL CONFIGURATION)
+-- ============================================================================
+-- 
+-- NOTE: Coverage uses direct geographic IDs which may not exist in your database.
+-- You have two options:
+--
+-- OPTION 1: Add coverage manually after import
+--   Use the publisher management interface to add coverage areas
+--
+-- OPTION 2: Update the IDs below and uncomment
+--   1. Find correct IDs in your database:
+--      SELECT id, name FROM geo_cities WHERE name ILIKE '%manchester%';
+--      SELECT id, name FROM geo_regions WHERE name ILIKE '%england%' OR name ILIKE '%greater manchester%';
+--   2. Replace the IDs below
+--   3. Uncomment the INSERT statements
+--
+-- Original coverage from source database:
+--   - City ID: 1626940 (likely Manchester, England)
+--   - Region ID: 1374 (likely Greater Manchester or England region)
+--
 -- ============================================================================
 -- PUBLISHER COVERAGE
 -- ============================================================================
--- By default, set coverage to United Kingdom (country level)
--- You may want to customize this for specific cities
 
-INSERT INTO publisher_coverage (
-    id,
-    publisher_id,
-    coverage_level,
-    city_id,
-    district_id,
-    region_id,
-    country_id,
-    continent_code,
-    is_primary,
-    is_active,
-    priority,
-    notes,
-    created_at,
-    updated_at
-) VALUES (
-    gen_random_uuid(),
-    '6c85458d-2225-4f55-bc15-5c9844bcf362',
-    'country',
-    NULL,
-    NULL,
-    NULL,
-    (SELECT id FROM geo_countries WHERE iso_code = 'GB' LIMIT 1),
-    'EU',
-    true,
-    true,
-    100,
-    'Default coverage for United Kingdom',
-    NOW(),
-    NOW()
-);
+-- Coverage: city
+-- INSERT INTO publisher_coverage (
+--     publisher_id, coverage_level_id,
+--     city_id,
+--     is_active, priority
+-- ) VALUES (
+--     (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+--     (SELECT id FROM coverage_levels WHERE key = 'city'),
+--     1626940,  -- Note: city_id may need to be mapped in target DB
+--     true,
+--     5
+-- )
+-- ON CONFLICT DO NOTHING;
 
--- ============================================================================
--- RESTORE SETTINGS
--- ============================================================================
-SET session_replication_role = 'origin';
-SET synchronous_commit = ON;
-RESET work_mem;
+-- Coverage: region
+-- INSERT INTO publisher_coverage (
+--     publisher_id, coverage_level_id,
+--     region_id,
+--     is_active, priority
+-- ) VALUES (
+--     (SELECT id FROM publishers WHERE email = 'dniasoff@gmail.com'),
+--     (SELECT id FROM coverage_levels WHERE key = 'region'),
+--     1374,  -- Note: region_id may need to be mapped in target DB
+--     true,
+--     5
+-- )
+-- ON CONFLICT DO NOTHING;
 
--- ============================================================================
--- NOTES ON USAGE
--- ============================================================================
---
--- This seed file creates a fully functional publisher with:
---   1. Publisher profile (Machzikei Hadass Manchester)
---   2. Algorithm configuration (standard method with 12° dawn, 7.08° nightfall)
---   3. ~24 zmanim entries covering all essential and optional times
---   4. Country-level coverage for United Kingdom
---
--- The Manchester community's unique characteristics:
---   - PRIMARY dawn at 12° (per Minchas Yitzchak 9:9)
---   - Secondary dawn at 16.1° (stringency)
---   - Nightfall at 7.08° for everyday tzais
---   - Shabbos ends at 8°
---   - Candle lighting 15 minutes before sunset (ancient custom)
---   - MGA calculations use 12° dawn and 7.08° nightfall
---
--- For more information, see the "Calculation of Times" document in this folder.
--- ============================================================================
+
+COMMIT;
+
+\echo 'Machzikei Hadas publisher import complete!'
+\echo 'Publisher: Machzikei Hadass - Manchester'
+\echo 'Algorithms: 1'
+\echo 'Zmanim: 27'
+\echo 'Coverage: 2 areas (city + region)'

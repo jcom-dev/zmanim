@@ -28,8 +28,9 @@ func Logger(next http.Handler) http.Handler {
 	})
 }
 
-// RequestID adds a request ID to each request
-func RequestID(next http.Handler) http.Handler {
+// RequestIDChi wraps chi's RequestID middleware
+// Note: We also have a custom RequestID in request_id.go with provenance tracking support
+func RequestIDChi(next http.Handler) http.Handler {
 	return middleware.RequestID(next)
 }
 

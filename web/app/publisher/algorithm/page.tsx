@@ -210,14 +210,20 @@ interface CoverageCity {
 
 interface PublisherCoverage {
   id: string;
-  coverage_level: 'continent' | 'country' | 'region' | 'city';
+  coverage_level_key?: 'continent' | 'country' | 'region' | 'district' | 'city';
   continent_code?: string;
+  continent_name?: string;
   country_code?: string;
-  region?: string;
+  country_name?: string;
+  region_code?: string;
+  region_name?: string;
+  district_code?: string;
+  district_name?: string;
   city_id?: string;
-  display_name?: string;
   city_name?: string;
-  country?: string;
+  city_latitude?: number;
+  city_longitude?: number;
+  city_timezone?: string;
 }
 
 type FilterType = 'all' | 'published' | 'draft' | 'essential' | 'optional' | 'hidden';
@@ -370,7 +376,19 @@ export default function AlgorithmEditorPage() {
       const cities: CoverageCity[] = [];
 
       for (const coverage of coverageAreas) {
-        if (coverage.coverage_level === 'continent' && coverage.continent_code) {
+        if (coverage.coverage_level_key === 'city' && coverage.city_latitude && coverage.city_longitude && coverage.city_timezone && coverage.city_name) {
+          // For city-level coverage, use the data directly from the API response
+          cities.push({
+            id: coverage.city_id || '',
+            name: coverage.city_name,
+            latitude: coverage.city_latitude,
+            longitude: coverage.city_longitude,
+            timezone: coverage.city_timezone,
+            country: coverage.country_name || '',
+            country_code: coverage.country_code,
+            region: coverage.region_name,
+          });
+        } else if (coverage.coverage_level_key === 'continent' && coverage.continent_code) {
           // For continent-level coverage, get a representative city from that continent
           try {
             const cityData = await api.public.get<{ cities: CoverageCity[] }>(`/cities?continent_code=${encodeURIComponent(coverage.continent_code)}&limit=5`);
@@ -381,17 +399,7 @@ export default function AlgorithmEditorPage() {
           } catch {
             // Ignore errors fetching continent cities
           }
-        } else if (coverage.coverage_level === 'city' && coverage.city_id) {
-          // For city-level coverage, search for the specific city by name
-          try {
-            const cityData = await api.public.get<{ cities: CoverageCity[] }>(`/cities?search=${encodeURIComponent(coverage.city_name || '')}&limit=1`);
-            if (cityData.cities && cityData.cities.length > 0) {
-              cities.push(cityData.cities[0]);
-            }
-          } catch {
-            // Ignore errors fetching individual cities
-          }
-        } else if (coverage.coverage_level === 'country' && coverage.country_code) {
+        } else if (coverage.coverage_level_key === 'country' && coverage.country_code) {
           // For country-level coverage, get the most populous city in that country
           try {
             const cityData = await api.public.get<{ cities: CoverageCity[] }>(`/cities?country_code=${encodeURIComponent(coverage.country_code)}&limit=1`);
@@ -401,10 +409,10 @@ export default function AlgorithmEditorPage() {
           } catch {
             // Ignore errors fetching country cities
           }
-        } else if (coverage.coverage_level === 'region' && coverage.country_code && coverage.region) {
+        } else if (coverage.coverage_level_key === 'region' && coverage.region_name && coverage.country_code) {
           // For region-level coverage, get a city in that region
           try {
-            const cityData = await api.public.get<{ cities: CoverageCity[] }>(`/cities?search=${encodeURIComponent(coverage.region)}&country_code=${encodeURIComponent(coverage.country_code)}&limit=1`);
+            const cityData = await api.public.get<{ cities: CoverageCity[] }>(`/cities?search=${encodeURIComponent(coverage.region_name)}&country_code=${encodeURIComponent(coverage.country_code)}&limit=1`);
             if (cityData.cities && cityData.cities.length > 0) {
               cities.push(cityData.cities[0]);
             }
@@ -661,9 +669,8 @@ export default function AlgorithmEditorPage() {
   const currentViewOptionalCount = currentViewZmanim.filter(z => z.category === 'optional').length;
   const currentViewHiddenCount = currentViewZmanim.filter(z => !z.is_visible).length;
 
-  // Show onboarding wizard only if user explicitly clicked "Restart Wizard"
-  // Don't auto-show based on zmanim count - if there's at least one zman, skip the wizard
-  const shouldShowWizard = forceShowWizard;
+  // Auto-launch wizard for new publishers with 0 zmanim, or when "Restart Wizard" is clicked
+  const shouldShowWizard = forceShowWizard || (zmanim.length === 0 && !hasCompletedOnboarding);
 
   if (!isLoading && !onboardingLoading && shouldShowWizard) {
     return (

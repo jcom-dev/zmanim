@@ -6,6 +6,8 @@
 -- ============================================================================
 
 -- name: GetAllCountryBoundaries :many
+-- Uses ST_SimplifyPreserveTopology(0.1) to reduce GeoJSON size for world map view
+-- Tolerance 0.1 degrees ≈ 11km at equator, fast loading for country selection
 SELECT
     c.id,
     c.code,
@@ -17,7 +19,13 @@ SELECT
     ct.code as continent_code,
     ct.name as continent_name,
     cb.area_km2,
-    ST_AsGeoJSON(COALESCE(cb.boundary_simplified, cb.boundary))::text as boundary_geojson,
+    ST_AsGeoJSON(
+        ST_SimplifyPreserveTopology(
+            COALESCE(cb.boundary_simplified, cb.boundary)::geometry,
+            0.1
+        ),
+        4  -- 4 decimal places (~11m precision, plenty for world map)
+    )::text as boundary_geojson,
     ST_X(cb.centroid::geometry) as centroid_lng,
     ST_Y(cb.centroid::geometry) as centroid_lat
 FROM geo_country_boundaries cb
@@ -26,6 +34,7 @@ JOIN geo_continents ct ON c.continent_id = ct.id
 ORDER BY c.name;
 
 -- name: GetCountryBoundariesByContinent :many
+-- Uses ST_SimplifyPreserveTopology(0.1) to reduce GeoJSON size
 SELECT
     c.id,
     c.code,
@@ -37,7 +46,13 @@ SELECT
     ct.code as continent_code,
     ct.name as continent_name,
     cb.area_km2,
-    ST_AsGeoJSON(COALESCE(cb.boundary_simplified, cb.boundary))::text as boundary_geojson,
+    ST_AsGeoJSON(
+        ST_SimplifyPreserveTopology(
+            COALESCE(cb.boundary_simplified, cb.boundary)::geometry,
+            0.1
+        ),
+        4
+    )::text as boundary_geojson,
     ST_X(cb.centroid::geometry) as centroid_lng,
     ST_Y(cb.centroid::geometry) as centroid_lat
 FROM geo_country_boundaries cb
@@ -84,6 +99,7 @@ WHERE c.id = $1;
 -- ============================================================================
 
 -- name: GetRegionBoundariesByCountry :many
+-- Uses ST_SimplifyPreserveTopology(0.005) for regions (~500m at equator)
 SELECT
     r.id,
     r.name,
@@ -91,7 +107,13 @@ SELECT
     c.code as country_code,
     c.name as country_name,
     rb.area_km2,
-    ST_AsGeoJSON(COALESCE(rb.boundary_simplified, rb.boundary))::text as boundary_geojson,
+    ST_AsGeoJSON(
+        ST_SimplifyPreserveTopology(
+            COALESCE(rb.boundary_simplified, rb.boundary)::geometry,
+            0.005
+        ),
+        6
+    )::text as boundary_geojson,
     ST_X(rb.centroid::geometry) as centroid_lng,
     ST_Y(rb.centroid::geometry) as centroid_lat
 FROM geo_region_boundaries rb
@@ -137,6 +159,7 @@ WHERE c.code = $1 AND r.code = $2;
 -- ============================================================================
 
 -- name: GetDistrictBoundariesByCountry :many
+-- Uses ST_SimplifyPreserveTopology(0.002) for districts (~200m at equator)
 SELECT
     d.id,
     d.name,
@@ -146,7 +169,13 @@ SELECT
     r.name as region_name,
     c.code as country_code,
     db.area_km2,
-    ST_AsGeoJSON(COALESCE(db.boundary_simplified, db.boundary))::text as boundary_geojson,
+    ST_AsGeoJSON(
+        ST_SimplifyPreserveTopology(
+            COALESCE(db.boundary_simplified, db.boundary)::geometry,
+            0.002
+        ),
+        6
+    )::text as boundary_geojson,
     ST_X(db.centroid::geometry) as centroid_lng,
     ST_Y(db.centroid::geometry) as centroid_lat
 FROM geo_district_boundaries db
@@ -157,6 +186,7 @@ WHERE c.code = $1
 ORDER BY r.name, d.name;
 
 -- name: GetDistrictBoundariesByRegion :many
+-- Uses ST_SimplifyPreserveTopology(0.002) for districts (~200m at equator)
 SELECT
     d.id,
     d.name,
@@ -164,7 +194,13 @@ SELECT
     r.code as region_code,
     r.name as region_name,
     db.area_km2,
-    ST_AsGeoJSON(COALESCE(db.boundary_simplified, db.boundary))::text as boundary_geojson,
+    ST_AsGeoJSON(
+        ST_SimplifyPreserveTopology(
+            COALESCE(db.boundary_simplified, db.boundary)::geometry,
+            0.002
+        ),
+        6
+    )::text as boundary_geojson,
     ST_X(db.centroid::geometry) as centroid_lng,
     ST_Y(db.centroid::geometry) as centroid_lat
 FROM geo_district_boundaries db

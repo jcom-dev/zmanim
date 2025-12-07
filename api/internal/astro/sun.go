@@ -105,6 +105,50 @@ func SunTimeAtAngleWithElevation(date time.Time, latitude, longitude, elevation 
 	return dawn, dusk
 }
 
+// SeasonalSunTimeAtAngle calculates sun angle times using the seasonal proportional method.
+// This method calculates the offset from sunrise/sunset at the equinox for the given angle,
+// then scales that offset proportionally based on the current day's length compared to equinox.
+// This produces times that match halachic seasonal hours (sha'os zmaniyos) calculations.
+// The angle parameter is degrees below horizon (e.g., 16.04 for alos hashachar).
+func SeasonalSunTimeAtAngle(date time.Time, latitude, longitude float64, tz *time.Location, angle float64) (dawn, dusk time.Time) {
+	return SeasonalSunTimeAtAngleWithElevation(date, latitude, longitude, 0, tz, angle)
+}
+
+// SeasonalSunTimeAtAngleWithElevation calculates seasonal sun angle times with elevation adjustment.
+// See SeasonalSunTimeAtAngle for methodology explanation.
+func SeasonalSunTimeAtAngleWithElevation(date time.Time, latitude, longitude, elevation float64, tz *time.Location, angle float64) (dawn, dusk time.Time) {
+	// Step 1: Calculate equinox date (March 20 of the same year)
+	equinoxDate := time.Date(date.Year(), 3, 20, 12, 0, 0, 0, tz)
+
+	// Step 2: Get equinox sunrise/sunset and solar angle times
+	equinoxSunTimes := CalculateSunTimesWithElevation(equinoxDate, latitude, longitude, elevation, tz)
+	equinoxDawn, equinoxDusk := SunTimeAtAngleWithElevation(equinoxDate, latitude, longitude, elevation, tz, angle)
+
+	// Step 3: Calculate equinox offsets (minutes from sunrise/sunset)
+	equinoxDawnOffset := equinoxSunTimes.Sunrise.Sub(equinoxDawn).Minutes()
+	equinoxDuskOffset := equinoxDusk.Sub(equinoxSunTimes.Sunset).Minutes()
+	equinoxDayLength := equinoxSunTimes.DayLengthMinutes
+
+	// Step 4: Get current day sunrise/sunset
+	currentSunTimes := CalculateSunTimesWithElevation(date, latitude, longitude, elevation, tz)
+	currentDayLength := currentSunTimes.DayLengthMinutes
+
+	// Step 5: Calculate day length ratio and scale offsets
+	if equinoxDayLength == 0 || currentDayLength == 0 {
+		return time.Time{}, time.Time{}
+	}
+	dayLengthRatio := currentDayLength / equinoxDayLength
+
+	scaledDawnOffset := equinoxDawnOffset * dayLengthRatio
+	scaledDuskOffset := equinoxDuskOffset * dayLengthRatio
+
+	// Step 6: Apply scaled offsets to current day's sunrise/sunset
+	dawn = currentSunTimes.Sunrise.Add(-time.Duration(scaledDawnOffset * float64(time.Minute)))
+	dusk = currentSunTimes.Sunset.Add(time.Duration(scaledDuskOffset * float64(time.Minute)))
+
+	return dawn, dusk
+}
+
 // julianDay calculates the Julian Day number for a given date
 func julianDay(date time.Time) float64 {
 	year := float64(date.Year())

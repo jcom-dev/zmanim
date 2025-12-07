@@ -67,16 +67,43 @@ func (h *Handlers) ImportPublisherSnapshot(w http.ResponseWriter, r *http.Reques
 
 	// 2. No URL params
 
-	// 3. Parse body
-	var req struct {
-		Snapshot services.PublisherSnapshot `json:"snapshot"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// 3. Parse body - first as raw to detect complete backup format
+	var rawBody map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&rawBody); err != nil {
 		RespondBadRequest(w, r, "Invalid request body")
 		return
 	}
 
-	// 4. Validate
+	// Check for complete backup format markers (incompatible with snapshot restore)
+	if formatType, ok := rawBody["format_type"].(string); ok && formatType == "complete_backup" {
+		RespondValidationError(w, r, "Incompatible file format", map[string]string{
+			"format_type": "This is a complete backup file. Complete backups cannot be imported via the snapshot restore feature. Please use the admin restore functionality.",
+		})
+		return
+	}
+	if formatVersion, ok := rawBody["format_version"].(float64); ok && formatVersion >= 1000 {
+		RespondValidationError(w, r, "Incompatible file format", map[string]string{
+			"format_version": "This appears to be a complete backup file (version 1000+). Complete backups cannot be imported via the snapshot restore feature.",
+		})
+		return
+	}
+
+	// Parse as snapshot
+	bodyBytes, err := json.Marshal(rawBody)
+	if err != nil {
+		RespondInternalError(w, r, "Failed to process request body")
+		return
+	}
+
+	var req struct {
+		Snapshot services.PublisherSnapshot `json:"snapshot"`
+	}
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		RespondBadRequest(w, r, "Invalid snapshot format")
+		return
+	}
+
+	// 4. Validate snapshot version
 	if req.Snapshot.Version == 0 {
 		RespondValidationError(w, r, "Invalid snapshot format", map[string]string{
 			"version": "Snapshot version is required",

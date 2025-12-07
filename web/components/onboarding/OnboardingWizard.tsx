@@ -198,7 +198,13 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
 
   const handleComplete = async () => {
     try {
-      await api.post('/publisher/onboarding/complete');
+      // Send the wizard state (customizations and coverage) to complete onboarding
+      await api.post('/publisher/onboarding/complete', {
+        body: JSON.stringify({
+          customizations: state.data.customizations || [],
+          coverage: state.data.coverage || [],
+        }),
+      });
       // Don't call onComplete here - let the ReviewPublishStep show the success screen
       // The user will click "Go to Dashboard" to navigate away
     } catch (error) {

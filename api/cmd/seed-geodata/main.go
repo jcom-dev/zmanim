@@ -80,7 +80,8 @@ Options:
   --jobs N         Parallel restore jobs (default: 4)
   --no-verify      Skip checksum verification
   --keep-temp      Keep temporary files after restore
-  --reset          Delete existing geo data before restore (DESTRUCTIVE!)
+
+Note: This command ALWAYS truncates existing geo data before restore.
 
 Environment:
   DATABASE_URL    PostgreSQL connection string (required)
@@ -97,8 +98,8 @@ Examples:
   # Verify without restoring
   seed-geodata verify --source=s3://mybucket/geo-seed/geodata.dump.zst
 
-  # Full reset and restore with 8 parallel jobs
-  seed-geodata seed --reset --jobs=8 --source=s3://mybucket/geodata.dump.zst
+  # Restore with 8 parallel jobs
+  seed-geodata seed --jobs=8 --source=s3://mybucket/geodata.dump.zst
 `)
 }
 
@@ -107,7 +108,6 @@ func cmdSeed(args []string) {
 	jobs := 4
 	skipVerify := false
 	keepTemp := false
-	reset := false
 
 	for i := 0; i < len(args); i++ {
 		if strings.HasPrefix(args[i], "--source=") {
@@ -121,8 +121,6 @@ func cmdSeed(args []string) {
 			skipVerify = true
 		} else if args[i] == "--keep-temp" {
 			keepTemp = true
-		} else if args[i] == "--reset" {
-			reset = true
 		}
 	}
 
@@ -155,14 +153,12 @@ func cmdSeed(args []string) {
 	}
 	log.Printf("✓ Database connection OK")
 
-	// Reset if requested
-	if reset {
-		log.Printf("⚠ RESET requested - deleting ALL geographic data...")
-		if err := resetGeoData(ctx, pool); err != nil {
-			log.Fatalf("Reset failed: %v", err)
-		}
-		log.Printf("✓ All geo tables truncated")
+	// Always reset geo data before restore
+	log.Printf("Truncating existing geographic data...")
+	if err := resetGeoData(ctx, pool); err != nil {
+		log.Fatalf("Reset failed: %v", err)
 	}
+	log.Printf("✓ All geo tables truncated")
 
 	start := time.Now()
 

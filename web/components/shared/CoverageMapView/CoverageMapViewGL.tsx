@@ -17,13 +17,12 @@ import MapGL, {
   Layer,
   MapRef,
   MapLayerMouseEvent,
-  Marker,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from 'next-themes';
 import type { FillLayerSpecification, LineLayerSpecification } from 'maplibre-gl';
 import { cn } from '@/lib/utils';
-import { API_BASE } from '@/lib/api-client';
+import { useApi } from '@/lib/api-client';
 import type { CoverageMapViewProps, MapSelection } from './types';
 
 // Zoom level thresholds for loading boundaries (not selection - that's backend-driven)
@@ -42,7 +41,7 @@ interface SmartLookupResponse {
     district?: { id: number; code: string; name: string; area_km2?: number; label?: string };
   };
   nearby_cities?: Array<{
-    id: string;
+    id: number; // Backend sends int32
     name: string;
     country_code: string;
     region_name?: string;
@@ -136,11 +135,12 @@ function buildFillPaint(
   selectedCodes: string[],
   existingCodes: string[]
 ): FillLayerSpecification['paint'] {
-  // If no codes, return simple transparent values (case expression requires at least one condition)
+  // If no codes, return barely visible fill so the layer is still interactive
+  // MapLibre requires non-zero opacity for click detection
   if (selectedCodes.length === 0 && existingCodes.length === 0) {
     return {
       'fill-color': 'transparent',
-      'fill-opacity': 0,
+      'fill-opacity': 0.01, // Minimum opacity to enable click detection
     };
   }
 
@@ -160,7 +160,7 @@ function buildFillPaint(
     opacityExpr.push(0.4);
   }
   colorExpr.push('transparent');
-  opacityExpr.push(0);
+  opacityExpr.push(0.01); // Minimum opacity to enable click detection
 
   return {
     'fill-color': colorExpr,
@@ -239,20 +239,26 @@ export const CoverageMapViewGL = memo(
     // Map from ISO code to feature numeric ID for setFeatureState
     const isoToFeatureId = useRef<Map<string, number>>(new Map());
 
+    // API client for all requests (per coding-standards.md)
+    const api = useApi();
+
+    // Refs to always have latest values in click handler (avoids stale closure issues)
+    const selectedRegionsRef = useRef(selectedRegions);
+    const onSelectionChangeRef = useRef(onSelectionChange);
+
     // Expose the map ref to parent components
     useImperativeHandle(ref, () => mapRef.current as MapRef);
 
     // Load GeoJSON countries data from server API
     useEffect(() => {
+      let cancelled = false;
       setIsLoading(true);
       setError(null);
 
-      fetch(`${API_BASE}/api/v1/geo/boundaries/countries`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then((geojsonData: CountryCollection) => {
+      api.public.get<CountryCollection>('/geo/boundaries/countries')
+        .then((geojsonData) => {
+          if (cancelled || !geojsonData) return;
+
           // Server returns GeoJSON with 'code' in properties (ISO alpha-2)
           const isoMap = new Map<string, number>();
           geojsonData.features.forEach((f, index) => {
@@ -268,11 +274,14 @@ export const CoverageMapViewGL = memo(
           setIsLoading(false);
         })
         .catch((err) => {
+          if (cancelled) return;
           console.error('Failed to load countries from API:', err);
           setError('Failed to load map data');
           setIsLoading(false);
         });
-    }, []);
+
+      return () => { cancelled = true; };
+    }, [api]);
 
     // Load region boundaries when zoomed into a specific country
     useEffect(() => {
@@ -283,12 +292,11 @@ export const CoverageMapViewGL = memo(
         return;
       }
 
-      fetch(`${API_BASE}/api/v1/geo/boundaries/regions?country_code=${visibleCountryCode}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then((geojsonData: RegionCollection) => {
+      let cancelled = false;
+
+      api.public.get<RegionCollection>(`/geo/boundaries/regions?country_code=${visibleCountryCode}`)
+        .then((geojsonData) => {
+          if (cancelled || !geojsonData) return;
           if (geojsonData.features.length > 0) {
             console.log(`Loaded ${geojsonData.features.length} regions for ${visibleCountryCode}`);
             setRegionsGeoJSON(geojsonData);
@@ -297,10 +305,13 @@ export const CoverageMapViewGL = memo(
           }
         })
         .catch((err) => {
+          if (cancelled) return;
           console.error('Failed to load regions:', err);
           setRegionsGeoJSON(null);
         });
-    }, [visibleCountryCode, currentZoom]);
+
+      return () => { cancelled = true; };
+    }, [visibleCountryCode, currentZoom, api]);
 
     // Load district boundaries when zoomed into a specific region
     useEffect(() => {
@@ -309,13 +320,12 @@ export const CoverageMapViewGL = memo(
         return;
       }
 
+      let cancelled = false;
+
       // Fetch all districts for the country (API supports country_code parameter)
-      fetch(`${API_BASE}/api/v1/geo/boundaries/districts?country_code=${visibleCountryCode}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then((geojsonData: DistrictCollection) => {
+      api.public.get<DistrictCollection>(`/geo/boundaries/districts?country_code=${visibleCountryCode}`)
+        .then((geojsonData) => {
+          if (cancelled || !geojsonData) return;
           if (geojsonData.features.length > 0) {
             console.log(`Loaded ${geojsonData.features.length} districts for ${visibleCountryCode}`);
             setDistrictsGeoJSON(geojsonData);
@@ -324,10 +334,13 @@ export const CoverageMapViewGL = memo(
           }
         })
         .catch((err) => {
+          if (cancelled) return;
           console.error('Failed to load districts:', err);
           setDistrictsGeoJSON(null);
         });
-    }, [visibleCountryCode, currentZoom]);
+
+      return () => { cancelled = true; };
+    }, [visibleCountryCode, currentZoom, api]);
 
     // Detect which country is in view when zoomed in
     useEffect(() => {
@@ -337,12 +350,14 @@ export const CoverageMapViewGL = memo(
         return;
       }
 
+      let cancelled = false;
+
       // Get center of viewport and determine country
       const center = map.getCenter();
-      fetch(`${API_BASE}/api/v1/geo/boundaries/lookup?lng=${center.lng}&lat=${center.lat}`)
-        .then((res) => res.json())
+      api.public.get<{ country?: { code: string } }>(`/geo/boundaries/lookup?lng=${center.lng}&lat=${center.lat}`)
         .then((data) => {
-          const countryCode = data.data?.country?.code;
+          if (cancelled) return;
+          const countryCode = data?.country?.code;
           if (countryCode && countryCode !== visibleCountryCode) {
             setVisibleCountryCode(countryCode);
           }
@@ -350,7 +365,9 @@ export const CoverageMapViewGL = memo(
         .catch(() => {
           // Ignore lookup failures
         });
-    }, [currentZoom, mapLoaded, visibleCountryCode]);
+
+      return () => { cancelled = true; };
+    }, [currentZoom, mapLoaded, visibleCountryCode, api]);
 
     const mapStyleUrl = useMemo(() => getMapStyleUrl(isDark), [isDark]);
 
@@ -375,6 +392,23 @@ export const CoverageMapViewGL = memo(
       [selectedSet, existingSet]
     );
 
+    // Memoize region and district IDs for paint expressions
+    const selectedRegionIds = useMemo(
+      () => selectedRegions.filter(r => r.type === 'region').map(r => r.code),
+      [selectedRegions]
+    );
+
+    const selectedDistrictIds = useMemo(
+      () => selectedRegions.filter(r => r.type === 'district').map(r => r.code),
+      [selectedRegions]
+    );
+
+    // Keep refs updated with latest values (avoids stale closure in click handler)
+    useEffect(() => {
+      selectedRegionsRef.current = selectedRegions;
+      onSelectionChangeRef.current = onSelectionChange;
+    }, [selectedRegions, onSelectionChange]);
+
     // Update feature states when selection/existing coverage changes
     useEffect(() => {
       const map = mapRef.current?.getMap();
@@ -395,79 +429,110 @@ export const CoverageMapViewGL = memo(
     // Handle map click for selection - uses backend-driven smart selection
     const handleClick = useCallback(
       async (event: MapLayerMouseEvent) => {
+        // Debug: log click event
+        if (process.env.NODE_ENV === 'development') {
+          console.log('%c[MAP CLICK]', 'background: #22c55e; color: white', {
+            lat: event.lngLat.lat.toFixed(4),
+            lng: event.lngLat.lng.toFixed(4),
+            zoom: currentZoom.toFixed(1),
+          });
+        }
         if (viewOnly) return;
 
         const { lng, lat } = event.lngLat;
 
         try {
           // Call smart lookup endpoint to get recommended level based on zoom and entity areas
-          const response = await fetch(
-            `${API_BASE}/api/v1/geo/boundaries/at-point?lng=${lng}&lat=${lat}&zoom=${currentZoom}`
+          if (process.env.NODE_ENV === 'development') {
+            console.log('%c[API CALL]', 'background: #f97316; color: white', 'Starting at-point request...');
+          }
+          const data = await api.public.get<SmartLookupResponse>(
+            `/geo/boundaries/at-point?lng=${lng}&lat=${lat}&zoom=${currentZoom}`
           );
-
-          if (!response.ok) {
-            console.error('Smart lookup failed:', response.status);
-            return;
+          if (process.env.NODE_ENV === 'development') {
+            console.log('%c[API CALL]', 'background: #f97316; color: white', 'Got response:', data);
           }
 
-          const data: SmartLookupResponse = await response.json();
+          if (!data) {
+            console.warn('[MAP] Smart lookup returned no data for', { lng, lat });
+            return;
+          }
           const { recommended_level, levels, nearby_cities } = data;
+
+          // Use refs to get latest values (avoids stale closure)
+          const currentSelectedRegions = selectedRegionsRef.current;
+          const currentOnSelectionChange = onSelectionChangeRef.current;
+
+          // Debug: log what we got from API
+          if (process.env.NODE_ENV === 'development') {
+            console.log('%c[SELECTION]', 'background: #8b5cf6; color: white', {
+              recommended_level,
+              hasCountry: !!levels.country,
+              hasRegion: !!levels.region,
+              hasDistrict: !!levels.district,
+              nearbyCitiesCount: nearby_cities?.length || 0,
+              currentSelectionCount: currentSelectedRegions.length,
+            });
+          }
 
           // Handle selection based on recommended level
           if (recommended_level === 'city' && nearby_cities?.length) {
             // Select nearest city
             const city = nearby_cities[0];
+            const cityId = String(city.id); // Convert to string for MapSelection
             const citySelection: MapSelection = {
               type: 'city',
-              code: city.id,
+              code: cityId,
               name: `${city.name}${city.region_name ? `, ${city.region_name}` : ''}`,
               countryCode: city.country_code,
             };
-            const isCurrentlySelected = selectedRegions.some(
-              (r) => r.type === 'city' && r.code === city.id
+            const isCurrentlySelected = currentSelectedRegions.some(
+              (r) => r.type === 'city' && r.code === cityId
             );
             if (isCurrentlySelected) {
-              onSelectionChange(selectedRegions.filter((r) => r.code !== city.id));
+              currentOnSelectionChange(currentSelectedRegions.filter((r) => r.code !== cityId));
             } else {
-              onSelectionChange([...selectedRegions, citySelection]);
+              currentOnSelectionChange([...currentSelectedRegions, citySelection]);
             }
             return;
           }
 
           if (recommended_level === 'district' && levels.district) {
             const district = levels.district;
+            const districtId = String(district.id);
             const districtSelection: MapSelection = {
               type: 'district',
-              code: String(district.id),
+              code: districtId,
               name: `${district.name}${levels.region ? `, ${levels.region.name}` : ''}`,
               countryCode: levels.country?.code || '',
             };
-            const isCurrentlySelected = selectedRegions.some(
-              (r) => r.type === 'district' && r.code === String(district.id)
+            const isCurrentlySelected = currentSelectedRegions.some(
+              (r) => r.type === 'district' && r.code === districtId
             );
             if (isCurrentlySelected) {
-              onSelectionChange(selectedRegions.filter((r) => r.code !== String(district.id)));
+              currentOnSelectionChange(currentSelectedRegions.filter((r) => !(r.type === 'district' && r.code === districtId)));
             } else {
-              onSelectionChange([...selectedRegions, districtSelection]);
+              currentOnSelectionChange([...currentSelectedRegions, districtSelection]);
             }
             return;
           }
 
           if (recommended_level === 'region' && levels.region) {
             const region = levels.region;
+            const regionId = String(region.id); // Use numeric ID as string
             const regionSelection: MapSelection = {
               type: 'region',
-              code: String(region.id), // Use numeric ID
+              code: regionId,
               name: `${region.name}${levels.country ? `, ${levels.country.name}` : ''}`,
               countryCode: levels.country?.code || '',
             };
-            const isCurrentlySelected = selectedRegions.some(
-              (r) => r.type === 'region' && r.code === String(region.id)
+            const isCurrentlySelected = currentSelectedRegions.some(
+              (r) => r.type === 'region' && r.code === regionId
             );
             if (isCurrentlySelected) {
-              onSelectionChange(selectedRegions.filter((r) => r.code !== String(region.id)));
+              currentOnSelectionChange(currentSelectedRegions.filter((r) => !(r.type === 'region' && r.code === regionId)));
             } else {
-              onSelectionChange([...selectedRegions, regionSelection]);
+              currentOnSelectionChange([...currentSelectedRegions, regionSelection]);
             }
             return;
           }
@@ -475,23 +540,26 @@ export const CoverageMapViewGL = memo(
           // Default: select country
           if (levels.country) {
             const country = levels.country;
+            const countryCode = country.code.toUpperCase();
             const countrySelection: MapSelection = {
               type: 'country',
-              code: country.code.toUpperCase(),
+              code: countryCode,
               name: country.name,
             };
-            const isCurrentlySelected = selectedSet.has(country.code.toUpperCase());
+            const isCurrentlySelected = currentSelectedRegions.some(
+              (r) => r.type === 'country' && r.code.toUpperCase() === countryCode
+            );
             if (isCurrentlySelected) {
-              onSelectionChange(selectedRegions.filter((r) => r.code.toUpperCase() !== country.code.toUpperCase()));
+              currentOnSelectionChange(currentSelectedRegions.filter((r) => r.code.toUpperCase() !== countryCode));
             } else {
-              onSelectionChange([...selectedRegions, countrySelection]);
+              currentOnSelectionChange([...currentSelectedRegions, countrySelection]);
             }
           }
         } catch (err) {
-          console.error('Failed to perform smart lookup:', err);
+          console.error('%c[API ERROR]', 'background: red; color: white', 'Failed to perform smart lookup:', err);
         }
       },
-      [viewOnly, selectedRegions, onSelectionChange, selectedSet, currentZoom]
+      [viewOnly, currentZoom, api] // Removed selectedRegions, onSelectionChange, selectedSet - using refs instead
     );
 
     const handleZoom = useCallback(() => {
@@ -576,13 +644,13 @@ export const CoverageMapViewGL = memo(
                 paint={{
                   'fill-color': [
                     'case',
-                    ['in', ['get', 'code'], ['literal', selectedRegions.filter(r => r.type === 'region').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegionIds]],
                     '#8b5cf6', // Violet for selected
                     'transparent',
                   ],
                   'fill-opacity': [
                     'case',
-                    ['in', ['get', 'code'], ['literal', selectedRegions.filter(r => r.type === 'region').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegionIds]],
                     0.4,
                     0,
                   ],
@@ -595,19 +663,19 @@ export const CoverageMapViewGL = memo(
                 paint={{
                   'line-color': [
                     'case',
-                    ['in', ['get', 'code'], ['literal', selectedRegions.filter(r => r.type === 'region').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegionIds]],
                     '#8b5cf6', // Violet for selected
                     '#9ca3af', // Gray for unselected
                   ],
                   'line-width': [
                     'case',
-                    ['in', ['get', 'code'], ['literal', selectedRegions.filter(r => r.type === 'region').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegionIds]],
                     2.5,
                     1,
                   ],
                   'line-opacity': [
                     'case',
-                    ['in', ['get', 'code'], ['literal', selectedRegions.filter(r => r.type === 'region').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegionIds]],
                     1,
                     0.5,
                   ],
@@ -631,13 +699,13 @@ export const CoverageMapViewGL = memo(
                 paint={{
                   'fill-color': [
                     'case',
-                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegions.filter(r => r.type === 'district').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedDistrictIds]],
                     '#f97316', // Orange for selected
                     'transparent',
                   ],
                   'fill-opacity': [
                     'case',
-                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegions.filter(r => r.type === 'district').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedDistrictIds]],
                     0.4,
                     0,
                   ],
@@ -650,19 +718,19 @@ export const CoverageMapViewGL = memo(
                 paint={{
                   'line-color': [
                     'case',
-                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegions.filter(r => r.type === 'district').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedDistrictIds]],
                     '#f97316', // Orange for selected
                     '#d4d4d4', // Light gray for unselected
                   ],
                   'line-width': [
                     'case',
-                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegions.filter(r => r.type === 'district').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedDistrictIds]],
                     2.5,
                     0.5,
                   ],
                   'line-opacity': [
                     'case',
-                    ['in', ['to-string', ['get', 'id']], ['literal', selectedRegions.filter(r => r.type === 'district').map(r => r.code)]],
+                    ['in', ['to-string', ['get', 'id']], ['literal', selectedDistrictIds]],
                     1,
                     0.4,
                   ],

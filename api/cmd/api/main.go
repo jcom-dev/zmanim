@@ -199,6 +199,7 @@ func main() {
 			// Cities - Global location system
 			r.Get("/cities", h.SearchCities)
 			r.Get("/cities/nearby", h.GetNearbyCity)
+			r.Get("/cities/by-geonameid/{geonameid}", h.GetCityByGeonameID)
 			r.Get("/cities/{id}", h.GetCityByID)
 			r.Get("/cities/{cityId}/publishers", h.GetPublishersForCity)
 
@@ -210,6 +211,7 @@ func main() {
 			r.Get("/countries/{country_code}", h.GetCountryByCode) // Must be after /regions and /districts
 			r.Get("/regions", h.GetRegions)
 			r.Get("/regions/{region_id}/districts", h.GetDistrictsByRegion)
+			r.Get("/coverage/search", h.SearchCoverageUnified) // Unified search across all geo levels
 
 			// Geographic boundaries for map rendering
 			r.Get("/geo/boundaries/countries", h.GetCountryBoundaries)
@@ -364,6 +366,9 @@ func main() {
 			r.Get("/snapshot/{id}", h.GetPublisherSnapshot)
 			r.Post("/snapshot/{id}/restore", h.RestorePublisherSnapshot)
 			r.Delete("/snapshot/{id}", h.DeletePublisherSnapshot)
+
+			// Complete publisher export (admin/backup - includes profile, logo, coverage, zmanim)
+			r.Get("/export/complete", h.ExportCompletePublisher)
 		})
 
 		// User routes (authenticated)
@@ -392,6 +397,12 @@ func main() {
 			r.Get("/publishers/{id}/users", h.AdminGetPublisherUsers)
 			r.Post("/publishers/{id}/users/invite", h.AdminInviteUserToPublisher)
 			r.Delete("/publishers/{id}/users/{userId}", h.AdminRemoveUserFromPublisher)
+
+			// Publisher export/import
+			// Import: POST /publishers/{id}/import - imports into existing publisher
+			// Import: POST /publishers/{id}/import?create_new=true - creates new publisher from export
+			r.Get("/publishers/{id}/export", h.AdminExportPublisher)
+			r.Post("/publishers/{id}/import", h.AdminImportPublisher)
 
 			// Publisher registration requests (Story 2-9)
 			r.Get("/publisher-requests", h.AdminGetPublisherRequests)

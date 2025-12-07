@@ -316,8 +316,25 @@ func convertToMasterZman(row any) MasterZman {
 		z.UpdatedAt = r.UpdatedAt.Time
 		// Tags are returned as JSON interface, parse them
 		if r.Tags != nil {
+			// pgx can return either []byte or []interface{} depending on the driver
 			if tagsBytes, ok := r.Tags.([]byte); ok {
 				_ = json.Unmarshal(tagsBytes, &z.Tags)
+			} else if tagsSlice, ok := r.Tags.([]interface{}); ok {
+				// Convert []interface{} to ZmanTag structs
+				z.Tags = make([]ZmanTag, 0, len(tagsSlice))
+				for _, tagItem := range tagsSlice {
+					if tagMap, ok := tagItem.(map[string]interface{}); ok {
+						tag := ZmanTag{
+							ID:                 fmt.Sprintf("%v", tagMap["id"]),
+							TagKey:             fmt.Sprintf("%v", tagMap["tag_key"]),
+							Name:               fmt.Sprintf("%v", tagMap["name"]),
+							DisplayNameHebrew:  fmt.Sprintf("%v", tagMap["display_name_hebrew"]),
+							DisplayNameEnglish: fmt.Sprintf("%v", tagMap["display_name_english"]),
+							TagType:            fmt.Sprintf("%v", tagMap["tag_type"]),
+						}
+						z.Tags = append(z.Tags, tag)
+					}
+				}
 			}
 		}
 	case db.GetMasterZmanByKeyRow:

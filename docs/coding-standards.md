@@ -47,6 +47,44 @@ if (!isLoaded) return <LoadingSpinner />;
 if (!isSignedIn) redirect('/sign-in');
 ```
 
+### 7. Entity References - ALWAYS Use IDs
+**FORBIDDEN:** Text-based lookups, name matching, or string identifiers in API calls/database queries.
+
+**REQUIRED:** Numeric IDs for ALL entity references.
+
+```tsx
+// FORBIDDEN - text matching
+await api.post('/coverage', { city_name: 'Jerusalem', country: 'Israel' });
+const city = await db.GetCityByName(ctx, "New York");
+
+// REQUIRED - ID-based references
+await api.post('/coverage', { city_id: 293397 });
+const city = await db.GetCityByID(ctx, cityID);
+```
+
+**Why:** Text matching causes:
+- Case sensitivity bugs ("jerusalem" ≠ "Jerusalem")
+- Locale issues ("München" vs "Munich")
+- Ambiguity (multiple cities with same name)
+- Fragile integrations (names change, IDs don't)
+- Performance problems (string comparison vs indexed ID lookup)
+
+**Frontend Rules:**
+- Select components MUST store and send numeric IDs, not labels
+- Quick-select buttons MUST lookup and store database IDs on mount
+- Coverage/city selectors MUST use `city_id`, never `city_name`
+
+**Backend Rules:**
+- Endpoints MUST accept ID parameters, not text lookups
+- Database queries MUST use `WHERE id = $1`, not `WHERE name = $1`
+- Foreign keys MUST reference numeric IDs
+- No `GetEntityByName` queries except for initial seed/admin operations
+
+**Exceptions:**
+- User-facing search endpoints (e.g., `/cities?search=jerusalem`)
+- Admin tools for data exploration
+- Initial data seeding scripts
+
 ---
 
 ## Security - Secrets Management - ZERO TOLERANCE

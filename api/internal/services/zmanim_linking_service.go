@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jcom-dev/zmanim-lab/internal/db"
@@ -53,7 +52,7 @@ type LinkOrCopyZmanRequest struct {
 	SourceZmanID        int32
 	Mode                string // "copy" or "link"
 	UserID              string // Clerk user ID (for provenance)
-	RequestID           uuid.UUID // Request ID (for provenance)
+	RequestID           string // Request ID as string (for provenance)
 }
 
 // LinkOrCopyZmanResult contains the created zman details
@@ -63,13 +62,12 @@ type LinkOrCopyZmanResult struct {
 	HebrewName            string
 	EnglishName           string
 	FormulaDSL            string
-	Dependencies          string
+	Dependencies          []string
 	MasterZmanID          *int32
 	LinkedPublisherZmanID *int32
-	CreatedAt             pgx.Timestamp
-	UpdatedAt             pgx.Timestamp
+	CreatedAt             pgtype.Timestamptz
+	UpdatedAt             pgtype.Timestamptz
 	IsLinked              bool
-	SourcePublisherName   string
 	SourceIsVerified      bool
 }
 
@@ -115,14 +113,22 @@ func (s *ZmanimLinkingService) LinkOrCopyZman(ctx context.Context, req LinkOrCop
 		"mode":                req.Mode,
 	})
 
+	// Convert to pointer types for SQLc
+	var userIDPtr *string
+	if req.UserID != "" {
+		userIDPtr = &req.UserID
+	}
+	publisherIDPtr := &req.TargetPublisherID
+	entityType := "publisher_zman"
+
 	actionID, err := qtx.RecordAction(ctx, sqlcgen.RecordActionParams{
 		ActionType:     actionType,
 		Concept:        "zman",
-		UserID:         pgtype.Text{String: req.UserID, Valid: req.UserID != ""},
-		PublisherID:    pgtype.Int4{Int32: req.TargetPublisherID, Valid: true},
-		RequestID:      pgtype.UUID{Bytes: req.RequestID, Valid: true},
-		EntityType:     pgtype.Text{String: "publisher_zman", Valid: true},
-		EntityID:       pgtype.Text{String: "", Valid: false}, // Will be set after creation
+		UserID:         userIDPtr,
+		PublisherID:    publisherIDPtr,
+		RequestID:      req.RequestID,
+		EntityType:     &entityType,
+		EntityID:       nil, // Will be set after creation
 		Payload:        payloadJSON,
 		ParentActionID: pgtype.UUID{Valid: false},
 		Metadata:       nil,
@@ -185,11 +191,13 @@ func (s *ZmanimLinkingService) LinkOrCopyZman(ctx context.Context, req LinkOrCop
 	if err != nil {
 		// Mark action as failed
 		resultJSON, _ := json.Marshal(map[string]interface{}{"error": err.Error()})
+		failedStatus := "failed"
+		errMsg := err.Error()
 		_ = qtx.CompleteAction(ctx, sqlcgen.CompleteActionParams{
 			ID:           actionID,
-			Status:       "failed",
+			Status:       &failedStatus,
 			Result:       resultJSON,
-			ErrorMessage: pgtype.Text{String: err.Error(), Valid: true},
+			ErrorMessage: &errMsg,
 		})
 		return nil, fmt.Errorf("failed to create linked/copied zman: %w", err)
 	}
@@ -201,11 +209,12 @@ func (s *ZmanimLinkingService) LinkOrCopyZman(ctx context.Context, req LinkOrCop
 		"mode":       req.Mode,
 		"created_at": result.CreatedAt,
 	})
+	completedStatus := "completed"
 	err = qtx.CompleteAction(ctx, sqlcgen.CompleteActionParams{
 		ID:           actionID,
-		Status:       "completed",
+		Status:       &completedStatus,
 		Result:       resultJSON,
-		ErrorMessage: pgtype.Text{Valid: false},
+		ErrorMessage: nil,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to complete action: %w", err)
@@ -229,7 +238,6 @@ func (s *ZmanimLinkingService) LinkOrCopyZman(ctx context.Context, req LinkOrCop
 		CreatedAt:             result.CreatedAt,
 		UpdatedAt:             result.UpdatedAt,
 		IsLinked:              req.Mode == "link",
-		SourcePublisherName:   sourceZman.PublisherName,
 		SourceIsVerified:      sourceZman.IsVerified,
 	}, nil
 }

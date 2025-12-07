@@ -203,11 +203,29 @@ func findProjectRoot() string {
 	}
 }
 
+// getOrCreateSourceID gets or creates a source in ai_content_sources and returns its ID
+func getOrCreateSourceID(ctx context.Context, pool *pgxpool.Pool, sourceKey, displayName string) (int16, error) {
+	var sourceID int16
+	err := pool.QueryRow(ctx, `
+		INSERT INTO ai_content_sources (key, display_name_hebrew, display_name_english, description)
+		VALUES ($1, $2, $2, $3)
+		ON CONFLICT (key) DO UPDATE SET key = EXCLUDED.key
+		RETURNING id
+	`, sourceKey, displayName, "Indexed by RAG indexer").Scan(&sourceID)
+	return sourceID, err
+}
+
 func indexDocument(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.EmbeddingService, chunker *ai.Chunker, source DocumentSource) (int, int, error) {
 	// Read file
 	content, err := os.ReadFile(source.Path)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Get or create source ID
+	sourceID, err := getOrCreateSourceID(ctx, pool, source.Source, source.Source)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get/create source: %w", err)
 	}
 
 	// Chunk document
@@ -253,9 +271,9 @@ func indexDocument(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.Embed
 		for j, chunk := range validChunks {
 			vec := pgvector.NewVector(embeds[j])
 			_, err := pool.Exec(ctx, `
-				INSERT INTO embeddings (content, source, content_type, chunk_index, metadata, embedding)
+				INSERT INTO embeddings (content, source_id, content_type, chunk_index, metadata, embedding)
 				VALUES ($1, $2, $3, $4, $5, $6)
-			`, chunk.Content, source.Source, source.ContentType, chunk.Index, chunk.Metadata, vec)
+			`, chunk.Content, sourceID, source.ContentType, chunk.Index, chunk.Metadata, vec)
 			if err != nil {
 				return 0, 0, fmt.Errorf("failed to insert embedding: %w", err)
 			}
@@ -269,11 +287,14 @@ func indexDocument(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.Embed
 }
 
 func indexMasterZmanim(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.EmbeddingService, chunker *ai.Chunker) (int, int, error) {
-	// Query master zmanim registry
+	// Query master zmanim registry with time_category join
 	rows, err := pool.Query(ctx, `
-		SELECT zman_key, canonical_hebrew_name, canonical_english_name, time_category, description, default_formula_dsl
-		FROM master_zmanim_registry
-		ORDER BY sort_order
+		SELECT m.zman_key, m.canonical_hebrew_name, m.canonical_english_name,
+		       COALESCE(tc.name_english, 'Unknown') as time_category,
+		       m.description, m.default_formula_dsl
+		FROM master_zmanim_registry m
+		LEFT JOIN time_categories tc ON m.time_category_id = tc.id
+		ORDER BY m.zman_key
 	`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to query master zmanim: %w", err)
@@ -304,6 +325,12 @@ func indexMasterZmanim(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.E
 		content.WriteString("\n")
 	}
 
+	// Get or create source ID
+	sourceID, err := getOrCreateSourceID(ctx, pool, "master-registry", "Master Zmanim Registry")
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get/create source: %w", err)
+	}
+
 	// Chunk and index
 	chunks := chunker.ChunkDocument(content.String(), "master-registry", "reference")
 
@@ -319,9 +346,9 @@ func indexMasterZmanim(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.E
 
 		vec := pgvector.NewVector(embed)
 		_, err = pool.Exec(ctx, `
-			INSERT INTO embeddings (content, source, content_type, chunk_index, metadata, embedding)
+			INSERT INTO embeddings (content, source_id, content_type, chunk_index, metadata, embedding)
 			VALUES ($1, $2, $3, $4, $5, $6)
-		`, chunk.Content, "master-registry", "reference", chunk.Index, chunk.Metadata, vec)
+		`, chunk.Content, sourceID, "reference", chunk.Index, chunk.Metadata, vec)
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to insert embedding: %w", err)
 		}
@@ -461,6 +488,12 @@ Formula: sunrise - 72min
 Major fasts (Yom Kippur, Tisha B'Av) begin at sunset the night before.
 `
 
+	// Get or create source ID
+	sourceID, err := getOrCreateSourceID(ctx, pool, "dsl-examples", "DSL Examples")
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get/create source: %w", err)
+	}
+
 	// Chunk and index
 	chunks := chunker.ChunkDocument(examples, "dsl-examples", "example")
 
@@ -483,9 +516,9 @@ Major fasts (Yom Kippur, Tisha B'Av) begin at sunset the night before.
 
 		vec := pgvector.NewVector(embed)
 		_, err = pool.Exec(ctx, `
-			INSERT INTO embeddings (content, source, content_type, chunk_index, metadata, embedding)
+			INSERT INTO embeddings (content, source_id, content_type, chunk_index, metadata, embedding)
 			VALUES ($1, $2, $3, $4, $5, $6)
-		`, chunk.Content, "dsl-examples", "example", chunk.Index, chunk.Metadata, vec)
+		`, chunk.Content, sourceID, "example", chunk.Index, chunk.Metadata, vec)
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to insert embedding: %w", err)
 		}
@@ -806,6 +839,12 @@ func extractGoTypeName(signature string) string {
 
 // indexContent is a helper to index arbitrary content
 func indexContent(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.EmbeddingService, chunker *ai.Chunker, content, source, contentType string) (int, int, error) {
+	// Get or create source ID
+	sourceID, err := getOrCreateSourceID(ctx, pool, source, source)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get/create source: %w", err)
+	}
+
 	chunks := chunker.ChunkDocument(content, source, contentType)
 	if len(chunks) == 0 {
 		return 0, 0, nil
@@ -848,9 +887,9 @@ func indexContent(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.Embedd
 		for j, chunk := range validChunks {
 			vec := pgvector.NewVector(embeds[j])
 			_, err := pool.Exec(ctx, `
-				INSERT INTO embeddings (content, source, content_type, chunk_index, metadata, embedding)
+				INSERT INTO embeddings (content, source_id, content_type, chunk_index, metadata, embedding)
 				VALUES ($1, $2, $3, $4, $5, $6)
-			`, chunk.Content, source, contentType, chunk.Index, chunk.Metadata, vec)
+			`, chunk.Content, sourceID, contentType, chunk.Index, chunk.Metadata, vec)
 			if err != nil {
 				return 0, 0, fmt.Errorf("failed to insert embedding: %w", err)
 			}

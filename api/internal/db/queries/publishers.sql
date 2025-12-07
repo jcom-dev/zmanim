@@ -249,30 +249,29 @@ WHERE clerk_user_id = $1;
 SELECT id::text as id, name,
        (SELECT key FROM publisher_statuses WHERE id = p.status_id) as status_key
 FROM publishers p
-WHERE id = ANY($1::text[])
+WHERE id = ANY($1::int[])
 ORDER BY name;
 
 -- name: GetPublisherCitiesCovered :one
 SELECT COALESCE(SUM(
-    CASE coverage_level
+    CASE cl.key
         WHEN 'city' THEN 1
         WHEN 'region' THEN (
             SELECT COUNT(*) FROM geo_cities c
             JOIN geo_regions r ON c.region_id = r.id
-            JOIN geo_countries co ON r.country_id = co.id
-            WHERE co.code = pc.country_code AND r.name = pc.region
+            WHERE r.id = pc.region_id
         )
         WHEN 'country' THEN (
             SELECT COUNT(*) FROM geo_cities c
             JOIN geo_regions r ON c.region_id = r.id
-            JOIN geo_countries co ON r.country_id = co.id
-            WHERE co.code = pc.country_code
+            WHERE r.country_id = pc.country_id
         )
         ELSE 0
     END
 ), 0)::bigint as cities_covered
 FROM publisher_coverage pc
-WHERE publisher_id = $1 AND is_active = true;
+JOIN coverage_levels cl ON cl.id = pc.coverage_level_id
+WHERE pc.publisher_id = $1 AND pc.is_active = true;
 
 -- name: GetPublisherFullProfileByID :one
 SELECT p.id, p.clerk_user_id, p.name, p.email,
@@ -295,3 +294,15 @@ SELECT p.id, p.clerk_user_id, p.name, p.email,
 FROM publishers p
 JOIN publisher_statuses ps ON ps.id = p.status_id
 WHERE p.clerk_user_id = $1;
+
+-- name: CreatePublisherFromImport :one
+INSERT INTO publishers (name, email, website, description, bio, status_id)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    (SELECT id FROM publisher_statuses WHERE key = 'pending')
+)
+RETURNING id, name;

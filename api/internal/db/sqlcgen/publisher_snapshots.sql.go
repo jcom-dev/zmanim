@@ -97,6 +97,91 @@ func (q *Queries) GetAllPublisherZmanimKeys(ctx context.Context, publisherID int
 	return items, nil
 }
 
+const getCompletePublisherExport = `-- name: GetCompletePublisherExport :one
+
+SELECT
+    p.id,
+    p.name,
+    p.email,
+    p.phone,
+    p.website,
+    COALESCE(p.description, '') as description,
+    COALESCE(p.bio, '') as bio,
+    p.logo_url,
+    p.logo_data,
+    p.latitude,
+    p.longitude,
+    p.timezone,
+    p.is_published,
+    p.is_verified,
+    p.is_certified,
+    ps.key as status_key,
+    ps.display_name_hebrew as status_display_hebrew,
+    ps.display_name_english as status_display_english,
+    p.created_at,
+    p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.id = $1
+`
+
+type GetCompletePublisherExportRow struct {
+	ID                   int32              `json:"id"`
+	Name                 string             `json:"name"`
+	Email                string             `json:"email"`
+	Phone                *string            `json:"phone"`
+	Website              *string            `json:"website"`
+	Description          string             `json:"description"`
+	Bio                  string             `json:"bio"`
+	LogoUrl              *string            `json:"logo_url"`
+	LogoData             *string            `json:"logo_data"`
+	Latitude             *float64           `json:"latitude"`
+	Longitude            *float64           `json:"longitude"`
+	Timezone             *string            `json:"timezone"`
+	IsPublished          bool               `json:"is_published"`
+	IsVerified           bool               `json:"is_verified"`
+	IsCertified          bool               `json:"is_certified"`
+	StatusKey            string             `json:"status_key"`
+	StatusDisplayHebrew  string             `json:"status_display_hebrew"`
+	StatusDisplayEnglish string             `json:"status_display_english"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+// ============================================
+// COMPLETE PUBLISHER EXPORT (ADMIN/BACKUP)
+// ============================================
+// Complete export includes profile, logo, coverage, zmanim
+// Different from publisher-accessible snapshot (zmanim-only)
+// Get complete publisher data for backup/admin export
+func (q *Queries) GetCompletePublisherExport(ctx context.Context, id int32) (GetCompletePublisherExportRow, error) {
+	row := q.db.QueryRow(ctx, getCompletePublisherExport, id)
+	var i GetCompletePublisherExportRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Phone,
+		&i.Website,
+		&i.Description,
+		&i.Bio,
+		&i.LogoUrl,
+		&i.LogoData,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Timezone,
+		&i.IsPublished,
+		&i.IsVerified,
+		&i.IsCertified,
+		&i.StatusKey,
+		&i.StatusDisplayHebrew,
+		&i.StatusDisplayEnglish,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getDeletedZmanByKey = `-- name: GetDeletedZmanByKey :one
 SELECT id, zman_key
 FROM publisher_zmanim
@@ -141,6 +226,110 @@ func (q *Queries) GetLatestPublisherSnapshot(ctx context.Context, publisherID in
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getPublisherCoverageForExport = `-- name: GetPublisherCoverageForExport :many
+SELECT
+    pc.id,
+    cl.key as coverage_level_key,
+    cl.display_name_hebrew as coverage_level_display_hebrew,
+    cl.display_name_english as coverage_level_display_english,
+    pc.continent_id,
+    ct.name as continent_name,
+    pc.country_id,
+    co.code as country_code,
+    co.name as country_name,
+    pc.region_id,
+    r.code as region_code,
+    r.name as region_name,
+    pc.district_id,
+    d.code as district_code,
+    d.name as district_name,
+    pc.city_id,
+    c.name as city_name,
+    c.latitude as city_latitude,
+    c.longitude as city_longitude,
+    pc.priority,
+    pc.is_active,
+    pc.created_at
+FROM publisher_coverage pc
+JOIN coverage_levels cl ON cl.id = pc.coverage_level_id
+LEFT JOIN geo_continents ct ON pc.continent_id = ct.id
+LEFT JOIN geo_countries co ON pc.country_id = co.id
+LEFT JOIN geo_regions r ON pc.region_id = r.id
+LEFT JOIN geo_districts d ON pc.district_id = d.id
+LEFT JOIN geo_cities c ON pc.city_id = c.id
+WHERE pc.publisher_id = $1
+ORDER BY cl.sort_order, pc.priority DESC, pc.created_at DESC
+`
+
+type GetPublisherCoverageForExportRow struct {
+	ID                          int32              `json:"id"`
+	CoverageLevelKey            string             `json:"coverage_level_key"`
+	CoverageLevelDisplayHebrew  string             `json:"coverage_level_display_hebrew"`
+	CoverageLevelDisplayEnglish string             `json:"coverage_level_display_english"`
+	ContinentID                 *int16             `json:"continent_id"`
+	ContinentName               *string            `json:"continent_name"`
+	CountryID                   *int16             `json:"country_id"`
+	CountryCode                 *string            `json:"country_code"`
+	CountryName                 *string            `json:"country_name"`
+	RegionID                    *int32             `json:"region_id"`
+	RegionCode                  *string            `json:"region_code"`
+	RegionName                  *string            `json:"region_name"`
+	DistrictID                  *int32             `json:"district_id"`
+	DistrictCode                *string            `json:"district_code"`
+	DistrictName                *string            `json:"district_name"`
+	CityID                      *int32             `json:"city_id"`
+	CityName                    *string            `json:"city_name"`
+	CityLatitude                *float64           `json:"city_latitude"`
+	CityLongitude               *float64           `json:"city_longitude"`
+	Priority                    *int32             `json:"priority"`
+	IsActive                    bool               `json:"is_active"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+}
+
+// Get all coverage areas for complete export
+func (q *Queries) GetPublisherCoverageForExport(ctx context.Context, publisherID int32) ([]GetPublisherCoverageForExportRow, error) {
+	rows, err := q.db.Query(ctx, getPublisherCoverageForExport, publisherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPublisherCoverageForExportRow{}
+	for rows.Next() {
+		var i GetPublisherCoverageForExportRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CoverageLevelKey,
+			&i.CoverageLevelDisplayHebrew,
+			&i.CoverageLevelDisplayEnglish,
+			&i.ContinentID,
+			&i.ContinentName,
+			&i.CountryID,
+			&i.CountryCode,
+			&i.CountryName,
+			&i.RegionID,
+			&i.RegionCode,
+			&i.RegionName,
+			&i.DistrictID,
+			&i.DistrictCode,
+			&i.DistrictName,
+			&i.CityID,
+			&i.CityName,
+			&i.CityLatitude,
+			&i.CityLongitude,
+			&i.Priority,
+			&i.IsActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getPublisherSnapshot = `-- name: GetPublisherSnapshot :one
@@ -260,6 +449,109 @@ func (q *Queries) GetPublisherZmanForSnapshotCompare(ctx context.Context, arg Ge
 		&i.CurrentVersion,
 	)
 	return i, err
+}
+
+const getPublisherZmanimForCompleteExport = `-- name: GetPublisherZmanimForCompleteExport :many
+SELECT
+    pz.id,
+    pz.zman_key,
+    pz.hebrew_name,
+    pz.english_name,
+    pz.transliteration,
+    pz.description,
+    pz.formula_dsl,
+    pz.ai_explanation,
+    pz.publisher_comment,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.is_published,
+    pz.is_beta,
+    pz.is_custom,
+    tc.key AS category,
+    tc.display_name_hebrew AS category_display_hebrew,
+    tc.display_name_english AS category_display_english,
+    pz.master_zman_id,
+    pz.linked_publisher_zman_id,
+    zst.key AS source_type,
+    pz.current_version,
+    pz.created_at,
+    pz.updated_at
+FROM publisher_zmanim pz
+JOIN time_categories tc ON tc.id = pz.time_category_id
+LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
+WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL
+ORDER BY pz.zman_key
+`
+
+type GetPublisherZmanimForCompleteExportRow struct {
+	ID                     int32              `json:"id"`
+	ZmanKey                string             `json:"zman_key"`
+	HebrewName             string             `json:"hebrew_name"`
+	EnglishName            string             `json:"english_name"`
+	Transliteration        *string            `json:"transliteration"`
+	Description            *string            `json:"description"`
+	FormulaDsl             string             `json:"formula_dsl"`
+	AiExplanation          *string            `json:"ai_explanation"`
+	PublisherComment       *string            `json:"publisher_comment"`
+	IsEnabled              bool               `json:"is_enabled"`
+	IsVisible              bool               `json:"is_visible"`
+	IsPublished            bool               `json:"is_published"`
+	IsBeta                 bool               `json:"is_beta"`
+	IsCustom               bool               `json:"is_custom"`
+	Category               string             `json:"category"`
+	CategoryDisplayHebrew  string             `json:"category_display_hebrew"`
+	CategoryDisplayEnglish string             `json:"category_display_english"`
+	MasterZmanID           *int32             `json:"master_zman_id"`
+	LinkedPublisherZmanID  *int32             `json:"linked_publisher_zman_id"`
+	SourceType             *string            `json:"source_type"`
+	CurrentVersion         *int32             `json:"current_version"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Get all zmanim for complete export
+func (q *Queries) GetPublisherZmanimForCompleteExport(ctx context.Context, publisherID int32) ([]GetPublisherZmanimForCompleteExportRow, error) {
+	rows, err := q.db.Query(ctx, getPublisherZmanimForCompleteExport, publisherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPublisherZmanimForCompleteExportRow{}
+	for rows.Next() {
+		var i GetPublisherZmanimForCompleteExportRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ZmanKey,
+			&i.HebrewName,
+			&i.EnglishName,
+			&i.Transliteration,
+			&i.Description,
+			&i.FormulaDsl,
+			&i.AiExplanation,
+			&i.PublisherComment,
+			&i.IsEnabled,
+			&i.IsVisible,
+			&i.IsPublished,
+			&i.IsBeta,
+			&i.IsCustom,
+			&i.Category,
+			&i.CategoryDisplayHebrew,
+			&i.CategoryDisplayEnglish,
+			&i.MasterZmanID,
+			&i.LinkedPublisherZmanID,
+			&i.SourceType,
+			&i.CurrentVersion,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getPublisherZmanimForSnapshot = `-- name: GetPublisherZmanimForSnapshot :many

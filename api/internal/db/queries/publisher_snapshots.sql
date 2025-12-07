@@ -182,3 +182,103 @@ INSERT INTO publisher_zmanim (
 SELECT id, zman_key
 FROM publisher_zmanim
 WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NOT NULL;
+
+-- ============================================
+-- COMPLETE PUBLISHER EXPORT (ADMIN/BACKUP)
+-- ============================================
+-- Complete export includes profile, logo, coverage, zmanim
+-- Different from publisher-accessible snapshot (zmanim-only)
+
+-- name: GetCompletePublisherExport :one
+-- Get complete publisher data for backup/admin export
+SELECT
+    p.id,
+    p.name,
+    p.email,
+    p.phone,
+    p.website,
+    COALESCE(p.description, '') as description,
+    COALESCE(p.bio, '') as bio,
+    p.logo_url,
+    p.logo_data,
+    p.latitude,
+    p.longitude,
+    p.timezone,
+    p.is_published,
+    p.is_verified,
+    p.is_certified,
+    ps.key as status_key,
+    ps.display_name_hebrew as status_display_hebrew,
+    ps.display_name_english as status_display_english,
+    p.created_at,
+    p.updated_at
+FROM publishers p
+JOIN publisher_statuses ps ON ps.id = p.status_id
+WHERE p.id = $1;
+
+-- name: GetPublisherCoverageForExport :many
+-- Get all coverage areas for complete export
+SELECT
+    pc.id,
+    cl.key as coverage_level_key,
+    cl.display_name_hebrew as coverage_level_display_hebrew,
+    cl.display_name_english as coverage_level_display_english,
+    pc.continent_id,
+    ct.name as continent_name,
+    pc.country_id,
+    co.code as country_code,
+    co.name as country_name,
+    pc.region_id,
+    r.code as region_code,
+    r.name as region_name,
+    pc.district_id,
+    d.code as district_code,
+    d.name as district_name,
+    pc.city_id,
+    c.name as city_name,
+    c.latitude as city_latitude,
+    c.longitude as city_longitude,
+    pc.priority,
+    pc.is_active,
+    pc.created_at
+FROM publisher_coverage pc
+JOIN coverage_levels cl ON cl.id = pc.coverage_level_id
+LEFT JOIN geo_continents ct ON pc.continent_id = ct.id
+LEFT JOIN geo_countries co ON pc.country_id = co.id
+LEFT JOIN geo_regions r ON pc.region_id = r.id
+LEFT JOIN geo_districts d ON pc.district_id = d.id
+LEFT JOIN geo_cities c ON pc.city_id = c.id
+WHERE pc.publisher_id = $1
+ORDER BY cl.sort_order, pc.priority DESC, pc.created_at DESC;
+
+-- name: GetPublisherZmanimForCompleteExport :many
+-- Get all zmanim for complete export
+SELECT
+    pz.id,
+    pz.zman_key,
+    pz.hebrew_name,
+    pz.english_name,
+    pz.transliteration,
+    pz.description,
+    pz.formula_dsl,
+    pz.ai_explanation,
+    pz.publisher_comment,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.is_published,
+    pz.is_beta,
+    pz.is_custom,
+    tc.key AS category,
+    tc.display_name_hebrew AS category_display_hebrew,
+    tc.display_name_english AS category_display_english,
+    pz.master_zman_id,
+    pz.linked_publisher_zman_id,
+    zst.key AS source_type,
+    pz.current_version,
+    pz.created_at,
+    pz.updated_at
+FROM publisher_zmanim pz
+JOIN time_categories tc ON tc.id = pz.time_category_id
+LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
+WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL
+ORDER BY pz.zman_key;

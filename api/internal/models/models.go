@@ -211,16 +211,19 @@ type PublisherCoverage struct {
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 	// Computed fields for display (from joined geo tables and lookups)
-	CoverageLevelKey *string `json:"coverage_level_key,omitempty"` // "continent", "country", etc.
-	ContinentCode    *string `json:"continent_code,omitempty"`
-	ContinentName    *string `json:"continent_name,omitempty"`
-	CountryCode      *string `json:"country_code,omitempty"`
-	CountryName      *string `json:"country_name,omitempty"`
-	RegionCode       *string `json:"region_code,omitempty"`
-	RegionName       *string `json:"region_name,omitempty"`
-	DistrictCode     *string `json:"district_code,omitempty"`
-	DistrictName     *string `json:"district_name,omitempty"`
-	CityName         *string `json:"city_name,omitempty"`
+	CoverageLevelKey *string  `json:"coverage_level_key,omitempty"` // "continent", "country", etc.
+	ContinentCode    *string  `json:"continent_code,omitempty"`
+	ContinentName    *string  `json:"continent_name,omitempty"`
+	CountryCode      *string  `json:"country_code,omitempty"`
+	CountryName      *string  `json:"country_name,omitempty"`
+	RegionCode       *string  `json:"region_code,omitempty"`
+	RegionName       *string  `json:"region_name,omitempty"`
+	DistrictCode     *string  `json:"district_code,omitempty"`
+	DistrictName     *string  `json:"district_name,omitempty"`
+	CityName         *string  `json:"city_name,omitempty"`
+	CityLatitude     *float64 `json:"city_latitude,omitempty"`
+	CityLongitude    *float64 `json:"city_longitude,omitempty"`
+	CityTimezone     *string  `json:"city_timezone,omitempty"`
 }
 
 // PublisherCoverageCreateRequest represents a request to create coverage
@@ -230,7 +233,7 @@ type PublisherCoverageCreateRequest struct {
 	CountryID     *int16  `json:"country_id,omitempty"`
 	RegionID      *int32  `json:"region_id,omitempty"`
 	DistrictID    *int32  `json:"district_id,omitempty"`
-	CityID        *int64  `json:"city_id,omitempty"`
+	CityID        *int32  `json:"city_id,omitempty"`
 	Priority      *int    `json:"priority,omitempty"`
 }
 

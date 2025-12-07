@@ -651,9 +651,9 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
 
           {/* Publisher Zman Tags - editable */}
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            {zman.tags && zman.tags.map((tag) => (
+            {zman.tags && zman.tags.map((tag, index) => (
               <ColorBadge
-                key={tag.id}
+                key={tag.tag_key || `tag-${index}`}
                 color={getTagTypeColor(tag.tag_type)}
                 size="sm"
                 className={tag.is_negated ? 'border-2 border-red-500 dark:border-red-400' : undefined}

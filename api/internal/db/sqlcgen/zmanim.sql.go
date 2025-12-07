@@ -355,11 +355,11 @@ SELECT
     pz.source_type_id,
     zst.key AS source_type,
     -- Source/original values from registry or linked publisher (for diff/revert UI)
-    COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name) AS source_hebrew_name,
-    COALESCE(mr.canonical_english_name, linked_pz.english_name) AS source_english_name,
+    COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name, '') AS source_hebrew_name,
+    COALESCE(mr.canonical_english_name, linked_pz.english_name, '') AS source_english_name,
     COALESCE(mr.transliteration, linked_pz.transliteration) AS source_transliteration,
     COALESCE(mr.description, linked_pz.description) AS source_description,
-    COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl) AS source_formula_dsl,
+    COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl, '') AS source_formula_dsl,
     -- Check if this zman is an event zman (has event or behavior tags like is_candle_lighting, is_havdalah, etc.)
     EXISTS (
         SELECT 1 FROM (
@@ -411,7 +411,7 @@ SELECT
     linked_pub.name AS linked_source_publisher_name,
     CASE WHEN pz.linked_publisher_zman_id IS NOT NULL AND linked_pz.deleted_at IS NOT NULL
          THEN true ELSE false END AS linked_source_is_deleted,
-    COALESCE(mr_tc.key, tc.key) AS time_category
+    COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category
 FROM publisher_zmanim pz
 LEFT JOIN publisher_zmanim linked_pz ON pz.linked_publisher_zman_id = linked_pz.id
 LEFT JOIN publishers linked_pub ON linked_pz.publisher_id = linked_pub.id
@@ -422,7 +422,7 @@ LEFT JOIN time_categories mr_tc ON mr.time_category_id = mr_tc.id
 WHERE pz.publisher_id = $1
   AND pz.deleted_at IS NULL
 ORDER BY
-    CASE COALESCE(mr_tc.key, tc.key)
+    CASE COALESCE(mr_tc.key, tc.key, 'uncategorized')
         WHEN 'dawn' THEN 1
         WHEN 'sunrise' THEN 2
         WHEN 'morning' THEN 3
@@ -864,16 +864,16 @@ SELECT
     tc.display_name_hebrew AS category_display_hebrew,
     tc.display_name_english AS category_display_english,
     -- Source/original values from registry or linked publisher (for diff/revert UI)
-    COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name) AS source_hebrew_name,
-    COALESCE(mr.canonical_english_name, linked_pz.english_name) AS source_english_name,
+    COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name, '') AS source_hebrew_name,
+    COALESCE(mr.canonical_english_name, linked_pz.english_name, '') AS source_english_name,
     COALESCE(mr.transliteration, linked_pz.transliteration) AS source_transliteration,
     COALESCE(mr.description, linked_pz.description) AS source_description,
-    COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl) AS source_formula_dsl,
+    COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl, '') AS source_formula_dsl,
     -- Linked source info
     CASE WHEN pz.linked_publisher_zman_id IS NOT NULL THEN true ELSE false END AS is_linked,
     linked_pub.name AS linked_source_publisher_name,
     -- Time category key for consistency
-    COALESCE(mr_tc.key, tc.key) AS time_category
+    COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category
 FROM publisher_zmanim pz
 LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
@@ -1085,11 +1085,11 @@ SELECT
     tc.display_name_hebrew AS category_display_hebrew,
     tc.display_name_english AS category_display_english,
     -- Source/original values from registry or linked publisher (for diff/revert UI)
-    COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name) AS source_hebrew_name,
-    COALESCE(mr.canonical_english_name, linked_pz.english_name) AS source_english_name,
+    COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name, '') AS source_hebrew_name,
+    COALESCE(mr.canonical_english_name, linked_pz.english_name, '') AS source_english_name,
     COALESCE(mr.transliteration, linked_pz.transliteration) AS source_transliteration,
     COALESCE(mr.description, linked_pz.description) AS source_description,
-    COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl) AS source_formula_dsl,
+    COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl, '') AS source_formula_dsl,
     -- Check if this zman is an event zman (has event or behavior tags like is_candle_lighting, is_havdalah, etc.)
     EXISTS (
         SELECT 1 FROM (
@@ -1143,7 +1143,7 @@ SELECT
     CASE WHEN pz.linked_publisher_zman_id IS NOT NULL AND linked_pz.deleted_at IS NOT NULL
          THEN true ELSE false END AS linked_source_is_deleted,
     -- Time category key for ordering (from registry or current)
-    COALESCE(mr_tc.key, tc.key) AS time_category
+    COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category
 FROM publisher_zmanim pz
 LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
@@ -1154,7 +1154,7 @@ LEFT JOIN time_categories mr_tc ON mr.time_category_id = mr_tc.id
 WHERE pz.publisher_id = $1
   AND pz.deleted_at IS NULL
 ORDER BY
-    CASE COALESCE(mr_tc.key, tc.key)
+    CASE COALESCE(mr_tc.key, tc.key, 'uncategorized')
         WHEN 'dawn' THEN 1
         WHEN 'sunrise' THEN 2
         WHEN 'morning' THEN 3
@@ -1557,6 +1557,77 @@ func (q *Queries) GetVerifiedPublishersForLinking(ctx context.Context, id int32)
 	return items, nil
 }
 
+const insertPublisherZmanFromImport = `-- name: InsertPublisherZmanFromImport :exec
+INSERT INTO publisher_zmanim (
+    publisher_id,
+    zman_key,
+    hebrew_name,
+    english_name,
+    transliteration,
+    description,
+    formula_dsl,
+    ai_explanation,
+    publisher_comment,
+    is_enabled,
+    is_visible,
+    is_published,
+    is_beta,
+    is_custom,
+    master_zman_id,
+    time_category_id,
+    source_type_id
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+    -- Get time_category_id from master_zmanim_registry if master_zman_id is provided
+    COALESCE(
+        (SELECT time_category_id FROM master_zmanim_registry WHERE id = $15),
+        (SELECT id FROM time_categories WHERE key = 'other')
+    ),
+    -- Default source_type_id = 1 (master_registry)
+    1
+)
+`
+
+type InsertPublisherZmanFromImportParams struct {
+	PublisherID      int32   `json:"publisher_id"`
+	ZmanKey          string  `json:"zman_key"`
+	HebrewName       string  `json:"hebrew_name"`
+	EnglishName      string  `json:"english_name"`
+	Transliteration  *string `json:"transliteration"`
+	Description      *string `json:"description"`
+	FormulaDsl       string  `json:"formula_dsl"`
+	AiExplanation    *string `json:"ai_explanation"`
+	PublisherComment *string `json:"publisher_comment"`
+	IsEnabled        bool    `json:"is_enabled"`
+	IsVisible        bool    `json:"is_visible"`
+	IsPublished      bool    `json:"is_published"`
+	IsBeta           bool    `json:"is_beta"`
+	IsCustom         bool    `json:"is_custom"`
+	MasterZmanID     *int32  `json:"master_zman_id"`
+}
+
+// Insert a new publisher zman from import data
+func (q *Queries) InsertPublisherZmanFromImport(ctx context.Context, arg InsertPublisherZmanFromImportParams) error {
+	_, err := q.db.Exec(ctx, insertPublisherZmanFromImport,
+		arg.PublisherID,
+		arg.ZmanKey,
+		arg.HebrewName,
+		arg.EnglishName,
+		arg.Transliteration,
+		arg.Description,
+		arg.FormulaDsl,
+		arg.AiExplanation,
+		arg.PublisherComment,
+		arg.IsEnabled,
+		arg.IsVisible,
+		arg.IsPublished,
+		arg.IsBeta,
+		arg.IsCustom,
+		arg.MasterZmanID,
+	)
+	return err
+}
+
 const insertPublisherZmanTag = `-- name: InsertPublisherZmanTag :exec
 INSERT INTO publisher_zman_tags (publisher_zman_id, tag_id, is_negated)
 VALUES ($1, $2, $3)
@@ -1766,4 +1837,59 @@ func (q *Queries) UpdatePublisherZman(ctx context.Context, arg UpdatePublisherZm
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updatePublisherZmanFromImport = `-- name: UpdatePublisherZmanFromImport :exec
+
+UPDATE publisher_zmanim SET
+    hebrew_name = $2,
+    english_name = $3,
+    transliteration = $4,
+    description = $5,
+    formula_dsl = $6,
+    ai_explanation = $7,
+    publisher_comment = $8,
+    is_enabled = $9,
+    is_visible = $10,
+    is_published = $11,
+    is_beta = $12,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdatePublisherZmanFromImportParams struct {
+	ID               int32   `json:"id"`
+	HebrewName       string  `json:"hebrew_name"`
+	EnglishName      string  `json:"english_name"`
+	Transliteration  *string `json:"transliteration"`
+	Description      *string `json:"description"`
+	FormulaDsl       string  `json:"formula_dsl"`
+	AiExplanation    *string `json:"ai_explanation"`
+	PublisherComment *string `json:"publisher_comment"`
+	IsEnabled        bool    `json:"is_enabled"`
+	IsVisible        bool    `json:"is_visible"`
+	IsPublished      bool    `json:"is_published"`
+	IsBeta           bool    `json:"is_beta"`
+}
+
+// ============================================================================
+// Import/Export Queries
+// ============================================================================
+// Update an existing publisher zman from import data
+func (q *Queries) UpdatePublisherZmanFromImport(ctx context.Context, arg UpdatePublisherZmanFromImportParams) error {
+	_, err := q.db.Exec(ctx, updatePublisherZmanFromImport,
+		arg.ID,
+		arg.HebrewName,
+		arg.EnglishName,
+		arg.Transliteration,
+		arg.Description,
+		arg.FormulaDsl,
+		arg.AiExplanation,
+		arg.PublisherComment,
+		arg.IsEnabled,
+		arg.IsVisible,
+		arg.IsPublished,
+		arg.IsBeta,
+	)
+	return err
 }

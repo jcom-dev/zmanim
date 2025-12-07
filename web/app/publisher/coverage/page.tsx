@@ -32,13 +32,14 @@ import { CoverageMapDialog } from '@/components/shared/CoverageMapView';
 interface Coverage {
   id: string;
   publisher_id: string;
-  coverage_level: 'continent' | 'country' | 'region' | 'district' | 'city';
+  coverage_level_id: number;
+  coverage_level_key: 'continent' | 'country' | 'region' | 'district' | 'city';
   // ID-based fields (new schema)
-  continent_code: string | null;
+  continent_id: number | null;
   country_id: number | null;
   region_id: number | null;
   district_id: number | null;
-  city_id: string | null; // UUID
+  city_id: number | null;
   // Display fields from joined geo tables
   continent_name: string | null;
   country_code: string | null;
@@ -122,22 +123,26 @@ export default function PublisherCoveragePage() {
           // ID is a numeric district_id
           body.district_id = parseInt(item.id, 10);
         } else if (item.type === 'city') {
-          // Handle quick-select cities with synthetic IDs
+          // Handle quick-select cities with synthetic IDs (format: quick-cityname-COUNTRYCODE)
           if (item.id.startsWith('quick-')) {
-            // For quick-select cities, search by name to get the real ID
+            // Extract city name and country code from the synthetic ID
             const cityName = item.name.split(',')[0].trim();
+            const idParts = item.id.split('-');
+            const countryCode = idParts[idParts.length - 1]; // Last part is country code
+
+            // Search with country code to get the correct city
             const searchResponse = await api.get<{ cities: { id: string }[] }>(
-              `/cities?search=${encodeURIComponent(cityName)}&limit=1`,
+              `/cities?search=${encodeURIComponent(cityName)}&country_code=${encodeURIComponent(countryCode)}&limit=1`,
               { skipPublisherId: true }
             );
             if (searchResponse.cities && searchResponse.cities.length > 0) {
-              body.city_id = searchResponse.cities[0].id;
+              body.city_id = parseInt(searchResponse.cities[0].id, 10);
             } else {
-              console.error('Could not find city:', cityName);
+              console.error('Could not find city:', cityName, 'in country:', countryCode);
               continue;
             }
           } else {
-            body.city_id = item.id;
+            body.city_id = parseInt(item.id, 10);
           }
         }
 
@@ -240,7 +245,7 @@ export default function PublisherCoveragePage() {
 
   // Get existing coverage country codes for map highlighting
   const existingCountryCodes = coverage
-    .filter((c) => c.coverage_level === 'country' && c.country_code)
+    .filter((c) => c.coverage_level_key === 'country' && c.country_code)
     .map((c) => c.country_code as string);
 
   if (contextLoading || isLoading) {
@@ -311,28 +316,25 @@ export default function PublisherCoveragePage() {
                 }`}
               >
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <div className={`p-2 rounded-lg flex-shrink-0 ${getLevelBadgeColor(item.coverage_level)}`}>
-                    {getLevelIcon(item.coverage_level)}
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${getLevelBadgeColor(item.coverage_level_key)}`}>
+                    {getLevelIcon(item.coverage_level_key)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm sm:text-base truncate">
-                      {item.coverage_level === 'continent' && item.continent_name}
-                      {item.coverage_level === 'country' && item.country_name}
-                      {item.coverage_level === 'region' && `${item.region_name}${item.country_name ? `, ${item.country_name}` : ''}`}
-                      {item.coverage_level === 'district' && `${item.district_name}${item.region_name ? `, ${item.region_name}` : ''}`}
-                      {item.coverage_level === 'city' && `${item.city_name}${item.region_name ? `, ${item.region_name}` : ''}${item.country_name ? `, ${item.country_name}` : ''}`}
+                      {item.coverage_level_key === 'continent' && item.continent_name}
+                      {item.coverage_level_key === 'country' && item.country_name}
+                      {item.coverage_level_key === 'region' && `${item.region_name}${item.country_name ? `, ${item.country_name}` : ''}`}
+                      {item.coverage_level_key === 'district' && `${item.district_name}${item.region_name ? `, ${item.region_name}` : ''}`}
+                      {item.coverage_level_key === 'city' && `${item.city_name}${item.region_name ? `, ${item.region_name}` : ''}${item.country_name ? `, ${item.country_name}` : ''}`}
                     </div>
                     <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
                       <StatusTooltip
-                        status={item.coverage_level}
-                        tooltip={COVERAGE_TOOLTIPS.level[item.coverage_level]}
+                        status={item.coverage_level_key}
+                        tooltip={COVERAGE_TOOLTIPS.level[item.coverage_level_key]}
                       >
-                        <span className={`px-2 py-0.5 rounded-full border text-xs ${getLevelBadgeColor(item.coverage_level)}`}>
-                          {item.coverage_level}
+                        <span className={`px-2 py-0.5 rounded-full border text-xs ${getLevelBadgeColor(item.coverage_level_key)}`}>
+                          {item.coverage_level_key}
                         </span>
-                      </StatusTooltip>
-                      <StatusTooltip status="priority" tooltip={COVERAGE_TOOLTIPS.priority}>
-                        <span className="whitespace-nowrap">Priority: {item.priority}</span>
                       </StatusTooltip>
                       {!item.is_active && (
                         <StatusTooltip status="inactive" tooltip={STATUS_TOOLTIPS.inactive}>

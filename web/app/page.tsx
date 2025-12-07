@@ -18,15 +18,16 @@ interface Continent {
 }
 
 interface Country {
-  code: string;
-  name: string;
+  id: number;
+  country_code: string;
+  country: string;
   city_count: number;
 }
 
 interface Region {
+  id: number;
+  code: string;
   name: string;
-  type: string;
-  city_count: number;
 }
 
 interface City {
@@ -100,8 +101,8 @@ export default function Home() {
       setLoadingContinents(true);
       setError(null);
 
-      const data = await api.public.get<{ continents: Continent[] }>('/continents');
-      setContinents(data?.continents || []);
+      const data = await api.public.get<Continent[]>('/continents');
+      setContinents(data || []);
     } catch (err) {
       console.error('Failed to load continents:', err);
       setError('Failed to load continents. Please try again.');
@@ -124,8 +125,8 @@ export default function Home() {
       setRegions([]);
       setCities([]);
 
-      const data = await api.public.get<{ countries: Country[] }>(`/countries?continent=${continentCode}`);
-      setCountries(data?.countries || []);
+      const data = await api.public.get<Country[]>(`/countries?continent_code=${continentCode}`);
+      setCountries(data || []);
     } catch (err) {
       console.error('Failed to load countries:', err);
       setError('Failed to load countries. Please try again.');
@@ -141,7 +142,7 @@ export default function Home() {
       setRegions([]);
       setCities([]);
 
-      const data = await api.public.get<{ regions: Region[] }>(`/regions?country_code=${countryCode}`);
+      const data = await api.public.get<{ regions: Region[]; total: number }>(`/regions?country_code=${countryCode}`);
       const regionList = data?.regions || [];
       setRegions(regionList);
 
@@ -166,7 +167,7 @@ export default function Home() {
 
     setIsSearching(true);
     try {
-      const data = await api.public.get<{ cities: City[] }>(
+      const data = await api.public.get<{ cities: City[]; total: number }>(
         `/cities?search=${encodeURIComponent(query)}&limit=10`
       );
       setSearchResults(data?.cities || []);
@@ -266,7 +267,7 @@ export default function Home() {
         url += `&region=${encodeURIComponent(regionName)}`;
       }
 
-      const data = await api.public.get<{ cities: City[] }>(url);
+      const data = await api.public.get<{ cities: City[]; total: number }>(url);
       setCities(data?.cities || []);
     } catch (err) {
       console.error('Failed to load cities:', err);
@@ -295,7 +296,7 @@ export default function Home() {
     localStorage.setItem(STORAGE_KEY_COUNTRY, JSON.stringify(country));
     localStorage.removeItem(STORAGE_KEY_REGION);
     localStorage.removeItem(STORAGE_KEY_CITY);
-    loadRegions(country.code);
+    loadRegions(country.country_code);
   };
 
   const handleRegionSelect = (region: Region) => {
@@ -304,7 +305,7 @@ export default function Home() {
     localStorage.setItem(STORAGE_KEY_REGION, JSON.stringify(region));
     localStorage.removeItem(STORAGE_KEY_CITY);
     if (selectedCountry) {
-      loadCities(selectedCountry.code, region.name);
+      loadCities(selectedCountry.country_code, region.name);
     }
   };
 
@@ -521,7 +522,7 @@ export default function Home() {
                   }}
                   className={`${!selectedRegion && regions.length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                  {selectedCountry.name}
+                  {selectedCountry.country}
                 </button>
               </>
             )}
@@ -604,14 +605,14 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {countries.map((country) => (
                   <button
-                    key={country.code}
+                    key={country.country_code}
                     onClick={() => handleCountrySelect(country)}
                     className="flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:bg-muted hover:border-border transition-colors text-left"
                   >
                     <div className="flex items-center gap-3">
                       <Globe className="w-5 h-5 text-muted-foreground" />
                       <div>
-                        <div className="text-foreground font-medium">{country.name}</div>
+                        <div className="text-foreground font-medium">{country.country}</div>
                         <div className="text-sm text-muted-foreground">{country.city_count.toLocaleString()} cities</div>
                       </div>
                     </div>
@@ -634,7 +635,7 @@ export default function Home() {
                 ← Back
               </button>
               <h2 className="text-2xl font-bold text-foreground">
-                Select {regions[0]?.type || 'Region'} in {selectedCountry?.name}
+                Select Region in {selectedCountry?.country}
               </h2>
             </div>
 
@@ -646,7 +647,7 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {regions.map((region) => (
                   <button
-                    key={region.name}
+                    key={region.id}
                     onClick={() => handleRegionSelect(region)}
                     className="flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:bg-muted hover:border-border transition-colors text-left"
                   >
@@ -654,7 +655,6 @@ export default function Home() {
                       <Building2 className="w-5 h-5 text-muted-foreground" />
                       <div>
                         <div className="text-foreground font-medium">{region.name}</div>
-                        <div className="text-sm text-muted-foreground">{region.city_count} cities</div>
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -676,7 +676,7 @@ export default function Home() {
                 ← Back
               </button>
               <h2 className="text-2xl font-bold text-foreground">
-                Select City {selectedRegion ? `in ${selectedRegion.name}` : `in ${selectedCountry?.name}`}
+                Select City {selectedRegion ? `in ${selectedRegion.name}` : `in ${selectedCountry?.country}`}
               </h2>
             </div>
 

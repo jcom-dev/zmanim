@@ -8,13 +8,24 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+)
+
+// In-memory cache for country boundaries (static data, rarely changes)
+var (
+	countryBoundariesCache     []byte
+	countryBoundariesCacheOnce sync.Once
+	countryBoundariesCacheMu   sync.RWMutex
+	countryBoundariesCacheTime time.Time
 )
 
 // GeoJSONFeatureCollection represents a GeoJSON FeatureCollection
@@ -114,6 +125,19 @@ func (h *Handlers) GetCountryBoundaries(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	continent := r.URL.Query().Get("continent")
 
+	// For all-countries request, use in-memory cache (data is static)
+	if continent == "" {
+		cached := h.getCountryBoundariesFromCache(ctx)
+		if cached != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Cache-Control", "public, max-age=86400") // 24 hours
+			w.Header().Set("X-Cache", "HIT")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(cached)
+			return
+		}
+	}
+
 	var features []GeoJSONFeature
 	var metadata = map[string]interface{}{
 		"level": "country",
@@ -138,6 +162,22 @@ func (h *Handlers) GetCountryBoundaries(w http.ResponseWriter, r *http.Request) 
 		}
 		features = convertAllCountryBoundariesToFeatures(rows)
 		metadata["count"] = len(features)
+
+		// Cache the result for all-countries request
+		fc := GeoJSONFeatureCollection{
+			Type:     "FeatureCollection",
+			Metadata: metadata,
+			Features: features,
+		}
+		if data, err := json.Marshal(fc); err == nil {
+			h.cacheCountryBoundaries(data)
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			w.Header().Set("X-Cache", "MISS")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(data)
+			return
+		}
 	}
 
 	fc := GeoJSONFeatureCollection{
@@ -150,6 +190,28 @@ func (h *Handlers) GetCountryBoundaries(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(fc)
+}
+
+// getCountryBoundariesFromCache returns cached country boundaries or nil if not cached
+func (h *Handlers) getCountryBoundariesFromCache(ctx context.Context) []byte {
+	countryBoundariesCacheMu.RLock()
+	defer countryBoundariesCacheMu.RUnlock()
+
+	// Return cache if it exists and is less than 24 hours old
+	if countryBoundariesCache != nil && time.Since(countryBoundariesCacheTime) < 24*time.Hour {
+		return countryBoundariesCache
+	}
+	return nil
+}
+
+// cacheCountryBoundaries stores country boundaries in memory
+func (h *Handlers) cacheCountryBoundaries(data []byte) {
+	countryBoundariesCacheMu.Lock()
+	defer countryBoundariesCacheMu.Unlock()
+
+	countryBoundariesCache = data
+	countryBoundariesCacheTime = time.Now()
+	slog.Info("cached country boundaries", "size_bytes", len(data))
 }
 
 // GetRegionBoundaries returns region boundaries for a country as GeoJSON

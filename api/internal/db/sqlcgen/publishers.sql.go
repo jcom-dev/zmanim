@@ -95,6 +95,45 @@ func (q *Queries) CreatePublisher(ctx context.Context, arg CreatePublisherParams
 	return i, err
 }
 
+const createPublisherFromImport = `-- name: CreatePublisherFromImport :one
+INSERT INTO publishers (name, email, website, description, bio, status_id)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    (SELECT id FROM publisher_statuses WHERE key = 'pending')
+)
+RETURNING id, name
+`
+
+type CreatePublisherFromImportParams struct {
+	Name        string  `json:"name"`
+	Email       string  `json:"email"`
+	Website     *string `json:"website"`
+	Description *string `json:"description"`
+	Bio         *string `json:"bio"`
+}
+
+type CreatePublisherFromImportRow struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) CreatePublisherFromImport(ctx context.Context, arg CreatePublisherFromImportParams) (CreatePublisherFromImportRow, error) {
+	row := q.db.QueryRow(ctx, createPublisherFromImport,
+		arg.Name,
+		arg.Email,
+		arg.Website,
+		arg.Description,
+		arg.Bio,
+	)
+	var i CreatePublisherFromImportRow
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}
+
 const deletePendingInvitation = `-- name: DeletePendingInvitation :execresult
 DELETE FROM publisher_invitations
 WHERE id = $1
@@ -138,7 +177,7 @@ const getAccessiblePublishersByIDs = `-- name: GetAccessiblePublishersByIDs :man
 SELECT id::text as id, name,
        (SELECT key FROM publisher_statuses WHERE id = p.status_id) as status_key
 FROM publishers p
-WHERE id = ANY($1::text[])
+WHERE id = ANY($1::int[])
 ORDER BY name
 `
 
@@ -148,7 +187,7 @@ type GetAccessiblePublishersByIDsRow struct {
 	StatusKey string `json:"status_key"`
 }
 
-func (q *Queries) GetAccessiblePublishersByIDs(ctx context.Context, dollar_1 []string) ([]GetAccessiblePublishersByIDsRow, error) {
+func (q *Queries) GetAccessiblePublishersByIDs(ctx context.Context, dollar_1 []int32) ([]GetAccessiblePublishersByIDsRow, error) {
 	rows, err := q.db.Query(ctx, getAccessiblePublishersByIDs, dollar_1)
 	if err != nil {
 		return nil, err
@@ -350,25 +389,24 @@ func (q *Queries) GetPublisherByID(ctx context.Context, id int32) (GetPublisherB
 
 const getPublisherCitiesCovered = `-- name: GetPublisherCitiesCovered :one
 SELECT COALESCE(SUM(
-    CASE coverage_level
+    CASE cl.key
         WHEN 'city' THEN 1
         WHEN 'region' THEN (
             SELECT COUNT(*) FROM geo_cities c
             JOIN geo_regions r ON c.region_id = r.id
-            JOIN geo_countries co ON r.country_id = co.id
-            WHERE co.code = pc.country_code AND r.name = pc.region
+            WHERE r.id = pc.region_id
         )
         WHEN 'country' THEN (
             SELECT COUNT(*) FROM geo_cities c
             JOIN geo_regions r ON c.region_id = r.id
-            JOIN geo_countries co ON r.country_id = co.id
-            WHERE co.code = pc.country_code
+            WHERE r.country_id = pc.country_id
         )
         ELSE 0
     END
 ), 0)::bigint as cities_covered
 FROM publisher_coverage pc
-WHERE publisher_id = $1 AND is_active = true
+JOIN coverage_levels cl ON cl.id = pc.coverage_level_id
+WHERE pc.publisher_id = $1 AND pc.is_active = true
 `
 
 func (q *Queries) GetPublisherCitiesCovered(ctx context.Context, publisherID int32) (int64, error) {

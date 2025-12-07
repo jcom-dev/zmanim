@@ -70,6 +70,21 @@ JOIN geo_continents ct ON co.continent_id = ct.id
 WHERE c.name = $1
 LIMIT 1;
 
+-- name: GetCityByGeonameID :one
+SELECT
+    c.id, c.name,
+    co.code as country_code, co.name as country,
+    r.name as region,
+    ct.name as continent,
+    c.latitude, c.longitude, c.timezone,
+    c.population, c.elevation_m, c.geonameid
+FROM geo_cities c
+JOIN geo_regions r ON c.region_id = r.id
+JOIN geo_countries co ON r.country_id = co.id
+JOIN geo_continents ct ON co.continent_id = ct.id
+WHERE c.geonameid = $1
+LIMIT 1;
+
 -- name: ListCitiesByCountry :many
 SELECT
     c.id, c.name,
@@ -439,3 +454,39 @@ SELECT
 FROM geo_cities c
 ORDER BY c.population DESC NULLS LAST, c.name
 LIMIT $1;
+
+-- ============================================================================
+-- Unified Coverage Search
+-- ============================================================================
+
+-- name: SearchCoverageUnified :many
+-- Ultra-fast coverage search using pre-computed materialized view
+-- Uses GIN trigram indexes for instant fuzzy matching
+-- Performance: Single table scan with indexed lookups, no JOINs at query time
+SELECT
+    coverage_type,
+    id,
+    name,
+    description,
+    country_code
+FROM coverage_search_mv
+WHERE
+    -- Primary: Prefix match (fastest, uses text_pattern_ops index)
+    lower(name_ascii) LIKE lower(sqlc.arg('search')::text) || '%'
+    -- Secondary: High-similarity fuzzy match (uses trigram GIN index)
+    OR (similarity(name_ascii, sqlc.arg('search')::text) > 0.3 AND name_ascii % sqlc.arg('search')::text)
+ORDER BY
+    -- Prefix matches first (exact starts-with)
+    CASE
+        WHEN lower(name_ascii) LIKE lower(sqlc.arg('search')::text) || '%' THEN 0
+        ELSE 1
+    END,
+    -- Then by type priority (city, district, region, country, continent)
+    type_priority,
+    -- Then by similarity score (higher = better match)
+    similarity(name_ascii, sqlc.arg('search')::text) DESC,
+    -- Then by population (for cities)
+    sort_population DESC,
+    -- Finally alphabetically
+    name
+LIMIT sqlc.arg('limit');

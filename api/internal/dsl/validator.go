@@ -130,6 +130,8 @@ func (v *Validator) validateFunction(n *FunctionNode) {
 	switch n.Name {
 	case "solar":
 		v.validateSolarFunction(n)
+	case "seasonal_solar":
+		v.validateSeasonalSolarFunction(n)
 	case "proportional_hours":
 		v.validateProportionalHoursFunction(n)
 	case "midpoint":
@@ -174,6 +176,46 @@ func (v *Validator) validateSolarFunction(n *FunctionNode) {
 			}
 		} else {
 			v.addError(n.Pos, "second argument to solar() must be a direction")
+		}
+	}
+}
+
+// validateSeasonalSolarFunction validates a seasonal_solar() function call
+// seasonal_solar uses the proportional/seasonal method matching ROY/Zemaneh-Yosef
+func (v *Validator) validateSeasonalSolarFunction(n *FunctionNode) {
+	if len(n.Args) != 2 {
+		v.addError(n.Pos, "seasonal_solar() requires 2 arguments (degrees, direction), got %d", len(n.Args))
+		return
+	}
+
+	// Validate degrees argument (0-90)
+	degrees := n.Args[0]
+	if numNode, ok := degrees.(*NumberNode); ok {
+		if numNode.Value < 0 || numNode.Value > 90 {
+			v.addErrorWithSuggestion(n.Pos,
+				fmt.Sprintf("seasonal_solar() degrees must be between 0 and 90, got %.1f", numNode.Value),
+				"Common values: 8.5° (Tzais), 11.5° (Misheyakir), 16.04° (Alos ROY)")
+		}
+	} else {
+		v.validateNode(degrees)
+	}
+
+	// Validate direction argument (only before_sunrise and after_sunset for seasonal)
+	direction := n.Args[1]
+	if dirNode, ok := direction.(*DirectionNode); ok {
+		if dirNode.Direction != "before_sunrise" && dirNode.Direction != "after_sunset" {
+			v.addErrorWithSuggestion(n.Pos,
+				fmt.Sprintf("invalid direction for seasonal_solar: %s", dirNode.Direction),
+				"Valid directions: before_sunrise, after_sunset")
+		}
+	} else {
+		// Allow identifiers that might be directions
+		if ident, ok := direction.(*PrimitiveNode); ok {
+			if ident.Name != "before_sunrise" && ident.Name != "after_sunset" {
+				v.addError(n.Pos, "second argument to seasonal_solar() must be before_sunrise or after_sunset")
+			}
+		} else {
+			v.addError(n.Pos, "second argument to seasonal_solar() must be a direction")
 		}
 	}
 }

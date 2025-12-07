@@ -174,6 +174,17 @@ type CoverageLevel struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
+type CoverageSearchMv struct {
+	CoverageType   string      `json:"coverage_type"`
+	ID             string      `json:"id"`
+	Name           string      `json:"name"`
+	NameAscii      *string     `json:"name_ascii"`
+	Description    interface{} `json:"description"`
+	CountryCode    string      `json:"country_code"`
+	TypePriority   int32       `json:"type_priority"`
+	SortPopulation int32       `json:"sort_population"`
+}
+
 type DataType struct {
 	ID                 int16              `json:"id"`
 	Key                string             `json:"key"`

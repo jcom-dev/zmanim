@@ -415,12 +415,14 @@ function normalizeEndpoint(endpoint: string): string {
       '/continents',
       '/countries',
       '/regions',
+      '/coverage',
       '/algorithms',
       '/calendar',
       '/ai',
       '/health',
       '/categories',
       '/tag-types',
+      '/geo',
     ];
 
     const needsPrefix = routePrefixes.some(

@@ -34,12 +34,13 @@ import {
 } from '@/components/ui/tooltip';
 import Link from 'next/link';
 import { useApi } from '@/lib/api-client';
+import { useAuth } from '@clerk/nextjs';
 import {
   Shield, ShieldAlert, ShieldCheck,
   Ban, CheckCircle2,
   Eye, Pencil, Trash2,
   RotateCcw, Mail, Globe, Calendar, Clock,
-  UserPlus
+  UserPlus, Download, Upload
 } from 'lucide-react';
 
 interface Publisher {
@@ -69,6 +70,7 @@ export default function AdminPublisherDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const api = useApi();
+  const { getToken } = useAuth();
   const [publisher, setPublisher] = useState<Publisher | null>(null);
   const [users, setUsers] = useState<PublisherUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +95,12 @@ export default function AdminPublisherDetailPage() {
   const [suspendLoading, setSuspendLoading] = useState(false);
   const [reactivateLoading, setReactivateLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [createNewPublisher, setCreateNewPublisher] = useState(false);
 
   const fetchPublisher = useCallback(async () => {
     try {
@@ -266,6 +274,108 @@ export default function AdminPublisherDetailPage() {
         bio: publisher.bio || '',
       });
       setEditDialogOpen(true);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      const token = await getToken();
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+      const response = await fetch(`${API_BASE}/api/v1/admin/publishers/${id}/export`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export publisher data');
+      }
+
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `publisher-${id}.json`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      // Create blob and trigger download
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImportLoading(true);
+      setImportError(null);
+      setImportSuccess(null);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = await getToken();
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+      // Build URL with optional create_new query param
+      const url = createNewPublisher
+        ? `${API_BASE}/api/v1/admin/publishers/${id}/import?create_new=true`
+        : `${API_BASE}/api/v1/admin/publishers/${id}/import`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || errorData.error || 'Failed to import publisher data');
+      }
+
+      const result = await response.json();
+      setImportSuccess(result.message || 'Import successful');
+
+      // If new publisher was created, redirect to the new publisher page
+      if (result.publisher_created && result.publisher_id) {
+        setTimeout(() => {
+          router.push(`/admin/publishers/${result.publisher_id}`);
+        }, 1500);
+      } else {
+        // Close dialog after short delay
+        setTimeout(() => {
+          setImportDialogOpen(false);
+          setImportSuccess(null);
+          setCreateNewPublisher(false);
+          // Reset file input
+          event.target.value = '';
+        }, 2000);
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImportLoading(false);
     }
   };
 
@@ -522,6 +632,95 @@ export default function AdminPublisherDetailPage() {
                         </DialogContent>
                       </Dialog>
                     )}
+
+                    {/* Separator */}
+                    <div className="w-px h-4 bg-border mx-1" />
+
+                    {/* Export Button */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={handleExport}
+                          disabled={exportLoading}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Export publisher data</TooltipContent>
+                    </Tooltip>
+
+                    {/* Import Button */}
+                    <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            >
+                              <Upload className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Import publisher data</TooltipContent>
+                      </Tooltip>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Import Publisher Data</DialogTitle>
+                          <DialogDescription>
+                            Upload a JSON file to import zmanim data. This will update existing zmanim and add new ones.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="createNewPublisher"
+                              checked={createNewPublisher}
+                              onChange={(e) => setCreateNewPublisher(e.target.checked)}
+                              disabled={importLoading}
+                              className="h-4 w-4 rounded border-input"
+                            />
+                            <label htmlFor="createNewPublisher" className="text-sm font-medium">
+                              Create as new publisher
+                            </label>
+                          </div>
+                          {createNewPublisher && (
+                            <p className="text-sm text-muted-foreground">
+                              A new publisher will be created using the profile from the export file.
+                            </p>
+                          )}
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleImport}
+                            disabled={importLoading}
+                            className="block w-full text-sm text-muted-foreground
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-md file:border-0
+                              file:text-sm file:font-medium
+                              file:bg-primary file:text-primary-foreground
+                              hover:file:bg-primary/90
+                              file:cursor-pointer cursor-pointer"
+                          />
+                          {importError && (
+                            <p className="text-destructive text-sm mt-2">{importError}</p>
+                          )}
+                          {importSuccess && (
+                            <p className="text-green-600 dark:text-green-400 text-sm mt-2">{importSuccess}</p>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => { setImportDialogOpen(false); setCreateNewPublisher(false); }} disabled={importLoading}>
+                            Cancel
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
 
                     {/* Separator */}
                     <div className="w-px h-4 bg-border mx-1" />

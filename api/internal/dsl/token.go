@@ -164,6 +164,7 @@ var Primitives = map[string]bool{
 // Functions are built-in DSL functions
 var Functions = map[string]bool{
 	"solar":              true,
+	"seasonal_solar":     true,
 	"proportional_hours": true,
 	"midpoint":           true,
 }
