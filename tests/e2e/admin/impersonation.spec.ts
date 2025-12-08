@@ -149,7 +149,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Start impersonation
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
 
     // Verify impersonation is stored
@@ -172,7 +172,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Start impersonation
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
 
     // Navigate to profile - impersonation should persist
@@ -194,7 +194,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Start impersonation
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
     await page.waitForLoadState('networkidle');
 
@@ -214,7 +214,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Start impersonation
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
 
     // Navigate to algorithm page
@@ -235,7 +235,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Start impersonation
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
 
     // Navigate to coverage page
