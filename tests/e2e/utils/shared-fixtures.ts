@@ -180,25 +180,34 @@ async function ensureAlgorithm(pool: Pool, publisherId: string): Promise<void> {
 }
 
 async function ensureCoverage(pool: Pool, publisherId: string): Promise<void> {
-  const existing = await pool.query(
-    'SELECT id FROM publisher_coverage WHERE publisher_id = $1',
-    [publisherId]
-  );
+  try {
+    const existing = await pool.query(
+      'SELECT id FROM publisher_coverage WHERE publisher_id = $1',
+      [publisherId]
+    );
 
-  if (existing.rows.length === 0) {
-    // Get a city with its country code from geo_countries table
-    const city = await pool.query(`
-      SELECT c.id, gc.code as country_code
-      FROM cities c
-      JOIN geo_countries gc ON c.country_id = gc.id
-      LIMIT 1
-    `);
-    if (city.rows.length > 0) {
-      await pool.query(
-        `INSERT INTO publisher_coverage (publisher_id, coverage_level, city_id, country_code, priority, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [publisherId, 'city', city.rows[0].id, city.rows[0].country_code, 10, true]
-      );
+    if (existing.rows.length === 0) {
+      // Get a city with its country code from geo_countries table
+      const city = await pool.query(`
+        SELECT c.id, gc.code as country_code
+        FROM cities c
+        JOIN geo_countries gc ON c.country_id = gc.id
+        LIMIT 1
+      `);
+      if (city.rows.length > 0) {
+        await pool.query(
+          `INSERT INTO publisher_coverage (publisher_id, coverage_level, city_id, country_code, priority, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [publisherId, 'city', city.rows[0].id, city.rows[0].country_code, 10, true]
+        );
+      }
+    }
+  } catch (error: any) {
+    // Gracefully handle missing geo data in CI environments
+    if (error?.message?.includes('relation "cities" does not exist')) {
+      console.log('  Skipping coverage (cities table not available in CI)');
+    } else {
+      throw error;
     }
   }
 }
