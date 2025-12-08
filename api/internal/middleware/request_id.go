@@ -30,10 +30,12 @@ const (
 // - Debugging across services
 //
 // Usage:
-//   r.Use(middleware.RequestID)
+//
+//	r.Use(middleware.RequestID)
 //
 // Extracting in handlers:
-//   requestID := middleware.GetRequestID(ctx)
+//
+//	requestID := middleware.GetRequestID(ctx)
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if request already has X-Request-ID header (from load balancer, proxy, etc.)

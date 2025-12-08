@@ -9,8 +9,9 @@
 // Output format: PostgreSQL custom dump → zstd compression
 //
 // Usage:
-//   export-geodata export --output=/tmp/geodata.dump.zst
-//   export-geodata verify --file=/tmp/geodata.dump.zst
+//
+//	export-geodata export --output=/tmp/geodata.dump.zst
+//	export-geodata verify --file=/tmp/geodata.dump.zst
 //
 // Performance:
 //   - Custom format preserves types and supports parallel restore
@@ -18,7 +19,8 @@
 //   - Typical 10GB → 2-4GB compressed
 //
 // Environment:
-//   DATABASE_URL    PostgreSQL connection string (required)
+//
+//	DATABASE_URL    PostgreSQL connection string (required)
 package main
 
 import (

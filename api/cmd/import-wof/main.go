@@ -212,7 +212,7 @@ func (p *progressReader) Read(b []byte) (int, error) {
 		pct := float64(p.read) / float64(p.total) * 100
 		elapsed := time.Since(p.start)
 		speed := float64(p.read) / elapsed.Seconds() / 1e6
-		eta := time.Duration(float64(p.total-p.read)/float64(p.read)*float64(elapsed))
+		eta := time.Duration(float64(p.total-p.read) / float64(p.read) * float64(elapsed))
 		fmt.Printf("  %.1f%% (%.1f MB/s, ETA %s)\n", pct, speed, eta.Round(time.Second))
 	}
 	return n, err
@@ -510,7 +510,7 @@ type WOFRecord struct {
 	Name       string
 	Names      map[string]string // language code -> name (from name:xxx_x_preferred)
 	Placetype  string
-	Country    string  // ISO2
+	Country    string // ISO2
 	Latitude   float64
 	Longitude  float64
 	Population int64
@@ -1381,10 +1381,10 @@ type cityRecord struct {
 
 // cityRecordDisk is a compact version for disk storage (stores WOF IDs, not PostgreSQL IDs)
 type cityRecordDisk struct {
-	ContinentWofID int64   `json:"c"`         // WOF continent ID (resolves to PG ID at insert time)
+	ContinentWofID int64   `json:"c"`            // WOF continent ID (resolves to PG ID at insert time)
 	CountryWofID   *int64  `json:"co,omitempty"` // WOF country ID
 	RegionWofID    *int64  `json:"r,omitempty"`  // WOF region ID
-	DistrictWofID  *int64  `json:"d,omitempty"` // WOF district ID
+	DistrictWofID  *int64  `json:"d,omitempty"`  // WOF district ID
 	Name           string  `json:"n"`
 	Lat            float64 `json:"la"`
 	Lng            float64 `json:"lo"`

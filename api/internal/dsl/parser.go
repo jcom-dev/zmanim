@@ -376,7 +376,7 @@ func (p *Parser) parseLogicalAnd() Node {
 func (p *Parser) parseLogicalNot() Node {
 	if p.current.Type == TOKEN_NOT {
 		pos := Position{Line: p.current.Line, Column: p.current.Column}
-		p.advance() // skip !
+		p.advance()                    // skip !
 		operand := p.parseLogicalNot() // Allow chained !
 		return &NotOpNode{
 			Operand: operand,

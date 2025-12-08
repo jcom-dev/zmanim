@@ -30,7 +30,8 @@
 //   - For matched cities: WOF timezone is preserved (more reliable)
 //
 // Data Source:
-//   https://simplemaps.com/data/world-cities (Basic version is free, Pro has timezone)
+//
+//	https://simplemaps.com/data/world-cities (Basic version is free, Pro has timezone)
 //
 // Prerequisites:
 //   - WOF data should be imported first (provides geo_cities to match against)
@@ -325,13 +326,13 @@ type Importer struct {
 	verbose     bool
 
 	// Runtime state
-	countryCodeToID   map[string]int64
-	countryToCont     map[int64]int64 // country_id -> continent_id
-	continentIDs      map[string]int64
-	logFile           *os.File
-	logMu             sync.Mutex
-	skipReasons       map[string]int
-	skipReasonsMu     sync.Mutex
+	countryCodeToID map[string]int64
+	countryToCont   map[int64]int64 // country_id -> continent_id
+	continentIDs    map[string]int64
+	logFile         *os.File
+	logMu           sync.Mutex
+	skipReasons     map[string]int
+	skipReasonsMu   sync.Mutex
 
 	// Lookup maps for normalized database
 	geoLevelIDs map[string]int // geo_levels lookup: "city" -> ID
@@ -750,9 +751,9 @@ func parseCSVRow(record []string) (SimpleMapsCity, error) {
 // =============================================================================
 
 type processResult struct {
-	status       string // "matched", "created", "skipped", "rejected", "no_country"
-	inserted     bool
-	cityCreated  bool
+	status      string // "matched", "created", "skipped", "rejected", "no_country"
+	inserted    bool
+	cityCreated bool
 }
 
 func (imp *Importer) processBatch(ctx context.Context, cities []SimpleMapsCity) *importStats {

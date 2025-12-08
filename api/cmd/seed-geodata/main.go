@@ -11,9 +11,10 @@
 //   - Integrity verification (checksums)
 //
 // Usage:
-//   seed-geodata seed --source=s3://bucket/path/geodata.dump.zst
-//   seed-geodata seed --source=/local/path/geodata.dump.zst
-//   seed-geodata verify --source=s3://bucket/path/geodata.dump.zst
+//
+//	seed-geodata seed --source=s3://bucket/path/geodata.dump.zst
+//	seed-geodata seed --source=/local/path/geodata.dump.zst
+//	seed-geodata verify --source=s3://bucket/path/geodata.dump.zst
 //
 // Performance:
 //   - Typical 2-4GB compressed → ~5-10 minutes total
@@ -21,9 +22,10 @@
 //   - Requires temp disk space (~3x compressed size)
 //
 // Environment:
-//   DATABASE_URL      PostgreSQL connection string (required)
-//   AWS_REGION        AWS region for S3 (default: us-east-1)
-//   AWS_PROFILE       AWS profile to use (optional)
+//
+//	DATABASE_URL      PostgreSQL connection string (required)
+//	AWS_REGION        AWS region for S3 (default: us-east-1)
+//	AWS_PROFILE       AWS profile to use (optional)
 package main
 
 import (
@@ -200,7 +202,7 @@ func cmdSeed(args []string) {
 
 	// Restore
 	log.Printf("Starting restore with %d parallel jobs...", jobs)
-	if err := restoreDatabase(localFile, dbURL, jobs); err != nil {
+	if err := restoreDatabase(ctx, pool, localFile, dbURL, jobs); err != nil {
 		log.Fatalf("Restore failed: %v", err)
 	}
 
@@ -389,15 +391,56 @@ func verifyChecksum(file string) error {
 	return nil
 }
 
-func restoreDatabase(dumpFile, dbURL string, jobs int) error {
+func restoreDatabase(ctx context.Context, pool *pgxpool.Pool, dumpFile, dbURL string, jobs int) error {
+	// Disable user triggers on geo tables for faster restore
+	// This is compatible with managed databases (unlike --disable-triggers which
+	// tries to disable system triggers and fails on Xata, Supabase, etc.)
+	log.Printf("Disabling user triggers on geo tables...")
+	if err := setGeoTriggersEnabled(ctx, pool, false); err != nil {
+		log.Printf("Warning: Could not disable triggers: %v", err)
+		log.Printf("Continuing with triggers enabled (may be slower)...")
+	} else {
+		log.Printf("✓ User triggers disabled")
+		defer func() {
+			log.Printf("Re-enabling user triggers...")
+			if err := setGeoTriggersEnabled(ctx, pool, true); err != nil {
+				log.Printf("Warning: Could not re-enable triggers: %v", err)
+			} else {
+				log.Printf("✓ User triggers re-enabled")
+			}
+		}()
+	}
+
+	// Disable foreign key constraints for parallel restore
+	// pg_restore with --jobs doesn't guarantee table order, so geo_cities
+	// might load before geo_districts, causing FK violations
+	log.Printf("Disabling foreign key constraints on geo tables...")
+	if err := setGeoFKConstraintsEnabled(ctx, pool, false); err != nil {
+		log.Printf("Warning: Could not disable FK constraints: %v", err)
+		log.Printf("Falling back to single-threaded restore...")
+		jobs = 1
+	} else {
+		log.Printf("✓ Foreign key constraints disabled")
+		defer func() {
+			log.Printf("Re-enabling foreign key constraints...")
+			if err := setGeoFKConstraintsEnabled(ctx, pool, true); err != nil {
+				log.Printf("Warning: Could not re-enable FK constraints: %v", err)
+				log.Printf("You may need to manually run: ALTER TABLE <table> ENABLE TRIGGER ALL")
+			} else {
+				log.Printf("✓ Foreign key constraints re-enabled")
+			}
+		}()
+	}
+
 	// Build pg_restore command
 	// Use --data-only since schema is managed by migrations
+	// NOTE: We don't use --disable-triggers here because managed databases
+	// don't allow disabling system constraint triggers
 	args := []string{
 		"--verbose",
-		"--data-only",     // Only restore data, not schema
+		"--data-only", // Only restore data, not schema
 		"--no-owner",
 		"--no-acl",
-		"--disable-triggers",  // Disable triggers during restore for speed
 		fmt.Sprintf("--jobs=%d", jobs),
 		"--dbname=" + dbURL,
 	}
@@ -445,6 +488,178 @@ func restoreDatabase(dumpFile, dbURL string, jobs int) error {
 		}
 	}
 
+	return nil
+}
+
+// setGeoTriggersEnabled enables or disables user-defined triggers on geo tables.
+// This only affects user triggers, not system constraint triggers, making it
+// compatible with managed databases like Xata and Supabase.
+func setGeoTriggersEnabled(ctx context.Context, pool *pgxpool.Pool, enabled bool) error {
+	action := "ENABLE"
+	if !enabled {
+		action = "DISABLE"
+	}
+
+	// Get all user-defined triggers on geo tables
+	rows, err := pool.Query(ctx, `
+		SELECT t.tgname, c.relname
+		FROM pg_trigger t
+		JOIN pg_class c ON t.tgrelid = c.oid
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+		WHERE n.nspname = 'public'
+		  AND c.relname LIKE 'geo_%'
+		  AND NOT t.tgisinternal  -- Exclude system/constraint triggers
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query triggers: %w", err)
+	}
+	defer rows.Close()
+
+	var triggers []struct {
+		name  string
+		table string
+	}
+	for rows.Next() {
+		var t struct {
+			name  string
+			table string
+		}
+		if err := rows.Scan(&t.name, &t.table); err != nil {
+			return fmt.Errorf("failed to scan trigger: %w", err)
+		}
+		triggers = append(triggers, t)
+	}
+
+	if len(triggers) == 0 {
+		log.Printf("  No user triggers found on geo tables")
+		return nil
+	}
+
+	// Disable/enable each trigger
+	for _, t := range triggers {
+		sql := fmt.Sprintf("ALTER TABLE %s %s TRIGGER %s", t.table, action, t.name)
+		if _, err := pool.Exec(ctx, sql); err != nil {
+			return fmt.Errorf("failed to %s trigger %s on %s: %w", strings.ToLower(action), t.name, t.table, err)
+		}
+	}
+
+	log.Printf("  %sd %d user triggers", action, len(triggers))
+	return nil
+}
+
+// setGeoFKConstraintsEnabled enables or disables foreign key constraint triggers on geo tables.
+// This allows parallel pg_restore to load tables in any order without FK violations.
+//
+// On managed databases (Xata, Supabase, etc.), ALTER TABLE ... DISABLE TRIGGER ALL requires
+// superuser which isn't available. We use session_replication_role instead, but that only
+// affects the current session - not pg_restore's separate connection.
+//
+// If session_replication_role fails (which it will on Xata), we fall back to dropping and
+// recreating FK constraints after restore.
+func setGeoFKConstraintsEnabled(ctx context.Context, pool *pgxpool.Pool, enabled bool) error {
+	if !enabled {
+		// Try session_replication_role first (won't help pg_restore but documents intent)
+		_, err := pool.Exec(ctx, "SET session_replication_role = 'replica'")
+		if err != nil {
+			// Expected to fail on managed databases - that's OK
+			log.Printf("  session_replication_role not available (expected on managed DBs)")
+		}
+
+		// Drop FK constraints - this is the reliable way on managed databases
+		return dropGeoFKConstraints(ctx, pool)
+	}
+
+	// Re-enable: restore session and recreate constraints
+	pool.Exec(ctx, "SET session_replication_role = 'origin'") // Ignore error
+	return recreateGeoFKConstraints(ctx, pool)
+}
+
+// geoFKConstraint represents a foreign key constraint to drop/recreate
+type geoFKConstraint struct {
+	table      string
+	constraint string
+	definition string
+}
+
+// getGeoFKConstraints retrieves all FK constraints on geo tables
+func getGeoFKConstraints(ctx context.Context, pool *pgxpool.Pool) ([]geoFKConstraint, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT
+			tc.table_name,
+			tc.constraint_name,
+			pg_get_constraintdef(pgc.oid) as definition
+		FROM information_schema.table_constraints tc
+		JOIN pg_constraint pgc ON tc.constraint_name = pgc.conname
+		WHERE tc.constraint_type = 'FOREIGN KEY'
+		  AND tc.table_schema = 'public'
+		  AND tc.table_name LIKE 'geo_%'
+		ORDER BY tc.table_name
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query FK constraints: %w", err)
+	}
+	defer rows.Close()
+
+	var constraints []geoFKConstraint
+	for rows.Next() {
+		var c geoFKConstraint
+		if err := rows.Scan(&c.table, &c.constraint, &c.definition); err != nil {
+			return nil, fmt.Errorf("failed to scan constraint: %w", err)
+		}
+		constraints = append(constraints, c)
+	}
+
+	return constraints, nil
+}
+
+// Stored constraints for recreation after restore
+var droppedFKConstraints []geoFKConstraint
+
+func dropGeoFKConstraints(ctx context.Context, pool *pgxpool.Pool) error {
+	constraints, err := getGeoFKConstraints(ctx, pool)
+	if err != nil {
+		return err
+	}
+
+	if len(constraints) == 0 {
+		log.Printf("  No FK constraints found on geo tables")
+		return nil
+	}
+
+	// Store for later recreation
+	droppedFKConstraints = constraints
+
+	for _, c := range constraints {
+		sql := fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", c.table, c.constraint)
+		if _, err := pool.Exec(ctx, sql); err != nil {
+			return fmt.Errorf("failed to drop constraint %s on %s: %w", c.constraint, c.table, err)
+		}
+	}
+
+	log.Printf("  Dropped %d FK constraints", len(constraints))
+	return nil
+}
+
+func recreateGeoFKConstraints(ctx context.Context, pool *pgxpool.Pool) error {
+	if len(droppedFKConstraints) == 0 {
+		log.Printf("  No FK constraints to recreate")
+		return nil
+	}
+
+	var errors []string
+	for _, c := range droppedFKConstraints {
+		sql := fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s %s", c.table, c.constraint, c.definition)
+		if _, err := pool.Exec(ctx, sql); err != nil {
+			errors = append(errors, fmt.Sprintf("%s.%s: %v", c.table, c.constraint, err))
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to recreate some constraints:\n  %s", strings.Join(errors, "\n  "))
+	}
+
+	log.Printf("  Recreated %d FK constraints", len(droppedFKConstraints))
+	droppedFKConstraints = nil
 	return nil
 }
 

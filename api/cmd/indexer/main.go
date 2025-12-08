@@ -39,6 +39,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"os"
@@ -86,29 +87,17 @@ func main() {
 	embeddings := ai.NewEmbeddingService(openAIKey)
 	chunker := ai.NewChunker()
 
-	// Define documents to index
+	// Find all markdown documents to index
 	projectRoot := findProjectRoot()
-	sources := []DocumentSource{
-		{
-			Path:        filepath.Join(projectRoot, "docs/sprint-artifacts/epic-4-dsl-specification.md"),
-			Source:      "dsl-spec",
-			ContentType: "documentation",
-		},
-		{
-			Path:        filepath.Join(projectRoot, "docs/sprint-artifacts/stories/4-1-zmanim-dsl-design.md"),
-			Source:      "dsl-design",
-			ContentType: "documentation",
-		},
-		{
-			Path:        filepath.Join(projectRoot, "docs/sprint-artifacts/stories/4-2-zmanim-dsl-parser.md"),
-			Source:      "dsl-parser",
-			ContentType: "documentation",
-		},
-	}
 
-	// Add master zmanim registry data
 	log.Println("📚 Starting RAG indexer...")
 	log.Printf("   Project root: %s", projectRoot)
+
+	sources, err := findDocuments(projectRoot)
+	if err != nil {
+		log.Fatalf("Failed to find documents: %v", err)
+	}
+	log.Printf("   Found %d markdown documents to index", len(sources))
 
 	// Clear existing embeddings (optional - for reindexing)
 	log.Println("🗑️  Clearing existing embeddings...")
@@ -203,7 +192,91 @@ func findProjectRoot() string {
 	}
 }
 
-// getOrCreateSourceID gets or creates a source in ai_content_sources and returns its ID
+// findDocuments scans the docs/ directory for all markdown files to index
+func findDocuments(projectRoot string) ([]DocumentSource, error) {
+	var sources []DocumentSource
+	docsDir := filepath.Join(projectRoot, "docs")
+
+	err := filepath.Walk(docsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip files we can't access
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			// Skip archive directory - contains outdated docs
+			if info.Name() == "archive" {
+				return filepath.SkipDir
+			}
+			// Skip sprint-artifacts - too detailed for RAG
+			if info.Name() == "sprint-artifacts" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Only process markdown files
+		if !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+
+		// Skip index files (usually just lists)
+		if info.Name() == "index.md" || info.Name() == "INDEX.md" {
+			return nil
+		}
+
+		// Create source key from relative path (max 50 chars for db constraint)
+		relPath, _ := filepath.Rel(docsDir, path)
+		sourceKey := makeSourceKey("doc", relPath)
+
+		// Determine content type based on path
+		contentType := "documentation"
+		if strings.Contains(path, "api") {
+			contentType = "api-reference"
+		} else if strings.Contains(path, "proposal") {
+			contentType = "proposal"
+		}
+
+		sources = append(sources, DocumentSource{
+			Path:        path,
+			Source:      sourceKey,
+			ContentType: contentType,
+		})
+
+		return nil
+	})
+
+	return sources, err
+}
+
+// makeSourceKey creates a unique source key that fits within 50 chars
+// Format: prefix:hash (e.g., "doc:abc123" or "kj:ZmanimCalendar")
+func makeSourceKey(prefix, path string) string {
+	// Clean up the path
+	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+
+	// If short enough, use prefix:name directly
+	key := fmt.Sprintf("%s:%s", prefix, name)
+	if len(key) <= 50 {
+		return key
+	}
+
+	// Otherwise, use hash of full path for uniqueness
+	h := sha256.Sum256([]byte(path))
+	hash := fmt.Sprintf("%x", h[:8]) // 16 hex chars
+	// Truncate name to fit: 50 - len(prefix) - 1 (colon) - 17 (underscore + hash)
+	maxNameLen := 50 - len(prefix) - 18
+	if maxNameLen < 0 {
+		maxNameLen = 0
+	}
+	if len(name) > maxNameLen {
+		name = name[:maxNameLen]
+	}
+	return fmt.Sprintf("%s:%s_%s", prefix, name, hash)
+}
+
+// getOrCreateSourceID gets or creates a source in ai_content_sources and returns its ID.
+// It also deletes any existing embeddings for this source to allow re-indexing.
 func getOrCreateSourceID(ctx context.Context, pool *pgxpool.Pool, sourceKey, displayName string) (int16, error) {
 	var sourceID int16
 	err := pool.QueryRow(ctx, `
@@ -212,7 +285,17 @@ func getOrCreateSourceID(ctx context.Context, pool *pgxpool.Pool, sourceKey, dis
 		ON CONFLICT (key) DO UPDATE SET key = EXCLUDED.key
 		RETURNING id
 	`, sourceKey, displayName, "Indexed by RAG indexer").Scan(&sourceID)
-	return sourceID, err
+	if err != nil {
+		return 0, err
+	}
+
+	// Delete existing embeddings for this source to allow re-indexing
+	_, err = pool.Exec(ctx, "DELETE FROM embeddings WHERE source_id = $1", sourceID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to clear existing embeddings: %w", err)
+	}
+
+	return sourceID, nil
 }
 
 func indexDocument(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.EmbeddingService, chunker *ai.Chunker, source DocumentSource) (int, int, error) {
@@ -290,7 +373,7 @@ func indexMasterZmanim(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.E
 	// Query master zmanim registry with time_category join
 	rows, err := pool.Query(ctx, `
 		SELECT m.zman_key, m.canonical_hebrew_name, m.canonical_english_name,
-		       COALESCE(tc.name_english, 'Unknown') as time_category,
+		       COALESCE(tc.display_name_english, 'Unknown') as time_category,
 		       m.description, m.default_formula_dsl
 		FROM master_zmanim_registry m
 		LEFT JOIN time_categories tc ON m.time_category_id = tc.id
@@ -554,7 +637,7 @@ func indexKosherJava(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.Emb
 	// Index README
 	readmePath := filepath.Join(repoDir, "README.md")
 	if content, err := os.ReadFile(readmePath); err == nil {
-		chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, string(content), "kosherjava", "documentation")
+		chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, string(content), "kj:readme", "documentation")
 		if err != nil {
 			log.Printf("   Warning: Failed to index KosherJava README: %v", err)
 		} else {
@@ -579,9 +662,9 @@ func indexKosherJava(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.Emb
 			// Extract Javadoc comments and method signatures for context
 			extracted := extractJavadocContent(string(content))
 			if extracted != "" {
-				// Use filename in source to avoid unique constraint conflicts
-				sourceID := fmt.Sprintf("kosherjava:%s", filepath.Base(javaFile))
-				chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceID, "reference")
+				// Use makeSourceKey to ensure unique keys within 50 char limit
+				sourceKey := makeSourceKey("kj", javaFile)
+				chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceKey, "reference")
 				if err != nil {
 					log.Printf("   Warning: Failed to index %s: %v", javaFile, err)
 				} else {
@@ -662,7 +745,7 @@ func indexHebcalGo(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.Embed
 	// Index README
 	readmePath := filepath.Join(repoDir, "README.md")
 	if content, err := os.ReadFile(readmePath); err == nil {
-		chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, string(content), "hebcal-go", "documentation")
+		chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, string(content), "hc:readme", "documentation")
 		if err != nil {
 			log.Printf("   Warning: Failed to index hebcal-go README: %v", err)
 		} else {
@@ -681,39 +764,16 @@ func indexHebcalGo(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.Embed
 				// Extract Go doc comments
 				extracted := extractGoDocContent(string(content), goFile)
 				if extracted != "" {
-					// Use filename in source to avoid unique constraint conflicts
-					sourceID := fmt.Sprintf("hebcal-go:%s", filepath.Base(goFile))
-					chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceID, "reference")
+					// Use makeSourceKey to ensure unique keys within 50 char limit
+					relPath, _ := filepath.Rel(repoDir, goFile)
+					sourceKey := makeSourceKey("hc", relPath)
+					chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceKey, "reference")
 					if err != nil {
 						log.Printf("   Warning: Failed to index %s: %v", goFile, err)
 					} else {
 						totalChunks += chunks
 						totalTokens += tokens
-					}
-				}
-			}
-		}
-	}
-
-	// Also index the zmanim package specifically
-	zmanimDir := filepath.Join(repoDir, "zmanim")
-	if _, err := os.Stat(zmanimDir); err == nil {
-		zmanimFiles, err := findGoFiles(zmanimDir)
-		if err == nil {
-			for _, goFile := range zmanimFiles {
-				if content, err := os.ReadFile(goFile); err == nil {
-					extracted := extractGoDocContent(string(content), goFile)
-					if extracted != "" {
-						// Use package:filename to avoid conflicts
-						sourceID := fmt.Sprintf("hebcal-go:zmanim:%s", filepath.Base(goFile))
-						chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceID, "reference")
-						if err != nil {
-							log.Printf("   Warning: Failed to index %s: %v", goFile, err)
-						} else {
-							totalChunks += chunks
-							totalTokens += tokens
-							log.Printf("   Indexed %s: %d chunks", filepath.Base(goFile), chunks)
-						}
+						log.Printf("   Indexed %s: %d chunks", relPath, chunks)
 					}
 				}
 			}
