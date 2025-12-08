@@ -153,7 +153,7 @@ func cmdDownload(args []string) {
 	fmt.Printf("Source: %s\n", wofAdminDBURL)
 	fmt.Printf("Target: %s\n", dbPath)
 	fmt.Println("Size: ~8.6GB compressed → ~40GB uncompressed")
-	fmt.Println("This may take 30-60 minutes...\n")
+	fmt.Println("This may take 30-60 minutes...")
 
 	if err := downloadBZ2(wofAdminDBURL, dbPath); err != nil {
 		log.Fatalf("Download failed: %v", err)

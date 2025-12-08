@@ -108,17 +108,16 @@ jobs:
           done
           echo "Migrations complete"
 
-      # Seed geographic data (cities, countries, regions)
-      - name: Seed Geographic Data
-        working-directory: api
-        run: |
-          echo "Seeding geographic data..."
-          go run ./cmd/seed-geodata/
-          echo "Geographic data seeded"
-        env:
-          DATABASE_URL: postgresql://zmanim_test:zmanim_test_password@localhost:5432/zmanim_test?sslmode=disable
+      # Note: Geographic data seeding is skipped in E2E tests because:
+      # 1. seed-geodata requires S3/local dump file which is not available in CI
+      # 2. E2E tests use graceful fallbacks when geo data is missing
+      # 3. Tests that strictly require geo data are marked as @skip_no_geo
+      #
+      # If E2E tests start failing due to missing geo data, you can:
+      # - Create a minimal test fixture SQL file and load it here
+      # - Or use import-wof/import-simplemaps with minimal test data
 
-      # Note: Indexer is skipped in E2E tests because:
+      # Note: Indexer is also skipped in E2E tests because:
       # 1. pgvector extension is not available in standard PostGIS image
       # 2. RAG features are not tested in E2E tests
 
