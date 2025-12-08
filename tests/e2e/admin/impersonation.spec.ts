@@ -49,8 +49,8 @@ test.describe('Admin Impersonation', () => {
     await page.goto(`${BASE_URL}/admin/publishers/${testPublisher.id}`);
     await page.waitForLoadState('networkidle');
 
-    // Should see impersonation button - button text is "Impersonate Publisher"
-    const impersonateButton = page.getByRole('button', { name: /impersonate publisher/i });
+    // Should see impersonation button - tooltip says "View as publisher"
+    const impersonateButton = page.getByRole('button', { name: /view as publisher/i });
     await expect(impersonateButton).toBeVisible();
 
     // Click impersonate
@@ -68,7 +68,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Click impersonate
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
 
     // Check session storage - this is how impersonation persists across page reloads
@@ -90,7 +90,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Click impersonate
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
     await page.waitForLoadState('networkidle');
 
