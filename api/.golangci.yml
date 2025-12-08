@@ -57,12 +57,17 @@ issues:
       linters:
         - unused
         - ineffassign
+        - gosimple
+      text: "S1025:|S1016:"
     # Exclude deprecated warnings
     - linters:
         - staticcheck
       text: "SA1019:"
-    # Exclude gosimple suggestions for handlers
-    - path: internal/handlers/
+    # Exclude errcheck for cmd/ tools (import/migration scripts)
+    # These are one-off data tools where strict error checking is less critical
+    - path: cmd/
       linters:
+        - errcheck
+        - gofmt
+        - goimports
         - gosimple
-      text: "S1025:"

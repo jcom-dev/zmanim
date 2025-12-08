@@ -55,7 +55,7 @@ async function seedTestPublishers(): Promise<void> {
         name: 'E2E Test Publisher - Verified',
         slug: 'e2e-test-verified',
         email: 'e2e-verified@test.zmanim.com',
-        status: 'active',
+        status_id: 2, // active
         website: 'https://test.example.com',
         bio: 'Test publisher for E2E testing - verified status',
         is_verified: true,
@@ -64,7 +64,7 @@ async function seedTestPublishers(): Promise<void> {
         name: 'E2E Test Publisher - Pending',
         slug: 'e2e-test-pending',
         email: 'e2e-pending@test.zmanim.com',
-        status: 'pending',
+        status_id: 1, // pending
         website: 'https://pending.example.com',
         bio: 'Test publisher for E2E testing - pending status',
         is_verified: false,
@@ -73,7 +73,7 @@ async function seedTestPublishers(): Promise<void> {
         name: 'E2E Test Publisher - Suspended',
         slug: 'e2e-test-suspended',
         email: 'e2e-suspended@test.zmanim.com',
-        status: 'suspended',
+        status_id: 3, // suspended
         website: 'https://suspended.example.com',
         bio: 'Test publisher for E2E testing - suspended status',
         is_verified: false,
@@ -89,15 +89,15 @@ async function seedTestPublishers(): Promise<void> {
 
       if (exists.rows.length === 0) {
         const result = await pool.query(
-          `INSERT INTO publishers (name, slug, email, status, website, bio, is_verified)
+          `INSERT INTO publishers (name, slug, email, status_id, website, bio, is_verified)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING id`,
-          [pub.name, pub.slug, pub.email, pub.status, pub.website, pub.bio, pub.is_verified]
+          [pub.name, pub.slug, pub.email, pub.status_id, pub.website, pub.bio, pub.is_verified]
         );
         console.log(`Created test publisher: ${pub.name} (${result.rows[0].id})`);
 
         // Create a test algorithm for active/verified publisher
-        if (pub.status === 'active') {
+        if (pub.status_id === 2) { // active
           const publisherId = result.rows[0].id;
           // Schema: id, publisher_id, name, description, configuration, status, is_public, forked_from, attribution_text, fork_count
           await pool.query(
@@ -139,7 +139,10 @@ async function getTestPublisherIds(): Promise<void> {
 
   try {
     const result = await pool.query(
-      "SELECT id, name, status FROM publishers WHERE name LIKE 'E2E Test%' OR status IN ('verified', 'pending', 'suspended')"
+      `SELECT p.id, p.name, ps.key as status
+       FROM publishers p
+       JOIN publisher_statuses ps ON p.status_id = ps.id
+       WHERE p.name LIKE 'E2E Test%' OR ps.key IN ('active', 'pending', 'suspended')`
     );
 
     console.log('\nTest Publishers Available:');
@@ -148,7 +151,7 @@ async function getTestPublisherIds(): Promise<void> {
     }
 
     // Export to environment for tests to use
-    const verified = result.rows.find((r) => r.status === 'verified');
+    const verified = result.rows.find((r) => r.status === 'active');
     const pending = result.rows.find((r) => r.status === 'pending');
     const suspended = result.rows.find((r) => r.status === 'suspended');
 
