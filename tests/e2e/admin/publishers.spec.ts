@@ -123,7 +123,7 @@ test.describe('Admin Publisher Details', () => {
     await page.goto(`${BASE_URL}/admin/publishers/${publisher.id}`);
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('button', { name: /Impersonate Publisher/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /view as publisher/i })).toBeVisible();
   });
 
   test('publisher details shows Users section', async ({ page }) => {
