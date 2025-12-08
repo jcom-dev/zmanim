@@ -78,7 +78,7 @@ test.describe('Admin Impersonation', () => {
 
     expect(impersonating).toBeTruthy();
     const parsed = JSON.parse(impersonating!);
-    expect(parsed.publisherId).toBe(testPublisher.id);
+    expect(parsed.publisherId).toBe(String(testPublisher.id));
     expect(parsed.publisher).toBeDefined();
     expect(parsed.publisher.name).toBe(testPublisher.name);
   });
@@ -109,7 +109,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Click impersonate
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
     await page.waitForLoadState('networkidle');
 
@@ -127,7 +127,7 @@ test.describe('Admin Impersonation', () => {
     await page.waitForLoadState('networkidle');
 
     // Start impersonation
-    await page.getByRole('button', { name: /impersonate publisher/i }).click();
+    await page.getByRole('button', { name: /view as publisher/i }).click();
     await page.waitForURL('**/publisher/dashboard');
     await page.waitForLoadState('networkidle');
 
