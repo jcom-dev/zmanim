@@ -94,7 +94,7 @@ jobs:
       - name: Install Tools and Extensions
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client redis-tools
+          sudo apt-get install -y postgresql-client redis-tools libgdal-dev gdal-bin
           PGPASSWORD=zmanim_test_password psql -h localhost -U zmanim_test -d zmanim_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
           PGPASSWORD=zmanim_test_password psql -h localhost -U zmanim_test -d zmanim_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
@@ -113,7 +113,7 @@ jobs:
         working-directory: api
         run: |
           echo "Seeding geographic data..."
-          go run ./cmd/seed-geo/
+          go run ./cmd/seed-geodata/
           echo "Geographic data seeded"
         env:
           DATABASE_URL: postgresql://zmanim_test:zmanim_test_password@localhost:5432/zmanim_test?sslmode=disable
