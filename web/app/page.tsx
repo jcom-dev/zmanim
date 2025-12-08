@@ -212,11 +212,12 @@ export default function Home() {
     setError(null);
 
     try {
+      // Use low accuracy - sufficient for city lookup and faster/more reliable
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 600000, // Accept cached position up to 10 min old
         });
       });
 

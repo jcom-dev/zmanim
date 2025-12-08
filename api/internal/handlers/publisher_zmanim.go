@@ -475,14 +475,29 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string)
 		return nil, err
 	}
 
+	slog.Info("FetchPublisherZmanim SQL results", "count", len(sqlcResults))
+
 	// Convert SQLc results to PublisherZman slice
 	zmanim := make([]PublisherZman, 0, len(sqlcResults))
-	for _, row := range sqlcResults {
+	for i, row := range sqlcResults {
+		slog.Info("fetchPublisherZmanim: processing row",
+			"index", i,
+			"zman_key", row.ZmanKey,
+			"master_zman_id", row.MasterZmanID,
+			"tags_field_nil", row.Tags == nil)
+
 		var tags []ZmanTag
 		if row.Tags != nil {
 			if tagsBytes, err := json.Marshal(row.Tags); err == nil {
-				_ = json.Unmarshal(tagsBytes, &tags)
+				slog.Info("fetchPublisherZmanim: parsing tags", "zman_key", row.ZmanKey, "raw_json", string(tagsBytes))
+				if err := json.Unmarshal(tagsBytes, &tags); err != nil {
+					slog.Error("fetchPublisherZmanim: failed to unmarshal tags", "error", err, "json", string(tagsBytes))
+				} else {
+					slog.Info("fetchPublisherZmanim: successfully parsed tags", "zman_key", row.ZmanKey, "count", len(tags), "tags", tags)
+				}
 			}
+		} else {
+			slog.Info("fetchPublisherZmanim: no tags in SQL row", "zman_key", row.ZmanKey)
 		}
 		if tags == nil {
 			tags = []ZmanTag{}
@@ -729,8 +744,15 @@ func getPublisherZmanimRowToPublisherZman(z sqlcgen.GetPublisherZmanimRow) Publi
 	var tags []ZmanTag
 	if z.Tags != nil {
 		if tagsBytes, err := json.Marshal(z.Tags); err == nil {
-			_ = json.Unmarshal(tagsBytes, &tags)
+			slog.Info("parsing tags from SQL row", "zman_key", z.ZmanKey, "raw_json", string(tagsBytes))
+			if err := json.Unmarshal(tagsBytes, &tags); err != nil {
+				slog.Error("failed to unmarshal tags", "error", err, "json", string(tagsBytes))
+			} else {
+				slog.Info("successfully parsed tags", "zman_key", z.ZmanKey, "count", len(tags), "tags", tags)
+			}
 		}
+	} else {
+		slog.Info("no tags in SQL row", "zman_key", z.ZmanKey)
 	}
 
 	// Convert Category from *string to string (use empty string if nil)
@@ -1711,9 +1733,11 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 
 	var req UpdatePublisherZmanTagsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error("failed to decode request body", "error", err)
 		RespondBadRequest(w, r, "Invalid request body")
 		return
 	}
+	slog.Info("received tag update request", "tags", req.Tags, "count", len(req.Tags))
 
 	// First get the publisher_zman_id using SQLc
 	publisherIDInt32, err := stringToInt32(publisherID)
@@ -1746,16 +1770,10 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 
 	// Insert new tags with is_negated using SQLc
 	for _, tag := range req.Tags {
-		tagID, err := stringToInt32(tag.TagID)
-		if err != nil {
-			slog.Error("invalid tag ID", "error", err, "tag_id", tag.TagID)
-			RespondBadRequest(w, r, "Invalid tag ID")
-			return
-		}
-
+		// TagID is now int32, no conversion needed
 		err = h.db.Queries.InsertPublisherZmanTag(ctx, sqlcgen.InsertPublisherZmanTagParams{
 			PublisherZmanID: zmanID,
-			TagID:           tagID,
+			TagID:           tag.TagID,
 			IsNegated:       tag.IsNegated,
 		})
 		if err != nil {
@@ -1774,6 +1792,68 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 	}
 
 	RespondJSON(w, r, http.StatusOK, tags)
+}
+
+// RevertPublisherZmanTags reverts all tags to master registry state
+// POST /api/v1/publisher/zmanim/{zmanKey}/tags/revert
+func (h *Handlers) RevertPublisherZmanTags(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 1. Resolve publisher context
+	pc := h.publisherResolver.MustResolve(w, r)
+	if pc == nil {
+		return
+	}
+	publisherID := pc.PublisherID
+
+	// 2. Extract URL params
+	zmanKey := chi.URLParam(r, "zmanKey")
+
+	// 3. Parse body - none needed for this endpoint
+
+	// 4. Validate - get publisher_zman_id
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
+
+	zmanID, err := h.db.Queries.GetPublisherZmanIDByKey(ctx, sqlcgen.GetPublisherZmanIDByKeyParams{
+		PublisherID: publisherIDInt32,
+		ZmanKey:     zmanKey,
+	})
+	if err == pgx.ErrNoRows {
+		RespondNotFound(w, r, "Zman not found")
+		return
+	}
+	if err != nil {
+		slog.Error("failed to find zman", "error", err)
+		RespondInternalError(w, r, "Failed to find zman")
+		return
+	}
+
+	// 5. SQLc query - delete all publisher-specific tags (revert to master)
+	err = h.db.Queries.RevertPublisherZmanTags(ctx, zmanID)
+	if err != nil {
+		slog.Error("failed to revert tags", "error", err, "zman_id", zmanID)
+		RespondInternalError(w, r, "Failed to revert tags")
+		return
+	}
+
+	// Fetch updated tags (now showing master tags only)
+	tags, err := h.db.Queries.GetZmanTags(ctx, zmanID)
+	if err != nil {
+		slog.Error("failed to get reverted tags", "error", err)
+		RespondInternalError(w, r, "Tags reverted but failed to fetch")
+		return
+	}
+
+	// 6. Respond
+	response := map[string]interface{}{
+		"message": "Tags reverted to registry",
+		"tags":    tags,
+	}
+	RespondJSON(w, r, http.StatusOK, response)
 }
 
 // AddTagRequest represents the request body for adding a single tag

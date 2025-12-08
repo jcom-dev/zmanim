@@ -30,7 +30,8 @@ SELECT DISTINCT
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.sort_order
+    t.sort_order,
+    m.priority
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
 JOIN tag_event_mappings m ON m.tag_id = t.id
@@ -57,7 +58,8 @@ SELECT DISTINCT
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.sort_order
+    t.sort_order,
+    m.priority
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
 JOIN tag_event_mappings m ON m.tag_id = t.id

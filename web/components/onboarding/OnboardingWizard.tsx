@@ -6,7 +6,7 @@ import { CoverageSetupStep } from './steps/CoverageSetupStep';
 import { ReviewPublishStep } from './steps/ReviewPublishStep';
 import { useApi } from '@/lib/api-client';
 import { usePublisherContext } from '@/providers/PublisherContext';
-import type { CoverageSelection } from '@/components/shared/CoverageSelector';
+import type { LocationSelection } from '@/types/geography';
 
 // API response uses snake_case
 interface OnboardingStateAPI {
@@ -14,7 +14,7 @@ interface OnboardingStateAPI {
   completed_steps?: number[];
   data?: {
     customizations?: (ZmanCustomization | SelectedZmanCustomization)[];
-    coverage?: CoverageSelection[];
+    coverage?: LocationSelection[];
   };
   started_at?: string;
   last_updated_at?: string;
@@ -27,7 +27,7 @@ export interface OnboardingState {
   completedSteps: number[];
   data: {
     customizations?: (ZmanCustomization | SelectedZmanCustomization)[];
-    coverage?: CoverageSelection[];
+    coverage?: LocationSelection[];
   };
   startedAt: string;
   lastUpdatedAt: string;
@@ -77,7 +77,6 @@ export interface SelectedZmanCustomization {
   modified: boolean;
 }
 
-export type { CoverageSelection } from '@/components/shared/CoverageSelector';
 
 interface StepDefinition {
   id: string;

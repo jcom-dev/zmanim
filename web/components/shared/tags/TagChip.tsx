@@ -11,6 +11,8 @@ interface TagChipProps {
   onClick?: () => void;
   size?: 'sm' | 'md';
   showType?: boolean;
+  showNegatedIndicator?: boolean;
+  showModifiedIndicator?: boolean;
 }
 
 export function TagChip({
@@ -20,8 +22,12 @@ export function TagChip({
   onClick,
   size = 'md',
   showType = false,
+  showNegatedIndicator = false,
+  showModifiedIndicator = false,
 }: TagChipProps) {
   const badgeClass = TAG_TYPE_BADGE_CLASSES[tag.tag_type as TagType] || TAG_TYPE_BADGE_CLASSES.category;
+  const isNegated = 'is_negated' in tag && tag.is_negated;
+  const isModified = 'is_modified' in tag && tag.is_modified;
 
   return (
     <span
@@ -44,6 +50,20 @@ export function TagChip({
       <span className="truncate max-w-[150px]">
         {tag.display_name_english}
       </span>
+      {showNegatedIndicator && isNegated && (
+        <span
+          className="h-2 w-2 rounded-full bg-red-500 flex-shrink-0"
+          title="Negated - this tag is excluded"
+          aria-label="Excluded"
+        />
+      )}
+      {showModifiedIndicator && isModified && (
+        <span
+          className="h-2 w-2 rounded-full bg-amber-500 flex-shrink-0"
+          title="Modified from registry"
+          aria-label="Modified"
+        />
+      )}
       {onRemove && (
         <button
           type="button"

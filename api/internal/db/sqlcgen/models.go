@@ -5,6 +5,8 @@
 package sqlcgen
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -162,6 +164,31 @@ type CalculationType struct {
 	DisplayNameEnglish string             `json:"display_name_english"`
 	Description        *string            `json:"description"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+// Community-submitted corrections to global city data
+type CityCorrectionRequest struct {
+	ID     int32 `json:"id"`
+	CityID int64 `json:"city_id"`
+	// Publisher who submitted the request (nullable for anonymous)
+	PublisherID *int32 `json:"publisher_id"`
+	// Email of the person who submitted the request
+	RequesterEmail    string   `json:"requester_email"`
+	RequesterName     *string  `json:"requester_name"`
+	ProposedLatitude  *float64 `json:"proposed_latitude"`
+	ProposedLongitude *float64 `json:"proposed_longitude"`
+	ProposedElevation *int32   `json:"proposed_elevation"`
+	// Explanation of why the correction is needed
+	CorrectionReason string `json:"correction_reason"`
+	// Links to supporting evidence (surveys, official sources, etc.)
+	EvidenceUrls []string `json:"evidence_urls"`
+	Status       string   `json:"status"`
+	// Clerk user ID of admin who reviewed the request
+	ReviewedBy  *string            `json:"reviewed_by"`
+	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNotes *string            `json:"review_notes"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
 }
 
 type CoverageLevel struct {
@@ -675,6 +702,23 @@ type PublisherInvitation struct {
 	Token       string             `json:"token"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+// Publisher-specific location data overrides (lat/lon/elevation only) for accurate zmanim calculations
+type PublisherLocationOverride struct {
+	ID          int32 `json:"id"`
+	PublisherID int32 `json:"publisher_id"`
+	CityID      int32 `json:"city_id"`
+	// Override latitude in decimal degrees (-90 to 90)
+	OverrideLatitude *float64 `json:"override_latitude"`
+	// Override longitude in decimal degrees (-180 to 180)
+	OverrideLongitude *float64 `json:"override_longitude"`
+	// Override elevation in meters
+	OverrideElevation *int32 `json:"override_elevation"`
+	// Optional explanation for the override
+	Reason    *string   `json:"reason"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type PublisherOnboarding struct {

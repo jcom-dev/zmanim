@@ -5,8 +5,9 @@
 -- Used by: publisher_zmanim.go handlers
 
 -- name: GetZmanTags :many
--- Fetches all tags for a specific publisher zman
+-- Fetches all tags for a specific publisher zman with source tracking
 -- Combines master zman tags (if linked to master registry) with publisher-specific tags
+-- Includes source_is_negated, is_modified, and tag_source for modification tracking
 SELECT
     t.id,
     t.tag_key,
@@ -15,11 +16,19 @@ SELECT
     t.display_name_english,
     tt.key AS tag_type,
     t.sort_order,
-    COALESCE(mzt.is_negated, pzt.is_negated, false) AS is_negated,
+    COALESCE(pzt.is_negated, mzt.is_negated, false) AS is_negated,
     CASE
         WHEN mzt.tag_id IS NOT NULL THEN 'master'
         ELSE 'publisher'
-    END AS tag_source
+    END AS tag_source,
+    mzt.is_negated AS source_is_negated,
+    CASE
+        WHEN mzt.tag_id IS NOT NULL
+          AND pzt.tag_id IS NOT NULL
+          AND COALESCE(pzt.is_negated, false) != COALESCE(mzt.is_negated, false)
+        THEN true
+        ELSE false
+    END AS is_modified
 FROM (
     -- Master zman tags (if this zman is linked to master registry)
     SELECT mzt.tag_id, mzt.is_negated, 'master' AS source
@@ -60,3 +69,9 @@ SELECT EXISTS (
     ) all_tags
     WHERE all_tags.key IN ('event', 'behavior')
 ) AS is_event;
+
+-- name: RevertPublisherZmanTags :exec
+-- Reverts all publisher zman tags to match master registry state
+-- Deletes all publisher-specific tags and resets to master defaults
+DELETE FROM publisher_zman_tags
+WHERE publisher_zman_id = $1;

@@ -30,7 +30,7 @@ import type { TagSelectorTag } from '@/components/shared/tags/TagSelector';
 
 // Types
 export interface ZmanTag {
-  id: string;
+  id: number; // Changed from string to number to match backend int32
   tag_key: string;
   name: string;
   display_name_hebrew: string;
@@ -44,14 +44,14 @@ export interface ZmanTag {
 export interface PendingTagRequest {
   id: string;
   zman_request_id: string;
-  tag_id?: string;
+  tag_id?: number; // Changed from string to number to match backend int32
   requested_tag_name?: string;
   requested_tag_type?: string;
   is_new_tag_request: boolean;
 }
 
 export interface TagAssignment {
-  tag_id: string;
+  tag_id: number; // Changed from string to number to match backend int32
   is_negated: boolean;
 }
 
@@ -390,7 +390,7 @@ export function ZmanRegistryForm({
   };
 
   // 3-state toggle: unselected → positive → negated → unselected
-  const toggleTag = (tagId: string) => {
+  const toggleTag = (tagId: number) => { // Changed from string to number
     setFormData((prev) => {
       const existingTag = prev.tags.find((t) => t.tag_id === tagId);
 

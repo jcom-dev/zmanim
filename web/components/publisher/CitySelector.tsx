@@ -9,45 +9,11 @@
 
 'use client';
 import { useApi } from '@/lib/api-client';
+import type { City, Country, Region, CoverageLevel, CoverageSelection } from '@/types/geography';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, MapPin, Globe, Flag, Building } from 'lucide-react';
-
-interface City {
-  id: string;
-  name: string;
-  country: string;
-  country_code: string;
-  region: string | null;
-  region_type: string | null;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-  display_name: string;
-}
-
-interface Country {
-  code: string;
-  name: string;
-}
-
-interface Region {
-  name: string;
-  type: string | null;
-}
-
-type CoverageLevel = 'country' | 'region' | 'city';
-
-interface CoverageSelection {
-  level: CoverageLevel;
-  countryCode?: string;
-  countryName?: string;
-  region?: string;
-  cityId?: string;
-  cityName?: string;
-  displayName: string;
-}
 
 interface CitySelectorProps {
   onSelect: (selection: CoverageSelection) => void;

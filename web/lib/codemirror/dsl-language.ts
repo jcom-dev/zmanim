@@ -17,7 +17,7 @@ export const DSL_PRIMITIVES = new Set([
 ]);
 
 export const DSL_FUNCTIONS = new Set([
-  'solar', 'proportional_hours', 'midpoint', 'min', 'max', 'if',
+  'solar', 'seasonal_solar', 'proportional_hours', 'midpoint', 'min', 'max', 'if',
 ]);
 
 export const DSL_KEYWORDS = new Set([

@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { UserButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, BarChart3, Settings, Sun, Clock, UserCog, Building2, FileQuestion } from 'lucide-react';
+import { Home, Users, BarChart3, Settings, Sun, Clock, UserCog, Building2, FileQuestion, MapPinCheck } from 'lucide-react';
 import { useUserRoles } from '@/lib/hooks';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useAdminApi } from '@/lib/api-client';
@@ -46,6 +46,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/zmanim/primitives', label: 'Primitives', icon: Sun },
     { href: '/admin/zmanim/registry', label: 'Zmanim Registry', icon: Clock },
     { href: '/admin/zman-requests', label: 'Zman Requests', icon: FileQuestion, badge: pendingRequestCount },
+    { href: '/admin/correction-requests', label: 'City Corrections', icon: MapPinCheck },
     { href: '/admin/dashboard', label: 'Dashboard', icon: BarChart3 },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];

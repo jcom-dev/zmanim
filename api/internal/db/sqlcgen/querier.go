@@ -65,11 +65,13 @@ type Querier interface {
 	AdminToggleZmanVisibility(ctx context.Context, id int32) (AdminToggleZmanVisibilityRow, error)
 	// Toggle zman visibility with audit
 	AdminToggleZmanVisibilityWithAudit(ctx context.Context, id int32) (AdminToggleZmanVisibilityWithAuditRow, error)
+	AdminUpdateCity(ctx context.Context, arg AdminUpdateCityParams) error
 	AdminUpdateMasterZman(ctx context.Context, arg AdminUpdateMasterZmanParams) (AdminUpdateMasterZmanRow, error)
 	// Update master zman with all fields (non-dynamic version)
 	AdminUpdateMasterZmanSimple(ctx context.Context, arg AdminUpdateMasterZmanSimpleParams) (AdminUpdateMasterZmanSimpleRow, error)
 	AdminUpdatePublisherFields(ctx context.Context, arg AdminUpdatePublisherFieldsParams) (AdminUpdatePublisherFieldsRow, error)
 	AdminUpdatePublisherStatus(ctx context.Context, arg AdminUpdatePublisherStatusParams) (AdminUpdatePublisherStatusRow, error)
+	ApplyCityCorrection(ctx context.Context, arg ApplyCityCorrectionParams) error
 	// Mark a publisher request as approved
 	ApprovePublisherRequest(ctx context.Context, arg ApprovePublisherRequestParams) error
 	// Approve a new tag request - creates the tag and updates the request
@@ -142,12 +144,19 @@ type Querier interface {
 	CountRegionBoundaries(ctx context.Context) (int64, error)
 	// Get count of tags per type (for UI display)
 	CountTagsByType(ctx context.Context) ([]CountTagsByTypeRow, error)
+	// Count all entity types in a single query for the viewport bounding box
+	// Uses a CASE to only count districts if zoom is high enough (passed as $5 >= 6)
+	CountVisibleEntities(ctx context.Context, arg CountVisibleEntitiesParams) (CountVisibleEntitiesRow, error)
 	// Create or update algorithm --
 	CreateAlgorithm(ctx context.Context, arg CreateAlgorithmParams) (CreateAlgorithmRow, error)
 	// ============================================================================
 	// Import Tracking
 	// ============================================================================
 	CreateBoundaryImport(ctx context.Context, arg CreateBoundaryImportParams) (int32, error)
+	// File: correction_requests.sql
+	// Purpose: SQLc queries for city correction requests
+	// Story: 6.5 - Public Correction Requests
+	CreateCorrectionRequest(ctx context.Context, arg CreateCorrectionRequestParams) (CityCorrectionRequest, error)
 	CreateCoverageCity(ctx context.Context, arg CreateCoverageCityParams) (CreateCoverageCityRow, error)
 	CreateCoverageContinent(ctx context.Context, arg CreateCoverageContinentParams) (CreateCoverageContinentRow, error)
 	CreateCoverageCountry(ctx context.Context, arg CreateCoverageCountryParams) (CreateCoverageCountryRow, error)
@@ -158,6 +167,7 @@ type Querier interface {
 	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (int32, error)
 	// Create a new zman from another publisher (linked or copied)
 	CreateLinkedOrCopiedZman(ctx context.Context, arg CreateLinkedOrCopiedZmanParams) (CreateLinkedOrCopiedZmanRow, error)
+	CreateLocationOverride(ctx context.Context, arg CreateLocationOverrideParams) (PublisherLocationOverride, error)
 	CreatePublisher(ctx context.Context, arg CreatePublisherParams) (CreatePublisherRow, error)
 	CreatePublisherFromImport(ctx context.Context, arg CreatePublisherFromImportParams) (CreatePublisherFromImportRow, error)
 	// Create a new publisher from an approved request
@@ -210,6 +220,7 @@ type Querier interface {
 	DeleteDistrictBoundary(ctx context.Context, districtID int32) error
 	DeleteExpiredInvitations(ctx context.Context, publisherID int32) error
 	DeleteInvitation(ctx context.Context, id int32) error
+	DeleteLocationOverride(ctx context.Context, id int32) error
 	// ============================================
 	// TAG MANAGEMENT QUERIES
 	// ============================================
@@ -256,6 +267,7 @@ type Querier interface {
 	// ASTRONOMICAL PRIMITIVES QUERIES
 	// ============================================
 	GetAllAstronomicalPrimitives(ctx context.Context) ([]GetAllAstronomicalPrimitivesRow, error)
+	GetAllCorrectionRequests(ctx context.Context, status *string) ([]GetAllCorrectionRequestsRow, error)
 	// Geo Boundaries SQL Queries (5-Level Hierarchy)
 	// Supports boundaries for: countries, regions (ADM1), districts (ADM2)
 	// ============================================================================
@@ -332,7 +344,7 @@ type Querier interface {
 	GetAllTimeCategories(ctx context.Context) ([]TimeCategory, error)
 	// Get all zman requests (for admin) with optional status filter
 	GetAllZmanRequests(ctx context.Context, dollar_1 string) ([]GetAllZmanRequestsRow, error)
-	// Get all tags for all zmanim with tag type key and sort order
+	// Get all tags for all zmanim with tag type key, sort order, and negation status
 	GetAllZmanimTags(ctx context.Context) ([]GetAllZmanimTagsRow, error)
 	GetAstronomicalPrimitiveByName(ctx context.Context, variableName string) (GetAstronomicalPrimitiveByNameRow, error)
 	GetAstronomicalPrimitivesByCategory(ctx context.Context, key string) ([]GetAstronomicalPrimitivesByCategoryRow, error)
@@ -348,6 +360,9 @@ type Querier interface {
 	// Coverage Helpers
 	// ============================================================================
 	GetCitiesForCoverage(ctx context.Context, arg GetCitiesForCoverageParams) ([]GetCitiesForCoverageRow, error)
+	// Fetches city boundaries for multiple city IDs for map display
+	// Uses simplified boundaries to reduce payload size
+	GetCityBoundariesByIDs(ctx context.Context, dollar_1 []int32) ([]GetCityBoundariesByIDsRow, error)
 	GetCityBoundaryByID(ctx context.Context, id int32) (GetCityBoundaryByIDRow, error)
 	GetCityByGeonameID(ctx context.Context, geonameid *int32) (GetCityByGeonameIDRow, error)
 	GetCityByID(ctx context.Context, id int32) (GetCityByIDRow, error)
@@ -356,6 +371,7 @@ type Querier interface {
 	// Queries for GetZmanimForCity handler
 	// ============================================================================
 	// Get city details with country and region for zmanim calculation
+	// Elevation defaults to 0 if NULL (sea level) - required for accurate zmanim
 	GetCityDetailsForZmanim(ctx context.Context, id int32) (GetCityDetailsForZmanimRow, error)
 	// Get statistics on city hierarchy assignments
 	// Note: country derived via city.region_id → region.country_id (region_id is NOT NULL)
@@ -373,6 +389,7 @@ type Querier interface {
 	// Continents
 	// ============================================================================
 	GetContinents(ctx context.Context) ([]GetContinentsRow, error)
+	GetCorrectionRequestByID(ctx context.Context, id int32) (GetCorrectionRequestByIDRow, error)
 	// ============================================================================
 	// Countries
 	// ============================================================================
@@ -439,6 +456,9 @@ type Querier interface {
 	GetLatestAlgorithmByPublisher(ctx context.Context, publisherID int32) (int32, error)
 	GetLatestBoundaryImport(ctx context.Context) (GetLatestBoundaryImportRow, error)
 	GetLatestPublisherSnapshot(ctx context.Context, publisherID int32) (PublisherSnapshot, error)
+	GetLocationOverrideByCityID(ctx context.Context, arg GetLocationOverrideByCityIDParams) (PublisherLocationOverride, error)
+	GetLocationOverrideByID(ctx context.Context, id int32) (PublisherLocationOverride, error)
+	GetLocationOverrideForCalculation(ctx context.Context, arg GetLocationOverrideForCalculationParams) (GetLocationOverrideForCalculationRow, error)
 	GetMasterZmanByID(ctx context.Context, id int32) (GetMasterZmanByIDRow, error)
 	GetMasterZmanByKey(ctx context.Context, zmanKey string) (GetMasterZmanByKeyRow, error)
 	// Get day types for master zman with is_default filter
@@ -507,6 +527,7 @@ type Querier interface {
 	// SQLc will generate type-safe Go code from these queries
 	GetPublisherByID(ctx context.Context, id int32) (GetPublisherByIDRow, error)
 	GetPublisherCitiesCovered(ctx context.Context, publisherID int32) (int64, error)
+	GetPublisherCorrectionRequests(ctx context.Context, publisherID *int32) ([]GetPublisherCorrectionRequestsRow, error)
 	// Coverage SQL Queries (5-Level Hierarchy)
 	// Supports: continent, country, region, district, city
 	// Returns coverage with full hierarchy resolved (city -> district -> region -> country -> continent)
@@ -536,6 +557,7 @@ type Querier interface {
 	GetPublisherIDByClerkUserID(ctx context.Context, clerkUserID *string) (int32, error)
 	// Get publisher info (logo_data is the base64 embedded logo)
 	GetPublisherInfoForZmanim(ctx context.Context, id int32) (GetPublisherInfoForZmanimRow, error)
+	GetPublisherLocationOverrides(ctx context.Context, publisherID int32) ([]GetPublisherLocationOverridesRow, error)
 	GetPublisherNameAndDeletedAt(ctx context.Context, id int32) (GetPublisherNameAndDeletedAtRow, error)
 	GetPublisherNameByID(ctx context.Context, id int32) (string, error)
 	GetPublisherNameForTeam(ctx context.Context, id int32) (string, error)
@@ -723,8 +745,9 @@ type Querier interface {
 	// Pattern: query-decomposition
 	// Complexity: low (single concept with lookup tables)
 	// Used by: publisher_zmanim.go handlers
-	// Fetches all tags for a specific publisher zman
+	// Fetches all tags for a specific publisher zman with source tracking
 	// Combines master zman tags (if linked to master registry) with publisher-specific tags
+	// Includes source_is_negated, is_modified, and tag_source for modification tracking
 	GetZmanTags(ctx context.Context, id int32) ([]GetZmanTagsRow, error)
 	GetZmanVersion(ctx context.Context, arg GetZmanVersionParams) (GetZmanVersionRow, error)
 	// ============================================
@@ -780,7 +803,8 @@ type Querier interface {
 	LogRollback(ctx context.Context, arg LogRollbackParams) error
 	// Returns all geographic levels for a point (country, region, district)
 	LookupAllLevelsByPoint(ctx context.Context, arg LookupAllLevelsByPointParams) (LookupAllLevelsByPointRow, error)
-	// Returns all geographic levels for a point with area information for zoom-based selection
+	// Returns all geographic levels for a point with area information and counts for smart selection
+	// Uses && bounding box operator first (uses GiST index) then ST_Contains for precision
 	LookupAllLevelsByPointWithArea(ctx context.Context, arg LookupAllLevelsByPointWithAreaParams) (LookupAllLevelsByPointWithAreaRow, error)
 	// ============================================================================
 	// Point-in-Polygon Lookups
@@ -817,6 +841,9 @@ type Querier interface {
 	RestoreDeletedZmanForSnapshot(ctx context.Context, arg RestoreDeletedZmanForSnapshotParams) error
 	RestorePublisherZman(ctx context.Context, arg RestorePublisherZmanParams) (RestorePublisherZmanRow, error)
 	RestoreZman(ctx context.Context, arg RestoreZmanParams) (RestoreZmanRow, error)
+	// Reverts all publisher zman tags to match master registry state
+	// Deletes all publisher-specific tags and resets to master defaults
+	RevertPublisherZmanTags(ctx context.Context, publisherZmanID int32) error
 	// Update request status during review
 	ReviewZmanRegistryRequest(ctx context.Context, arg ReviewZmanRegistryRequestParams) (ReviewZmanRegistryRequestRow, error)
 	// Update zman formula during rollback
@@ -827,6 +854,10 @@ type Querier interface {
 	SearchCities(ctx context.Context, arg SearchCitiesParams) ([]SearchCitiesRow, error)
 	// Search cities with fuzzy matching using pg_trgm
 	SearchCitiesFuzzy(ctx context.Context, arg SearchCitiesFuzzyParams) ([]SearchCitiesFuzzyRow, error)
+	// Coverage search with level filtering for search-first UI
+	// Pass levels as comma-separated string (e.g., 'city,region,country')
+	// Empty levels string returns all types
+	SearchCoverageByLevels(ctx context.Context, arg SearchCoverageByLevelsParams) ([]SearchCoverageByLevelsRow, error)
 	// ============================================================================
 	// Unified Coverage Search
 	// ============================================================================
@@ -867,9 +898,11 @@ type Querier interface {
 	UpdateAlgorithmConfiguration(ctx context.Context, arg UpdateAlgorithmConfigurationParams) error
 	UpdateAlgorithmDraft(ctx context.Context, arg UpdateAlgorithmDraftParams) (UpdateAlgorithmDraftRow, error)
 	UpdateCityHierarchy(ctx context.Context, arg UpdateCityHierarchyParams) error
+	UpdateCorrectionRequestStatus(ctx context.Context, arg UpdateCorrectionRequestStatusParams) error
 	UpdateCoverageActive(ctx context.Context, arg UpdateCoverageActiveParams) (UpdateCoverageActiveRow, error)
 	UpdateCoveragePriority(ctx context.Context, arg UpdateCoveragePriorityParams) (UpdateCoveragePriorityRow, error)
 	UpdateInvitationToken(ctx context.Context, arg UpdateInvitationTokenParams) error
+	UpdateLocationOverride(ctx context.Context, arg UpdateLocationOverrideParams) (PublisherLocationOverride, error)
 	UpdatePublisherLogo(ctx context.Context, arg UpdatePublisherLogoParams) (UpdatePublisherLogoRow, error)
 	UpdatePublisherProfile(ctx context.Context, arg UpdatePublisherProfileParams) (UpdatePublisherProfileRow, error)
 	UpdatePublisherProfileByClerkUserID(ctx context.Context, arg UpdatePublisherProfileByClerkUserIDParams) (UpdatePublisherProfileByClerkUserIDRow, error)

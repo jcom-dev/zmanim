@@ -59,7 +59,7 @@ type MasterZman struct {
 
 // ZmanTag represents a tag for categorizing zmanim
 type ZmanTag struct {
-	ID                 string    `json:"id"`
+	ID                 int32     `json:"id"` // Changed from string to int32 to match database
 	TagKey             string    `json:"tag_key"` // Unique key like "is_candle_lighting", "is_havdalah"
 	Name               string    `json:"name"`
 	DisplayNameHebrew  string    `json:"display_name_hebrew"`
@@ -69,6 +69,8 @@ type ZmanTag struct {
 	Color              *string   `json:"color,omitempty"`
 	SortOrder          int       `json:"sort_order"`
 	IsNegated          bool      `json:"is_negated"` // When true, zman should NOT appear on days matching this tag
+	IsModified         bool      `json:"is_modified"` // True if tag differs from master registry (added, removed, or negation changed)
+	SourceIsNegated    *bool     `json:"source_is_negated,omitempty"` // Original negation state from master registry (nil if tag not in master)
 	CreatedAt          time.Time `json:"created_at"`
 }
 
@@ -154,7 +156,7 @@ type CreateZmanRegistryRequestBody struct {
 	Description          string   `json:"description" validate:"required"`
 	HalachicNotes        *string  `json:"halachic_notes"`
 	HalachicSource       *string  `json:"halachic_source"`
-	TagIDs               []string `json:"tag_ids"`
+	TagIDs               []int32 `json:"tag_ids"`
 	RequestedNewTags     []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
@@ -324,8 +326,21 @@ func convertToMasterZman(row any) MasterZman {
 				z.Tags = make([]ZmanTag, 0, len(tagsSlice))
 				for _, tagItem := range tagsSlice {
 					if tagMap, ok := tagItem.(map[string]interface{}); ok {
+						// Extract ID as int32
+						var tagID int32
+						switch v := tagMap["id"].(type) {
+						case float64:
+							tagID = int32(v)
+						case int:
+							tagID = int32(v)
+						case int32:
+							tagID = v
+						case int64:
+							tagID = int32(v)
+						}
+
 						tag := ZmanTag{
-							ID:                 fmt.Sprintf("%v", tagMap["id"]),
+							ID:                 tagID,
 							TagKey:             fmt.Sprintf("%v", tagMap["tag_key"]),
 							Name:               fmt.Sprintf("%v", tagMap["name"]),
 							DisplayNameHebrew:  fmt.Sprintf("%v", tagMap["display_name_hebrew"]),
@@ -627,7 +642,7 @@ func (h *Handlers) GetMasterZman(w http.ResponseWriter, r *http.Request) {
 				sortOrder = int(*t.SortOrder)
 			}
 			z.Tags = append(z.Tags, ZmanTag{
-				ID:                 fmt.Sprintf("%d", t.ID),
+				ID:                 t.ID,
 				TagKey:             t.Name,
 				Name:               t.Name,
 				DisplayNameHebrew:  t.DisplayNameHebrew,
@@ -781,7 +796,7 @@ func (h *Handlers) GetAllTags(w http.ResponseWriter, r *http.Request) {
 				sortOrder = int(*t.SortOrder)
 			}
 			tags = append(tags, ZmanTag{
-				ID:                 fmt.Sprintf("%d", t.ID),
+				ID:                 t.ID,
 				TagKey:             t.Name,
 				Name:               t.Name,
 				DisplayNameHebrew:  t.DisplayNameHebrew,
@@ -800,7 +815,7 @@ func (h *Handlers) GetAllTags(w http.ResponseWriter, r *http.Request) {
 				sortOrder = int(*t.SortOrder)
 			}
 			tags = append(tags, ZmanTag{
-				ID:                 fmt.Sprintf("%d", t.ID),
+				ID:                 t.ID,
 				TagKey:             t.TagKey,
 				Name:               t.Name,
 				DisplayNameHebrew:  t.DisplayNameHebrew,
@@ -949,7 +964,7 @@ func (h *Handlers) GetZmanApplicableDayTypes(w http.ResponseWriter, r *http.Requ
 			sortOrder = int(*row.SortOrder)
 		}
 		dayTypes = append(dayTypes, DayType{
-			ID:                 int32ToString(row.ID),
+			ID:                 fmt.Sprintf("%d", row.ID),
 			Name:               row.Key,
 			DisplayNameHebrew:  row.DisplayNameHebrew,
 			DisplayNameEnglish: row.DisplayNameEnglish,
@@ -1007,7 +1022,7 @@ func (h *Handlers) GetZmanVersionHistory(w http.ResponseWriter, r *http.Request)
 			formulaDSL = *row.FormulaDsl
 		}
 		versions = append(versions, ZmanVersion{
-			ID:              int32ToString(row.ID),
+			ID:              fmt.Sprintf("%d", row.ID),
 			PublisherZmanID: int32ToString(row.PublisherZmanID),
 			VersionNumber:   int(row.VersionNumber),
 			FormulaDSL:      formulaDSL,
@@ -1071,7 +1086,7 @@ func (h *Handlers) GetZmanVersionDetail(w http.ResponseWriter, r *http.Request) 
 		formulaDSL = *row.FormulaDsl
 	}
 	v := ZmanVersion{
-		ID:              int32ToString(row.ID),
+		ID:              fmt.Sprintf("%d", row.ID),
 		PublisherZmanID: int32ToString(row.PublisherZmanID),
 		VersionNumber:   int(row.VersionNumber),
 		FormulaDSL:      formulaDSL,
@@ -1163,7 +1178,7 @@ func (h *Handlers) RollbackZmanVersion(w http.ResponseWriter, r *http.Request) {
 
 	// Convert SQLc types to handler types
 	var result PublisherZman
-	result.ID = int32ToString(row.ID)
+	result.ID = fmt.Sprintf("%d", row.ID)
 	result.PublisherID = int32ToString(row.PublisherID)
 	result.ZmanKey = row.ZmanKey
 	result.HebrewName = row.HebrewName
@@ -1285,7 +1300,7 @@ func (h *Handlers) GetDeletedZmanim(w http.ResponseWriter, r *http.Request) {
 	var deleted []DeletedZman
 	for _, row := range rows {
 		var d DeletedZman
-		d.ID = int32ToString(row.ID)
+		d.ID = fmt.Sprintf("%d", row.ID)
 		d.PublisherID = int32ToString(row.PublisherID)
 		d.ZmanKey = row.ZmanKey
 		d.HebrewName = row.HebrewName
@@ -1352,7 +1367,7 @@ func (h *Handlers) RestorePublisherZman(w http.ResponseWriter, r *http.Request) 
 
 	// Convert SQLc types to handler types
 	var result PublisherZman
-	result.ID = int32ToString(row.ID)
+	result.ID = fmt.Sprintf("%d", row.ID)
 	result.PublisherID = int32ToString(row.PublisherID)
 	result.ZmanKey = row.ZmanKey
 	result.HebrewName = row.HebrewName
@@ -1497,7 +1512,7 @@ func (h *Handlers) CreatePublisherZmanFromRegistry(w http.ResponseWriter, r *htt
 	}
 
 	// Convert SQLc types to handler types
-	result.ID = int32ToString(row.ID)
+	result.ID = fmt.Sprintf("%d", row.ID)
 	result.PublisherID = int32ToString(row.PublisherID)
 	result.ZmanKey = row.ZmanKey
 	result.HebrewName = row.HebrewName
@@ -1660,7 +1675,7 @@ func (h *Handlers) CreateZmanRegistryRequest(w http.ResponseWriter, r *http.Requ
 
 	// Convert SQLc types to handler types
 	var result ZmanRegistryRequest
-	result.ID = int32ToString(row.ID)
+	result.ID = fmt.Sprintf("%d", row.ID)
 	result.PublisherID = int32ToString(row.PublisherID)
 	result.RequestedKey = row.RequestedKey
 	result.RequestedHebrewName = row.RequestedHebrewName
@@ -1677,10 +1692,9 @@ func (h *Handlers) CreateZmanRegistryRequest(w http.ResponseWriter, r *http.Requ
 	if len(req.TagIDs) > 0 || len(req.RequestedNewTags) > 0 {
 		// Insert existing tag references
 		for _, tagID := range req.TagIDs {
-			tagIDInt, _ := stringToInt32(tagID)
 			err := h.db.Queries.InsertZmanRequestExistingTag(ctx, db.InsertZmanRequestExistingTagParams{
 				RequestID: row.ID,
-				TagID:     &tagIDInt,
+				TagID:     &tagID,
 			})
 			if err != nil {
 				slog.Warn("failed to insert tag reference", "error", err, "tag_id", tagID)
@@ -1757,7 +1771,7 @@ func (h *Handlers) AdminGetZmanRegistryRequests(w http.ResponseWriter, r *http.R
 	var requests []ZmanRegistryRequest
 	for _, row := range rows {
 		var req ZmanRegistryRequest
-		req.ID = int32ToString(row.ID)
+		req.ID = fmt.Sprintf("%d", row.ID)
 		req.PublisherID = int32ToString(row.PublisherID)
 		req.RequestedKey = row.RequestedKey
 		req.RequestedHebrewName = row.RequestedHebrewName
@@ -2549,13 +2563,13 @@ type AdminMasterZman struct {
 	CreatedAt            time.Time `json:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at"`
 	Tags                 []ZmanTag `json:"tags,omitempty"`
-	TagIDs               []string  `json:"tag_ids,omitempty"`
+	TagIDs               []int32  `json:"tag_ids,omitempty"`
 }
 
 // TagAssignment represents a tag with its negation state
 type TagAssignment struct {
-	TagID     string `json:"tag_id"`
-	IsNegated bool   `json:"is_negated"`
+	TagID     int32 `json:"tag_id"` // Changed from string to int32 to match database type
+	IsNegated bool  `json:"is_negated"`
 }
 
 // AdminCreateMasterZmanRequest represents a request to create a master zman
@@ -2649,7 +2663,7 @@ func (h *Handlers) AdminGetMasterZmanim(w http.ResponseWriter, r *http.Request) 
 	zmanIDs := make([]int32, 0, len(rows))
 	for _, row := range rows {
 		var z AdminMasterZman
-		z.ID = int32ToString(row.ID)
+		z.ID = fmt.Sprintf("%d", row.ID)
 		z.ZmanKey = row.ZmanKey
 		z.CanonicalHebrewName = row.CanonicalHebrewName
 		z.CanonicalEnglishName = row.CanonicalEnglishName
@@ -2692,7 +2706,7 @@ func (h *Handlers) AdminGetMasterZmanim(w http.ResponseWriter, r *http.Request) 
 			for _, tagRow := range tagRows {
 				zmanID := int32ToString(tagRow.MasterZmanID)
 				var tag ZmanTag
-				tag.ID = int32ToString(tagRow.ID)
+				tag.ID = tagRow.ID
 				tag.TagKey = tagRow.TagKey
 				tag.DisplayNameHebrew = tagRow.DisplayNameHebrew
 				tag.DisplayNameEnglish = tagRow.DisplayNameEnglish
@@ -2713,7 +2727,7 @@ func (h *Handlers) AdminGetMasterZmanim(w http.ResponseWriter, r *http.Request) 
 					zmanim[idx].Tags = append(zmanim[idx].Tags, tag)
 					// Also populate tag IDs for backward compatibility
 					if zmanim[idx].TagIDs == nil {
-						zmanim[idx].TagIDs = []string{}
+						zmanim[idx].TagIDs = []int32{}
 					}
 					zmanim[idx].TagIDs = append(zmanim[idx].TagIDs, tag.ID)
 				}
@@ -2764,7 +2778,7 @@ func (h *Handlers) AdminGetMasterZmanByID(w http.ResponseWriter, r *http.Request
 	}
 
 	var z AdminMasterZmanDetail
-	z.ID = int32ToString(row.ID)
+	z.ID = fmt.Sprintf("%d", row.ID)
 	z.ZmanKey = row.ZmanKey
 	z.CanonicalHebrewName = row.CanonicalHebrewName
 	z.CanonicalEnglishName = row.CanonicalEnglishName
@@ -2790,7 +2804,7 @@ func (h *Handlers) AdminGetMasterZmanByID(w http.ResponseWriter, r *http.Request
 	if err == nil {
 		for _, tagRow := range tagRows {
 			var tag ZmanTag
-			tag.ID = int32ToString(tagRow.ID)
+			tag.ID = tagRow.ID
 			tag.Name = tagRow.Name
 			tag.DisplayNameHebrew = tagRow.DisplayNameHebrew
 			tag.DisplayNameEnglish = tagRow.DisplayNameEnglish
@@ -2905,7 +2919,7 @@ func (h *Handlers) AdminCreateMasterZman(w http.ResponseWriter, r *http.Request)
 
 	// Convert SQLc types to handler types
 	var result AdminMasterZman
-	result.ID = int32ToString(row.ID)
+	result.ID = fmt.Sprintf("%d", row.ID)
 	result.ZmanKey = row.ZmanKey
 	result.CanonicalHebrewName = row.CanonicalHebrewName
 	result.CanonicalEnglishName = row.CanonicalEnglishName
@@ -2927,10 +2941,10 @@ func (h *Handlers) AdminCreateMasterZman(w http.ResponseWriter, r *http.Request)
 	if len(req.Tags) > 0 {
 		zmanUUID := row.ID
 		for _, tag := range req.Tags {
-			tagIDInt, _ := stringToInt32(tag.TagID)
+			// TagID is now int32, no conversion needed
 			err := h.db.Queries.InsertMasterZmanTag(ctx, db.InsertMasterZmanTagParams{
 				MasterZmanID: zmanUUID,
-				TagID:        tagIDInt,
+				TagID:        tag.TagID,
 				IsNegated:    tag.IsNegated,
 			})
 			if err != nil {
@@ -2938,7 +2952,7 @@ func (h *Handlers) AdminCreateMasterZman(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		// Build TagIDs for response
-		tagIDs := make([]string, len(req.Tags))
+		tagIDs := make([]int32, len(req.Tags))
 		for i, tag := range req.Tags {
 			tagIDs[i] = tag.TagID
 		}
@@ -3009,7 +3023,7 @@ func (h *Handlers) AdminUpdateMasterZman(w http.ResponseWriter, r *http.Request)
 
 	// Convert SQLc types to handler types
 	var result AdminMasterZman
-	result.ID = int32ToString(row.ID)
+	result.ID = fmt.Sprintf("%d", row.ID)
 	result.ZmanKey = row.ZmanKey
 	result.CanonicalHebrewName = row.CanonicalHebrewName
 	result.CanonicalEnglishName = row.CanonicalEnglishName
@@ -3037,10 +3051,10 @@ func (h *Handlers) AdminUpdateMasterZman(w http.ResponseWriter, r *http.Request)
 
 		// Insert new tags with negation
 		for _, tag := range req.Tags {
-			tagIDInt, _ := stringToInt32(tag.TagID)
+			// TagID is now int32, no conversion needed
 			err := h.db.Queries.InsertMasterZmanTag(ctx, db.InsertMasterZmanTagParams{
 				MasterZmanID: zmanIDInt,
-				TagID:        tagIDInt,
+				TagID:        tag.TagID,
 				IsNegated:    tag.IsNegated,
 			})
 			if err != nil {
@@ -3048,7 +3062,7 @@ func (h *Handlers) AdminUpdateMasterZman(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		// Build TagIDs for response
-		tagIDs := make([]string, len(req.Tags))
+		tagIDs := make([]int32, len(req.Tags))
 		for i, tag := range req.Tags {
 			tagIDs[i] = tag.TagID
 		}
@@ -3154,7 +3168,7 @@ func (h *Handlers) AdminToggleZmanVisibility(w http.ResponseWriter, r *http.Requ
 
 	// Convert SQLc types to handler types
 	var result AdminMasterZman
-	result.ID = int32ToString(row.ID)
+	result.ID = fmt.Sprintf("%d", row.ID)
 	result.ZmanKey = row.ZmanKey
 	result.CanonicalHebrewName = row.CanonicalHebrewName
 	result.CanonicalEnglishName = row.CanonicalEnglishName
@@ -3214,7 +3228,7 @@ func (h *Handlers) AdminGetTags(w http.ResponseWriter, r *http.Request) {
 	var tags []ZmanTag
 	for _, row := range rows {
 		var tag ZmanTag
-		tag.ID = int32ToString(row.ID)
+		tag.ID = row.ID
 		tag.Name = row.Name
 		tag.DisplayNameHebrew = row.DisplayNameHebrew
 		tag.DisplayNameEnglish = row.DisplayNameEnglish
@@ -3256,7 +3270,7 @@ func (h *Handlers) AdminGetDayTypes(w http.ResponseWriter, r *http.Request) {
 	var dayTypes []DayType
 	for _, row := range rows {
 		var dt DayType
-		dt.ID = int32ToString(row.ID)
+		dt.ID = fmt.Sprintf("%d", row.ID)
 		dt.Name = row.Name
 		dt.DisplayNameHebrew = row.DisplayNameHebrew
 		dt.DisplayNameEnglish = row.DisplayNameEnglish

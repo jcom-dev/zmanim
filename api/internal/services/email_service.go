@@ -45,6 +45,8 @@ const (
 	TemplatePasswordResetRequest     EmailTemplate = "password-reset-request"
 	TemplateZmanRequestApproved      EmailTemplate = "zman-request-approved"
 	TemplateZmanRequestRejected      EmailTemplate = "zman-request-rejected"
+	TemplateCorrectionApproved       EmailTemplate = "correction-approved"
+	TemplateCorrectionRejected       EmailTemplate = "correction-rejected"
 )
 
 // SendEmailRequest represents the Resend API request
@@ -293,6 +295,34 @@ func (s *EmailService) SendZmanRequestRejected(to, publisherName, zmanHebrewName
 
 	html := s.renderTemplate(TemplateZmanRequestRejected, data)
 	return s.send(to, subject, html, []EmailTag{{Name: "template", Value: string(TemplateZmanRequestRejected)}})
+}
+
+// SendCorrectionApproved sends an approval notification for a city correction request
+func (s *EmailService) SendCorrectionApproved(to, cityName, reviewNotes string) error {
+	subject := fmt.Sprintf("Your correction request for %s was approved", cityName)
+
+	data := map[string]string{
+		"city_name":    cityName,
+		"review_notes": reviewNotes,
+		"web_url":      s.webURL,
+	}
+
+	html := s.renderTemplate(TemplateCorrectionApproved, data)
+	return s.send(to, subject, html, []EmailTag{{Name: "template", Value: string(TemplateCorrectionApproved)}})
+}
+
+// SendCorrectionRejected sends a rejection notification for a city correction request
+func (s *EmailService) SendCorrectionRejected(to, cityName, reviewNotes string) error {
+	subject := fmt.Sprintf("Your correction request for %s was not approved", cityName)
+
+	data := map[string]string{
+		"city_name":    cityName,
+		"review_notes": reviewNotes,
+		"web_url":      s.webURL,
+	}
+
+	html := s.renderTemplate(TemplateCorrectionRejected, data)
+	return s.send(to, subject, html, []EmailTag{{Name: "template", Value: string(TemplateCorrectionRejected)}})
 }
 
 // send executes the email send via Resend API
@@ -814,6 +844,69 @@ func (s *EmailService) renderTemplate(templateType EmailTemplate, data map[strin
         </div>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
         <p style="color: #718096; font-size: 12px;">Thank you for your understanding.</p>
+    </div>
+</body>
+</html>`,
+
+		TemplateCorrectionApproved: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correction Request Approved</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Zmanim Lab</h1>
+    </div>
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+        <h2 style="color: #059669; margin-top: 0;">Your Correction Request Was Approved!</h2>
+        <p>Great news! Your correction request for <strong>{{.city_name}}</strong> has been approved and the global city data has been updated.</p>
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; color: #166534; font-weight: 600;">Impact</p>
+            <p style="margin: 10px 0 0 0; color: #166534;">This correction now benefits all users who use this city for their zmanim calculations. Thank you for helping improve the accuracy of our data!</p>
+        </div>
+        {{if .review_notes}}
+        <div style="background: #f7fafc; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 5px 0; color: #4a5568; font-weight: 600;">Reviewer Notes:</p>
+            <p style="margin: 0; color: #4a5568;">{{.review_notes}}</p>
+        </div>
+        {{end}}
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{.web_url}}/publisher/correction-requests" style="background: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">View Your Requests</a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        <p style="color: #718096; font-size: 12px;">Thank you for contributing to the Zmanim Lab community!</p>
+    </div>
+</body>
+</html>`,
+
+		TemplateCorrectionRejected: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correction Request Update</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Zmanim Lab</h1>
+    </div>
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+        <h2 style="color: #1e3a5f; margin-top: 0;">Correction Request Update</h2>
+        <p>Thank you for your correction request for <strong>{{.city_name}}</strong>. After review, we were unable to approve it at this time.</p>
+        <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 5px 0; color: #991b1b; font-weight: 600;">Reason:</p>
+            <p style="margin: 0; color: #7f1d1d;">{{.review_notes}}</p>
+        </div>
+        <p>If you believe this decision was made in error or have additional evidence to support your correction, please feel free to submit a new request with more details.</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{.web_url}}/publisher/correction-requests" style="background: #1e3a5f; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">View Your Requests</a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        <p style="color: #718096; font-size: 12px;">Thank you for your understanding and for helping improve Zmanim Lab.</p>
     </div>
 </body>
 </html>`,

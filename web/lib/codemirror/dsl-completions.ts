@@ -29,6 +29,13 @@ export const FUNCTION_COMPLETIONS: Completion[] = [
     snippet: 'solar(${1:16.1}, ${2:before_sunrise})',
   },
   {
+    label: 'seasonal_solar',
+    type: 'function',
+    info: 'Seasonal solar angle (ROY method) - scales by day length',
+    detail: 'seasonal_solar(degrees, direction)',
+    snippet: 'seasonal_solar(${1:16.04}, ${2:before_sunrise})',
+  },
+  {
     label: 'proportional_hours',
     type: 'function',
     info: 'Calculate using proportional hours',

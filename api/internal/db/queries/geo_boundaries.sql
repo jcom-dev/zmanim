@@ -301,7 +301,8 @@ WHERE ST_Contains(cb.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
 LIMIT 1;
 
 -- name: LookupAllLevelsByPointWithArea :one
--- Returns all geographic levels for a point with area information for zoom-based selection
+-- Returns all geographic levels for a point with area information and counts for smart selection
+-- Uses && bounding box operator first (uses GiST index) then ST_Contains for precision
 SELECT
     -- Country
     c.id as country_id,
@@ -322,15 +323,40 @@ SELECT
     d.id as district_id,
     d.code as district_code,
     d.name as district_name,
-    db.area_km2 as district_area_km2
+    db.area_km2 as district_area_km2,
+    -- Counts for smart selection (subqueries)
+    (SELECT COUNT(*) FROM geo_regions r2 WHERE r2.country_id = c.id)::int as region_count,
+    (SELECT COUNT(*) FROM geo_districts d2
+     JOIN geo_regions r3 ON d2.region_id = r3.id
+     WHERE r3.country_id = c.id)::int as district_count,
+    -- If we have a region, count districts in that region
+    COALESCE((SELECT COUNT(*) FROM geo_districts d3 WHERE d3.region_id = r.id), 0)::int as districts_in_region
 FROM geo_countries c
 JOIN geo_country_boundaries cb ON c.id = cb.country_id
-LEFT JOIN geo_region_boundaries rb ON ST_Contains(rb.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+LEFT JOIN geo_region_boundaries rb ON
+    rb.boundary && ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography AND
+    ST_Contains(rb.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
 LEFT JOIN geo_regions r ON rb.region_id = r.id AND r.country_id = c.id
-LEFT JOIN geo_district_boundaries db ON ST_Contains(db.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+LEFT JOIN geo_district_boundaries db ON
+    db.boundary && ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography AND
+    ST_Contains(db.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
 LEFT JOIN geo_districts d ON db.district_id = d.id AND d.region_id = r.id
-WHERE ST_Contains(cb.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+WHERE cb.boundary && ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+  AND ST_Contains(cb.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
 LIMIT 1;
+
+-- name: CountVisibleEntities :one
+-- Count all entity types in a single query for the viewport bounding box
+-- Uses a CASE to only count districts if zoom is high enough (passed as $5 >= 6)
+SELECT
+    (SELECT COUNT(*) FROM geo_country_boundaries cb
+     WHERE cb.boundary && ST_MakeEnvelope($1, $2, $3, $4, 4326)::geography)::int as countries,
+    (SELECT COUNT(*) FROM geo_region_boundaries rb
+     WHERE rb.boundary && ST_MakeEnvelope($1, $2, $3, $4, 4326)::geography)::int as regions,
+    CASE WHEN $5::float >= 6 THEN
+        (SELECT COUNT(*) FROM geo_district_boundaries db
+         WHERE db.boundary && ST_MakeEnvelope($1, $2, $3, $4, 4326)::geography)::int
+    ELSE 0 END as districts;
 
 -- name: LookupNearestCities :many
 SELECT
@@ -339,7 +365,7 @@ SELECT
     co.code as country_code,
     r.name as region_name,
     d.name as district_name,
-    ST_Distance(c.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 as distance_km
+    (ST_Distance(c.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000)::float8 as distance_km
 FROM geo_cities c
 JOIN geo_regions r ON c.region_id = r.id
 JOIN geo_countries co ON r.country_id = co.id
@@ -454,6 +480,28 @@ JOIN geo_countries co ON c.country_id = co.id
 LEFT JOIN geo_regions r ON c.region_id = r.id
 LEFT JOIN geo_districts d ON c.district_id = d.id
 WHERE c.id = $1;
+
+-- name: GetCityBoundariesByIDs :many
+-- Fetches city boundaries for multiple city IDs for map display
+-- Uses simplified boundaries to reduce payload size
+SELECT
+    c.id,
+    c.name,
+    co.code as country_code,
+    r.name as region_name,
+    cb.area_km2,
+    ST_AsGeoJSON(
+        COALESCE(cb.boundary_simplified, cb.boundary)::geometry,
+        4  -- 4 decimal places for reasonable precision
+    )::text as boundary_geojson,
+    ST_X(c.location::geometry) as centroid_lng,
+    ST_Y(c.location::geometry) as centroid_lat
+FROM geo_city_boundaries cb
+JOIN geo_cities c ON cb.city_id = c.id
+LEFT JOIN geo_countries co ON c.country_id = co.id
+LEFT JOIN geo_regions r ON c.region_id = r.id
+WHERE c.id = ANY($1::int[])
+ORDER BY c.name;
 
 -- name: CountCityBoundaries :one
 SELECT COUNT(*) FROM geo_city_boundaries;

@@ -27,6 +27,7 @@ export default function PublisherLayout({ children }: PublisherLayoutProps) {
     { href: '/publisher/coverage', label: 'Coverage' },
     { href: '/publisher/algorithm', label: 'Zmanim' },
     { href: '/publisher/primitives', label: 'Primitives' },
+    { href: '/publisher/correction-requests', label: 'Corrections' },
     { href: '/publisher/team', label: 'Team' },
     { href: '/publisher/analytics', label: 'Analytics' },
     { href: '/publisher/activity', label: 'Activity' },

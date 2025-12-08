@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id="story-6-3-unified-tag-manager" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>3</storyId>
+    <title>Unified Tag Manager with Registry Tracking &amp; Negation</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/6-3-unified-tag-manager.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>a unified tag editor that supports negation, tracks changes from the registry, shows modification indicators, and filters zmanim based on negated tags</iWant>
+    <soThat>I can exclude events (like "NOT on Yom Tov"), see when I've customized tags, revert changes, and users only see applicable times for each date</soThat>
+    <tasks>
+      <task id="1" ac="6.3.1">Backend Source Tag Tracking
+        - Update api/internal/db/queries/zmanim_tags.sql with source tracking fields
+        - Add source_is_negated, is_modified, tag_source to query
+        - Update Go struct with new fields
+        - Run sqlc generate
+        - Test query with sample data
+      </task>
+      <task id="2" ac="6.3.2">Tag Negation Logic
+        - Create web/lib/utils/tagNegation.ts
+        - Define NEGATABLE_TAG_TYPES constant
+        - Implement canNegateTag function
+        - Implement getTagDisplayState function
+        - Add unit tests
+      </task>
+      <task id="3" ac="6.3.3">TagManager Component
+        - Create web/components/shared/tags/TagManager.tsx
+        - Accept props and set up state
+        - Render tabs grouped by tag type
+        - Use TagSelectorWithNegation for negatable tags
+        - Use checkboxes for non-negatable tags
+        - Show modification indicators (amber dots)
+        - Add "Revert All" button
+        - Show preview chips
+        - Add accessibility (ARIA labels, keyboard nav)
+      </task>
+      <task id="4" ac="6.3.4">ZmanCard Modification Banner
+        - Add hasTagModification detection function
+        - Calculate tag diff (added, removed, negation changed)
+        - Render amber banner with diff
+        - Add "Revert Tags" button
+        - Handle revert action
+      </task>
+      <task id="5" ac="6.3.5">Tag Revert API
+        - Create RevertPublisherZmanTags SQLc query
+        - Create handler function
+        - Add route to router
+        - Test endpoint
+      </task>
+      <task id="6" ac="6.3.6">Update ZmanTagEditor
+        - Import TagManager component
+        - Replace checkbox UI with TagManager
+        - Pass all required props
+        - Handle save callback
+        - Handle revert callback
+        - Test functionality
+      </task>
+      <task id="7" ac="6.3.7">Tag Filtering in Calculation API (CRITICAL)
+        - Add Hebrew date service method GetHebrewDate(date)
+        - Update zmanim calculation handler
+        - Call GetTagsForHebrewDate after fetching zmanim
+        - Filter zmanim based on negated tags
+        - Add unit tests for filtering logic
+        - Add integration test: Shabbos exclusion
+        - Add integration test: Yom Tov inclusion
+        - Performance test: &lt; 200ms
+      </task>
+      <task id="8" ac="6.3.8">Tag Correction Request Database
+        - Create migration 00000000000029_tag_correction_requests.sql
+        - Add SQLc queries for CRUD operations
+        - Create publisher endpoints
+        - Create admin endpoints
+        - Test endpoints with Postman/curl
+        - Note: UI will be added later
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-6.3.1" priority="critical">
+      <title>Backend Source Tag Tracking</title>
+      <description>Modify GetZmanTags SQLc query to include source tracking (source_is_negated, is_modified, tag_source fields). Update Go struct ZmanTag with new fields. Test query returns correct source comparison.</description>
+      <verification>
+        - Query returns source_is_negated field from master registry
+        - Query returns is_modified field (true if differs from source)
+        - Query returns tag_source field ('master' or 'publisher')
+        - Go struct includes all new fields
+        - Unit test validates source comparison logic
+      </verification>
+    </criterion>
+    <criterion id="AC-6.3.2" priority="high">
+      <title>Tag Negation Eligibility Logic</title>
+      <description>Create web/lib/utils/tagNegation.ts with NEGATABLE_TAG_TYPES constant (event, timing, jewish_day), canNegateTag(tag) function, and getTagDisplayState(tag) function. Add unit tests.</description>
+      <verification>
+        - NEGATABLE_TAG_TYPES constant defined
+        - canNegateTag returns true for event/timing/jewish_day tags
+        - canNegateTag returns false for other tag types
+        - getTagDisplayState returns correct state (unselected, positive, negated)
+        - Unit tests cover all tag types
+      </verification>
+    </criterion>
+    <criterion id="AC-6.3.3" priority="high">
+      <title>Reusable TagManager Component</title>
+      <description>Create web/components/shared/tags/TagManager.tsx with props (currentTags, allAvailableTags, onSave, onRevert, showModificationIndicators). Use TagSelectorWithNegation for negatable tags, checkboxes for others. Group by type with tabs. Show amber modification indicators and "Revert All to Registry" button.</description>
+      <verification>
+        - TagManager component accepts all required props
+        - Uses TagSelectorWithNegation for negatable tag types
+        - Uses simple checkboxes for non-negatable tag types
+        - Groups tags by type with tabs
+        - Shows amber modification indicators
+        - Shows "Revert All" button when source exists
+        - Shows preview chips at top
+        - Accessible (ARIA labels, keyboard navigation)
+      </verification>
+    </criterion>
+    <criterion id="AC-6.3.4" priority="medium">
+      <title>ZmanCard Modification Banner</title>
+      <description>Add tag modification detection to ZmanCard. Show amber banner when tags differ from registry with diff ("Added: [tags]", "Removed: [tags]", "Negation changed: [tags]"). Add "Revert Tags" button to banner.</description>
+      <verification>
+        - hasTagModification function detects tag changes
+        - Calculates diff (added, removed, negation changed)
+        - Renders amber banner with diff summary
+        - Shows "Revert Tags" button in banner
+        - Button calls revert API and updates UI
+      </verification>
+    </criterion>
+    <criterion id="AC-6.3.5" priority="high">
+      <title>Tag Revert API Endpoint</title>
+      <description>Create SQLc query RevertPublisherZmanTags. Create handler POST /api/v1/publisher/zmanim/{zmanKey}/tags/revert. Handler resets all publisher tags to master registry state. Return updated tag list.</description>
+      <verification>
+        - RevertPublisherZmanTags query created
+        - Handler follows 6-step pattern
+        - Resets publisher tags to master state
+        - Returns updated tag list
+        - Follows PublisherResolver pattern
+      </verification>
+    </criterion>
+    <criterion id="AC-6.3.6" priority="medium">
+      <title>Update ZmanTagEditor</title>
+      <description>Replace checkbox UI in ZmanTagEditor with TagManager component. Pass all required props. Handle save and revert callbacks. Test in algorithm page context.</description>
+      <verification>
+        - ZmanTagEditor uses TagManager component
+        - All props passed correctly
+        - Save callback updates tags via API
+        - Revert callback resets tags to registry
+        - Works in algorithm page context
+      </verification>
+    </criterion>
+    <criterion id="AC-6.3.7" priority="critical">
+      <title>Tag Negation Filtering in Calculation API</title>
+      <description>Add Hebrew date lookup in zmanim calculation. Call GetTagsForHebrewDate to get today's tags. Filter zmanim: exclude if negated tag matches today. Add unit and integration tests. Performance: &lt; 200ms response time.</description>
+      <verification>
+        - GetHebrewDate method added to calendar service
+        - Zmanim handler calls GetTagsForHebrewDate
+        - Filters zmanim when negated tag matches today
+        - Unit test validates filtering logic
+        - Integration test: Shabbos exclusion works
+        - Integration test: Yom Tov inclusion works
+        - Performance test: &lt; 200ms p95
+      </verification>
+    </criterion>
+    <criterion id="AC-6.3.8" priority="low">
+      <title>Tag Correction Request Workflow (Database + API Only)</title>
+      <description>Create migration for master_zman_tag_correction_requests table. Add SQLc queries (CreateTagCorrectionRequest, GetPublisherTagRequests, GetAdminTagRequests). Create publisher and admin handlers. UI will be added in a future story.</description>
+      <verification>
+        - Migration creates master_zman_tag_correction_requests table
+        - SQLc queries created for all CRUD operations
+        - Publisher endpoints: POST and GET /api/v1/publisher/tag-correction-requests
+        - Admin endpoints: GET, approve, reject /api/v1/admin/tag-correction-requests
+        - All endpoints tested with curl/Postman
+        - Note: UI deferred to future story
+      </verification>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/coding-standards.md" relevance="critical">
+        Mandatory coding standards for ALL implementation:
+        - Backend: 6-step handler pattern, PublisherResolver, SQLc queries, slog logging
+        - Frontend: useApi hook, design tokens, accessibility (ARIA labels, keyboard nav)
+        - Database: Integer IDs, lookup table pattern, proper indexing
+        - Testing: Parallel mode, shared fixtures, deterministic waits
+        - Security: No secrets in code, environment variables only
+      </doc>
+      <doc path="docs/sprint-artifacts/epic-6-cleanup-and-overrides.md" relevance="high">
+        Epic 6 overview: 60% cleanup, 40% features. Story 6.3 adds tag negation UI and filtering logic to exclude zmanim on specific days (e.g., "NOT on Shabbos").
+      </doc>
+      <doc path="docs/sprint-artifacts/stories/6-3-unified-tag-manager.md" relevance="critical">
+        Complete story specification with all acceptance criteria, tasks, dev notes, and testing requirements.
+      </doc>
+    </docs>
+    <code>
+      <file path="web/components/shared/tags/TagSelectorWithNegation.tsx" type="reference">
+        Existing 3-state tag selector (unselected, positive, negated). Cycles through states on click. Shows green check (include), red X (exclude), or empty (unselected). Already supports negation UI pattern - use as foundation for TagManager.
+      </file>
+      <file path="web/components/shared/tags/TagSelector.tsx" type="reference">
+        Simple checkbox-based tag selector (no negation). Used for non-negatable tags. TagManager should use this for shita/calculation/category tags.
+      </file>
+      <file path="web/components/publisher/ZmanTagEditor.tsx" type="modify">
+        Current implementation uses simple checkboxes. Needs replacement with TagManager component to support negation, modification tracking, and revert functionality.
+      </file>
+      <file path="web/components/publisher/ZmanCard.tsx" type="modify">
+        Already shows formula modification banner with revert. Add similar amber banner for tag modifications with diff summary and revert button.
+      </file>
+      <file path="api/internal/db/queries/zmanim_tags.sql" type="modify">
+        GetZmanTags query needs extension to include source tracking: source_is_negated (from master registry), is_modified (differs from source), tag_source ('master' or 'publisher').
+      </file>
+      <file path="api/internal/db/queries/tag_events.sql" type="reference">
+        Contains GetTagsForHebrewDate query (lines 47-66). This query is CRITICAL for Task 7 - it returns tags matching a specific Hebrew date (month + day range). Used for filtering zmanim based on today's Jewish calendar.
+      </file>
+      <file path="api/internal/handlers/zmanim.go" type="modify">
+        GetZmanimForCity handler (lines 90-405). Add Hebrew date lookup and tag filtering logic after line 295 (after building response.Zmanim). Filter out zmanim where negated tag matches today's Hebrew date tags.
+      </file>
+      <file path="api/internal/handlers/publisher_zmanim.go" type="modify">
+        Add new handler POST /api/v1/publisher/zmanim/{zmanKey}/tags/revert. Follow existing UpdatePublisherZmanTags pattern.
+      </file>
+      <file path="web/lib/hooks/useZmanimList.ts" type="reference">
+        Contains useUpdatePublisherZmanTags hook. Add useRevertPublisherZmanTags hook for new revert endpoint.
+      </file>
+    </code>
+    <dependencies>
+      <dependency type="component">
+        <name>TagSelectorWithNegation</name>
+        <path>web/components/shared/tags/TagSelectorWithNegation.tsx</path>
+        <usage>Use for event/timing/jewish_day tags in TagManager</usage>
+      </dependency>
+      <dependency type="component">
+        <name>TagSelector</name>
+        <path>web/components/shared/tags/TagSelector.tsx</path>
+        <usage>Use for shita/calculation/category tags in TagManager</usage>
+      </dependency>
+      <dependency type="query">
+        <name>GetTagsForHebrewDate</name>
+        <path>api/internal/db/queries/tag_events.sql</path>
+        <usage>CRITICAL for Task 7 - fetches tags matching today's Hebrew date for filtering</usage>
+      </dependency>
+      <dependency type="handler">
+        <name>GetZmanimForCity</name>
+        <path>api/internal/handlers/zmanim.go</path>
+        <usage>Add tag filtering logic here after calculating zmanim</usage>
+      </dependency>
+      <dependency type="service">
+        <name>CalendarService</name>
+        <path>api/internal/calendar/</path>
+        <usage>Need to add GetHebrewDate method for converting Gregorian to Hebrew date</usage>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <ux-design-requirement>
+      <mandate>For ALL frontend/UI work, use the frontend_design skill for distinctive, production-grade interfaces</mandate>
+      <file>.claude/skills/frontend_design.md</file>
+      <guidance>Avoid generic AI aesthetics - choose bold aesthetic direction and execute with precision</guidance>
+    </ux-design-requirement>
+    <critical-requirement>
+      <mandate>MUST follow ALL standards in docs/coding-standards.md</mandate>
+      <file>docs/coding-standards.md</file>
+      <enforcement>PR blocker - violations block merges</enforcement>
+    </critical-requirement>
+    <constraint type="technical">
+      <title>Database Schema</title>
+      <description>Tables master_zman_tags and publisher_zman_tags already have is_negated column. No schema changes needed for negation support. Tag correction requests table will be NEW.</description>
+    </constraint>
+    <constraint type="technical">
+      <title>Negatable Tag Types</title>
+      <description>Only event, timing, and jewish_day tags can be negated. Shita, calculation, and category tags are NOT negatable (use simple checkboxes).</description>
+    </constraint>
+    <constraint type="ux">
+      <title>Modification Indicators</title>
+      <description>Use amber color (not red/green) for modification indicators. Follows existing pattern from formula modification banner in ZmanCard.</description>
+    </constraint>
+    <constraint type="performance">
+      <title>Calculation API Performance</title>
+      <description>Tag filtering MUST NOT increase response time. Target: &lt; 200ms p95. Hebrew date lookup and tag filtering should add &lt; 10ms.</description>
+    </constraint>
+    <constraint type="scope">
+      <title>Tag Correction UI Deferred</title>
+      <description>Task 8 creates database + API only. UI for submitting/reviewing tag correction requests will be added in a future story.</description>
+    </constraint>
+    <constraint type="backend">
+      <title>6-Step Handler Pattern</title>
+      <description>All new handlers MUST follow 6-step pattern: (1) PublisherResolver, (2) URL params, (3) Parse body, (4) Validate, (5) SQLc query, (6) RespondJSON.</description>
+    </constraint>
+    <constraint type="frontend">
+      <title>useApi Hook</title>
+      <description>All API calls MUST use useApi hook. NO raw fetch(). Frontend must use design tokens for colors, NOT hardcoded hex values.</description>
+    </constraint>
+    <constraint type="testing">
+      <title>Test Coverage</title>
+      <description>Unit tests for tag negation logic. Integration tests for Shabbos/Yom Tov filtering. E2E tests for full publisher workflow (negate, save, verify persistence).</description>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <api>
+      <endpoint method="GET" path="/api/v1/publisher/zmanim/{zmanKey}/tags">
+        <description>Get tags for publisher zman with source tracking</description>
+        <response>
+          {
+            "data": [
+              {
+                "id": "1",
+                "tag_key": "shabbos",
+                "name": "Shabbos",
+                "display_name_hebrew": "שבת",
+                "display_name_english": "Shabbos",
+                "tag_type": "event",
+                "is_negated": true,
+                "tag_source": "master",
+                "source_is_negated": false,
+                "is_modified": true,
+                "sort_order": 10
+              }
+            ]
+          }
+        </response>
+      </endpoint>
+      <endpoint method="PUT" path="/api/v1/publisher/zmanim/{zmanKey}/tags">
+        <description>Update tags for publisher zman (existing endpoint)</description>
+        <request>
+          {
+            "tags": [
+              { "tag_id": "1", "is_negated": true },
+              { "tag_id": "2", "is_negated": false }
+            ]
+          }
+        </request>
+      </endpoint>
+      <endpoint method="POST" path="/api/v1/publisher/zmanim/{zmanKey}/tags/revert">
+        <description>Revert all publisher tags to master registry state (NEW)</description>
+        <response>
+          {
+            "data": {
+              "message": "Tags reverted to registry",
+              "tags": [ /* updated tag list */ ]
+            }
+          }
+        </response>
+      </endpoint>
+      <endpoint method="POST" path="/api/v1/publisher/tag-correction-requests">
+        <description>Create tag correction request (NEW - database only)</description>
+        <request>
+          {
+            "master_zman_id": 123,
+            "tag_id": 456,
+            "action_type": "add|remove|change_negation",
+            "current_is_negated": false,
+            "proposed_is_negated": true,
+            "reason": "This zman should not apply on Shabbos",
+            "comment": "Detailed explanation...",
+            "halachic_source": "Source reference",
+            "evidence_urls": ["https://..."]
+          }
+        </request>
+      </endpoint>
+      <endpoint method="GET" path="/api/v1/admin/tag-correction-requests">
+        <description>Get all tag correction requests for admin review (NEW)</description>
+      </endpoint>
+      <endpoint method="POST" path="/api/v1/admin/tag-correction-requests/{id}/approve">
+        <description>Approve tag correction request (NEW)</description>
+      </endpoint>
+      <endpoint method="POST" path="/api/v1/admin/tag-correction-requests/{id}/reject">
+        <description>Reject tag correction request (NEW)</description>
+      </endpoint>
+    </api>
+    <database>
+      <table name="master_zman_tags">
+        <description>Tags for master registry zmanim (source of truth)</description>
+        <columns>
+          master_zman_id: integer (FK to master_zmanim_registry)
+          tag_id: integer (FK to zman_tags)
+          is_negated: boolean (default false)
+          created_at: timestamptz
+        </columns>
+      </table>
+      <table name="publisher_zman_tags">
+        <description>Tags for publisher zmanim (can override master)</description>
+        <columns>
+          publisher_zman_id: integer (FK to publisher_zmanim)
+          tag_id: integer (FK to zman_tags)
+          is_negated: boolean (default false)
+          created_at: timestamptz
+        </columns>
+      </table>
+      <table name="master_zman_tag_correction_requests" new="true">
+        <description>Publisher requests to correct master registry tags (NEW)</description>
+        <columns>
+          id: uuid (primary key)
+          master_zman_id: integer (FK to master_zmanim_registry)
+          tag_id: integer (FK to zman_tags)
+          publisher_id: uuid (FK to publishers, nullable)
+          action_type: text ('add', 'remove', 'change_negation')
+          current_is_negated: boolean (nullable)
+          proposed_is_negated: boolean (nullable)
+          reason: text (NOT NULL)
+          comment: text (NOT NULL)
+          halachic_source: text (nullable)
+          evidence_urls: text[] (nullable)
+          requester_email: text (NOT NULL)
+          requester_name: text (nullable)
+          status: text ('pending', 'approved', 'rejected') default 'pending'
+          reviewed_by: uuid (FK to users, nullable)
+          reviewed_at: timestamptz (nullable)
+          review_notes: text (nullable)
+          created_at: timestamptz (default now())
+          updated_at: timestamptz (default now())
+          UNIQUE(master_zman_id, tag_id, status) WHERE status = 'pending'
+        </columns>
+        <indexes>
+          idx_tag_correction_requests_status
+          idx_tag_correction_requests_master_zman
+          idx_tag_correction_requests_publisher
+        </indexes>
+      </table>
+    </database>
+    <component>
+      <name>TagManager</name>
+      <path>web/components/shared/tags/TagManager.tsx</path>
+      <props>
+        currentTags: ZmanTag[] - Current tags with is_negated and source tracking
+        allAvailableTags: TagSelectorTag[] - All tags available for selection
+        onSave: (tags: TagAssignment[]) =&gt; void - Save callback
+        onRevert: () =&gt; void - Revert to registry callback
+        showModificationIndicators: boolean - Show amber dots for modified tags
+      </props>
+      <usage>
+        &lt;TagManager
+          currentTags={zman.tags}
+          allAvailableTags={allTags}
+          onSave={handleSave}
+          onRevert={handleRevert}
+          showModificationIndicators={true}
+        /&gt;
+      </usage>
+    </component>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard>All E2E tests MUST use test.describe.configure({ mode: 'parallel' })</standard>
+      <standard>Use shared fixtures from tests/utils/fixtures.ts (getSharedPublisher, etc.)</standard>
+      <standard>Use deterministic waits (waitForLoadState, waitForSelector) NOT waitForTimeout</standard>
+      <standard>Backend tests: Follow 6-step handler pattern verification</standard>
+      <standard>Frontend tests: Verify accessibility (ARIA labels, keyboard navigation)</standard>
+      <standard>Integration tests: Verify tag filtering correctly excludes zmanim on Shabbos/Yom Tov</standard>
+      <standard>Performance tests: Zmanim calculation with filtering &lt; 200ms p95</standard>
+    </standards>
+    <locations>
+      <location type="unit" path="web/lib/utils/tagNegation.test.ts">
+        Test canNegateTag, getTagDisplayState for all tag types
+      </location>
+      <location type="unit" path="api/internal/handlers/zmanim_test.go">
+        Test tag filtering logic (Shabbos exclusion, Yom Tov inclusion)
+      </location>
+      <location type="integration" path="tests/e2e/publisher/tag-management.spec.ts">
+        Publisher negates tag, saves, verifies persistence
+        Publisher sees modification indicator, reverts tags
+      </location>
+      <location type="integration" path="tests/e2e/user/zmanim-filtering.spec.ts">
+        User requests zmanim on Shabbos, negated zmanim excluded
+        User requests zmanim on Yom Tov, non-negated zmanim included
+      </location>
+      <location type="performance" path="tests/performance/zmanim-calculation.spec.ts">
+        Zmanim calculation with tag filtering &lt; 200ms p95
+        Hebrew date lookup &lt; 50ms
+      </location>
+    </locations>
+    <ideas>
+      <idea>Tag negation eligibility: Verify only event/timing/jewish_day tags show 3-state selector</idea>
+      <idea>Modification tracking: Verify amber indicator appears when tag differs from registry</idea>
+      <idea>Revert functionality: Verify revert button resets to master state and clears indicator</idea>
+      <idea>Filtering logic: Create test data with Shabbos-negated zman, verify exclusion on Saturday</idea>
+      <idea>Edge case: Zman with multiple tags, one negated matching today - should be excluded</idea>
+      <idea>Edge case: Zman with no event tags - should always be included</idea>
+      <idea>Performance: Benchmark GetTagsForHebrewDate query with 100+ tags</idea>
+      <idea>Accessibility: Verify keyboard navigation works in TagManager (tab, space, enter)</idea>
+      <idea>Visual regression: Capture screenshots of modification banner in different states</idea>
+    </ideas>
+  </tests>
+</story-context>

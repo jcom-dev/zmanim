@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 // Flexible tag interface that works with different tag sources
 export interface TagSelectorTag {
-  id: string;
+  id: number; // Changed from string to number to match backend int32
   tag_key: string;
   tag_type: string;
   display_name_english: string;
@@ -36,8 +36,8 @@ const TAG_GROUPS: TagGroup[] = [
 
 interface TagSelectorProps {
   tags: TagSelectorTag[];
-  selectedTagIds: string[];
-  onToggleTag: (tagId: string) => void;
+  selectedTagIds: number[]; // Changed from string[] to number[]
+  onToggleTag: (tagId: number) => void; // Changed from string to number
   tagTypeLabels?: Record<string, string>;
   isLoading?: boolean;
   disabled?: boolean;

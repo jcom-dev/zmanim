@@ -1,8 +1,11 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -74,5 +77,45 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		next.ServeHTTP(w, r)
+	})
+}
+
+// LogFailedRequestBodies logs request bodies for failed requests (4xx, 5xx)
+func LogFailedRequestBodies(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only log for methods that have bodies
+		if r.Method != "POST" && r.Method != "PUT" && r.Method != "PATCH" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Read and buffer the request body
+		var bodyBytes []byte
+		if r.Body != nil {
+			bodyBytes, _ = io.ReadAll(r.Body)
+			r.Body.Close()
+			// Restore the body so handlers can read it
+			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
+
+		// Wrap response writer to capture status
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
+
+		// Log body if request failed (4xx or 5xx)
+		status := ww.Status()
+		if status >= 400 {
+			bodyStr := string(bodyBytes)
+			if len(bodyStr) > 1000 {
+				bodyStr = bodyStr[:1000] + "... (truncated)"
+			}
+			slog.Error("failed request body",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", status,
+				"body", bodyStr,
+				"content_type", r.Header.Get("Content-Type"),
+			)
+		}
 	})
 }

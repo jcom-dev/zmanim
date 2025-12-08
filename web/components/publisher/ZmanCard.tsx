@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ColorBadge, getTagTypeColor } from '@/components/ui/color-badge';
+import { cn } from '@/lib/utils';
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import {
   PublisherZman,
@@ -22,6 +23,7 @@ import {
   useDeleteZman,
   useZmanVersionHistory,
   useRollbackZmanVersion,
+  useRevertPublisherZmanTags,
   ZmanVersion,
 } from '@/lib/hooks/useZmanimList';
 import {
@@ -42,6 +44,7 @@ import {
   Edit2,
   Code2,
   X,
+  Tags,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
@@ -176,6 +179,46 @@ function hasFormulaModification(zman: PublisherZman): boolean {
   return normalizeFormula(zman.formula_dsl) !== normalizeFormula(zman.source_formula_dsl);
 }
 
+/**
+ * Check if any tags have been modified from source (master registry)
+ */
+function hasTagModifications(zman: PublisherZman): {
+  hasModified: boolean;
+  modifiedTags: Array<{ tag_key: string; display_name_english: string; change: string }>;
+} {
+  const modifiedTags: Array<{ tag_key: string; display_name_english: string; change: string }> = [];
+
+  if (!zman.tags) {
+    return { hasModified: false, modifiedTags: [] };
+  }
+
+  // Check for tags with is_modified flag
+  for (const tag of zman.tags) {
+    if (tag.is_modified) {
+      // Determine what changed
+      let change = 'modified';
+      if (tag.source_is_negated !== undefined && tag.source_is_negated !== null) {
+        const currentState = tag.is_negated ? 'negated' : 'positive';
+        const sourceState = tag.source_is_negated ? 'negated' : 'positive';
+        if (currentState !== sourceState) {
+          change = `Changed from ${sourceState} to ${currentState}`;
+        }
+      }
+
+      modifiedTags.push({
+        tag_key: tag.tag_key,
+        display_name_english: tag.display_name_english,
+        change,
+      });
+    }
+  }
+
+  return {
+    hasModified: modifiedTags.length > 0,
+    modifiedTags,
+  };
+}
+
 interface ZmanCardProps {
   zman: PublisherZman;
   category: 'essential' | 'optional';
@@ -202,6 +245,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
 
   const updateZman = useUpdateZman(zman.zman_key);
   const deleteZman = useDeleteZman();
+  const revertTags = useRevertPublisherZmanTags(zman.zman_key);
 
   // Find zmanim that depend on this one (have this zman_key in their dependencies)
   const dependentZmanim = allZmanim.filter(
@@ -213,9 +257,10 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
   );
   const rollbackVersion = useRollbackZmanVersion(zman.zman_key);
 
-  // Check for name and formula modifications from source
+  // Check for name, formula, and tag modifications from source
   const nameModifications = hasNameModifications(zman);
   const formulaModified = hasFormulaModification(zman);
+  const tagModifications = hasTagModifications(zman);
   const sourceName = getSourceName(zman);
 
   const handleEdit = () => {
@@ -282,6 +327,11 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
         formula_dsl: zman.source_formula_dsl,
       });
     }
+  };
+
+  // Revert tags to master registry
+  const handleRevertTags = async () => {
+    await revertTags.mutateAsync();
   };
 
   const handleDelete = async () => {
@@ -492,16 +542,16 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                 )}
 
                 {/* Source Type Badge - shows how the zman was added */}
-                {zman.source_type && !zman.is_linked && (
+                {zman.source_type && !zman.is_linked && (zman.source_type === 'registry' || zman.source_type === 'master' || zman.source_type === 'copied' || zman.source_type === 'custom') && (
                   <Badge
                     variant="outline"
                     className={`text-xs ${
-                      zman.source_type === 'registry'
+                      zman.source_type === 'registry' || zman.source_type === 'master'
                         ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700'
                         : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700'
                     }`}
                   >
-                    {zman.source_type === 'registry' ? (
+                    {zman.source_type === 'registry' || zman.source_type === 'master' ? (
                       <>
                         <Library className="h-3 w-3 mr-1" />
                         Registry
@@ -510,6 +560,11 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                       <>
                         <Copy className="h-3 w-3 mr-1" />
                         Copied
+                      </>
+                    ) : zman.source_type === 'custom' ? (
+                      <>
+                        <Edit2 className="h-3 w-3 mr-1" />
+                        Custom
                       </>
                     ) : null}
                   </Badge>
@@ -561,18 +616,6 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                 ) : (
                   <EyeOff className="h-4 w-4" />
                 )}
-              </Button>
-
-              {/* Toggle Beta - mark as beta/seeking feedback */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleToggleBeta}
-                title={zman.is_beta ? 'Certify as stable (remove beta)' : 'Mark as beta (seeking feedback)'}
-                className={`h-8 w-8 ${zman.is_beta ? 'text-amber-600 hover:text-amber-700' : 'text-muted-foreground hover:text-amber-600'}`}
-                disabled={updateZman.isPending}
-              >
-                <FlaskConical className="h-4 w-4" />
               </Button>
 
               {/* Version History */}
@@ -649,50 +692,116 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
             </div>
           </div>
 
-          {/* Publisher Zman Tags - editable */}
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            {zman.tags && zman.tags.map((tag, index) => (
-              <ColorBadge
-                key={tag.tag_key || `tag-${index}`}
-                color={getTagTypeColor(tag.tag_type)}
-                size="sm"
-                className={tag.is_negated ? 'border-2 border-red-500 dark:border-red-400' : undefined}
-              >
-                {tag.is_negated && <X className="h-3 w-3 mr-1 text-red-500 dark:text-red-400" />}
-                {tag.display_name_english}
-              </ColorBadge>
-            ))}
-            <ZmanTagEditor
-              zmanKey={zman.zman_key}
-              currentTags={zman.tags || []}
-            />
-          </div>
-
-          {/* Inferred Tags from Formula */}
-          {(() => {
-            const inferredTags = inferTagsFromFormula(zman.formula_dsl);
-            const hasTags = inferredTags.shita || inferredTags.method || inferredTags.relative;
-            if (!hasTags) return null;
-            return (
-              <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                {inferredTags.shita && (
-                  <ColorBadge color="cyan" size="sm">
-                    {inferredTags.shita}
-                  </ColorBadge>
-                )}
-                {inferredTags.method && (
-                  <ColorBadge color="violet" size="sm">
-                    {inferredTags.method}
-                  </ColorBadge>
-                )}
-                {inferredTags.relative && (
-                  <ColorBadge color="pink" size="sm">
-                    {inferredTags.relative}
-                  </ColorBadge>
-                )}
+          {/* Tag Modification Banner */}
+          {tagModifications.hasModified && sourceName && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-amber-100/80 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 mt-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Tags className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    Tags Modified from Registry
+                  </span>
+                  <span className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                    {tagModifications.modifiedTags.map((t) => t.display_name_english).join(', ')}
+                  </span>
+                </div>
               </div>
-            );
-          })()}
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRevertTags}
+                      disabled={revertTags.isPending}
+                      className="h-7 px-2 gap-1 text-amber-700 hover:text-amber-800 hover:bg-amber-200 dark:text-amber-300 dark:hover:text-amber-200 dark:hover:bg-amber-800/50 flex-shrink-0"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span className="text-xs font-medium">Revert</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Revert to {sourceName.toLowerCase()} tags
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
+
+          {/* Tags Section - Split Layout */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-3">
+            {/* Publisher Zman Tags - editable */}
+            <div className={cn(
+              "flex-1 flex flex-wrap items-center gap-2 p-2 -m-2 rounded-md transition-colors",
+              zman.tags && zman.tags.some(tag => tag.is_modified) && "ring-2 ring-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+            )}>
+              <span className="text-xs font-medium text-muted-foreground">
+                Tags
+              </span>
+              <ZmanTagEditor
+                zmanKey={zman.zman_key}
+                currentTags={zman.tags || []}
+              />
+              {zman.tags && zman.tags.length > 0 && zman.tags.map((tag, index) => (
+                <ColorBadge
+                  key={tag.tag_key || `tag-${index}`}
+                  color={getTagTypeColor(tag.tag_type)}
+                  size="sm"
+                  className={tag.is_negated ? 'border-2 border-red-500 dark:border-red-400' : undefined}
+                >
+                  {tag.is_negated && <X className="h-3 w-3 mr-1 text-red-500 dark:text-red-400" />}
+                  {tag.display_name_english}
+                </ColorBadge>
+              ))}
+            </div>
+
+            {/* Inferred Tags from Formula - Auto-detected, Read-only */}
+            {(() => {
+              const inferredTags = inferTagsFromFormula(zman.formula_dsl);
+              const hasTags = inferredTags.shita || inferredTags.method || inferredTags.relative;
+              if (!hasTags) return null;
+              return (
+                <div className="flex-1 flex flex-wrap items-center gap-2 sm:border-l sm:border-dashed sm:border-border sm:pl-4">
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5">
+                          <Code2 className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground italic">
+                            Auto-detected
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p className="text-xs">
+                          These tags are automatically inferred from your formula and cannot be edited directly.
+                          Change your formula to update these tags.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {inferredTags.shita && (
+                    <Badge variant="outline" className="text-xs bg-muted/50 border-dashed opacity-75">
+                      <Code2 className="h-3 w-3 mr-1 opacity-50" />
+                      {inferredTags.shita}
+                    </Badge>
+                  )}
+                  {inferredTags.method && (
+                    <Badge variant="outline" className="text-xs bg-muted/50 border-dashed opacity-75">
+                      <Code2 className="h-3 w-3 mr-1 opacity-50" />
+                      {inferredTags.method}
+                    </Badge>
+                  )}
+                  {inferredTags.relative && (
+                    <Badge variant="outline" className="text-xs bg-muted/50 border-dashed opacity-75">
+                      <Code2 className="h-3 w-3 mr-1 opacity-50" />
+                      {inferredTags.relative}
+                    </Badge>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
 
           {/* AI Explanation (if exists) */}
           {zman.ai_explanation && (

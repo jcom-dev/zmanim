@@ -445,7 +445,8 @@ SELECT DISTINCT
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.sort_order
+    t.sort_order,
+    m.priority
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
 JOIN tag_event_mappings m ON m.tag_id = t.id
@@ -472,6 +473,7 @@ type GetTagsForHebCalEventRow struct {
 	TagTypeDisplayEnglish string  `json:"tag_type_display_english"`
 	Description           *string `json:"description"`
 	SortOrder             *int32  `json:"sort_order"`
+	Priority              *int32  `json:"priority"`
 }
 
 // Get tags that match a specific HebCal event name using pattern matching
@@ -497,6 +499,7 @@ func (q *Queries) GetTagsForHebCalEvent(ctx context.Context, hebcalEventPattern 
 			&i.TagTypeDisplayEnglish,
 			&i.Description,
 			&i.SortOrder,
+			&i.Priority,
 		); err != nil {
 			return nil, err
 		}
@@ -520,7 +523,8 @@ SELECT DISTINCT
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.sort_order
+    t.sort_order,
+    m.priority
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
 JOIN tag_event_mappings m ON m.tag_id = t.id
@@ -546,6 +550,7 @@ type GetTagsForHebrewDateRow struct {
 	TagTypeDisplayEnglish string  `json:"tag_type_display_english"`
 	Description           *string `json:"description"`
 	SortOrder             *int32  `json:"sort_order"`
+	Priority              *int32  `json:"priority"`
 }
 
 // Get tags that match a specific Hebrew date (month and day)
@@ -570,6 +575,7 @@ func (q *Queries) GetTagsForHebrewDate(ctx context.Context, arg GetTagsForHebrew
 			&i.TagTypeDisplayEnglish,
 			&i.Description,
 			&i.SortOrder,
+			&i.Priority,
 		); err != nil {
 			return nil, err
 		}

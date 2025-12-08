@@ -377,7 +377,10 @@ SELECT
         ) all_tags
         WHERE all_tags.key IN ('event', 'behavior')
     ) AS is_event_zman,
-    -- Combine tags from master registry AND publisher-specific tags (with is_negated)
+    -- Tags: Publisher tags take precedence over master tags (no duplicates)
+    -- If publisher has customized tags, show ONLY publisher tags
+    -- Otherwise, show master registry tags
+    -- is_modified flag indicates if publisher tag differs from master (different negation or tag doesn't exist in master)
     COALESCE(
         (SELECT json_agg(json_build_object(
             'id', sub.id,
@@ -386,24 +389,38 @@ SELECT
             'display_name_hebrew', sub.display_name_hebrew,
             'display_name_english', sub.display_name_english,
             'tag_type', sub.tag_type,
-            'is_negated', sub.is_negated
+            'is_negated', sub.is_negated,
+            'is_modified', sub.is_modified,
+            'source_is_negated', sub.source_is_negated
         ) ORDER BY sub.sort_order)
         FROM (
-            -- Tags from master registry
+            -- Publisher-specific tags (if any exist, these take full precedence)
             SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
-                   tt.key AS tag_type, t.sort_order, mzt.is_negated
+                   tt.key AS tag_type, t.sort_order, pzt.is_negated,
+                   -- Check if this tag is modified from master registry
+                   CASE
+                       WHEN mzt.tag_id IS NULL THEN true  -- Tag added by publisher (not in master)
+                       WHEN pzt.is_negated != mzt.is_negated THEN true  -- Negation changed
+                       ELSE false
+                   END AS is_modified,
+                   mzt.is_negated AS source_is_negated
+            FROM publisher_zman_tags pzt
+            JOIN zman_tags t ON pzt.tag_id = t.id
+            JOIN tag_types tt ON t.tag_type_id = tt.id
+            LEFT JOIN master_zman_tags mzt ON mzt.master_zman_id = pz.master_zman_id
+                                            AND mzt.tag_id = pzt.tag_id
+            WHERE pzt.publisher_zman_id = pz.id
+            UNION ALL
+            -- Master tags (only if NO publisher tags exist for this zman)
+            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
+                   tt.key AS tag_type, t.sort_order, mzt.is_negated,
+                   false AS is_modified,  -- Not modified since using master tags
+                   mzt.is_negated AS source_is_negated
             FROM master_zman_tags mzt
             JOIN zman_tags t ON mzt.tag_id = t.id
             JOIN tag_types tt ON t.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
-            UNION ALL
-            -- Tags added by publisher
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
-                   tt.key AS tag_type, t.sort_order, pzt.is_negated
-            FROM publisher_zman_tags pzt
-            JOIN zman_tags t ON pzt.tag_id = t.id
-            JOIN tag_types tt ON t.tag_type_id = tt.id
-            WHERE pzt.publisher_zman_id = pz.id
+              AND NOT EXISTS (SELECT 1 FROM publisher_zman_tags WHERE publisher_zman_id = pz.id)
         ) sub),
         '[]'::json
     ) AS tags,
@@ -598,6 +615,7 @@ SELECT
     tt.key AS tag_type,
     t.color,
     t.sort_order,
+    COALESCE(mzt.is_negated, false) AS is_negated,
     t.created_at
 FROM master_zmanim_registry mr
 JOIN master_zman_tags mzt ON mr.id = mzt.master_zman_id
@@ -616,10 +634,11 @@ type GetAllZmanimTagsRow struct {
 	TagType            string             `json:"tag_type"`
 	Color              *string            `json:"color"`
 	SortOrder          *int32             `json:"sort_order"`
+	IsNegated          bool               `json:"is_negated"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
-// Get all tags for all zmanim with tag type key and sort order
+// Get all tags for all zmanim with tag type key, sort order, and negation status
 func (q *Queries) GetAllZmanimTags(ctx context.Context) ([]GetAllZmanimTagsRow, error) {
 	rows, err := q.db.Query(ctx, getAllZmanimTags)
 	if err != nil {
@@ -639,6 +658,7 @@ func (q *Queries) GetAllZmanimTags(ctx context.Context) ([]GetAllZmanimTagsRow, 
 			&i.TagType,
 			&i.Color,
 			&i.SortOrder,
+			&i.IsNegated,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -653,7 +673,7 @@ func (q *Queries) GetAllZmanimTags(ctx context.Context) ([]GetAllZmanimTagsRow, 
 
 const getCityDetailsForZmanim = `-- name: GetCityDetailsForZmanim :one
 
-SELECT c.name, co.name as country, r.name as region, c.timezone, c.latitude, c.longitude
+SELECT c.name, co.name as country, r.name as region, c.timezone, c.latitude, c.longitude, COALESCE(c.elevation_m, 0) as elevation
 FROM geo_cities c
 JOIN geo_regions r ON c.region_id = r.id
 JOIN geo_countries co ON r.country_id = co.id
@@ -667,12 +687,14 @@ type GetCityDetailsForZmanimRow struct {
 	Timezone  string  `json:"timezone"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+	Elevation int32   `json:"elevation"`
 }
 
 // ============================================================================
 // Queries for GetZmanimForCity handler
 // ============================================================================
 // Get city details with country and region for zmanim calculation
+// Elevation defaults to 0 if NULL (sea level) - required for accurate zmanim
 func (q *Queries) GetCityDetailsForZmanim(ctx context.Context, id int32) (GetCityDetailsForZmanimRow, error) {
 	row := q.db.QueryRow(ctx, getCityDetailsForZmanim, id)
 	var i GetCityDetailsForZmanimRow
@@ -683,6 +705,7 @@ func (q *Queries) GetCityDetailsForZmanim(ctx context.Context, id int32) (GetCit
 		&i.Timezone,
 		&i.Latitude,
 		&i.Longitude,
+		&i.Elevation,
 	)
 	return i, err
 }
@@ -1107,7 +1130,10 @@ SELECT
         ) all_tags
         WHERE all_tags.key IN ('event', 'behavior')
     ) AS is_event_zman,
-    -- Tags from master zman AND publisher-specific tags (combined with is_negated)
+    -- Tags: Publisher tags take precedence over master tags (no duplicates)
+    -- If publisher has customized tags, show ONLY publisher tags
+    -- Otherwise, show master registry tags
+    -- is_modified flag indicates if publisher tag differs from master (different negation or tag doesn't exist in master)
     COALESCE(
         (SELECT json_agg(json_build_object(
             'id', sub.id,
@@ -1116,24 +1142,38 @@ SELECT
             'display_name_hebrew', sub.display_name_hebrew,
             'display_name_english', sub.display_name_english,
             'tag_type', sub.tag_type,
-            'is_negated', sub.is_negated
+            'is_negated', sub.is_negated,
+            'is_modified', sub.is_modified,
+            'source_is_negated', sub.source_is_negated
         ) ORDER BY sub.sort_order)
         FROM (
-            -- Master zman tags
+            -- Publisher-specific tags (if any exist, these take full precedence)
             SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
-                   tt.key AS tag_type, t.sort_order, mzt.is_negated
+                   tt.key AS tag_type, t.sort_order, pzt.is_negated,
+                   -- Check if this tag is modified from master registry
+                   CASE
+                       WHEN mzt.tag_id IS NULL THEN true  -- Tag added by publisher (not in master)
+                       WHEN pzt.is_negated != mzt.is_negated THEN true  -- Negation changed
+                       ELSE false
+                   END AS is_modified,
+                   mzt.is_negated AS source_is_negated
+            FROM publisher_zman_tags pzt
+            JOIN zman_tags t ON pzt.tag_id = t.id
+            JOIN tag_types tt ON t.tag_type_id = tt.id
+            LEFT JOIN master_zman_tags mzt ON mzt.master_zman_id = pz.master_zman_id
+                                            AND mzt.tag_id = pzt.tag_id
+            WHERE pzt.publisher_zman_id = pz.id
+            UNION ALL
+            -- Master tags (only if NO publisher tags exist for this zman)
+            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
+                   tt.key AS tag_type, t.sort_order, mzt.is_negated,
+                   false AS is_modified,  -- Not modified since using master tags
+                   mzt.is_negated AS source_is_negated
             FROM master_zman_tags mzt
             JOIN zman_tags t ON mzt.tag_id = t.id
             JOIN tag_types tt ON t.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
-            UNION ALL
-            -- Publisher-specific tags
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english,
-                   tt.key AS tag_type, t.sort_order, pzt.is_negated
-            FROM publisher_zman_tags pzt
-            JOIN zman_tags t ON pzt.tag_id = t.id
-            JOIN tag_types tt ON t.tag_type_id = tt.id
-            WHERE pzt.publisher_zman_id = pz.id
+              AND NOT EXISTS (SELECT 1 FROM publisher_zman_tags WHERE publisher_zman_id = pz.id)
         ) sub),
         '[]'::json
     ) AS tags,

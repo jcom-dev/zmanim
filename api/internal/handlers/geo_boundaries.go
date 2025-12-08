@@ -10,13 +10,15 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
-	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 )
 
@@ -53,9 +55,25 @@ type PointLookupResponse struct {
 
 // SmartLookupResponse represents the response from zoom-aware point lookup
 type SmartLookupResponse struct {
-	RecommendedLevel string            `json:"recommended_level"` // country, region, district, city
-	Levels           SmartLookupLevels `json:"levels"`
-	NearbyCities     []NearestCity     `json:"nearby_cities,omitempty"`
+	RecommendedLevel string             `json:"recommended_level"` // country, region, district, city
+	Levels           SmartLookupLevels  `json:"levels"`
+	Counts           *SmartLookupCounts `json:"counts,omitempty"`   // Entity counts for debugging/frontend logic
+	VisibleCounts    *VisibleCounts     `json:"visible_counts,omitempty"` // Counts of entities in viewport
+	NearbyCities     []NearestCity      `json:"nearby_cities,omitempty"`
+}
+
+// SmartLookupCounts contains entity counts used for selection logic
+type SmartLookupCounts struct {
+	Regions           int `json:"regions"`             // Total regions in country
+	Districts         int `json:"districts"`           // Total districts in country
+	DistrictsInRegion int `json:"districts_in_region"` // Districts in current region
+}
+
+// VisibleCounts contains counts of entities visible in the current viewport
+type VisibleCounts struct {
+	Countries int `json:"countries"` // Countries visible in viewport
+	Regions   int `json:"regions"`   // Regions visible in viewport
+	Districts int `json:"districts"` // Districts visible in viewport
 }
 
 // SmartLookupLevels contains all available levels at a point
@@ -342,6 +360,130 @@ func (h *Handlers) GetDistrictBoundaries(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(fc)
+}
+
+// GetCityBoundaries retrieves city boundaries for multiple cities by IDs
+// @Summary Get city boundaries
+// @Description Returns GeoJSON boundaries for specified cities
+// @Tags Geographic Boundaries
+// @Produce json
+// @Param city_ids query string true "Comma-separated list of city IDs (e.g., '123,456,789')"
+// @Success 200 {object} GeoJSONFeatureCollection "GeoJSON FeatureCollection of city boundaries"
+// @Failure 400 {object} APIResponse{error=APIError} "city_ids is required"
+// @Failure 500 {object} APIResponse{error=APIError} "Internal server error"
+// @Router /geo/boundaries/cities [get]
+func (h *Handlers) GetCityBoundaries(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	cityIDsStr := r.URL.Query().Get("city_ids")
+
+	if cityIDsStr == "" {
+		RespondBadRequest(w, r, "city_ids parameter is required")
+		return
+	}
+
+	// Parse comma-separated city IDs
+	cityIDStrs := strings.Split(cityIDsStr, ",")
+	cityIDs := make([]int32, 0, len(cityIDStrs))
+	for _, idStr := range cityIDStrs {
+		id, err := strconv.ParseInt(strings.TrimSpace(idStr), 10, 32)
+		if err != nil {
+			RespondBadRequest(w, r, fmt.Sprintf("Invalid city ID: %s", idStr))
+			return
+		}
+		cityIDs = append(cityIDs, int32(id))
+	}
+
+	// Fetch city boundaries from database
+	rows, err := h.db.Queries.GetCityBoundariesByIDs(ctx, cityIDs)
+	if err != nil {
+		slog.Error("failed to get city boundaries", "error", err, "city_ids", cityIDs)
+		RespondInternalError(w, r, "Failed to get city boundaries")
+		return
+	}
+
+	// Convert to GeoJSON features
+	features := make([]GeoJSONFeature, 0, len(rows))
+	for _, row := range rows {
+		// Extract centroid coordinates with proper type conversion
+		centroidLng, _ := row.CentroidLng.(float64)
+		centroidLat, _ := row.CentroidLat.(float64)
+
+		feature := GeoJSONFeature{
+			Type:     "Feature",
+			ID:       int(row.ID),
+			Geometry: json.RawMessage(row.BoundaryGeojson),
+			Properties: map[string]interface{}{
+				"id":           row.ID,
+				"name":         row.Name,
+				"country_code": row.CountryCode,
+				"region_name":  row.RegionName,
+				"area_km2":     row.AreaKm2,
+				"centroid":     []float64{centroidLng, centroidLat},
+			},
+		}
+		features = append(features, feature)
+	}
+
+	fc := GeoJSONFeatureCollection{
+		Type: "FeatureCollection",
+		Metadata: map[string]interface{}{
+			"level": "city",
+			"count": len(features),
+		},
+		Features: features,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(fc)
+}
+
+func (h *Handlers) GetCityBoundary(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	cityIDStr := r.URL.Query().Get("city_id")
+
+	if cityIDStr == "" {
+		RespondBadRequest(w, r, "city_id parameter is required")
+		return
+	}
+
+	cityID, err := strconv.ParseInt(cityIDStr, 10, 32)
+	if err != nil {
+		RespondBadRequest(w, r, fmt.Sprintf("Invalid city ID: %s", cityIDStr))
+		return
+	}
+
+	// Fetch city boundary from database
+	row, err := h.db.Queries.GetCityBoundaryByID(ctx, int32(cityID))
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			RespondNotFound(w, r, "City boundary not found")
+			return
+		}
+		slog.Error("failed to get city boundary", "error", err, "city_id", cityID)
+		RespondInternalError(w, r, "Failed to get city boundary")
+		return
+	}
+
+	feature := GeoJSONFeature{
+		Type:     "Feature",
+		ID:       int(row.ID),
+		Geometry: json.RawMessage(row.BoundaryGeojson),
+		Properties: map[string]interface{}{
+			"id":           row.ID,
+			"name":         row.Name,
+			"country_code": row.CountryCode,
+			"region_name":  row.RegionName,
+			"district_name": row.DistrictName,
+			"area_km2":     row.AreaKm2,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(feature)
 }
 
 // LookupPointLocation performs point-in-polygon lookup to find country/region/district at coordinates
@@ -698,6 +840,27 @@ func (h *Handlers) SmartLookupPointLocation(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	// Parse optional viewport bounds (west,south,east,north)
+	boundsStr := r.URL.Query().Get("bounds")
+	var bounds *[4]float64
+	if boundsStr != "" {
+		parts := strings.Split(boundsStr, ",")
+		if len(parts) == 4 {
+			var b [4]float64
+			valid := true
+			for i, p := range parts {
+				b[i], err = strconv.ParseFloat(p, 64)
+				if err != nil {
+					valid = false
+					break
+				}
+			}
+			if valid {
+				bounds = &b
+			}
+		}
+	}
+
 	response := SmartLookupResponse{
 		RecommendedLevel: "country", // default
 		Levels:           SmartLookupLevels{},
@@ -757,8 +920,62 @@ func (h *Handlers) SmartLookupPointLocation(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	// Calculate recommended level based on zoom and entity areas
-	response.RecommendedLevel = calculateRecommendedLevel(zoom, result)
+	// Add counts to response for debugging/frontend logic
+	response.Counts = &SmartLookupCounts{
+		Regions:           int(result.RegionCount),
+		Districts:         int(result.DistrictCount),
+		DistrictsInRegion: int(result.DistrictsInRegion),
+	}
+
+	// Estimate visible entities from viewport size and country data
+	// This is much faster than running COUNT queries
+	var visibleCounts *VisibleCounts
+	if bounds != nil {
+		viewportWidth := bounds[2] - bounds[0]   // east - west (degrees)
+		viewportHeight := bounds[3] - bounds[1]  // north - south (degrees)
+
+		// Estimate counts based on viewport size and known data density
+		// World is ~360x180 degrees, ~200 countries → ~0.003 countries/sq degree
+		// France (~10x10 degrees) has ~100 regions → ~1 region/sq degree in dense areas
+		// France has ~3700 districts → ~37 districts/sq degree
+		viewportArea := viewportWidth * viewportHeight
+
+		// Rough estimates based on where the click is (use country data if available)
+		estCountries := int(viewportArea * 0.003) // Very rough global average
+		if estCountries < 1 {
+			estCountries = 1
+		}
+
+		estRegions := 0
+		estDistricts := 0
+
+		// Use country-specific data for better estimates
+		if result.RegionCount > 0 && result.CountryAreaKm2 != nil {
+			// Estimate how much of the country is visible
+			// Rough conversion: 1 degree ≈ 111km at equator
+			viewportKm2 := viewportWidth * viewportHeight * 111 * 111 * 0.7 // 0.7 for latitude adjustment
+			countryFraction := viewportKm2 / *result.CountryAreaKm2
+			if countryFraction > 1 {
+				countryFraction = 1
+			}
+			estRegions = int(float64(result.RegionCount) * countryFraction)
+			if estRegions < 1 && viewportKm2 < *result.CountryAreaKm2/2 {
+				estRegions = 1 // At least 1 region if viewport is smaller than half the country
+			}
+
+			estDistricts = int(float64(result.DistrictCount) * countryFraction)
+		}
+
+		visibleCounts = &VisibleCounts{
+			Countries: estCountries,
+			Regions:   estRegions,
+			Districts: estDistricts,
+		}
+		response.VisibleCounts = visibleCounts
+	}
+
+	// Calculate recommended level based on visible entities (or fallback to zoom-based)
+	response.RecommendedLevel = calculateRecommendedLevel(zoom, result, visibleCounts)
 
 	// Find nearby cities for city-level selection
 	if response.RecommendedLevel == "city" || zoom >= 8 {
@@ -768,6 +985,9 @@ func (h *Handlers) SmartLookupPointLocation(w http.ResponseWriter, r *http.Reque
 			StDwithin:     50000, // 50km radius
 			Limit:         5,
 		})
+		if err != nil {
+			slog.Error("LookupNearestCities failed", "error", err, "lng", lng, "lat", lat)
+		}
 		if err == nil && len(cities) > 0 {
 			for _, c := range cities {
 				nc := NearestCity{
@@ -788,63 +1008,305 @@ func (h *Handlers) SmartLookupPointLocation(w http.ResponseWriter, r *http.Reque
 	RespondJSON(w, r, http.StatusOK, response)
 }
 
-// calculateRecommendedLevel determines the best selection level based on zoom and entity areas
-// Returns the most specific level that is large enough to be clickable at the current zoom
-func calculateRecommendedLevel(zoom float64, result sqlcgen.LookupAllLevelsByPointWithAreaRow) string {
-	// Cap zoom at 12 - beyond this is street level, just select nearest city
-	// Zoom 12 ≈ 380m viewport width, good enough to identify a city
-	const maxUsefulZoom = 12.0
-	if zoom > maxUsefulZoom {
-		return "city"
-	}
-
-	// Calculate viewport area based on Web Mercator tile math
-	// meters_per_pixel ≈ 156543 / 2^zoom (at equator)
-	// Assuming a ~1000x1000 pixel viewport (typical map embed)
-	//
-	// Zoom  0: ~24,500 km² viewport
-	// Zoom  5: ~24 km² viewport
-	// Zoom 10: ~6 km² viewport
-	// Zoom 12: ~0.4 km² viewport (max useful)
-	metersPerPixel := 156543.0 / math.Pow(2, zoom)
-	viewportWidthKm := metersPerPixel * 1000 / 1000 // 1000 pixels, convert m to km
-	viewportAreaKm2 := viewportWidthKm * viewportWidthKm
-
-	// Minimum entity area relative to viewport for it to be "selectable"
-	// Entity should be at least 0.5% of viewport to be easily clickable
-	minSelectableRatio := 0.005
-	minSelectableArea := viewportAreaKm2 * minSelectableRatio
-
-	// Helper to check if an area is large enough to select
-	isSelectable := func(areaKm2 *float64) bool {
-		return areaKm2 != nil && *areaKm2 >= minSelectableArea
-	}
-
+// calculateRecommendedLevel determines the best selection level based on visible entities
+// Logic: Use the number of visible entities to determine granularity
+// - Few visible (1-5): Select at this level - it's clear what the user clicked
+// - Medium visible (6-30): Select at this level - manageable choices
+// - Many visible (30+): Might be overwhelming, but zoom-based rules apply
+func calculateRecommendedLevel(zoom float64, result sqlcgen.LookupAllLevelsByPointWithAreaRow, visible *VisibleCounts) string {
 	// City-states (Monaco, Vatican, Singapore) - always recommend city
-	// These are too small to meaningfully select at country level
 	if result.IsCityState != nil && *result.IsCityState {
 		return "city"
 	}
 
-	// Try most specific level first, fall back to broader levels if too small
+	// At high zoom (10+), recommend city selection
+	if zoom >= 10.0 {
+		return "city"
+	}
 
-	// District: only recommend if large enough to click
-	if result.DistrictID != nil && isSelectable(result.DistrictAreaKm2) {
+	// If we have visible counts, use them for smart selection
+	if visible != nil {
+		// The key insight: if user is zoomed into 1 country but can see many regions,
+		// they probably want to select a region. If they see 1 region with many districts,
+		// they probably want a district.
+
+		// Priority: most specific level where entities are visible
+		// But only if zoom level supports it
+
+		// District level: zoom >= 6 and districts visible and not too many
+		if zoom >= 6.0 && result.DistrictID != nil && visible.Districts > 0 {
+			// At zoom 6-8 with moderate districts, select district
+			if visible.Districts <= 50 {
+				return "district"
+			}
+			// Too many districts - select region instead
+			if result.RegionID != nil {
+				return "region"
+			}
+		}
+
+		// Region level: zoom >= 3.5 and regions visible
+		if zoom >= 3.5 && result.RegionID != nil && visible.Regions > 0 {
+			// If only 1 country visible, prefer region selection
+			if visible.Countries <= 1 && visible.Regions <= 30 {
+				return "region"
+			}
+			// If 2-5 countries visible but we're zoomed enough, still allow region
+			if visible.Countries <= 5 && zoom >= 5.0 {
+				return "region"
+			}
+		}
+
+		// Country level: few countries visible
+		if visible.Countries >= 2 && visible.Countries <= 10 {
+			return "country"
+		}
+
+		// Only 1 country visible - go more specific if available
+		if visible.Countries == 1 {
+			if result.RegionID != nil {
+				return "region"
+			}
+		}
+	}
+
+	// Fallback: use zoom-based logic when no visible counts
+	if zoom >= 8.0 && result.DistrictID != nil {
 		return "district"
 	}
-
-	// Region: only recommend if large enough to click
-	if result.RegionID != nil && isSelectable(result.RegionAreaKm2) {
+	if zoom >= 4.0 && result.RegionID != nil {
 		return "region"
 	}
+	return "country"
+}
 
-	// Country: only recommend if large enough to click
-	if isSelectable(result.CountryAreaKm2) {
-		return "country"
+// GetFeatureGeometry returns a single feature's geometry for map preview
+// @Summary Get single feature geometry
+// @Description Returns GeoJSON geometry for a specific geographic feature (country, region, district, or city). For cities without boundaries, returns a point geometry.
+// @Tags Geography
+// @Produce json
+// @Param type path string true "Feature type: country, region, district, or city"
+// @Param id path string true "Feature ID (numeric for region/district/city, or country code for country)"
+// @Success 200 {object} GeoJSONFeature "GeoJSON Feature with geometry"
+// @Failure 400 {object} APIResponse{error=APIError} "Invalid type or ID"
+// @Failure 404 {object} APIResponse{error=APIError} "Feature not found"
+// @Failure 500 {object} APIResponse{error=APIError} "Internal server error"
+// @Router /geo/feature/{type}/{id} [get]
+func (h *Handlers) GetFeatureGeometry(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	featureType := strings.ToLower(chi.URLParam(r, "type"))
+	featureID := chi.URLParam(r, "id")
+
+	if featureType == "" || featureID == "" {
+		RespondBadRequest(w, r, "Type and ID are required")
+		return
 	}
 
-	// Country is too small for current zoom - recommend city selection
-	// This handles cases like clicking on Monaco at low zoom where the country
-	// itself is too small to be a meaningful selection target
-	return "city"
+	var feature GeoJSONFeature
+	var err error
+
+	switch featureType {
+	case "country":
+		feature, err = h.getCountryFeature(ctx, featureID)
+	case "region":
+		id, parseErr := strconv.ParseInt(featureID, 10, 32)
+		if parseErr != nil {
+			RespondBadRequest(w, r, "Invalid region ID")
+			return
+		}
+		feature, err = h.getRegionFeature(ctx, int32(id))
+	case "district":
+		id, parseErr := strconv.ParseInt(featureID, 10, 32)
+		if parseErr != nil {
+			RespondBadRequest(w, r, "Invalid district ID")
+			return
+		}
+		feature, err = h.getDistrictFeature(ctx, int32(id))
+	case "city":
+		id, parseErr := strconv.ParseInt(featureID, 10, 32)
+		if parseErr != nil {
+			RespondBadRequest(w, r, "Invalid city ID")
+			return
+		}
+		feature, err = h.getCityFeature(ctx, int32(id))
+	default:
+		RespondBadRequest(w, r, "Invalid type. Must be: country, region, district, or city")
+		return
+	}
+
+	if err != nil {
+		if err.Error() == "not found" {
+			RespondNotFound(w, r, "Feature not found")
+			return
+		}
+		slog.Error("failed to get feature geometry", "type", featureType, "id", featureID, "error", err)
+		RespondInternalError(w, r, "Failed to get feature geometry")
+		return
+	}
+
+	RespondJSON(w, r, http.StatusOK, feature)
+}
+
+func (h *Handlers) getCountryFeature(ctx context.Context, code string) (GeoJSONFeature, error) {
+	// Try by ID first if numeric, else by code
+	if id, parseErr := strconv.ParseInt(code, 10, 16); parseErr == nil {
+		row, err := h.db.Queries.GetCountryBoundaryByID(ctx, int16(id))
+		if err != nil {
+			return GeoJSONFeature{}, fmt.Errorf("not found")
+		}
+		centroid := []float64{0, 0}
+		if lng, ok := row.CentroidLng.(float64); ok {
+			centroid[0] = lng
+		}
+		if lat, ok := row.CentroidLat.(float64); ok {
+			centroid[1] = lat
+		}
+		return GeoJSONFeature{
+			Type: "Feature",
+			ID:   row.Code,
+			Properties: map[string]interface{}{
+				"type":     "country",
+				"id":       row.ID,
+				"code":     row.Code,
+				"name":     row.Name,
+				"area_km2": row.AreaKm2,
+				"centroid": centroid,
+			},
+			Geometry: json.RawMessage(row.BoundaryGeojson),
+		}, nil
+	}
+
+	// Must be a country code - look up by code
+	row, err := h.db.Queries.GetCountryBoundaryByCode(ctx, code)
+	if err != nil {
+		return GeoJSONFeature{}, fmt.Errorf("not found")
+	}
+	centroid := []float64{0, 0}
+	if lng, ok := row.CentroidLng.(float64); ok {
+		centroid[0] = lng
+	}
+	if lat, ok := row.CentroidLat.(float64); ok {
+		centroid[1] = lat
+	}
+	return GeoJSONFeature{
+		Type: "Feature",
+		ID:   row.Code,
+		Properties: map[string]interface{}{
+			"type":     "country",
+			"id":       row.ID,
+			"code":     row.Code,
+			"name":     row.Name,
+			"area_km2": row.AreaKm2,
+			"centroid": centroid,
+		},
+		Geometry: json.RawMessage(row.BoundaryGeojson),
+	}, nil
+}
+
+func (h *Handlers) getRegionFeature(ctx context.Context, id int32) (GeoJSONFeature, error) {
+	row, err := h.db.Queries.GetRegionBoundaryByID(ctx, id)
+	if err != nil {
+		return GeoJSONFeature{}, fmt.Errorf("not found")
+	}
+
+	centroid := []float64{0, 0}
+	if lng, ok := row.CentroidLng.(float64); ok {
+		centroid[0] = lng
+	}
+	if lat, ok := row.CentroidLat.(float64); ok {
+		centroid[1] = lat
+	}
+
+	return GeoJSONFeature{
+		Type: "Feature",
+		ID:   row.ID,
+		Properties: map[string]interface{}{
+			"type":         "region",
+			"id":           row.ID,
+			"code":         row.Code,
+			"name":         row.Name,
+			"country_code": row.CountryCode,
+			"country_name": row.CountryName,
+			"area_km2":     row.AreaKm2,
+			"centroid":     centroid,
+		},
+		Geometry: json.RawMessage(row.BoundaryGeojson),
+	}, nil
+}
+
+func (h *Handlers) getDistrictFeature(ctx context.Context, id int32) (GeoJSONFeature, error) {
+	row, err := h.db.Queries.GetDistrictBoundaryByID(ctx, id)
+	if err != nil {
+		return GeoJSONFeature{}, fmt.Errorf("not found")
+	}
+
+	centroid := []float64{0, 0}
+	if lng, ok := row.CentroidLng.(float64); ok {
+		centroid[0] = lng
+	}
+	if lat, ok := row.CentroidLat.(float64); ok {
+		centroid[1] = lat
+	}
+
+	return GeoJSONFeature{
+		Type: "Feature",
+		ID:   row.ID,
+		Properties: map[string]interface{}{
+			"type":         "district",
+			"id":           row.ID,
+			"code":         row.Code,
+			"name":         row.Name,
+			"region_id":    row.RegionID,
+			"region_name":  row.RegionName,
+			"country_code": row.CountryCode,
+			"country_name": row.CountryName,
+			"area_km2":     row.AreaKm2,
+			"centroid":     centroid,
+		},
+		Geometry: json.RawMessage(row.BoundaryGeojson),
+	}, nil
+}
+
+func (h *Handlers) getCityFeature(ctx context.Context, id int32) (GeoJSONFeature, error) {
+	// First try to get boundary
+	row, err := h.db.Queries.GetCityBoundaryByID(ctx, id)
+	if err == nil && row.BoundaryGeojson != "" {
+		// Has boundary polygon
+		return GeoJSONFeature{
+			Type: "Feature",
+			ID:   row.ID,
+			Properties: map[string]interface{}{
+				"type":         "city",
+				"id":           row.ID,
+				"name":         row.Name,
+				"area_km2":     row.AreaKm2,
+				"has_boundary": true,
+			},
+			Geometry: json.RawMessage(row.BoundaryGeojson),
+		}, nil
+	}
+
+	// No boundary - return point geometry from city coordinates
+	city, err := h.db.Queries.GetCityByID(ctx, id)
+	if err != nil {
+		return GeoJSONFeature{}, fmt.Errorf("not found")
+	}
+
+	// Create point GeoJSON
+	pointGeometry := fmt.Sprintf(`{"type":"Point","coordinates":[%f,%f]}`, city.Longitude, city.Latitude)
+
+	return GeoJSONFeature{
+		Type: "Feature",
+		ID:   city.ID,
+		Properties: map[string]interface{}{
+			"type":         "city",
+			"id":           city.ID,
+			"name":         city.Name,
+			"latitude":     city.Latitude,
+			"longitude":    city.Longitude,
+			"has_boundary": false,
+		},
+		Geometry: json.RawMessage(pointGeometry),
+	}, nil
 }

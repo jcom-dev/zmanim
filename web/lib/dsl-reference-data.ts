@@ -162,6 +162,43 @@ export const DSL_FUNCTIONS: ReferenceItem[] = [
       { value: 'solar(11, before_sunrise)', label: 'Misheyakir 11°', description: 'Tallis/tefillin' },
     ],
   },
+  // Seasonal solar angle function (ROY/Zemaneh-Yosef method)
+  {
+    name: 'seasonal_solar',
+    signature: 'seasonal_solar(degrees, direction)',
+    description: 'Seasonal/proportional solar angle (ROY method). Scales equinox-based offset by day length. Directions: before_sunrise, after_sunset only',
+    snippet: 'seasonal_solar(degrees, direction)',
+    realWorldExample: 'seasonal_solar(16.04, before_sunrise)',
+    category: 'function',
+    parameters: [
+      {
+        name: 'degrees',
+        type: 'number',
+        description: 'Sun angle below horizon (0-90)',
+        defaultValue: '16.04',
+        commonValues: [
+          { value: '8.5', label: '8.5°', description: 'Tzeis (nightfall)' },
+          { value: '11.5', label: '11.5°', description: 'Misheyakir (ROY)' },
+          { value: '16.04', label: '16.04°', description: 'Alos (ROY)' },
+        ],
+      },
+      {
+        name: 'direction',
+        type: 'keyword',
+        description: 'When the angle occurs (before_sunrise or after_sunset only)',
+        defaultValue: 'before_sunrise',
+        commonValues: [
+          { value: 'before_sunrise', label: 'before_sunrise', description: 'Morning (dawn)' },
+          { value: 'after_sunset', label: 'after_sunset', description: 'Evening (tzeis)' },
+        ],
+      },
+    ],
+    quickInsertChips: [
+      { value: 'seasonal_solar(16.04, before_sunrise)', label: 'Alos ROY', description: 'Dawn (seasonal)' },
+      { value: 'seasonal_solar(8.5, after_sunset)', label: 'Tzeis ROY', description: 'Nightfall (seasonal)' },
+      { value: 'seasonal_solar(11.5, before_sunrise)', label: 'Misheyakir ROY', description: 'Tallis/tefillin (seasonal)' },
+    ],
+  },
   // Proportional hours (sha'os zmaniyos)
   {
     name: 'proportional_hours',

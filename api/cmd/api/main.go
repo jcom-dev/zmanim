@@ -129,6 +129,7 @@ func main() {
 	// Apply middleware
 	r.Use(middleware.RequestID)
 	r.Use(custommw.RealIP)
+	r.Use(custommw.LogFailedRequestBodies) // Log request bodies for failed requests (debug)
 	r.Use(custommw.Logger)
 	r.Use(custommw.Recoverer)
 	r.Use(custommw.Timeout(30 * time.Second))
@@ -217,9 +218,12 @@ func main() {
 			r.Get("/geo/boundaries/countries", h.GetCountryBoundaries)
 			r.Get("/geo/boundaries/regions", h.GetRegionBoundaries)
 			r.Get("/geo/boundaries/districts", h.GetDistrictBoundaries)
+			r.Get("/geo/boundaries/cities", h.GetCityBoundaries)
+			r.Get("/geo/boundaries/city", h.GetCityBoundary) // Single city boundary
 			r.Get("/geo/boundaries/lookup", h.LookupPointLocation)
 			r.Get("/geo/boundaries/at-point", h.SmartLookupPointLocation) // Zoom-aware smart lookup
 			r.Get("/geo/boundaries/stats", h.GetBoundaryStats)
+			r.Get("/geo/feature/{type}/{id}", h.GetFeatureGeometry) // Single feature geometry for map preview
 
 			// Zmanim calculations
 			r.Get("/zmanim", h.GetZmanimForCity) // New: GET with cityId, date, publisherId
@@ -323,6 +327,7 @@ func main() {
 			// Publisher zman tags (publisher-specific tag overrides)
 			r.Get("/zmanim/{zmanKey}/tags", h.GetPublisherZmanTags)
 			r.Put("/zmanim/{zmanKey}/tags", h.UpdatePublisherZmanTags)
+			r.Post("/zmanim/{zmanKey}/tags/revert", h.RevertPublisherZmanTags)
 			r.Post("/zmanim/{zmanKey}/tags/{tagId}", h.AddTagToPublisherZman)
 			r.Delete("/zmanim/{zmanKey}/tags/{tagId}", h.RemoveTagFromPublisherZman)
 			// Zman registry requests (Story 5.6)
@@ -337,6 +342,11 @@ func main() {
 			r.Post("/coverage", h.CreatePublisherCoverage)
 			r.Put("/coverage/{id}", h.UpdatePublisherCoverage)
 			r.Delete("/coverage/{id}", h.DeletePublisherCoverage)
+			// Location overrides (Story 6.4)
+			r.Get("/location-overrides", h.GetPublisherLocationOverrides)
+			r.Post("/locations/{cityId}/override", h.CreateLocationOverride)
+			r.Put("/location-overrides/{id}", h.UpdateLocationOverride)
+			r.Delete("/location-overrides/{id}", h.DeleteLocationOverride)
 			// Cache management
 			r.Delete("/cache", h.InvalidatePublisherCache)
 			// Team management (Story 2-10)
@@ -369,6 +379,11 @@ func main() {
 
 			// Complete publisher export (admin/backup - includes profile, logo, coverage, zmanim)
 			r.Get("/export/complete", h.ExportCompletePublisher)
+
+			// City correction requests (Story 6.5)
+			r.Get("/correction-requests", h.GetPublisherCorrectionRequests)
+			r.Post("/correction-requests", h.CreateCorrectionRequest)
+			r.Get("/correction-requests/{id}", h.GetCorrectionRequestByID)
 		})
 
 		// User routes (authenticated)
@@ -443,6 +458,12 @@ func main() {
 			r.Get("/registry/tags", h.AdminGetTags)
 			r.Get("/registry/day-types", h.AdminGetDayTypes)
 			r.Get("/registry/primitives/grouped", h.GetAstronomicalPrimitivesGrouped)
+
+			// City correction requests (Story 6.5)
+			r.Get("/correction-requests", h.AdminGetAllCorrectionRequests)
+			r.Post("/correction-requests/{id}/approve", h.AdminApproveCorrectionRequest)
+			r.Post("/correction-requests/{id}/reject", h.AdminRejectCorrectionRequest)
+			r.Put("/cities/{cityId}", h.AdminUpdateCity)
 
 			// User management (unified admin + publisher roles)
 			r.Route("/users", func(r chi.Router) {

@@ -464,6 +464,43 @@ func (h *Handlers) GetPublishersForCity(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Get city details
+	cityRow, err := h.db.Queries.GetCityByID(ctx, int32(cityID))
+	if err != nil {
+		slog.Error("failed to get city", "error", err, "city_id", cityID)
+		RespondNotFound(w, r, "City not found")
+		return
+	}
+
+	// Build display name
+	displayName := cityRow.Name
+	if cityRow.Region != "" {
+		displayName = cityRow.Name + ", " + cityRow.Region + ", " + cityRow.Country
+	} else {
+		displayName = cityRow.Name + ", " + cityRow.Country
+	}
+
+	city := &models.City{
+		ID:          strconv.Itoa(int(cityRow.ID)),
+		Name:        cityRow.Name,
+		Country:     cityRow.Country,
+		CountryCode: cityRow.CountryCode,
+		Latitude:    cityRow.Latitude,
+		Longitude:   cityRow.Longitude,
+		Timezone:    cityRow.Timezone,
+		DisplayName: displayName,
+	}
+	if cityRow.Region != "" {
+		city.Region = &cityRow.Region
+	}
+	if cityRow.ElevationM != nil {
+		elev := int(*cityRow.ElevationM)
+		city.Elevation = &elev
+	}
+	if cityRow.ContinentCode != "" {
+		city.Continent = &cityRow.ContinentCode
+	}
+
 	// Get publishers for city using SQLc
 	rows, err := h.db.Queries.GetPublishersForCity(ctx, int32(cityID))
 	if err != nil {
@@ -485,9 +522,9 @@ func (h *Handlers) GetPublishersForCity(w http.ResponseWriter, r *http.Request) 
 	}
 
 	RespondJSON(w, r, http.StatusOK, models.PublishersForCityResponse{
-		Publishers: publishers,
-		Total:      len(publishers),
-		CityID:     cityID,
+		City:        city,
+		Publishers:  publishers,
+		HasCoverage: len(publishers) > 0,
 	})
 }
 

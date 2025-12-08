@@ -135,3 +135,17 @@ development_status:
   # Remaining stories
   5-18-publisher-zman-field-ownership: done           # Publisher owns copy of description, transliteration, formula with diff/revert
   5-19-zman-request-review-workflow: done            # Unified review form, tag approval pipeline, email notifications
+  epic-5-retrospective: optional
+
+  # Epic 6: Code Cleanup, Consolidation & Publisher Data Overrides (6 stories, 47 points)
+  # Focus: 34% Cleanup, 55% Features, 11% Performance
+  # Epic defined: docs/sprint-artifacts/epic-6-cleanup-and-overrides.md
+  # Stories: 6.1-6.6 - COMPLETED 2025-12-08
+  epic-6: done
+  6-1-consolidate-type-definitions: done       # Central TypeScript types for geography - COMPLETED 2025-12-08
+  6-2-extract-shared-hooks: done               # Shared React hooks (useLocationSearch, useMapPreview, errorHandler) - COMPLETED 2025-12-08
+  6-3-unified-tag-manager: done                # Tag negation, registry tracking, revert functionality, filtering logic - COMPLETED 2025-12-08
+  6-4-publisher-location-overrides: done       # Override city lat/lon/elevation/timezone + inline map view - COMPLETED 2025-12-08
+  6-5-public-correction-requests: done         # Request corrections + admin edit + email notifications - COMPLETED 2025-12-08
+  6-6-database-query-optimization: done        # Indexes, EXPLAIN ANALYZE, performance tests - COMPLETED 2025-12-08
+  epic-6-retrospective: optional

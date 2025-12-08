@@ -6,6 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 import { useQuery } from '@tanstack/react-query';
 import { usePublisherContext } from '@/providers/PublisherContext';
 import { useApi } from '@/lib/api-client';
+import { LocationSearch } from '@/components/shared/LocationSearch';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -276,10 +277,6 @@ export default function AlgorithmEditorPage() {
   const [previewLocation, setPreviewLocation] = useState<PreviewLocation>(NO_COVERAGE_PLACEHOLDER);
   const [coverageCities, setCoverageCities] = useState<CoverageCity[]>([]);
   const [coverageCountryCodes, setCoverageCountryCodes] = useState<string[]>([]);
-  const [citySearch, setCitySearch] = useState('');
-  const [searchResults, setSearchResults] = useState<CoverageCity[]>([]);
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Preview date state (shared with AlgorithmPreview and edit page)
   const [previewDate, setPreviewDate] = useState(() => new Date());
@@ -481,76 +478,26 @@ export default function AlgorithmEditorPage() {
     }
   }, [selectedPublisher, loadCoverage]);
 
-  // API search for cities (called with debounce)
-  const searchCitiesAPI = useCallback(async (query: string) => {
-    if (query.length < 2) return;
-
-    try {
-      let url = `/cities?search=${encodeURIComponent(query)}`;
-
-      // Add country code filter if we have coverage
-      if (coverageCountryCodes.length === 1) {
-        url += `&country_code=${encodeURIComponent(coverageCountryCodes[0])}`;
-      }
-
-      const data = await api.get<{ cities: CoverageCity[] }>(url);
-      let cities = data?.cities || [];
-
-      // If we have multiple country codes, filter client-side by country_code field
-      if (coverageCountryCodes.length > 1) {
-        cities = cities.filter((city) =>
-          city.country_code && coverageCountryCodes.includes(city.country_code)
-        );
-      }
-
-      setSearchResults(cities);
-    } catch (err) {
-      console.error('Failed to search cities:', err);
+  const handleLocationSelect = useCallback((location: {
+    type: string;
+    id: string;
+    name: string;
+    latitude?: number;
+    longitude?: number;
+    timezone?: string;
+    display_name?: string;
+  }) => {
+    // Only handle city selections for preview
+    if (location.type === 'city' && location.latitude && location.longitude && location.timezone) {
+      const newLocation = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        timezone: location.timezone,
+        displayName: location.display_name || location.name,
+      };
+      setPreviewLocation(newLocation);
     }
-  }, [api, coverageCountryCodes]);
-
-  // Search for cities with debounce for API calls
-  const handleCitySearch = (query: string) => {
-    setCitySearch(query);
-
-    // Clear any pending API search
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    if (query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    // First filter from coverage cities (instant, no debounce)
-    const coverageMatches = coverageCities.filter(city =>
-      city.name.toLowerCase().includes(query.toLowerCase())
-    );
-
-    if (coverageMatches.length > 0) {
-      setSearchResults(coverageMatches);
-      return;
-    }
-
-    // Debounce API search to avoid rate limiting
-    searchTimeoutRef.current = setTimeout(() => {
-      searchCitiesAPI(query);
-    }, 300);
-  };
-
-  const selectCity = (city: CoverageCity) => {
-    const newLocation = {
-      latitude: city.latitude,
-      longitude: city.longitude,
-      timezone: city.timezone,
-      displayName: `${city.name}${city.region ? `, ${city.region}` : ''}, ${city.country}`,
-    };
-    setPreviewLocation(newLocation);
-    setCitySearch('');
-    setSearchResults([]);
-    setShowCityDropdown(false);
-  };
+  }, []);
 
   // Separate zmanim into everyday and event categories using API field
   const { everydayZmanim, eventZmanim } = useMemo(() => {
@@ -849,71 +796,45 @@ export default function AlgorithmEditorPage() {
                           </Button>
                         </div>
                       ) : (
-                        <>
-                          <div className="p-3">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <input
-                                type="text"
-                                placeholder="Search for a city..."
-                                value={citySearch}
-                                onChange={(e) => handleCitySearch(e.target.value)}
-                                className="w-full bg-background border border-input rounded-md pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                onClick={(e) => e.stopPropagation()}
-                                autoFocus
-                              />
-                            </div>
-                          </div>
-                          {searchResults.length > 0 ? (
-                            <div className="max-h-[300px] overflow-y-auto border-t border-border">
-                              {searchResults.map((city) => (
-                                <DropdownMenuItem
-                                  key={city.id}
-                                  onClick={() => selectCity(city)}
-                                  className="flex items-center gap-2 mx-1"
-                                >
-                                  <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                                  <span className="truncate">
-                                    {city.name}
-                                    {city.region && <span className="text-muted-foreground">, {city.region}</span>}
-                                    <span className="text-muted-foreground">, {city.country}</span>
-                                  </span>
-                                  {coverageCities.some(c => c.id === city.id) && (
-                                    <span className="ml-auto text-xs bg-primary/20 text-primary px-2 py-0.5 rounded shrink-0">
-                                      Coverage
+                        <div className="p-3">
+                          <LocationSearch
+                            placeholder="Search for a city..."
+                            onSelect={handleLocationSelect}
+                            filterByCountryCodes={coverageCountryCodes}
+                            mode="cities"
+                            compact
+                            autoFocus
+                          />
+                          {coverageCities.length > 0 && (
+                            <>
+                              <div className="mt-3 mb-1 px-1 text-xs text-muted-foreground font-medium">Coverage Cities</div>
+                              <div className="space-y-0.5">
+                                {coverageCities.slice(0, 5).map((city) => (
+                                  <button
+                                    key={city.id}
+                                    onClick={() => handleLocationSelect({
+                                      type: 'city',
+                                      id: city.id,
+                                      name: city.name,
+                                      latitude: city.latitude,
+                                      longitude: city.longitude,
+                                      timezone: city.timezone,
+                                      display_name: `${city.name}${city.region ? `, ${city.region}` : ''}, ${city.country}`,
+                                    })}
+                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent transition-colors text-sm"
+                                  >
+                                    <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                                    <span className="truncate">
+                                      {city.name}
+                                      {city.region && <span className="text-muted-foreground">, {city.region}</span>}
+                                      <span className="text-muted-foreground">, {city.country}</span>
                                     </span>
-                                  )}
-                                </DropdownMenuItem>
-                              ))}
-                            </div>
-                          ) : coverageCities.length > 0 && citySearch.length < 2 ? (
-                            <div className="max-h-[300px] overflow-y-auto border-t border-border">
-                              <div className="px-3 py-1.5 text-xs text-muted-foreground font-medium">Coverage Cities</div>
-                              {coverageCities.map((city) => (
-                                <DropdownMenuItem
-                                  key={city.id}
-                                  onClick={() => selectCity(city)}
-                                  className="flex items-center gap-2 mx-1"
-                                >
-                                  <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                                  <span className="truncate">
-                                    {city.name}
-                                    {city.region && <span className="text-muted-foreground">, {city.region}</span>}
-                                    <span className="text-muted-foreground">, {city.country}</span>
-                                  </span>
-                                </DropdownMenuItem>
-                              ))}
-                            </div>
-                          ) : citySearch.length >= 2 ? (
-                            <div className="px-3 py-2 text-sm text-muted-foreground text-center border-t border-border">
-                              No cities found
-                            </div>
-                          ) : (
-                            <div className="px-3 py-2 text-sm text-muted-foreground text-center border-t border-border">
-                              Type to search for cities
-                            </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </>
                           )}
-                        </>
+                        </div>
                       )}
                     </DropdownMenuContent>
                     </DropdownMenu>

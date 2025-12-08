@@ -60,3 +60,17 @@ export {
   type TagType,
   type DisplayGroup,
 } from './useCategories';
+
+// Shared Utility Hooks (Story 6.2)
+export { useDebounce } from './useDebounce';
+export {
+  useLocationSearch,
+  type UseLocationSearchOptions,
+  type UseLocationSearchReturn,
+} from './useLocationSearch';
+export {
+  useMapPreview,
+  type UseMapPreviewOptions,
+  type UseMapPreviewReturn,
+  type AddBoundaryOptions,
+} from './useMapPreview';

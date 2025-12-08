@@ -1634,6 +1634,91 @@ func (q *Queries) SearchCitiesFuzzy(ctx context.Context, arg SearchCitiesFuzzyPa
 	return items, nil
 }
 
+const searchCoverageByLevels = `-- name: SearchCoverageByLevels :many
+SELECT
+    coverage_type,
+    id,
+    name,
+    description,
+    country_code
+FROM coverage_search_mv
+WHERE
+    -- Level filter: if levels is empty/null, include all; otherwise filter
+    (
+        $1::text = ''
+        OR coverage_type = ANY(string_to_array($1::text, ','))
+    )
+    AND (
+        -- Primary: Prefix match (fastest, uses text_pattern_ops index)
+        lower(name_ascii) LIKE lower($2::text) || '%'
+        -- Secondary: Substring match (contains search term anywhere)
+        OR lower(name_ascii) LIKE '%' || lower($2::text) || '%'
+        -- Tertiary: High-similarity fuzzy match (uses trigram GIN index)
+        OR (similarity(name_ascii, $2::text) > 0.3 AND name_ascii % $2::text)
+    )
+ORDER BY
+    -- Match quality: Exact > Prefix > Substring > Fuzzy
+    CASE
+        WHEN lower(name_ascii) = lower($2::text) THEN 0
+        WHEN lower(name_ascii) LIKE lower($2::text) || '%' THEN 1
+        WHEN lower(name_ascii) LIKE '%' || lower($2::text) || '%' THEN 2
+        ELSE 3
+    END,
+    -- Similarity score (higher = better match)
+    similarity(name_ascii, $2::text) DESC,
+    -- Interleaved ranking: for high-similarity matches, mix types together
+    -- This ensures users see regions/districts alongside cities for same name
+    -- Formula: (type_priority * 0.5) - (population_boost)
+    -- Result: High-pop regions can rank between cities of similar names
+    (type_priority::float * 0.5) - (LEAST(sort_population, 10000000)::float / 20000000.0),
+    -- Alphabetically for final ties
+    name
+LIMIT $3
+`
+
+type SearchCoverageByLevelsParams struct {
+	Levels string `json:"levels"`
+	Search string `json:"search"`
+	Limit  int32  `json:"limit"`
+}
+
+type SearchCoverageByLevelsRow struct {
+	CoverageType string      `json:"coverage_type"`
+	ID           string      `json:"id"`
+	Name         string      `json:"name"`
+	Description  interface{} `json:"description"`
+	CountryCode  string      `json:"country_code"`
+}
+
+// Coverage search with level filtering for search-first UI
+// Pass levels as comma-separated string (e.g., 'city,region,country')
+// Empty levels string returns all types
+func (q *Queries) SearchCoverageByLevels(ctx context.Context, arg SearchCoverageByLevelsParams) ([]SearchCoverageByLevelsRow, error) {
+	rows, err := q.db.Query(ctx, searchCoverageByLevels, arg.Levels, arg.Search, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchCoverageByLevelsRow{}
+	for rows.Next() {
+		var i SearchCoverageByLevelsRow
+		if err := rows.Scan(
+			&i.CoverageType,
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.CountryCode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchCoverageUnified = `-- name: SearchCoverageUnified :many
 
 SELECT

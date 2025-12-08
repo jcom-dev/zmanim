@@ -10,6 +10,7 @@ import (
 	"github.com/jcom-dev/zmanim-lab/internal/algorithm"
 	"github.com/jcom-dev/zmanim-lab/internal/astro"
 	"github.com/jcom-dev/zmanim-lab/internal/calendar"
+	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim-lab/internal/middleware"
 	"github.com/jcom-dev/zmanim-lab/internal/models"
 )
@@ -47,6 +48,7 @@ type ZmanimLocationInfo struct {
 	Region    *string `json:"region"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+	Elevation *int32  `json:"elevation,omitempty"`
 	Timezone  string  `json:"timezone"`
 }
 
@@ -158,6 +160,36 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 	timezone := cityDetails.Timezone
 	latitude := cityDetails.Latitude
 	longitude := cityDetails.Longitude
+	elevation := cityDetails.Elevation
+
+	// Check for publisher-specific location overrides (Story 6.4)
+	if publisherID != "" {
+		pubID, err := stringToInt32(publisherID)
+		if err == nil {
+			override, err := h.db.Queries.GetLocationOverrideForCalculation(ctx, sqlcgen.GetLocationOverrideForCalculationParams{
+				PublisherID: pubID,
+				CityID:      int32(cityID),
+			})
+			if err == nil {
+				// Apply overrides if they exist
+				if override.OverrideLatitude != nil {
+					latitude = *override.OverrideLatitude
+				}
+				if override.OverrideLongitude != nil {
+					longitude = *override.OverrideLongitude
+				}
+				if override.OverrideElevation != nil {
+					elevation = *override.OverrideElevation
+				}
+				slog.Debug("using location override",
+					"publisher_id", publisherID,
+					"city_id", cityID,
+					"override_lat", latitude,
+					"override_lon", longitude,
+					"override_elev", elevation)
+			}
+		}
+	}
 
 	// Load timezone
 	loc, err := time.LoadLocation(timezone)
@@ -260,7 +292,7 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 				sortOrder = int(*row.SortOrder)
 			}
 			tag := ZmanTag{
-				ID:                 int32ToString(row.ID),
+				ID:                 row.ID,
 				TagKey:             row.TagKey,
 				Name:               row.Name,
 				DisplayNameEnglish: row.DisplayNameEnglish,
@@ -268,6 +300,7 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 				TagType:            row.TagType,
 				Color:              row.Color,
 				SortOrder:          sortOrder,
+				IsNegated:          row.IsNegated,
 				CreatedAt:          row.CreatedAt.Time,
 				Description:        nil,
 			}
@@ -285,6 +318,7 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 			Region:    region,
 			Latitude:  latitude,
 			Longitude: longitude,
+			Elevation: &elevation,
 			Timezone:  timezone,
 		},
 		Publisher: publisherInfo,
@@ -389,6 +423,47 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 				Explanation: "Traditional havdalah time, approximately 42 minutes after sunset",
 			},
 		})
+	}
+
+	// Filter zmanim based on negated tags (e.g., "NOT on Shabbos")
+	hebrewDate := calService.GetHebrewDate(date)
+	hebrewMonth := int32(hebrewDate.MonthNum)
+	hebrewDay := int32(hebrewDate.Day)
+	todayTags, err := h.db.Queries.GetTagsForHebrewDate(ctx, sqlcgen.GetTagsForHebrewDateParams{
+		HebrewMonth:    &hebrewMonth,
+		HebrewDayStart: &hebrewDay,
+	})
+	if err != nil {
+		slog.Error("failed to get tags for Hebrew date", "error", err, "date", dateStr)
+	} else {
+		// Create map of today's tag IDs for fast lookup
+		todayTagIDs := make(map[int32]bool)
+		for _, tag := range todayTags {
+			todayTagIDs[tag.ID] = true
+		}
+
+		// Filter zmanim: exclude if any negated tag matches today
+		filteredZmanim := make([]ZmanWithFormula, 0, len(response.Zmanim))
+		for _, zman := range response.Zmanim {
+			shouldInclude := true
+			for _, tag := range zman.Tags {
+				// Tag ID is already int32, use it directly
+				tagIDInt := tag.ID
+				// If tag is negated AND matches today, exclude this zman
+				if tag.IsNegated && todayTagIDs[tagIDInt] {
+					shouldInclude = false
+					slog.Debug("excluding zman due to negated tag",
+						"zman", zman.Key,
+						"tag", tag.Name,
+						"date", dateStr)
+					break
+				}
+			}
+			if shouldInclude {
+				filteredZmanim = append(filteredZmanim, zman)
+			}
+		}
+		response.Zmanim = filteredZmanim
 	}
 
 	// Sort all zmanim by calculated time for chronological display

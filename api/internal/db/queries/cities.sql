@@ -490,3 +490,47 @@ ORDER BY
     -- Finally alphabetically
     name
 LIMIT sqlc.arg('limit');
+
+-- name: SearchCoverageByLevels :many
+-- Coverage search with level filtering for search-first UI
+-- Pass levels as comma-separated string (e.g., 'city,region,country')
+-- Empty levels string returns all types
+SELECT
+    coverage_type,
+    id,
+    name,
+    description,
+    country_code
+FROM coverage_search_mv
+WHERE
+    -- Level filter: if levels is empty/null, include all; otherwise filter
+    (
+        sqlc.arg('levels')::text = ''
+        OR coverage_type = ANY(string_to_array(sqlc.arg('levels')::text, ','))
+    )
+    AND (
+        -- Primary: Prefix match (fastest, uses text_pattern_ops index)
+        lower(name_ascii) LIKE lower(sqlc.arg('search')::text) || '%'
+        -- Secondary: Substring match (contains search term anywhere)
+        OR lower(name_ascii) LIKE '%' || lower(sqlc.arg('search')::text) || '%'
+        -- Tertiary: High-similarity fuzzy match (uses trigram GIN index)
+        OR (similarity(name_ascii, sqlc.arg('search')::text) > 0.3 AND name_ascii % sqlc.arg('search')::text)
+    )
+ORDER BY
+    -- Match quality: Exact > Prefix > Substring > Fuzzy
+    CASE
+        WHEN lower(name_ascii) = lower(sqlc.arg('search')::text) THEN 0
+        WHEN lower(name_ascii) LIKE lower(sqlc.arg('search')::text) || '%' THEN 1
+        WHEN lower(name_ascii) LIKE '%' || lower(sqlc.arg('search')::text) || '%' THEN 2
+        ELSE 3
+    END,
+    -- Similarity score (higher = better match)
+    similarity(name_ascii, sqlc.arg('search')::text) DESC,
+    -- Interleaved ranking: for high-similarity matches, mix types together
+    -- This ensures users see regions/districts alongside cities for same name
+    -- Formula: (type_priority * 0.5) - (population_boost)
+    -- Result: High-pop regions can rank between cities of similar names
+    (type_priority::float * 0.5) - (LEAST(sort_population, 10000000)::float / 20000000.0),
+    -- Alphabetically for final ties
+    name
+LIMIT sqlc.arg('limit');

@@ -551,6 +551,7 @@ func nullableString(s string) *string {
 // @Tags Coverage
 // @Produce json
 // @Param search query string true "Search query (min 2 chars)"
+// @Param levels query string false "Comma-separated levels to filter (city,district,region,country,continent). Empty = all levels"
 // @Param limit query int false "Max results (default 20, max 50)"
 // @Success 200 {object} APIResponse{data=object} "List of matching coverage areas"
 // @Failure 400 {object} APIResponse{error=APIError} "Search query too short"
@@ -565,6 +566,58 @@ func (h *Handlers) SearchCoverageUnified(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Smart multi-term parsing: detect country/region context
+	// Examples: "manchester england", "paris france", "new york usa"
+	var locationTerm string
+	var countryFilter string
+
+	// Country keyword mappings (common names → country codes)
+	countryKeywords := map[string]string{
+		"england": "GB", "uk": "GB", "britain": "GB", "united kingdom": "GB",
+		"usa": "US", "us": "US", "united states": "US", "america": "US",
+		"france": "FR", "germany": "DE", "spain": "ES", "italy": "IT",
+		"israel": "IL", "canada": "CA", "australia": "AU", "japan": "JP",
+		"china": "CN", "india": "IN", "brazil": "BR", "mexico": "MX",
+	}
+
+	// Split search into terms and check for country keywords
+	terms := strings.Fields(strings.ToLower(search))
+	if len(terms) >= 2 {
+		// Check last term for country keyword
+		lastTerm := terms[len(terms)-1]
+		if code, found := countryKeywords[lastTerm]; found {
+			countryFilter = code
+			locationTerm = strings.Join(terms[:len(terms)-1], " ")
+		} else {
+			// Check last 2 terms for multi-word countries like "united kingdom"
+			if len(terms) >= 3 {
+				lastTwoTerms := strings.Join(terms[len(terms)-2:], " ")
+				if code, found := countryKeywords[lastTwoTerms]; found {
+					countryFilter = code
+					locationTerm = strings.Join(terms[:len(terms)-2], " ")
+				}
+			}
+		}
+	}
+
+	// If no country detected, use original search
+	if locationTerm == "" {
+		locationTerm = search
+	}
+
+	// Parse levels filter (comma-separated: city,region,country etc.)
+	levels := strings.TrimSpace(r.URL.Query().Get("levels"))
+	// Validate level values if provided
+	if levels != "" {
+		validLevels := map[string]bool{"city": true, "district": true, "region": true, "country": true, "continent": true}
+		for _, level := range strings.Split(levels, ",") {
+			if !validLevels[strings.TrimSpace(level)] {
+				RespondBadRequest(w, r, "Invalid level: "+level+". Valid values: city, district, region, country, continent")
+				return
+			}
+		}
+	}
+
 	// Parse limit (default 20, max 50)
 	limit := int32(20)
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -573,12 +626,26 @@ func (h *Handlers) SearchCoverageUnified(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	rows, err := h.db.Queries.SearchCoverageUnified(ctx, sqlcgen.SearchCoverageUnifiedParams{
-		Search: search,
-		Limit:  limit,
+	// When country filter is active, fetch more results to ensure we get
+	// all relevant entities (cities, regions, districts) after filtering
+	queryLimit := limit
+	if countryFilter != "" {
+		// Always fetch at least 100 results when filtering by country
+		// to ensure substring matches (like "Greater Manchester") appear
+		queryLimit = 100
+		// But allow user-requested limits above 100
+		if limit > 100 {
+			queryLimit = limit
+		}
+	}
+
+	rows, err := h.db.Queries.SearchCoverageByLevels(ctx, sqlcgen.SearchCoverageByLevelsParams{
+		Levels: levels,
+		Search: locationTerm,
+		Limit:  queryLimit,
 	})
 	if err != nil {
-		slog.Error("failed to search coverage", "error", err, "search", search)
+		slog.Error("failed to search coverage", "error", err, "search", search, "levels", levels)
 		RespondInternalError(w, r, "Failed to search coverage")
 		return
 	}
@@ -593,6 +660,16 @@ func (h *Handlers) SearchCoverageUnified(w http.ResponseWriter, r *http.Request)
 
 	results := make([]CoverageResult, 0, len(rows))
 	for _, row := range rows {
+		// Apply country filter if detected
+		if countryFilter != "" && row.CountryCode != countryFilter {
+			continue
+		}
+
+		// Stop once we've collected enough results
+		if len(results) >= int(limit) {
+			break
+		}
+
 		// Handle interface{} description field
 		desc := ""
 		if row.Description != nil {

@@ -104,7 +104,7 @@ export const JEWISH_DAY_GROUPS = {
 
 // Tag interface matching API response
 export interface Tag {
-  id: string;
+  id: number; // Changed from string to number to match backend int32
   tag_key: string;
   name: string;
   display_name_hebrew: string;

@@ -48,11 +48,19 @@ SELECT
     t.display_name_english,
     tt.key AS tag_type,
     t.sort_order,
-    COALESCE(mzt.is_negated, pzt.is_negated, false) AS is_negated,
+    COALESCE(pzt.is_negated, mzt.is_negated, false) AS is_negated,
     CASE
         WHEN mzt.tag_id IS NOT NULL THEN 'master'
         ELSE 'publisher'
-    END AS tag_source
+    END AS tag_source,
+    mzt.is_negated AS source_is_negated,
+    CASE
+        WHEN mzt.tag_id IS NOT NULL
+          AND pzt.tag_id IS NOT NULL
+          AND COALESCE(pzt.is_negated, false) != COALESCE(mzt.is_negated, false)
+        THEN true
+        ELSE false
+    END AS is_modified
 FROM (
     -- Master zman tags (if this zman is linked to master registry)
     SELECT mzt.tag_id, mzt.is_negated, 'master' AS source
@@ -84,6 +92,8 @@ type GetZmanTagsRow struct {
 	SortOrder          *int32 `json:"sort_order"`
 	IsNegated          bool   `json:"is_negated"`
 	TagSource          string `json:"tag_source"`
+	SourceIsNegated    *bool  `json:"source_is_negated"`
+	IsModified         bool   `json:"is_modified"`
 }
 
 // File: zmanim_tags.sql
@@ -91,8 +101,9 @@ type GetZmanTagsRow struct {
 // Pattern: query-decomposition
 // Complexity: low (single concept with lookup tables)
 // Used by: publisher_zmanim.go handlers
-// Fetches all tags for a specific publisher zman
+// Fetches all tags for a specific publisher zman with source tracking
 // Combines master zman tags (if linked to master registry) with publisher-specific tags
+// Includes source_is_negated, is_modified, and tag_source for modification tracking
 func (q *Queries) GetZmanTags(ctx context.Context, id int32) ([]GetZmanTagsRow, error) {
 	rows, err := q.db.Query(ctx, getZmanTags, id)
 	if err != nil {
@@ -112,6 +123,8 @@ func (q *Queries) GetZmanTags(ctx context.Context, id int32) ([]GetZmanTagsRow, 
 			&i.SortOrder,
 			&i.IsNegated,
 			&i.TagSource,
+			&i.SourceIsNegated,
+			&i.IsModified,
 		); err != nil {
 			return nil, err
 		}
@@ -121,4 +134,16 @@ func (q *Queries) GetZmanTags(ctx context.Context, id int32) ([]GetZmanTagsRow, 
 		return nil, err
 	}
 	return items, nil
+}
+
+const revertPublisherZmanTags = `-- name: RevertPublisherZmanTags :exec
+DELETE FROM publisher_zman_tags
+WHERE publisher_zman_id = $1
+`
+
+// Reverts all publisher zman tags to match master registry state
+// Deletes all publisher-specific tags and resets to master defaults
+func (q *Queries) RevertPublisherZmanTags(ctx context.Context, publisherZmanID int32) error {
+	_, err := q.db.Exec(ctx, revertPublisherZmanTags, publisherZmanID)
+	return err
 }

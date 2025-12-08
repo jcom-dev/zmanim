@@ -22,7 +22,7 @@ import { usePublisherContext } from '@/providers/PublisherContext';
 // =============================================================================
 
 export interface ZmanTag {
-  id: string;
+  id: number; // Changed from string to number to match backend int32
   tag_key: string;
   name: string;
   display_name_hebrew: string;
@@ -32,6 +32,9 @@ export interface ZmanTag {
   color?: string | null;
   sort_order?: number;
   is_negated?: boolean; // When true, zman should NOT appear on days matching this tag
+  tag_source?: 'master' | 'publisher'; // Source of the tag
+  source_is_negated?: boolean | null; // Original negation state from master registry
+  is_modified?: boolean; // True if tag differs from master registry
 }
 
 export interface PublisherZman {
@@ -248,7 +251,7 @@ export const usePublisherZmanTags = (zmanKey: string | null) =>
  * Tag assignment with optional negation
  */
 export interface TagAssignment {
-  tag_id: string;
+  tag_id: number; // Changed from string to number to match backend int32
   is_negated: boolean;
 }
 
@@ -289,6 +292,21 @@ export function useRemovePublisherZmanTag(zmanKey: string) {
     (vars) => `/publisher/zmanim/${zmanKey}/tags/${vars.tagId}`,
     'DELETE',
     () => undefined,
+    {
+      invalidateKeys: ['publisher-zmanim', `publisher-zman-tags-${zmanKey}`],
+    }
+  );
+}
+
+/**
+ * Hook: Revert all tags to master registry state
+ * Deletes publisher-specific tag overrides and reverts to master defaults
+ */
+export function useRevertPublisherZmanTags(zmanKey: string) {
+  return useDynamicMutation<{ message: string; tags: ZmanTag[] }, void>(
+    () => `/publisher/zmanim/${zmanKey}/tags/revert`,
+    'POST',
+    (data) => data,
     {
       invalidateKeys: ['publisher-zmanim', `publisher-zman-tags-${zmanKey}`],
     }

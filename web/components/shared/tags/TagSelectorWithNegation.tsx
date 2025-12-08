@@ -25,9 +25,9 @@ const TAG_GROUPS: TagGroup[] = [
 
 interface TagSelectorWithNegationProps {
   tags: TagSelectorTag[];
-  selectedTagIds: string[];
-  negatedTagIds: string[];
-  onToggleTag: (tagId: string) => void;
+  selectedTagIds: number[]; // Changed from string[] to number[]
+  negatedTagIds: number[]; // Changed from string[] to number[]
+  onToggleTag: (tagId: number) => void; // Changed from string to number
   tagTypeLabels?: Record<string, string>;
   isLoading?: boolean;
   disabled?: boolean;

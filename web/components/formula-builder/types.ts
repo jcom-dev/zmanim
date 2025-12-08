@@ -271,10 +271,10 @@ export function parseFormula(formula: string): ParseResult {
     };
   }
 
-  // Check for unknown functions (functions other than solar, proportional_hours, custom)
+  // Check for unknown functions (functions other than solar, seasonal_solar, proportional_hours, custom)
   const functionMatches = trimmed.match(/\b([a-z_][a-z0-9_]*)\s*\(/gi);
   if (functionMatches) {
-    const knownFunctions = ['solar', 'proportional_hours', 'custom'];
+    const knownFunctions = ['solar', 'seasonal_solar', 'proportional_hours', 'custom'];
     for (const match of functionMatches) {
       const funcName = match.replace(/\s*\($/, '').toLowerCase();
       if (!knownFunctions.includes(funcName)) {

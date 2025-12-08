@@ -138,6 +138,72 @@ The solar angle function calculates when the sun's center is at the specified an
 
 ---
 
+### 2b. SEASONAL SOLAR ANGLE FUNCTION
+
+Calculate the time when the sun is at a specific angle using the **seasonal/proportional method** (ROY/Zemaneh-Yosef methodology). This differs from the standard `solar()` function by scaling the equinox-based offset proportionally to the current day length.
+
+**Syntax:**
+```javascript
+seasonal_solar(degrees, direction)
+```
+
+**Parameters:**
+- `degrees`: Float (0.0 - 90.0) - Solar depression angle
+- `direction`: Enum (restricted)
+  - `before_sunrise` - Sun at angle before sunrise
+  - `after_sunset` - Sun at angle after sunset
+  - ⚠️ Note: `before_noon` and `after_noon` are NOT valid for seasonal_solar
+
+**How Seasonal Calculation Works:**
+
+The seasonal method calculates the offset from sunrise/sunset at the equinox for the given angle, then scales that offset by the ratio of the current day's length to the equinox day length (12 hours).
+
+```
+equinox_offset = time_at_angle(equinox_date) - sunrise(equinox_date)
+current_day_length = sunset - sunrise
+scaling_factor = current_day_length / 12_hours
+seasonal_offset = equinox_offset × scaling_factor
+result = sunrise - seasonal_offset  (for before_sunrise)
+```
+
+**Key Differences from `solar()`:**
+
+| Aspect | `solar()` | `seasonal_solar()` |
+|--------|-----------|-------------------|
+| Method | Fixed astronomical angle | Proportional to day length |
+| Summer days | Earlier dawn, later dusk | Scaled proportionally |
+| Winter days | Later dawn, earlier dusk | Scaled proportionally |
+| Directions | All 4 directions | Only before_sunrise, after_sunset |
+| Use case | Standard calculations | ROY, Zemaneh-Yosef, Sephardic customs |
+
+**Common Angles Reference (ROY):**
+
+| Angle (°) | Typical Zman | Notes |
+|-----------|--------------|-------|
+| 8.5 | Tzais (nightfall) | Standard tzeis |
+| 11.5 | Misheyakir | Earliest tallis/tefillin (ROY) |
+| 16.04 | Alos (dawn) | ROY standard dawn |
+
+**Examples:**
+```javascript
+// Alos Hashachar - ROY method (16.04° seasonal)
+seasonal_solar(16.04, before_sunrise)    → 04:52:00 (summer)
+seasonal_solar(16.04, before_sunrise)    → 05:38:00 (winter)
+
+// Tzais - ROY method (8.5° seasonal)
+seasonal_solar(8.5, after_sunset)        → 19:25:00 (summer)
+seasonal_solar(8.5, after_sunset)        → 18:15:00 (winter)
+
+// Misheyakir - ROY method (11.5° seasonal)
+seasonal_solar(11.5, before_sunrise)     → 05:18:00
+```
+
+**When to Use Seasonal vs Standard:**
+- Use `seasonal_solar()` when following ROY (Rabbi Ovadia Yosef), Zemaneh-Yosef, or similar Sephardic methodologies that use proportional day-length scaling
+- Use `solar()` for standard astronomical calculations used by most Ashkenazi poskim
+
+---
+
 ### 3. FIXED TIME OFFSET
 
 Add or subtract a fixed duration from a base time.
@@ -663,8 +729,11 @@ if (latitude > 60) {
               | "astronomical_dawn" | "astronomical_dusk"
 
 <function_call> ::= "solar" "(" <number> "," <direction> ")"
+                  | "seasonal_solar" "(" <number> "," <seasonal_direction> ")"
                   | "shaos" "(" <number> "," <base> ")"
                   | "midpoint" "(" <expression> "," <expression> ")"
+
+<seasonal_direction> ::= "before_sunrise" | "after_sunset"
 
 <direction> ::= "before_sunrise" | "after_sunset" | "before_noon" | "after_noon"
 
@@ -1530,6 +1599,11 @@ This appendix catalogs all 157+ zmanim from KosherJava with their DSL formula eq
 │  solar(degrees, direction)                                          │
 │    → solar(16.1, before_sunrise)    // Alos 16.1°                   │
 │    → solar(8.5, after_sunset)       // Tzais 8.5°                   │
+│                                                                     │
+│  seasonal_solar(degrees, direction)   // ROY/Zemaneh-Yosef method   │
+│    → seasonal_solar(16.04, before_sunrise)  // Alos ROY             │
+│    → seasonal_solar(8.5, after_sunset)      // Tzais ROY            │
+│    (Only before_sunrise and after_sunset directions allowed)        │
 │                                                                     │
 │  shaos(hours, base)                                                 │
 │    → shaos(3, gra)                  // 3 hours GRA                  │

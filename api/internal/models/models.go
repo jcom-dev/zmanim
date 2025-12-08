@@ -260,9 +260,9 @@ type PublisherForCity struct {
 
 // PublishersForCityResponse represents the response for publishers serving a city
 type PublishersForCityResponse struct {
-	Publishers []PublisherForCity `json:"publishers"`
-	Total      int                `json:"total"`
-	CityID     int64              `json:"city_id"`
+	City        *City              `json:"city"`
+	Publishers  []PublisherForCity `json:"publishers"`
+	HasCoverage bool               `json:"has_coverage"`
 }
 
 // AlgorithmResponse represents an algorithm with its configuration
@@ -293,4 +293,41 @@ type AlgorithmPreviewRequest struct {
 	Latitude  float64                `json:"latitude"`
 	Longitude float64                `json:"longitude"`
 	Timezone  string                 `json:"timezone"`
+}
+
+// PublisherLocationOverride represents a publisher-specific override for city location data
+type PublisherLocationOverride struct {
+	ID                int        `json:"id"`
+	PublisherID       int        `json:"publisher_id"`
+	CityID            int        `json:"city_id"`
+	CityName          string     `json:"city_name,omitempty"`
+	CountryName       string     `json:"country_name,omitempty"`
+	OverrideLatitude  *float64   `json:"override_latitude,omitempty"`
+	OverrideLongitude *float64   `json:"override_longitude,omitempty"`
+	OverrideElevation *int       `json:"override_elevation,omitempty"`
+	Reason            string     `json:"reason,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+}
+
+// LocationOverrideCreateRequest represents a request to create a location override
+type LocationOverrideCreateRequest struct {
+	OverrideLatitude  *float64 `json:"override_latitude,omitempty"`
+	OverrideLongitude *float64 `json:"override_longitude,omitempty"`
+	OverrideElevation *int     `json:"override_elevation,omitempty"`
+	Reason            string   `json:"reason,omitempty"`
+}
+
+// LocationOverrideUpdateRequest represents a request to update a location override
+type LocationOverrideUpdateRequest struct {
+	OverrideLatitude  *float64 `json:"override_latitude,omitempty"`
+	OverrideLongitude *float64 `json:"override_longitude,omitempty"`
+	OverrideElevation *int     `json:"override_elevation,omitempty"`
+	Reason            string   `json:"reason,omitempty"`
+}
+
+// LocationOverridesListResponse represents a list of location overrides
+type LocationOverridesListResponse struct {
+	Overrides []PublisherLocationOverride `json:"overrides"`
+	Total     int                         `json:"total"`
 }

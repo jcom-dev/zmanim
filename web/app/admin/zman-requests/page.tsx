@@ -68,7 +68,7 @@ interface ZmanRequestListResponse {
 interface ZmanRequestTagResponse {
   id: string;
   request_id: string;
-  tag_id?: string;
+  tag_id?: number; // Changed from string to number to match backend int32
   requested_tag_name?: string;
   requested_tag_type?: string;
   is_new_tag_request: boolean;
@@ -221,7 +221,7 @@ export default function AdminZmanRequestsPage() {
     if (!selectedRequest) return null;
 
     const result = await api.post<{
-      id: string;
+      id: number; // Changed from string to number to match backend int32
       tag_key: string;
       name: string;
       display_name_hebrew: string;

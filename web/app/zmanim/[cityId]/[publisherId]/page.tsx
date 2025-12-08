@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  MapPin, ChevronLeft, ChevronRight,
+  MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Loader2, AlertCircle, ArrowLeft, Info, Search, X, Sun, Moon, Sunset, Clock,
-  Star, FlaskConical, ShieldAlert, ShieldCheck
+  Star, FlaskConical, ShieldAlert, ShieldCheck, Map
 } from 'lucide-react';
 import Link from 'next/link';
 import { DateTime } from 'luxon';
@@ -17,6 +17,7 @@ import { useDisplayGroupMapping, type DisplayGroup } from '@/lib/hooks';
 import { formatTimeShort } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { ColorBadge } from '@/components/ui/color-badge';
+import { LocationMapView } from '@/components/shared/LocationMapView';
 
 interface City {
   id: string;
@@ -25,6 +26,9 @@ interface City {
   region: string | null;
   timezone: string;
   display_name?: string;
+  latitude?: number;
+  longitude?: number;
+  elevation?: number;
 }
 
 interface SearchCity {
@@ -108,6 +112,7 @@ export default function ZmanimPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchCity[]>([]);
   const [searching, setSearching] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   // Group zmanim by display group using database-driven mapping
   const groupedZmanim = useMemo(() => {
@@ -146,7 +151,7 @@ export default function ZmanimPage() {
 
       const zmanimData = await api.public.get<{
         date: string;
-        location?: { city_id: string; city_name: string; country: string; region: string | null; timezone: string };
+        location?: { city_id: string; city_name: string; country: string; region: string | null; timezone: string; latitude?: number; longitude?: number; elevation?: number };
         city?: City;
         publisher?: Publisher;
         zmanim: Zman[];
@@ -159,7 +164,10 @@ export default function ZmanimPage() {
         name: location.city_name || 'Unknown',
         country: location.country || '',
         region: location.region || null,
-        timezone: location.timezone || 'UTC'
+        timezone: location.timezone || 'UTC',
+        latitude: location.latitude,
+        longitude: location.longitude,
+        elevation: location.elevation,
       } : zmanimData?.city as City;
 
       setData({
@@ -332,16 +340,29 @@ export default function ZmanimPage() {
                         )
                       )}
                     </div>
-                    <button
-                      onClick={() => setLocationSearchOpen(true)}
-                      className="flex items-center gap-1 md:gap-1.5 text-primary-foreground/90 text-xs hover:text-white transition-all group mt-0.5"
-                    >
-                      <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 flex-shrink-0" />
-                      <span className="group-hover:underline underline-offset-2 truncate">
-                        {city?.name}, {city?.region ? `${city.region}, ` : ''}{city?.country}
-                      </span>
-                      <Search className="w-2.5 h-2.5 md:w-3 md:h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                    </button>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <button
+                        onClick={() => setLocationSearchOpen(true)}
+                        className="flex items-center gap-1 md:gap-1.5 text-primary-foreground/90 text-xs hover:text-white transition-all group"
+                      >
+                        <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 flex-shrink-0" />
+                        <span className="group-hover:underline underline-offset-2 truncate">
+                          {city?.name}, {city?.region ? `${city.region}, ` : ''}{city?.country}
+                        </span>
+                        <Search className="w-2.5 h-2.5 md:w-3 md:h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      </button>
+                      {city?.latitude && city?.longitude && (
+                        <button
+                          onClick={() => setMapExpanded(!mapExpanded)}
+                          className="flex items-center gap-1 text-primary-foreground/70 text-[10px] hover:text-white transition-all"
+                          title={`${mapExpanded ? 'Hide' : 'Show'} map (${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)})`}
+                        >
+                          <Map className="w-3 h-3" />
+                          <span className="hidden sm:inline">{mapExpanded ? 'Hide' : 'Map'}</span>
+                          {mapExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -366,7 +387,7 @@ export default function ZmanimPage() {
             </div>
 
             {/* Date Navigation */}
-            <div className={`px-5 py-4 flex items-center justify-between gap-4 ${isDefault ? 'border-b border-border/50' : 'rounded-b-2xl'}`}>
+            <div className={`px-5 py-4 flex items-center justify-between gap-4 ${isDefault ? 'border-b border-border/50' : ''}`}>
               <button
                 onClick={handlePrevDay}
                 className="p-2.5 hover:bg-accent rounded-xl transition-all hover:scale-110 active:scale-95"
@@ -392,6 +413,25 @@ export default function ZmanimPage() {
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
+
+            {/* Collapsible Map */}
+            {mapExpanded && city?.latitude && city?.longitude && (
+              <div className="px-4 pb-4">
+                <LocationMapView
+                  location={{
+                    type: 'city',
+                    id: city.id,
+                    name: city.name,
+                    latitude: city.latitude,
+                    longitude: city.longitude,
+                    elevation: city.elevation,
+                    timezone: city.timezone,
+                  }}
+                  height={250}
+                  className="rounded-xl"
+                />
+              </div>
+            )}
 
             {/* Optional Zmanim Toggle */}
             <div className="px-5 py-3 border-b border-border/50 flex items-center justify-center">
