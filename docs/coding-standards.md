@@ -427,6 +427,54 @@ redis-cli -h redis FLUSHDB  # Clear cache
 | Web | 3001 |
 | API | 8080 |
 
+### CI/Linting Fixes - ALWAYS Test Locally First
+
+**FORBIDDEN:** Push-and-wait cycle (commit → push → wait for CI → repeat)
+
+**REQUIRED:** Test ALL changes locally BEFORE committing
+
+```bash
+# E2E test fixes - verify against real database
+psql $DATABASE_URL -c "SELECT p.id, p.name, ps.key as status FROM publishers p JOIN publisher_statuses ps ON p.status_id = ps.id WHERE p.slug LIKE 'e2e-%'"
+cd web && npx tsc --noEmit  # Type check
+
+# Linting fixes - run exact CI checks
+cd api && golangci-lint run ./...
+cd api && go build -v ./cmd/api ./internal/...
+cd api && gofmt -l .  # Should return nothing
+
+# Backend changes - build before push
+cd api && go build -v ./cmd/api ./internal/...
+cd api && go test ./...
+
+# Frontend changes - type check before push
+cd web && npm run type-check
+cd web && npm run build
+
+# After push - monitor workflows
+gh run list --limit 5
+gh run watch  # Watch latest run
+```
+
+**When to test what:**
+- **E2E schema fixes** → Query local database, verify column names/types
+- **Go linting errors** → Run `golangci-lint run`, fix locally, verify build
+- **TypeScript errors** → Run `tsc --noEmit`, fix, verify build
+- **Formatting** → Run `gofmt -w .` or `prettier --write .`
+- **Any handler/service change** → Full build + test suite
+
+**Monitoring after push:**
+```bash
+# Watch all 3 workflows complete
+gh run watch
+
+# If failures occur
+gh run view --log-failed  # See error details
+# Fix locally, test again, then push
+```
+
+**Why:** Local testing is 10x faster than push-and-wait. CI should be final validation, not iterative debugging.
+
 ---
 
 ## Concept Independence (ASPIRATIONAL)
