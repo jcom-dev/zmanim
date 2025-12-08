@@ -514,6 +514,7 @@ export default function AdminPublisherDetailPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          aria-label="View as publisher"
                           onClick={() => {
                             sessionStorage.setItem('impersonating', JSON.stringify({
                               publisherId: publisher.id,
