@@ -660,7 +660,7 @@ func (h *Handlers) AdminSuspendPublisher(w http.ResponseWriter, r *http.Request)
 		Reason string `json:"reason"`
 	}
 	// Ignore decode errors - reason is optional
-	json.NewDecoder(r.Body).Decode(&req)
+	_ = json.NewDecoder(r.Body).Decode(&req)
 
 	// Update status and suspension reason
 	idInt, err := parseIDParam(id)
@@ -1250,7 +1250,7 @@ func (h *Handlers) AdminUpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Parse the value back
 	var parsedValue map[string]interface{}
-	json.Unmarshal(row.Value, &parsedValue)
+	_ = json.Unmarshal(row.Value, &parsedValue)
 
 	result := map[string]interface{}{
 		"key":         row.Key,

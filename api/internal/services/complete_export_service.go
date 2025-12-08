@@ -30,90 +30,90 @@ func NewCompleteExportService(database *db.DB) *CompleteExportService {
 // CompletePublisherExport represents a complete publisher export (admin/backup format)
 // This format is INCOMPATIBLE with publisher snapshot imports (version control)
 type CompletePublisherExport struct {
-	FormatType   string                     `json:"format_type"`  // Always "complete_backup"
-	FormatVersion int                       `json:"format_version"`  // Version 1000+ to distinguish from snapshot versions
-	ExportedAt   string                     `json:"exported_at"`
-	Description  string                     `json:"description"`
-	Publisher    PublisherProfile           `json:"publisher"`
-	Coverage     []CoverageArea             `json:"coverage"`
-	Zmanim       []ZmanData                 `json:"zmanim"`
+	FormatType    string           `json:"format_type"`    // Always "complete_backup"
+	FormatVersion int              `json:"format_version"` // Version 1000+ to distinguish from snapshot versions
+	ExportedAt    string           `json:"exported_at"`
+	Description   string           `json:"description"`
+	Publisher     PublisherProfile `json:"publisher"`
+	Coverage      []CoverageArea   `json:"coverage"`
+	Zmanim        []ZmanData       `json:"zmanim"`
 }
 
 // PublisherProfile contains complete publisher profile data
 type PublisherProfile struct {
-	ID               int32   `json:"id"`
-	Name             string  `json:"name"`
-	Email            string  `json:"email"`
-	Phone            *string `json:"phone,omitempty"`
-	Website          *string `json:"website,omitempty"`
-	Description      string  `json:"description"`
-	Bio              string  `json:"bio"`
-	LogoURL          *string `json:"logo_url,omitempty"`
-	LogoData         *string `json:"logo_data,omitempty"`
-	Latitude         *float64 `json:"latitude,omitempty"`
-	Longitude        *float64 `json:"longitude,omitempty"`
-	Timezone         *string `json:"timezone,omitempty"`
-	IsPublished      bool    `json:"is_published"`
-	IsVerified       bool    `json:"is_verified"`
-	IsCertified      bool    `json:"is_certified"`
-	StatusKey        string  `json:"status_key"`
-	StatusDisplayHebrew   string `json:"status_display_hebrew"`
-	StatusDisplayEnglish  string `json:"status_display_english"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID                   int32     `json:"id"`
+	Name                 string    `json:"name"`
+	Email                string    `json:"email"`
+	Phone                *string   `json:"phone,omitempty"`
+	Website              *string   `json:"website,omitempty"`
+	Description          string    `json:"description"`
+	Bio                  string    `json:"bio"`
+	LogoURL              *string   `json:"logo_url,omitempty"`
+	LogoData             *string   `json:"logo_data,omitempty"`
+	Latitude             *float64  `json:"latitude,omitempty"`
+	Longitude            *float64  `json:"longitude,omitempty"`
+	Timezone             *string   `json:"timezone,omitempty"`
+	IsPublished          bool      `json:"is_published"`
+	IsVerified           bool      `json:"is_verified"`
+	IsCertified          bool      `json:"is_certified"`
+	StatusKey            string    `json:"status_key"`
+	StatusDisplayHebrew  string    `json:"status_display_hebrew"`
+	StatusDisplayEnglish string    `json:"status_display_english"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 // CoverageArea contains coverage information
 type CoverageArea struct {
-	ID                      int32     `json:"id"`
-	CoverageLevelKey        string    `json:"coverage_level_key"`
-	CoverageLevelDisplayHebrew   string  `json:"coverage_level_display_hebrew"`
-	CoverageLevelDisplayEnglish  string  `json:"coverage_level_display_english"`
-	ContinentID             *int16    `json:"continent_id,omitempty"`
-	ContinentName           *string   `json:"continent_name,omitempty"`
-	CountryID               *int16    `json:"country_id,omitempty"`
-	CountryCode             *string   `json:"country_code,omitempty"`
-	CountryName             *string   `json:"country_name,omitempty"`
-	RegionID                *int32    `json:"region_id,omitempty"`
-	RegionCode              *string   `json:"region_code,omitempty"`
-	RegionName              *string   `json:"region_name,omitempty"`
-	DistrictID              *int32    `json:"district_id,omitempty"`
-	DistrictCode            *string   `json:"district_code,omitempty"`
-	DistrictName            *string   `json:"district_name,omitempty"`
-	CityID                  *int32    `json:"city_id,omitempty"`
-	CityName                *string   `json:"city_name,omitempty"`
-	CityLatitude            *float64  `json:"city_latitude,omitempty"`
-	CityLongitude           *float64  `json:"city_longitude,omitempty"`
-	Priority                *int32    `json:"priority,omitempty"`
-	IsActive                bool      `json:"is_active"`
-	CreatedAt               time.Time `json:"created_at"`
+	ID                          int32     `json:"id"`
+	CoverageLevelKey            string    `json:"coverage_level_key"`
+	CoverageLevelDisplayHebrew  string    `json:"coverage_level_display_hebrew"`
+	CoverageLevelDisplayEnglish string    `json:"coverage_level_display_english"`
+	ContinentID                 *int16    `json:"continent_id,omitempty"`
+	ContinentName               *string   `json:"continent_name,omitempty"`
+	CountryID                   *int16    `json:"country_id,omitempty"`
+	CountryCode                 *string   `json:"country_code,omitempty"`
+	CountryName                 *string   `json:"country_name,omitempty"`
+	RegionID                    *int32    `json:"region_id,omitempty"`
+	RegionCode                  *string   `json:"region_code,omitempty"`
+	RegionName                  *string   `json:"region_name,omitempty"`
+	DistrictID                  *int32    `json:"district_id,omitempty"`
+	DistrictCode                *string   `json:"district_code,omitempty"`
+	DistrictName                *string   `json:"district_name,omitempty"`
+	CityID                      *int32    `json:"city_id,omitempty"`
+	CityName                    *string   `json:"city_name,omitempty"`
+	CityLatitude                *float64  `json:"city_latitude,omitempty"`
+	CityLongitude               *float64  `json:"city_longitude,omitempty"`
+	Priority                    *int32    `json:"priority,omitempty"`
+	IsActive                    bool      `json:"is_active"`
+	CreatedAt                   time.Time `json:"created_at"`
 }
 
 // ZmanData contains zman data for export
 type ZmanData struct {
-	ID                    int32           `json:"id"`
-	ZmanKey               string          `json:"zman_key"`
-	HebrewName            string          `json:"hebrew_name"`
-	EnglishName           string          `json:"english_name"`
-	Transliteration       *string         `json:"transliteration,omitempty"`
-	Description           *string         `json:"description,omitempty"`
-	FormulaDSL            string          `json:"formula_dsl"`
-	AIExplanation         *string         `json:"ai_explanation,omitempty"`
-	PublisherComment      *string         `json:"publisher_comment,omitempty"`
-	IsEnabled             bool            `json:"is_enabled"`
-	IsVisible             bool            `json:"is_visible"`
-	IsPublished           bool            `json:"is_published"`
-	IsBeta                bool            `json:"is_beta"`
-	IsCustom              bool            `json:"is_custom"`
-	Category              string          `json:"category"`
-	CategoryDisplayHebrew string          `json:"category_display_hebrew"`
-	CategoryDisplayEnglish string         `json:"category_display_english"`
-	MasterZmanID          *int32          `json:"master_zman_id,omitempty"`
-	LinkedPublisherZmanID *int32          `json:"linked_publisher_zman_id,omitempty"`
-	SourceType            *string         `json:"source_type,omitempty"`
-	CurrentVersion        *int32          `json:"current_version,omitempty"`
-	CreatedAt             time.Time       `json:"created_at"`
-	UpdatedAt             time.Time       `json:"updated_at"`
+	ID                     int32     `json:"id"`
+	ZmanKey                string    `json:"zman_key"`
+	HebrewName             string    `json:"hebrew_name"`
+	EnglishName            string    `json:"english_name"`
+	Transliteration        *string   `json:"transliteration,omitempty"`
+	Description            *string   `json:"description,omitempty"`
+	FormulaDSL             string    `json:"formula_dsl"`
+	AIExplanation          *string   `json:"ai_explanation,omitempty"`
+	PublisherComment       *string   `json:"publisher_comment,omitempty"`
+	IsEnabled              bool      `json:"is_enabled"`
+	IsVisible              bool      `json:"is_visible"`
+	IsPublished            bool      `json:"is_published"`
+	IsBeta                 bool      `json:"is_beta"`
+	IsCustom               bool      `json:"is_custom"`
+	Category               string    `json:"category"`
+	CategoryDisplayHebrew  string    `json:"category_display_hebrew"`
+	CategoryDisplayEnglish string    `json:"category_display_english"`
+	MasterZmanID           *int32    `json:"master_zman_id,omitempty"`
+	LinkedPublisherZmanID  *int32    `json:"linked_publisher_zman_id,omitempty"`
+	SourceType             *string   `json:"source_type,omitempty"`
+	CurrentVersion         *int32    `json:"current_version,omitempty"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
 }
 
 // BuildCompleteExport creates a complete publisher export
@@ -138,10 +138,10 @@ func (s *CompleteExportService) BuildCompleteExport(ctx context.Context, publish
 
 	// Build export
 	export := &CompletePublisherExport{
-		FormatType:           "complete_backup",
-		FormatVersion:        1000,  // Use 1000+ to make it incompatible with snapshot versions (1-999)
-		ExportedAt:           time.Now().UTC().Format(time.RFC3339),
-		Description:          description,
+		FormatType:    "complete_backup",
+		FormatVersion: 1000, // Use 1000+ to make it incompatible with snapshot versions (1-999)
+		ExportedAt:    time.Now().UTC().Format(time.RFC3339),
+		Description:   description,
 		Publisher: PublisherProfile{
 			ID:                   publisherRow.ID,
 			Name:                 publisherRow.Name,

@@ -949,13 +949,13 @@ func (h *Handlers) GetZmanApplicableDayTypes(w http.ResponseWriter, r *http.Requ
 			sortOrder = int(*row.SortOrder)
 		}
 		dayTypes = append(dayTypes, DayType{
-			ID:                  int32ToString(row.ID),
-			Name:                row.Key,
-			DisplayNameHebrew:   row.DisplayNameHebrew,
-			DisplayNameEnglish:  row.DisplayNameEnglish,
-			Description:         row.Description,
-			ParentType:          parentType,
-			SortOrder:           sortOrder,
+			ID:                 int32ToString(row.ID),
+			Name:               row.Key,
+			DisplayNameHebrew:  row.DisplayNameHebrew,
+			DisplayNameEnglish: row.DisplayNameEnglish,
+			Description:        row.Description,
+			ParentType:         parentType,
+			SortOrder:          sortOrder,
 		})
 	}
 
@@ -2984,7 +2984,7 @@ func (h *Handlers) AdminUpdateMasterZman(w http.ResponseWriter, r *http.Request)
 
 	// Use SQLc query for update
 	row, err := h.db.Queries.AdminUpdateMasterZmanSimple(ctx, db.AdminUpdateMasterZmanSimpleParams{
-		ID: zmanIDInt,
+		ID:                   zmanIDInt,
 		CanonicalHebrewName:  req.CanonicalHebrewName,
 		CanonicalEnglishName: req.CanonicalEnglishName,
 		Transliteration:      req.Transliteration,

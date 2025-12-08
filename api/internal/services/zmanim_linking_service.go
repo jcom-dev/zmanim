@@ -48,11 +48,11 @@ func NewZmanimLinkingService(database *db.DB) *ZmanimLinkingService {
 
 // LinkOrCopyZmanRequest contains parameters for linking or copying a zman
 type LinkOrCopyZmanRequest struct {
-	TargetPublisherID   int32
-	SourceZmanID        int32
-	Mode                string // "copy" or "link"
-	UserID              string // Clerk user ID (for provenance)
-	RequestID           string // Request ID as string (for provenance)
+	TargetPublisherID int32
+	SourceZmanID      int32
+	Mode              string // "copy" or "link"
+	UserID            string // Clerk user ID (for provenance)
+	RequestID         string // Request ID as string (for provenance)
 }
 
 // LinkOrCopyZmanResult contains the created zman details

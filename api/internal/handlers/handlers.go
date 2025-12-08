@@ -19,13 +19,13 @@ import (
 
 // Handlers holds all HTTP handlers
 type Handlers struct {
-	db               *db.DB
-	cache            *cache.Cache
-	publisherService *services.PublisherService
-	zmanimService    *services.ZmanimService
-	clerkService     *services.ClerkService
-	emailService     *services.EmailService
-	snapshotService  *services.SnapshotService
+	db                    *db.DB
+	cache                 *cache.Cache
+	publisherService      *services.PublisherService
+	zmanimService         *services.ZmanimService
+	clerkService          *services.ClerkService
+	emailService          *services.EmailService
+	snapshotService       *services.SnapshotService
 	completeExportService *services.CompleteExportService
 	// PublisherResolver consolidates publisher ID resolution logic
 	publisherResolver *PublisherResolver
@@ -51,14 +51,14 @@ func New(database *db.DB) *Handlers {
 	publisherResolver := NewPublisherResolver(database)
 
 	return &Handlers{
-		db:                database,
-		publisherService:  publisherService,
-		zmanimService:     zmanimService,
-		clerkService:      clerkService,
-		emailService:      emailService,
-		snapshotService:   snapshotService,
+		db:                    database,
+		publisherService:      publisherService,
+		zmanimService:         zmanimService,
+		clerkService:          clerkService,
+		emailService:          emailService,
+		snapshotService:       snapshotService,
 		completeExportService: completeExportService,
-		publisherResolver: publisherResolver,
+		publisherResolver:     publisherResolver,
 	}
 }
 
@@ -89,7 +89,6 @@ func (h *Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	// Check database health
 	dbStatus := "ok"
 	if err := h.db.Health(ctx); err != nil {
-		dbStatus = "error: " + err.Error()
 		RespondServiceUnavailable(w, r, "Database health check failed")
 		return
 	}

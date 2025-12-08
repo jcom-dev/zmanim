@@ -53,9 +53,9 @@ type PointLookupResponse struct {
 
 // SmartLookupResponse represents the response from zoom-aware point lookup
 type SmartLookupResponse struct {
-	RecommendedLevel string               `json:"recommended_level"` // country, region, district, city
-	Levels           SmartLookupLevels    `json:"levels"`
-	NearbyCities     []NearestCity        `json:"nearby_cities,omitempty"`
+	RecommendedLevel string            `json:"recommended_level"` // country, region, district, city
+	Levels           SmartLookupLevels `json:"levels"`
+	NearbyCities     []NearestCity     `json:"nearby_cities,omitempty"`
 }
 
 // SmartLookupLevels contains all available levels at a point
@@ -67,11 +67,11 @@ type SmartLookupLevels struct {
 
 // SmartLevelInfo represents a geographic level with area for smart selection
 type SmartLevelInfo struct {
-	ID       interface{} `json:"id"`
-	Code     string      `json:"code"`
-	Name     string      `json:"name"`
-	AreaKm2  *float64    `json:"area_km2,omitempty"`
-	Label    string      `json:"label,omitempty"` // e.g., "State", "Province", "County"
+	ID      interface{} `json:"id"`
+	Code    string      `json:"code"`
+	Name    string      `json:"name"`
+	AreaKm2 *float64    `json:"area_km2,omitempty"`
+	Label   string      `json:"label,omitempty"` // e.g., "State", "Province", "County"
 }
 
 // CountryInfo represents country info in lookup response

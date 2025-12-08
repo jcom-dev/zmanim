@@ -65,7 +65,6 @@ type PublisherZman struct {
 	SourceFormulaDSL      *string `json:"source_formula_dsl,omitempty" db:"source_formula_dsl"`
 }
 
-
 // CreateZmanRequest represents the request body for creating a zman
 type CreateZmanRequest struct {
 	ZmanKey          string  `json:"zman_key" validate:"required"`
@@ -1053,23 +1052,23 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	// Use SQLc generated query
 	sqlcZman, insertErr := h.db.Queries.CreatePublisherZman(ctx, sqlcgen.CreatePublisherZmanParams{
-		ID:               0, // Let database generate SERIAL ID
-		PublisherID:      publisherID,
-		ZmanKey:          req.ZmanKey,
-		HebrewName:       req.HebrewName,
-		EnglishName:      req.EnglishName,
-		FormulaDsl:       req.FormulaDSL,
-		AiExplanation:    req.AIExplanation,
-		PublisherComment: req.PublisherComment,
-		IsEnabled:        isEnabled,
-		IsVisible:        isVisible,
-		IsPublished:      false, // New zmanim start unpublished
-		IsCustom:         true,  // Custom zmanim are always user-created
-		TimeCategoryID:   nil,   // No category for custom zmanim
-		Dependencies:     dependencies,
-		MasterZmanID:     nil,
+		ID:                    0, // Let database generate SERIAL ID
+		PublisherID:           publisherID,
+		ZmanKey:               req.ZmanKey,
+		HebrewName:            req.HebrewName,
+		EnglishName:           req.EnglishName,
+		FormulaDsl:            req.FormulaDSL,
+		AiExplanation:         req.AIExplanation,
+		PublisherComment:      req.PublisherComment,
+		IsEnabled:             isEnabled,
+		IsVisible:             isVisible,
+		IsPublished:           false, // New zmanim start unpublished
+		IsCustom:              true,  // Custom zmanim are always user-created
+		TimeCategoryID:        nil,   // No category for custom zmanim
+		Dependencies:          dependencies,
+		MasterZmanID:          nil,
 		LinkedPublisherZmanID: nil,
-		SourceTypeID:     1, // Default source type (e.g., "custom")
+		SourceTypeID:          1, // Default source type (e.g., "custom")
 	})
 
 	if insertErr != nil {
@@ -1260,7 +1259,6 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ImportZmanim(w http.ResponseWriter, r *http.Request) {
 	RespondBadRequest(w, r, "Import feature is currently under maintenance. Please use the master registry instead.")
 }
-
 
 // BrowsePublicZmanim allows browsing public zmanim from other publishers
 // GET /api/v1/zmanim/browse?q=search&category=optional

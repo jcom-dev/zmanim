@@ -234,4 +234,3 @@ func (s *AlgorithmService) validateAlgorithmConfig(config map[string]interface{}
 
 	return nil
 }
-

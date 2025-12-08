@@ -372,7 +372,6 @@ func (h *Handlers) PreviewAlgorithm(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, r, http.StatusOK, response)
 }
 
-
 // GetZmanMethods returns available calculation methods for zmanim
 // GET /api/v1/publisher/algorithm/methods
 func (h *Handlers) GetZmanMethods(w http.ResponseWriter, r *http.Request) {

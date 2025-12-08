@@ -35,8 +35,8 @@ type ZmanimWithFormulaResponse struct {
 type ZmanimPublisherInfo struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
-	Logo        *string `json:"logo,omitempty"`        // Base64 data URL
-	IsCertified bool    `json:"is_certified"`          // Whether this is a certified/authoritative source
+	Logo        *string `json:"logo,omitempty"` // Base64 data URL
+	IsCertified bool    `json:"is_certified"`   // Whether this is a certified/authoritative source
 }
 
 // ZmanimLocationInfo contains location details for the response
@@ -65,12 +65,12 @@ type ZmanWithFormula struct {
 
 // FormulaDetails contains information about how a zman was calculated
 type FormulaDetails struct {
-	Method      string                 `json:"method"`
-	DisplayName string                 `json:"display_name"`
-	DSL         string                 `json:"dsl,omitempty"`
-	Parameters  map[string]interface{} `json:"parameters"`
-	Explanation string                 `json:"explanation"`
-	HalachicSource string              `json:"halachic_source,omitempty"`
+	Method         string                 `json:"method"`
+	DisplayName    string                 `json:"display_name"`
+	DSL            string                 `json:"dsl,omitempty"`
+	Parameters     map[string]interface{} `json:"parameters"`
+	Explanation    string                 `json:"explanation"`
+	HalachicSource string                 `json:"halachic_source,omitempty"`
 }
 
 // GetZmanimForCity calculates zmanim for a city with formula details
@@ -224,11 +224,11 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch metadata for all zmanim from master registry (database is source of truth)
 	type zmanMetadata struct {
-		TimeCategory string
-		HebrewName   string
-		EnglishName  string
-		DSL          string
-		IsCore       bool
+		TimeCategory   string
+		HebrewName     string
+		EnglishName    string
+		DSL            string
+		IsCore         bool
 		HalachicSource string
 	}
 	zmanMetadataMap := make(map[string]zmanMetadata)
@@ -240,11 +240,11 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 				isCore = *row.IsCore
 			}
 			zmanMetadataMap[row.ZmanKey] = zmanMetadata{
-				TimeCategory: row.TimeCategory,
-				HebrewName:   row.CanonicalHebrewName,
-				EnglishName:  row.CanonicalEnglishName,
-				DSL:          row.DefaultFormulaDsl,
-				IsCore:       isCore,
+				TimeCategory:   row.TimeCategory,
+				HebrewName:     row.CanonicalHebrewName,
+				EnglishName:    row.CanonicalEnglishName,
+				DSL:            row.DefaultFormulaDsl,
+				IsCore:         isCore,
 				HalachicSource: row.HalachicSource,
 			}
 		}
@@ -310,11 +310,11 @@ func (h *Handlers) GetZmanimForCity(w http.ResponseWriter, r *http.Request) {
 			TimeCategory: metadata.TimeCategory,
 			Tags:         tagsMap[zman.Key],
 			Formula: FormulaDetails{
-				Method:      zman.Formula.Method,
-				DisplayName: zman.Formula.DisplayName,
-				DSL:         metadata.DSL,
-				Parameters:  zman.Formula.Parameters,
-				Explanation: zman.Formula.Explanation,
+				Method:         zman.Formula.Method,
+				DisplayName:    zman.Formula.DisplayName,
+				DSL:            metadata.DSL,
+				Parameters:     zman.Formula.Parameters,
+				Explanation:    zman.Formula.Explanation,
 				HalachicSource: metadata.HalachicSource,
 			},
 		})
