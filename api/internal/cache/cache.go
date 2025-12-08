@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,7 +14,8 @@ import (
 
 // Cache provides Redis-based caching for zmanim calculations
 type Cache struct {
-	client *redis.Client
+	client   *redis.Client
+	redisURL string // For logging purposes
 }
 
 // ZmanimCacheEntry represents a cached zmanim calculation result
@@ -55,8 +57,15 @@ func New() (*Cache, error) {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	log.Println("Redis cache connection established")
-	return &Cache{client: client}, nil
+	// Log connection details (mask password for security)
+	isUpstash := strings.Contains(redisURL, "upstash.io")
+	provider := "Redis"
+	if isUpstash {
+		provider = "Upstash Redis"
+	}
+	log.Printf("[CACHE] %s connection established (host: %s, provider: %s)", provider, opt.Addr, provider)
+
+	return &Cache{client: client, redisURL: redisURL}, nil
 }
 
 // Close closes the Redis connection
@@ -87,9 +96,11 @@ func (c *Cache) GetZmanim(ctx context.Context, publisherID, cityID, date string)
 	key := zmanimKey(publisherID, cityID, date)
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err == redis.Nil {
+		log.Printf("[CACHE] GET miss: %s", key)
 		return nil, nil // Cache miss
 	}
 	if err != nil {
+		log.Printf("[CACHE] GET error: %s - %v", key, err)
 		return nil, fmt.Errorf("failed to get cached zmanim: %w", err)
 	}
 
@@ -98,6 +109,7 @@ func (c *Cache) GetZmanim(ctx context.Context, publisherID, cityID, date string)
 		return nil, fmt.Errorf("failed to unmarshal cached zmanim: %w", err)
 	}
 
+	log.Printf("[CACHE] GET hit: %s (cached at %s)", key, entry.CachedAt.Format(time.RFC3339))
 	return &entry, nil
 }
 
@@ -121,13 +133,19 @@ func (c *Cache) SetZmanim(ctx context.Context, publisherID, cityID, date string,
 		return fmt.Errorf("failed to marshal cache entry: %w", err)
 	}
 
-	return c.client.Set(ctx, key, entryJSON, ZmanimTTL).Err()
+	if err := c.client.Set(ctx, key, entryJSON, ZmanimTTL).Err(); err != nil {
+		log.Printf("[CACHE] SET error: %s - %v", key, err)
+		return err
+	}
+	log.Printf("[CACHE] SET: %s (TTL: %v, size: %d bytes)", key, ZmanimTTL, len(entryJSON))
+	return nil
 }
 
 // InvalidateZmanim removes cached zmanim for a publisher
 // Used when algorithm is updated
 func (c *Cache) InvalidateZmanim(ctx context.Context, publisherID string) error {
 	pattern := fmt.Sprintf("zmanim:%s:*", publisherID)
+	log.Printf("[CACHE] Invalidating zmanim for publisher: %s", publisherID)
 	return c.deleteByPattern(ctx, pattern)
 }
 
