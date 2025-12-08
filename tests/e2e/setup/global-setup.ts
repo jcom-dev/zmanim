@@ -99,9 +99,9 @@ async function seedTestPublishers(): Promise<void> {
         // Create a test algorithm for active/verified publisher
         if (pub.status_id === 2) { // active
           const publisherId = result.rows[0].id;
-          // Schema: id, publisher_id, name, description, configuration, status, is_public, forked_from, attribution_text, fork_count
+          // Schema: id, publisher_id, name, description, configuration, status_id, is_public, forked_from, attribution_text, fork_count
           await pool.query(
-            `INSERT INTO algorithms (publisher_id, name, description, configuration, status)
+            `INSERT INTO algorithms (publisher_id, name, description, configuration, status_id)
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT DO NOTHING`,
             [
@@ -112,7 +112,7 @@ async function seedTestPublishers(): Promise<void> {
                 name: 'E2E Test GRA Algorithm',
                 description: 'Test algorithm for E2E testing',
               }),
-              'published',
+              2, // active
             ]
           );
           console.log(`Created test algorithm for ${pub.name}`);
