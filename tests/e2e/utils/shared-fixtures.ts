@@ -93,13 +93,17 @@ export async function initializeSharedPublishers(): Promise<void> {
       const slug = `e2e-shared-${config.key}`;
       const email = `e2e-shared-${config.key}@test.zmanim.com`;
 
-      // Map status values: DB allows pending, active, suspended - NOT 'verified'
-      const dbStatus = config.status === 'verified' ? 'active' : config.status;
+      // Map status values to status_id: pending=1, active=2, suspended=3
+      const statusMap: Record<string, number> = { 'pending': 1, 'verified': 2, 'active': 2, 'suspended': 3 };
+      const statusId = statusMap[config.status] || 2;
       const isVerified = config.status === 'verified';
 
       // Check if exists
       const existing = await pool.query(
-        'SELECT id, name, email, status FROM publishers WHERE slug = $1',
+        `SELECT p.id, p.name, p.email, ps.key as status
+         FROM publishers p
+         JOIN publisher_statuses ps ON p.status_id = ps.id
+         WHERE p.slug = $1`,
         [slug]
       );
 
@@ -113,14 +117,14 @@ export async function initializeSharedPublishers(): Promise<void> {
         console.log(`  Reusing: ${config.name}`);
       } else {
         const result = await pool.query(
-          `INSERT INTO publishers (name, slug, email, status, website, bio, is_verified)
+          `INSERT INTO publishers (name, slug, email, status_id, website, bio, is_verified)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
-           RETURNING id, name, email, status`,
+           RETURNING id, name, email, (SELECT key FROM publisher_statuses WHERE id = $4) as status`,
           [
             config.name,
             slug,
             email,
-            dbStatus,
+            statusId,
             'https://test.example.com',
             `Shared test publisher: ${config.type}`,
             isVerified,
@@ -160,16 +164,16 @@ async function ensureAlgorithm(pool: Pool, publisherId: string): Promise<void> {
   );
 
   if (existing.rows.length === 0) {
-    // Schema: id, publisher_id, name, description, configuration, status, is_public, forked_from, attribution_text, fork_count
+    // Schema: id, publisher_id, name, description, configuration, status_id, is_public, forked_from, attribution_text, fork_count
     await pool.query(
-      `INSERT INTO algorithms (publisher_id, name, description, configuration, status)
+      `INSERT INTO algorithms (publisher_id, name, description, configuration, status_id)
        VALUES ($1, $2, $3, $4, $5)`,
       [
         publisherId,
         'E2E Shared Algorithm',
         'Shared algorithm for E2E testing',
         JSON.stringify({ name: 'E2E Shared GRA Algorithm' }),
-        'published',
+        2, // active
       ]
     );
   }
@@ -221,7 +225,10 @@ async function loadPublishersIntoCache(): Promise<void> {
 
     for (const [key, config] of Object.entries(publisherConfigs)) {
       const result = await pool.query(
-        'SELECT id, name, email, status FROM publishers WHERE slug = $1',
+        `SELECT p.id, p.name, p.email, ps.key as status
+         FROM publishers p
+         JOIN publisher_statuses ps ON p.status_id = ps.id
+         WHERE p.slug = $1`,
         [config.slug]
       );
 
