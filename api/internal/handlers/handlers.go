@@ -755,6 +755,9 @@ func (h *Handlers) GetPublisherActivity(w http.ResponseWriter, r *http.Request) 
 		publisherID = int32ToString(pubID)
 	}
 
+	// TODO: Use publisherID to filter activities once activity_logs table is created
+	_ = publisherID // Will be used when activity functionality is implemented
+
 	// For now, return empty activities (will be populated when activity_logs table is created)
 	// Parse limit/offset
 	limit := 50
