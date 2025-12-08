@@ -143,6 +143,8 @@ export async function createTestAdmin(): Promise<{ id: string; email: string }> 
     const user = await clerkClient.users.createUser({
       emailAddress: [email],
       password: TEST_PASSWORD,
+      firstName: 'E2E',
+      lastName: 'Admin',
       publicMetadata: {
         role: 'admin',
       },
