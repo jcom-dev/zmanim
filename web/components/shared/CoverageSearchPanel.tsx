@@ -24,6 +24,7 @@ interface SearchResult extends LocationSearchResult {}
 const LEVEL_FILTERS: { key: LocationType | 'all'; label: string; icon: React.ReactNode }[] = [
   { key: 'all', label: 'All', icon: <Search className="w-3.5 h-3.5" /> },
   { key: 'city', label: 'Cities', icon: <MapPin className="w-3.5 h-3.5" /> },
+  { key: 'district', label: 'Districts', icon: <Layers className="w-3.5 h-3.5" /> },
   { key: 'region', label: 'Regions', icon: <MapIcon className="w-3.5 h-3.5" /> },
   { key: 'country', label: 'Countries', icon: <Globe className="w-3.5 h-3.5" /> },
   { key: 'continent', label: 'Continents', icon: <Globe2 className="w-3.5 h-3.5" /> },
