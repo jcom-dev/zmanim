@@ -11,14 +11,14 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
-  MapPin, Search, X, Loader2, Globe, Globe2, Building2,
+  MapPin, Search, X, Loader2, Globe, Globe2,
   Map as MapIcon, Layers, Check, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApi } from '@/lib/api-client';
 import type { LocationType, LocationSelection, LocationSearchResult } from '@/types/geography';
 
-interface SearchResult extends LocationSearchResult {}
+type SearchResult = LocationSearchResult;
 
 // Level filter configuration
 const LEVEL_FILTERS: { key: LocationType | 'all'; label: string; icon: React.ReactNode }[] = [
@@ -322,7 +322,7 @@ export function CoverageSearchPanel({
             </div>
           ) : (
             <div className="p-6 text-center text-sm text-muted-foreground">
-              No {activeLevel === 'all' ? 'locations' : activeLevel + 's'} found for "{searchQuery}"
+              No {activeLevel === 'all' ? 'locations' : activeLevel + 's'} found for &ldquo;{searchQuery}&rdquo;
             </div>
           )}
         </div>
