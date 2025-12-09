@@ -56,11 +56,47 @@ func (h *Handlers) SearchCities(w http.ResponseWriter, r *http.Request) {
 
 	// If search is provided and long enough, use fuzzy search
 	if search != "" && len(search) >= 2 {
+		// Smart multi-term parsing: detect country context from search query
+		// Examples: "london england", "paris france", "new york usa"
+		searchTerm := search
+		effectiveCountryCode := countryCode
+
+		// Only apply country keyword parsing if no explicit country_code filter
+		if countryCode == "" {
+			countryKeywords := map[string]string{
+				"england": "GB", "uk": "GB", "britain": "GB", "united kingdom": "GB",
+				"usa": "US", "us": "US", "united states": "US", "america": "US",
+				"france": "FR", "germany": "DE", "spain": "ES", "italy": "IT",
+				"israel": "IL", "canada": "CA", "australia": "AU", "japan": "JP",
+				"china": "CN", "india": "IN", "brazil": "BR", "mexico": "MX",
+				"netherlands": "NL", "belgium": "BE", "switzerland": "CH",
+				"austria": "AT", "poland": "PL", "russia": "RU", "ukraine": "UA",
+				"south africa": "ZA", "argentina": "AR", "chile": "CL",
+			}
+
+			terms := strings.Fields(strings.ToLower(search))
+			if len(terms) >= 2 {
+				// Check last term for country keyword
+				lastTerm := terms[len(terms)-1]
+				if code, found := countryKeywords[lastTerm]; found {
+					effectiveCountryCode = code
+					searchTerm = strings.Join(terms[:len(terms)-1], " ")
+				} else if len(terms) >= 3 {
+					// Check last 2 terms for multi-word countries like "united kingdom"
+					lastTwoTerms := strings.Join(terms[len(terms)-2:], " ")
+					if code, found := countryKeywords[lastTwoTerms]; found {
+						effectiveCountryCode = code
+						searchTerm = strings.Join(terms[:len(terms)-2], " ")
+					}
+				}
+			}
+		}
+
 		rows, err := h.db.Queries.SearchCitiesFuzzy(ctx, sqlcgen.SearchCitiesFuzzyParams{
 			ContinentCode: nullableString(continentCode),
-			CountryCode:   nullableString(countryCode),
+			CountryCode:   nullableString(effectiveCountryCode),
 			RegionCode:    nullableString(regionCode),
-			Search:        nullableString(search),
+			Search:        nullableString(searchTerm),
 			Limit:         limit,
 		})
 		if err != nil {

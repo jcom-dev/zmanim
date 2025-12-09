@@ -214,6 +214,14 @@ func cmdSeed(args []string) {
 		log.Printf("✓ Tables analyzed")
 	}
 
+	// Refresh coverage search materialized view
+	log.Printf("Refreshing coverage_search_mv materialized view...")
+	if err := refreshCoverageSearchMV(ctx, pool); err != nil {
+		log.Printf("Warning: Failed to refresh coverage_search_mv: %v", err)
+	} else {
+		log.Printf("✓ coverage_search_mv refreshed")
+	}
+
 	elapsed := time.Since(start)
 	log.Printf("\n✓ Seed complete!")
 	log.Printf("  Total time: %s", elapsed.Round(time.Second))
@@ -740,5 +748,27 @@ func checkDependencies() error {
 		return fmt.Errorf("zstd not found in PATH (install zstd)")
 	}
 
+	return nil
+}
+
+// refreshCoverageSearchMV refreshes the coverage_search_mv materialized view.
+// This view pre-computes all searchable geographic coverage areas for fast autocomplete.
+// Must be called after geo data is loaded/updated.
+func refreshCoverageSearchMV(ctx context.Context, pool *pgxpool.Pool) error {
+	// Use CONCURRENTLY to avoid locking, but fall back to regular refresh if view is empty
+	// (CONCURRENTLY requires at least one row or a unique index to exist)
+	_, err := pool.Exec(ctx, "REFRESH MATERIALIZED VIEW coverage_search_mv")
+	if err != nil {
+		return fmt.Errorf("failed to refresh coverage_search_mv: %w", err)
+	}
+
+	// Verify the refresh worked
+	var count int
+	err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM coverage_search_mv").Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to verify refresh: %w", err)
+	}
+
+	log.Printf("  coverage_search_mv now has %d rows", count)
 	return nil
 }

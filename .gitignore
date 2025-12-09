@@ -67,11 +67,9 @@ api/import-geo-boundaries
 api/import-wof
 api/import-elevation
 api/import-simplemaps
-api/seed-geo
+api/seed-geodata
 api/zmanim-api
 zmanim-api
-api/cmd/*/seed-geodata
-api/cmd/*/export-geodata
 
 # Database dumps
 *.dump
