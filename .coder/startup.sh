@@ -290,7 +290,7 @@ sudo apt-get update -qq && sudo apt-get install -y \
     psmisc \
     strace \
     ztsd \
-    l
+    libgdal-dev
     > /dev/null 2>&1
 print_success "Development utilities installed"
 
