@@ -289,7 +289,7 @@ sudo apt-get update -qq && sudo apt-get install -y \
     procps \
     psmisc \
     strace \
-    ztsd \
+    zstd \
     libgdal-dev
     > /dev/null 2>&1
 print_success "Development utilities installed"
@@ -526,12 +526,12 @@ echo "=========================================="
 # Step 15: Run database migrations
 print_status "Running database migrations..."
 cd /home/coder/workspace/zmanim-lab
-if [ -f "api/scripts/init-db.sh" ]; then
-    chmod +x api/scripts/init-db.sh
-    ./api/scripts/init-db.sh || print_warning "Migration failed - database may need manual setup"
+if [ -f "scripts/migrate.sh" ]; then
+    chmod +x scripts/migrate.sh
+    ./scripts/migrate.sh || print_warning "Migration failed - database may need manual setup"
     print_success "Database migrations complete"
 else
-    print_warning "init-db.sh not found - run migrations manually"
+    print_warning "migrate.sh not found - run migrations manually"
 fi
 
 # Step 16: Auto-start services
