@@ -26,8 +26,8 @@ export function TagChip({
   showModifiedIndicator = false,
 }: TagChipProps) {
   const badgeClass = TAG_TYPE_BADGE_CLASSES[tag.tag_type as TagType] || TAG_TYPE_BADGE_CLASSES.category;
-  const isNegated = 'is_negated' in tag && tag.is_negated;
-  const isModified = 'is_modified' in tag && tag.is_modified;
+  const isNegated = 'is_negated' in tag && (tag as { is_negated?: boolean }).is_negated === true;
+  const isModified = 'is_modified' in tag && (tag as { is_modified?: boolean }).is_modified === true;
 
   return (
     <span

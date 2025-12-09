@@ -62,7 +62,6 @@ export interface PublisherZman {
   // Linked zmanim fields
   master_zman_id?: string | null;
   linked_publisher_zman_id?: string | null;
-  source_type?: 'registry' | 'copied' | 'linked' | null;
   is_linked: boolean;
   linked_source_publisher_name?: string | null;
   linked_source_is_deleted: boolean;

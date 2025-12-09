@@ -130,15 +130,8 @@ function getSourceName(zman: PublisherZman): string | null {
   if (zman.is_linked && zman.linked_source_publisher_name) {
     return zman.linked_source_publisher_name;
   }
-  // All zmanim come from either the registry or another publisher
-  if (zman.source_type === 'registry' || zman.source_type === 'copied') {
-    return 'Registry';
-  }
-  // If linked but no publisher name (shouldn't happen), fallback
-  if (zman.source_type === 'linked') {
-    return 'Linked Publisher';
-  }
-  return null;
+  // Not linked = from registry
+  return 'Registry';
 }
 
 /**
@@ -541,34 +534,6 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                   </Badge>
                 )}
 
-                {/* Source Type Badge - shows how the zman was added */}
-                {zman.source_type && !zman.is_linked && (zman.source_type === 'registry' || zman.source_type === 'master' || zman.source_type === 'copied' || zman.source_type === 'custom') && (
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${
-                      zman.source_type === 'registry' || zman.source_type === 'master'
-                        ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700'
-                        : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700'
-                    }`}
-                  >
-                    {zman.source_type === 'registry' || zman.source_type === 'master' ? (
-                      <>
-                        <Library className="h-3 w-3 mr-1" />
-                        Registry
-                      </>
-                    ) : zman.source_type === 'copied' ? (
-                      <>
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copied
-                      </>
-                    ) : zman.source_type === 'custom' ? (
-                      <>
-                        <Edit2 className="h-3 w-3 mr-1" />
-                        Custom
-                      </>
-                    ) : null}
-                  </Badge>
-                )}
               </div>
 
             </div>

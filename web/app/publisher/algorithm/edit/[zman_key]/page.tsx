@@ -453,7 +453,7 @@ export default function ZmanEditorPage() {
               onEnglishChange={setEnglishName}
               sourceHebrewName={zman?.source_hebrew_name}
               sourceEnglishName={zman?.source_english_name}
-              sourceName={zman?.is_linked ? zman?.linked_source_publisher_name || 'Linked Publisher' : zman?.source_type === 'registry' ? 'Registry' : undefined}
+              sourceName={zman?.is_linked ? zman?.linked_source_publisher_name || 'Linked Publisher' : 'Registry'}
             />
 
             {/* Formula Deviation Indicator */}

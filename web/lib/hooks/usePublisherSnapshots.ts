@@ -39,7 +39,6 @@ export interface SnapshotZman {
   category: 'essential' | 'optional' | 'custom';
   master_zman_id?: string;
   linked_publisher_zman_id?: string;
-  source_type?: string;
 }
 
 export interface PublisherSnapshot {
