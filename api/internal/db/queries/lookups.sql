@@ -82,18 +82,6 @@ SELECT id, key, display_name_hebrew, display_name_english, description, color
 FROM request_statuses
 WHERE key = $1;
 
--- Zman Source Types --
-
--- name: GetZmanSourceTypes :many
-SELECT id, key, display_name_hebrew, display_name_english, description
-FROM zman_source_types
-ORDER BY id;
-
--- name: GetZmanSourceTypeByKey :one
-SELECT id, key, display_name_hebrew, display_name_english, description
-FROM zman_source_types
-WHERE key = $1;
-
 -- Jewish Event Types --
 
 -- name: GetJewishEventTypes :many

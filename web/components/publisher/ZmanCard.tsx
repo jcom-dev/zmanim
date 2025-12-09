@@ -534,6 +534,17 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                   </Badge>
                 )}
 
+                {/* Registry Badge - show for non-linked zmanim */}
+                {!zman.is_linked && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700"
+                  >
+                    <Library className="h-3 w-3 mr-1" />
+                    Registry
+                  </Badge>
+                )}
+
               </div>
 
             </div>

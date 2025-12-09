@@ -737,9 +737,6 @@ type Querier interface {
 	GetZmanRequestTag(ctx context.Context, id int32) (ZmanRequestTag, error)
 	// Get all tags (existing and requested) for a zman request
 	GetZmanRequestTags(ctx context.Context, requestID int32) ([]GetZmanRequestTagsRow, error)
-	GetZmanSourceTypeByKey(ctx context.Context, key string) (GetZmanSourceTypeByKeyRow, error)
-	// Zman Source Types --
-	GetZmanSourceTypes(ctx context.Context) ([]GetZmanSourceTypesRow, error)
 	// File: zmanim_tags.sql
 	// Purpose: Separate tag fetching queries (extracted from complex GetPublisherZmanim)
 	// Pattern: query-decomposition

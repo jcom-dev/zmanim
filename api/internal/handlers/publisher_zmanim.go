@@ -53,7 +53,6 @@ type PublisherZman struct {
 	// Linked zmanim support
 	MasterZmanID              *string `json:"master_zman_id,omitempty" db:"master_zman_id"`
 	LinkedPublisherZmanID     *string `json:"linked_publisher_zman_id,omitempty" db:"linked_publisher_zman_id"`
-	SourceType                *string `json:"source_type,omitempty" db:"source_type"`
 	IsLinked                  bool    `json:"is_linked" db:"is_linked"`
 	LinkedSourcePublisherName *string `json:"linked_source_publisher_name,omitempty" db:"linked_source_publisher_name"`
 	LinkedSourceIsDeleted     bool    `json:"linked_source_is_deleted" db:"linked_source_is_deleted"`
@@ -541,12 +540,6 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string)
 			category = *row.Category
 		}
 
-		// Convert source_type from *string to *string (already nullable)
-		var sourceType *string
-		if row.SourceType != nil {
-			sourceType = row.SourceType
-		}
-
 		zmanim = append(zmanim, PublisherZman{
 			ID:                        int32ToString(row.ID),
 			PublisherID:               int32ToString(row.PublisherID),
@@ -572,7 +565,6 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string)
 			Tags:                      tags,
 			MasterZmanID:              masterZmanID,
 			LinkedPublisherZmanID:     linkedPublisherZmanID,
-			SourceType:                sourceType,
 			IsLinked:                  row.IsLinked,
 			LinkedSourcePublisherName: linkedSourcePublisherName,
 			LinkedSourceIsDeleted:     row.LinkedSourceIsDeleted,
@@ -786,7 +778,6 @@ func getPublisherZmanimRowToPublisherZman(z sqlcgen.GetPublisherZmanimRow) Publi
 		Tags:                      tags,
 		MasterZmanID:              masterZmanID,
 		LinkedPublisherZmanID:     linkedPublisherZmanID,
-		SourceType:                z.SourceType,
 		IsLinked:                  z.IsLinked,
 		LinkedSourcePublisherName: linkedSourcePublisherName,
 		LinkedSourceIsDeleted:     z.LinkedSourceIsDeleted,
@@ -860,7 +851,6 @@ func getPublisherZmanByKeyRowToPublisherZman(z sqlcgen.GetPublisherZmanByKeyRow)
 		UpdatedAt:                 z.UpdatedAt.Time,
 		MasterZmanID:              masterZmanID,
 		LinkedPublisherZmanID:     linkedPublisherZmanID,
-		SourceType:                z.SourceType,
 		IsLinked:                  z.IsLinked,
 		LinkedSourcePublisherName: linkedSourcePublisherName,
 		SourceHebrewName:          sourceHebrewName,
@@ -1090,7 +1080,6 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 		Dependencies:          dependencies,
 		MasterZmanID:          nil,
 		LinkedPublisherZmanID: nil,
-		SourceTypeID:          1, // Default source type (e.g., "custom")
 	})
 
 	if insertErr != nil {
@@ -1354,15 +1343,14 @@ type VerifiedPublisher struct {
 
 // PublisherZmanForLinking represents a zman available for linking/copying
 type PublisherZmanForLinking struct {
-	ID            string  `json:"id"`
-	PublisherID   string  `json:"publisher_id"`
-	PublisherName string  `json:"publisher_name"`
-	ZmanKey       string  `json:"zman_key"`
-	HebrewName    string  `json:"hebrew_name"`
-	EnglishName   string  `json:"english_name"`
-	FormulaDSL    string  `json:"formula_dsl"`
-	Category      string  `json:"category"`
-	SourceType    *string `json:"source_type,omitempty"`
+	ID            string `json:"id"`
+	PublisherID   string `json:"publisher_id"`
+	PublisherName string `json:"publisher_name"`
+	ZmanKey       string `json:"zman_key"`
+	HebrewName    string `json:"hebrew_name"`
+	EnglishName   string `json:"english_name"`
+	FormulaDSL    string `json:"formula_dsl"`
+	Category      string `json:"category"`
 }
 
 // CreateFromPublisherRequest represents the request for copying/linking from another publisher
@@ -1476,10 +1464,6 @@ func (h *Handlers) GetPublisherZmanimForLinking(w http.ResponseWriter, r *http.R
 		if row.Category != nil {
 			category = *row.Category
 		}
-		var sourceType *string
-		if row.SourceType != nil {
-			sourceType = row.SourceType
-		}
 
 		zmanim = append(zmanim, PublisherZmanForLinking{
 			ID:            int32ToString(row.ID),
@@ -1490,7 +1474,6 @@ func (h *Handlers) GetPublisherZmanimForLinking(w http.ResponseWriter, r *http.R
 			EnglishName:   row.EnglishName,
 			FormulaDSL:    row.FormulaDsl,
 			Category:      category,
-			SourceType:    sourceType,
 		})
 	}
 
@@ -1633,14 +1616,6 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 		category = *sourceZman.Category
 	}
 
-	// Determine source type string
-	var sourceTypeStr string
-	if req.Mode == "copy" {
-		sourceTypeStr = "copied"
-	} else {
-		sourceTypeStr = "linked"
-	}
-
 	// Return the created zman
 	response := PublisherZman{
 		ID:                    int32ToString(result.ID),
@@ -1659,7 +1634,6 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 		UpdatedAt:             result.UpdatedAt.Time,
 		MasterZmanID:          masterZmanIDStr,
 		LinkedPublisherZmanID: linkedIDStr,
-		SourceType:            &sourceTypeStr,
 		IsLinked:              req.Mode == "link",
 	}
 

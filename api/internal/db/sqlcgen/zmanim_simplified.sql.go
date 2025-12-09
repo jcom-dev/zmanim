@@ -20,11 +20,6 @@ SELECT
     pz.is_enabled, pz.is_visible, pz.is_published, pz.is_beta, pz.is_custom,
     pz.dependencies, pz.created_at, pz.updated_at,
     pz.master_zman_id, pz.linked_publisher_zman_id,
-    -- Source type ID and display values
-    pz.source_type_id,
-    zst.key AS source_type,
-    zst.display_name_hebrew AS source_type_display_hebrew,
-    zst.display_name_english AS source_type_display_english,
     -- Time category ID and display values
     pz.time_category_id,
     tc.key AS category,
@@ -42,7 +37,6 @@ SELECT
     -- Time category key for consistency
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category
 FROM publisher_zmanim pz
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
 LEFT JOIN publisher_zmanim linked_pz ON pz.linked_publisher_zman_id = linked_pz.id
 LEFT JOIN publishers linked_pub ON linked_pz.publisher_id = linked_pub.id
@@ -77,10 +71,6 @@ type GetPublisherZmanByKeySimplifiedRow struct {
 	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
 	MasterZmanID              *int32             `json:"master_zman_id"`
 	LinkedPublisherZmanID     *int32             `json:"linked_publisher_zman_id"`
-	SourceTypeID              int16              `json:"source_type_id"`
-	SourceType                *string            `json:"source_type"`
-	SourceTypeDisplayHebrew   *string            `json:"source_type_display_hebrew"`
-	SourceTypeDisplayEnglish  *string            `json:"source_type_display_english"`
 	TimeCategoryID            *int32             `json:"time_category_id"`
 	Category                  *string            `json:"category"`
 	CategoryDisplayHebrew     *string            `json:"category_display_hebrew"`
@@ -120,10 +110,6 @@ func (q *Queries) GetPublisherZmanByKeySimplified(ctx context.Context, arg GetPu
 		&i.UpdatedAt,
 		&i.MasterZmanID,
 		&i.LinkedPublisherZmanID,
-		&i.SourceTypeID,
-		&i.SourceType,
-		&i.SourceTypeDisplayHebrew,
-		&i.SourceTypeDisplayEnglish,
 		&i.TimeCategoryID,
 		&i.Category,
 		&i.CategoryDisplayHebrew,
@@ -151,11 +137,6 @@ SELECT
     pz.is_enabled, pz.is_visible, pz.is_published, pz.is_beta, pz.is_custom,
     pz.dependencies, pz.created_at, pz.updated_at,
     pz.master_zman_id, pz.linked_publisher_zman_id,
-    -- Source type ID and display values
-    pz.source_type_id,
-    zst.key AS source_type,
-    zst.display_name_hebrew AS source_type_display_hebrew,
-    zst.display_name_english AS source_type_display_english,
     -- Time category ID and display values
     pz.time_category_id,
     tc.key AS category,
@@ -175,7 +156,6 @@ SELECT
     -- Time category key for ordering (from registry or current)
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category
 FROM publisher_zmanim pz
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
 LEFT JOIN publisher_zmanim linked_pz ON pz.linked_publisher_zman_id = linked_pz.id
 LEFT JOIN publishers linked_pub ON linked_pz.publisher_id = linked_pub.id
@@ -219,10 +199,6 @@ type GetPublisherZmanimSimplifiedRow struct {
 	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
 	MasterZmanID              *int32             `json:"master_zman_id"`
 	LinkedPublisherZmanID     *int32             `json:"linked_publisher_zman_id"`
-	SourceTypeID              int16              `json:"source_type_id"`
-	SourceType                *string            `json:"source_type"`
-	SourceTypeDisplayHebrew   *string            `json:"source_type_display_hebrew"`
-	SourceTypeDisplayEnglish  *string            `json:"source_type_display_english"`
 	TimeCategoryID            *int32             `json:"time_category_id"`
 	Category                  *string            `json:"category"`
 	CategoryDisplayHebrew     *string            `json:"category_display_hebrew"`
@@ -276,10 +252,6 @@ func (q *Queries) GetPublisherZmanimSimplified(ctx context.Context, publisherID 
 			&i.UpdatedAt,
 			&i.MasterZmanID,
 			&i.LinkedPublisherZmanID,
-			&i.SourceTypeID,
-			&i.SourceType,
-			&i.SourceTypeDisplayHebrew,
-			&i.SourceTypeDisplayEnglish,
 			&i.TimeCategoryID,
 			&i.Category,
 			&i.CategoryDisplayHebrew,

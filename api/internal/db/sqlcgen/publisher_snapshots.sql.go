@@ -379,12 +379,9 @@ SELECT
     tc.display_name_english AS category_display_english,
     pz.master_zman_id,
     pz.linked_publisher_zman_id,
-    pz.source_type_id,
-    zst.key AS source_type,
     pz.current_version
 FROM publisher_zmanim pz
 JOIN time_categories tc ON tc.id = pz.time_category_id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.publisher_id = $1 AND pz.zman_key = $2 AND pz.deleted_at IS NULL
 `
 
@@ -414,8 +411,6 @@ type GetPublisherZmanForSnapshotCompareRow struct {
 	CategoryDisplayEnglish string  `json:"category_display_english"`
 	MasterZmanID           *int32  `json:"master_zman_id"`
 	LinkedPublisherZmanID  *int32  `json:"linked_publisher_zman_id"`
-	SourceTypeID           int16   `json:"source_type_id"`
-	SourceType             *string `json:"source_type"`
 	CurrentVersion         *int32  `json:"current_version"`
 }
 
@@ -444,8 +439,6 @@ func (q *Queries) GetPublisherZmanForSnapshotCompare(ctx context.Context, arg Ge
 		&i.CategoryDisplayEnglish,
 		&i.MasterZmanID,
 		&i.LinkedPublisherZmanID,
-		&i.SourceTypeID,
-		&i.SourceType,
 		&i.CurrentVersion,
 	)
 	return i, err
@@ -472,13 +465,11 @@ SELECT
     tc.display_name_english AS category_display_english,
     pz.master_zman_id,
     pz.linked_publisher_zman_id,
-    zst.key AS source_type,
     pz.current_version,
     pz.created_at,
     pz.updated_at
 FROM publisher_zmanim pz
 JOIN time_categories tc ON tc.id = pz.time_category_id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL
 ORDER BY pz.zman_key
 `
@@ -503,7 +494,6 @@ type GetPublisherZmanimForCompleteExportRow struct {
 	CategoryDisplayEnglish string             `json:"category_display_english"`
 	MasterZmanID           *int32             `json:"master_zman_id"`
 	LinkedPublisherZmanID  *int32             `json:"linked_publisher_zman_id"`
-	SourceType             *string            `json:"source_type"`
 	CurrentVersion         *int32             `json:"current_version"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
@@ -539,7 +529,6 @@ func (q *Queries) GetPublisherZmanimForCompleteExport(ctx context.Context, publi
 			&i.CategoryDisplayEnglish,
 			&i.MasterZmanID,
 			&i.LinkedPublisherZmanID,
-			&i.SourceType,
 			&i.CurrentVersion,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -575,12 +564,9 @@ SELECT
     tc.display_name_hebrew AS category_display_hebrew,
     tc.display_name_english AS category_display_english,
     pz.master_zman_id,
-    pz.linked_publisher_zman_id,
-    pz.source_type_id,
-    zst.key AS source_type
+    pz.linked_publisher_zman_id
 FROM publisher_zmanim pz
 JOIN time_categories tc ON tc.id = pz.time_category_id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL
 `
 
@@ -604,8 +590,6 @@ type GetPublisherZmanimForSnapshotRow struct {
 	CategoryDisplayEnglish string  `json:"category_display_english"`
 	MasterZmanID           *int32  `json:"master_zman_id"`
 	LinkedPublisherZmanID  *int32  `json:"linked_publisher_zman_id"`
-	SourceTypeID           int16   `json:"source_type_id"`
-	SourceType             *string `json:"source_type"`
 }
 
 // ============================================
@@ -641,8 +625,6 @@ func (q *Queries) GetPublisherZmanimForSnapshot(ctx context.Context, publisherID
 			&i.CategoryDisplayEnglish,
 			&i.MasterZmanID,
 			&i.LinkedPublisherZmanID,
-			&i.SourceTypeID,
-			&i.SourceType,
 		); err != nil {
 			return nil, err
 		}
@@ -672,10 +654,9 @@ INSERT INTO publisher_zmanim (
     is_custom,
     time_category_id,
     master_zman_id,
-    linked_publisher_zman_id,
-    source_type_id
+    linked_publisher_zman_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 )
 `
 
@@ -697,7 +678,6 @@ type InsertZmanFromSnapshotParams struct {
 	TimeCategoryID        *int32  `json:"time_category_id"`
 	MasterZmanID          *int32  `json:"master_zman_id"`
 	LinkedPublisherZmanID *int32  `json:"linked_publisher_zman_id"`
-	SourceTypeID          int16   `json:"source_type_id"`
 }
 
 // Insert a new zman from snapshot (zman doesn't exist at all)
@@ -720,7 +700,6 @@ func (q *Queries) InsertZmanFromSnapshot(ctx context.Context, arg InsertZmanFrom
 		arg.TimeCategoryID,
 		arg.MasterZmanID,
 		arg.LinkedPublisherZmanID,
-		arg.SourceTypeID,
 	)
 	return err
 }
@@ -829,7 +808,6 @@ SET
     time_category_id = $15,
     master_zman_id = $16,
     linked_publisher_zman_id = $17,
-    source_type_id = $18,
     updated_at = NOW()
 WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL
 `
@@ -852,7 +830,6 @@ type UpdateZmanFromSnapshotParams struct {
 	TimeCategoryID        *int32  `json:"time_category_id"`
 	MasterZmanID          *int32  `json:"master_zman_id"`
 	LinkedPublisherZmanID *int32  `json:"linked_publisher_zman_id"`
-	SourceTypeID          int16   `json:"source_type_id"`
 }
 
 // Update an existing zman with data from snapshot (creates new version via trigger)
@@ -875,7 +852,6 @@ func (q *Queries) UpdateZmanFromSnapshot(ctx context.Context, arg UpdateZmanFrom
 		arg.TimeCategoryID,
 		arg.MasterZmanID,
 		arg.LinkedPublisherZmanID,
-		arg.SourceTypeID,
 	)
 	return err
 }

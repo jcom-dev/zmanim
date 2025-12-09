@@ -110,7 +110,6 @@ type ZmanData struct {
 	CategoryDisplayEnglish string    `json:"category_display_english"`
 	MasterZmanID           *int32    `json:"master_zman_id,omitempty"`
 	LinkedPublisherZmanID  *int32    `json:"linked_publisher_zman_id,omitempty"`
-	SourceType             *string   `json:"source_type,omitempty"`
 	CurrentVersion         *int32    `json:"current_version,omitempty"`
 	CreatedAt              time.Time `json:"created_at"`
 	UpdatedAt              time.Time `json:"updated_at"`
@@ -218,7 +217,6 @@ func (s *CompleteExportService) BuildCompleteExport(ctx context.Context, publish
 			CategoryDisplayEnglish: z.CategoryDisplayEnglish,
 			MasterZmanID:           z.MasterZmanID,
 			LinkedPublisherZmanID:  z.LinkedPublisherZmanID,
-			SourceType:             z.SourceType,
 			CurrentVersion:         z.CurrentVersion,
 			CreatedAt:              z.CreatedAt.Time,
 			UpdatedAt:              z.UpdatedAt.Time,

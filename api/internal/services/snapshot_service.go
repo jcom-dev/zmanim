@@ -53,7 +53,6 @@ type SnapshotZman struct {
 	Category              string  `json:"category"`
 	MasterZmanID          *int32  `json:"master_zman_id,omitempty"`
 	LinkedPublisherZmanID *int32  `json:"linked_publisher_zman_id,omitempty"`
-	SourceType            *string `json:"source_type,omitempty"`
 }
 
 // SnapshotMeta contains snapshot metadata (for listing)
@@ -99,7 +98,6 @@ func (s *SnapshotService) BuildSnapshot(ctx context.Context, publisherID int32, 
 			Category:              z.Category,
 			MasterZmanID:          z.MasterZmanID,
 			LinkedPublisherZmanID: z.LinkedPublisherZmanID,
-			SourceType:            z.SourceType,
 		}
 	}
 
@@ -323,9 +321,6 @@ func (s *SnapshotService) zmanDiffers(existing sqlcgen.GetPublisherZmanForSnapsh
 		return true
 	}
 	if !int32PtrEqual(existing.LinkedPublisherZmanID, snap.LinkedPublisherZmanID) {
-		return true
-	}
-	if !ptrStringEqual(existing.SourceType, snap.SourceType) {
 		return true
 	}
 	return false

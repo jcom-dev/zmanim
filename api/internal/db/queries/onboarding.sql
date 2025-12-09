@@ -47,8 +47,8 @@ WHERE publisher_id = $1;
 INSERT INTO publisher_zmanim (
     publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
     is_enabled, is_visible, is_published, is_custom, time_category_id,
-    master_zman_id, source_type_id
-) VALUES ($1, $2, $3, $4, $5, true, true, false, false, $6, $7, 1)
+    master_zman_id
+) VALUES ($1, $2, $3, $4, $5, true, true, false, false, $6, $7)
 ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
     hebrew_name = EXCLUDED.hebrew_name,
     english_name = EXCLUDED.english_name,
@@ -61,9 +61,8 @@ ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
 -- name: UpsertPublisherZmanLegacy :exec
 INSERT INTO publisher_zmanim (
     publisher_id, zman_key, hebrew_name, english_name, formula_dsl,
-    is_enabled, is_visible, is_published, is_custom, time_category_id,
-    source_type_id
-) VALUES ($1, $2, $3, $4, $5, true, true, false, false, $6, 1)
+    is_enabled, is_visible, is_published, is_custom, time_category_id
+) VALUES ($1, $2, $3, $4, $5, true, true, false, false, $6)
 ON CONFLICT (publisher_id, zman_key) DO UPDATE SET
     hebrew_name = EXCLUDED.hebrew_name,
     english_name = EXCLUDED.english_name,

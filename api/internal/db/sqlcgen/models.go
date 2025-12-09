@@ -860,7 +860,6 @@ type PublisherZmanim struct {
 	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
 	DeletedBy             *string            `json:"deleted_by"`
 	CertifiedAt           pgtype.Timestamptz `json:"certified_at"`
-	SourceTypeID          int16              `json:"source_type_id"`
 	DisplayNameHebrew     *string            `json:"display_name_hebrew"`
 	DisplayNameEnglish    *string            `json:"display_name_english"`
 }
@@ -960,15 +959,6 @@ type ZmanRequestTag struct {
 	RequestedTagType *string            `json:"requested_tag_type"`
 	IsNewTagRequest  bool               `json:"is_new_tag_request"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-}
-
-type ZmanSourceType struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type ZmanTag struct {

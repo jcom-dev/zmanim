@@ -289,7 +289,8 @@ sudo apt-get update -qq && sudo apt-get install -y \
     procps \
     psmisc \
     strace \
-    ztsd 
+    ztsd \
+    l
     > /dev/null 2>&1
 print_success "Development utilities installed"
 

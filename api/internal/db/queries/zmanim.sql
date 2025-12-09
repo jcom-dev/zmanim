@@ -14,11 +14,6 @@ SELECT
     pz.is_enabled, pz.is_visible, pz.is_published, pz.is_beta, pz.is_custom,
     pz.dependencies, pz.created_at, pz.updated_at,
     pz.master_zman_id, pz.linked_publisher_zman_id,
-    -- Source type ID and display values
-    pz.source_type_id,
-    zst.key AS source_type,
-    zst.display_name_hebrew AS source_type_display_hebrew,
-    zst.display_name_english AS source_type_display_english,
     -- Time category ID and display values
     pz.time_category_id,
     tc.key AS category,
@@ -102,7 +97,6 @@ SELECT
     -- Time category key for ordering (from registry or current)
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category
 FROM publisher_zmanim pz
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
 LEFT JOIN publisher_zmanim linked_pz ON pz.linked_publisher_zman_id = linked_pz.id
 LEFT JOIN publishers linked_pub ON linked_pz.publisher_id = linked_pub.id
@@ -133,11 +127,6 @@ SELECT
     pz.is_enabled, pz.is_visible, pz.is_published, pz.is_beta, pz.is_custom,
     pz.dependencies, pz.created_at, pz.updated_at,
     pz.master_zman_id, pz.linked_publisher_zman_id,
-    -- Source type ID and display values
-    pz.source_type_id,
-    zst.key AS source_type,
-    zst.display_name_hebrew AS source_type_display_hebrew,
-    zst.display_name_english AS source_type_display_english,
     -- Time category ID and display values
     pz.time_category_id,
     tc.key AS category,
@@ -155,7 +144,6 @@ SELECT
     -- Time category key for consistency
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category
 FROM publisher_zmanim pz
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
 LEFT JOIN publisher_zmanim linked_pz ON pz.linked_publisher_zman_id = linked_pz.id
 LEFT JOIN publishers linked_pub ON linked_pz.publisher_id = linked_pub.id
@@ -168,14 +156,14 @@ INSERT INTO publisher_zmanim (
     id, publisher_id, zman_key, hebrew_name, english_name,
     formula_dsl, ai_explanation, publisher_comment,
     is_enabled, is_visible, is_published, is_beta, is_custom, time_category_id,
-    dependencies, master_zman_id, linked_publisher_zman_id, source_type_id
+    dependencies, master_zman_id, linked_publisher_zman_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 )
 RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
     formula_dsl, ai_explanation, publisher_comment,
     is_enabled, is_visible, is_published, is_beta, is_custom, time_category_id,
-    dependencies, master_zman_id, linked_publisher_zman_id, source_type_id,
+    dependencies, master_zman_id, linked_publisher_zman_id,
     created_at, updated_at;
 
 -- name: UpdatePublisherZman :one
@@ -285,15 +273,10 @@ SELECT
     tc.key AS category,
     tc.display_name_hebrew AS category_display_hebrew,
     tc.display_name_english AS category_display_english,
-    pz.source_type_id,
-    zst.key AS source_type,
-    zst.display_name_hebrew AS source_type_display_hebrew,
-    zst.display_name_english AS source_type_display_english,
     p.name AS publisher_name
 FROM publisher_zmanim pz
 JOIN publishers p ON p.id = pz.publisher_id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.publisher_id = $1
   AND pz.is_published = true
   AND pz.is_enabled = true
@@ -326,17 +309,12 @@ SELECT
     tc.display_name_hebrew AS category_display_hebrew,
     tc.display_name_english AS category_display_english,
     pz.dependencies, pz.master_zman_id, pz.linked_publisher_zman_id,
-    pz.source_type_id,
-    zst.key AS source_type,
-    zst.display_name_hebrew AS source_type_display_hebrew,
-    zst.display_name_english AS source_type_display_english,
     pz.deleted_at, pz.created_at, pz.updated_at,
     p.name AS publisher_name,
     p.is_verified AS publisher_is_verified
 FROM publisher_zmanim pz
 JOIN publishers p ON p.id = pz.publisher_id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.id = $1;
 
 -- ============================================================================
@@ -403,8 +381,6 @@ SELECT
     tc.key AS category,
     pz.dependencies, pz.created_at, pz.updated_at,
     pz.master_zman_id, pz.linked_publisher_zman_id,
-    pz.source_type_id,
-    zst.key AS source_type,
     -- Source/original values from registry or linked publisher (for diff/revert UI)
     COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name, '') AS source_hebrew_name,
     COALESCE(mr.canonical_english_name, linked_pz.english_name, '') AS source_english_name,
@@ -484,7 +460,6 @@ FROM publisher_zmanim pz
 LEFT JOIN publisher_zmanim linked_pz ON pz.linked_publisher_zman_id = linked_pz.id
 LEFT JOIN publishers linked_pub ON linked_pz.publisher_id = linked_pub.id
 LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
 LEFT JOIN time_categories mr_tc ON mr.time_category_id = mr_tc.id
 WHERE pz.publisher_id = $1
@@ -560,9 +535,9 @@ SELECT EXISTS(
 INSERT INTO publisher_zmanim (
     publisher_id, zman_key, hebrew_name, english_name,
     formula_dsl, is_enabled, is_visible, is_published, is_custom, time_category_id,
-    dependencies, master_zman_id, linked_publisher_zman_id, source_type_id
+    dependencies, master_zman_id, linked_publisher_zman_id
 ) VALUES (
-    $1, $2, $3, $4, $5, true, true, false, false, $6, $7, $8, $9, 1
+    $1, $2, $3, $4, $5, true, true, false, false, $6, $7, $8, $9
 )
 RETURNING id, created_at, updated_at;
 
@@ -687,15 +662,12 @@ INSERT INTO publisher_zmanim (
     is_beta,
     is_custom,
     master_zman_id,
-    time_category_id,
-    source_type_id
+    time_category_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
     -- Get time_category_id from master_zmanim_registry if master_zman_id is provided
     COALESCE(
         (SELECT time_category_id FROM master_zmanim_registry WHERE id = $15),
         (SELECT id FROM time_categories WHERE key = 'other')
-    ),
-    -- Default source_type_id = 1 (master_registry)
-    1
+    )
 );

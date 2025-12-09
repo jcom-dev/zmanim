@@ -68,12 +68,9 @@ SELECT
     tc.display_name_hebrew AS category_display_hebrew,
     tc.display_name_english AS category_display_english,
     pz.master_zman_id,
-    pz.linked_publisher_zman_id,
-    pz.source_type_id,
-    zst.key AS source_type
+    pz.linked_publisher_zman_id
 FROM publisher_zmanim pz
 JOIN time_categories tc ON tc.id = pz.time_category_id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL;
 
 -- name: GetAllPublisherZmanimKeys :many
@@ -105,12 +102,9 @@ SELECT
     tc.display_name_english AS category_display_english,
     pz.master_zman_id,
     pz.linked_publisher_zman_id,
-    pz.source_type_id,
-    zst.key AS source_type,
     pz.current_version
 FROM publisher_zmanim pz
 JOIN time_categories tc ON tc.id = pz.time_category_id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.publisher_id = $1 AND pz.zman_key = $2 AND pz.deleted_at IS NULL;
 
 -- ============================================
@@ -148,7 +142,6 @@ SET
     time_category_id = $15,
     master_zman_id = $16,
     linked_publisher_zman_id = $17,
-    source_type_id = $18,
     updated_at = NOW()
 WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL;
 
@@ -171,10 +164,9 @@ INSERT INTO publisher_zmanim (
     is_custom,
     time_category_id,
     master_zman_id,
-    linked_publisher_zman_id,
-    source_type_id
+    linked_publisher_zman_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 );
 
 -- name: GetDeletedZmanByKey :one
@@ -273,12 +265,10 @@ SELECT
     tc.display_name_english AS category_display_english,
     pz.master_zman_id,
     pz.linked_publisher_zman_id,
-    zst.key AS source_type,
     pz.current_version,
     pz.created_at,
     pz.updated_at
 FROM publisher_zmanim pz
 JOIN time_categories tc ON tc.id = pz.time_category_id
-LEFT JOIN zman_source_types zst ON pz.source_type_id = zst.id
 WHERE pz.publisher_id = $1 AND pz.deleted_at IS NULL
 ORDER BY pz.zman_key;
