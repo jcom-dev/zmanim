@@ -2,8 +2,11 @@
 import * as cdk from 'aws-cdk-lib';
 import { NetworkStack } from '../lib/network-stack';
 import { ComputeStack } from '../lib/compute-stack';
+import { ApiGatewayStack } from '../lib/api-gateway-stack';
 import { CdnStack } from '../lib/cdn-stack';
-import { DnsZoneStack, DnsStack } from '../lib/dns-stack';
+import { StorageStack } from '../lib/storage-stack';
+import { SecretsStack } from '../lib/secrets-stack';
+import { CertificateStack, DnsZoneStack, DnsStack, HealthCheckAlarmStack } from '../lib/dns-stack';
 import { GitHubOidcStack } from '../lib/github-oidc-stack';
 import { getConfig, getCdkEnvironment } from '../lib/config';
 
@@ -12,15 +15,34 @@ import { getConfig, getCdkEnvironment } from '../lib/config';
  *
  * Stack Dependency Graph:
  *
- *   NetworkStack (no dependencies)
+ *   StorageStack (no dependencies) ─────────────────────────────────────┐
+ *       │                                                               │
+ *   SecretsStack (no dependencies) [Story 7.9]                          │
+ *       │                                                               │
+ *   NetworkStack (no dependencies)                                      │
+ *       ↓                                                               │
+ *   ComputeStack (depends on Network, Secrets for VPC/SSM)              │
+ *       ↓                                                               │
+ *   ApiGatewayStack (depends on Compute for Elastic IP) [Story 7.7]     │
+ *       ↓                                                               │
+ *   DnsZoneStack (depends on Compute for Elastic IP)                    │
+ *       ↓                                                               │
+ *   CertificateStack (in us-east-1! depends on DnsZone) [Story 7.8]     │
+ *       ↓                                                               │
+ *   CDNStack (depends on DnsZone, Certificate for SSL) ←────────────────┘
+ *       ↓                                                     (parallel)
+ *   DnsStack (depends on CDN, DnsZone → A record alias, health check)
  *       ↓
- *   ComputeStack (depends on Network for VPC/subnets)
- *       ↓
- *   DnsZoneStack (depends on Compute for Elastic IP → creates hosted zone + origin A record)
- *       ↓
- *   CDNStack (depends on DnsZone for origin domain)
- *       ↓
- *   DnsStack (depends on CDN for distribution + DnsZone for hosted zone)
+ *   HealthCheckAlarmStack (in us-east-1! depends on DnsStack) [Story 7.8]
+ *
+ * Stack Separation:
+ * - StorageStack: S3 buckets for backups and releases (infrastructure storage)
+ * - SecretsStack: SSM Parameter Store secrets (Story 7.9)
+ * - CdnStack: CloudFront + static bucket only (public content delivery)
+ *
+ * IMPORTANT: Two stacks MUST be in us-east-1:
+ * - CertificateStack: CloudFront requires ACM certificates in us-east-1
+ * - HealthCheckAlarmStack: Route 53 health check metrics only available in us-east-1
  *
  * Deployment order is handled automatically by CDK based on cross-stack references.
  */
@@ -47,6 +69,25 @@ const githubOidcStack = new GitHubOidcStack(app, 'ZmanimGitHubOidc', {
   description: 'Zmanim Lab - GitHub OIDC authentication for CDK deployments',
 });
 
+// StorageStack - S3 buckets for backups and releases (no dependencies)
+// Separated from CdnStack for cleaner architecture:
+// - These buckets are NOT served via CloudFront
+// - Used by EC2 for backup/restore and deployment operations
+const storageStack = new StorageStack(app, `${config.stackPrefix}Storage`, {
+  config,
+  env,
+  description: 'Zmanim Lab - Storage infrastructure (backups, releases buckets)',
+});
+
+// SecretsStack - SSM Parameter Store for secrets management (Story 7.9)
+// MUST be deployed before ComputeStack as it references AMI ID from SSM
+// Parameters created with placeholder values - real secrets set via CLI after deployment
+const secretsStack = new SecretsStack(app, `${config.stackPrefix}Secrets`, {
+  config,
+  env,
+  description: 'Zmanim Lab - SSM Parameter Store secrets management',
+});
+
 // NetworkStack - VPC, subnets, security groups (no dependencies)
 const networkStack = new NetworkStack(app, `${config.stackPrefix}Network`, {
   config,
@@ -54,7 +95,8 @@ const networkStack = new NetworkStack(app, `${config.stackPrefix}Network`, {
   description: 'Zmanim Lab - Network infrastructure (VPC, subnets, security groups)',
 });
 
-// ComputeStack - EC2, EBS, IAM (depends on NetworkStack)
+// ComputeStack - EC2, EBS, IAM (depends on NetworkStack, SecretsStack)
+// Depends on SecretsStack because it reads AMI ID from SSM parameter
 const computeStack = new ComputeStack(app, `${config.stackPrefix}Compute`, {
   config,
   env,
@@ -63,6 +105,17 @@ const computeStack = new ComputeStack(app, `${config.stackPrefix}Compute`, {
   description: 'Zmanim Lab - Compute infrastructure (EC2, EBS, IAM)',
 });
 computeStack.addDependency(networkStack);
+computeStack.addDependency(secretsStack); // SecretsStack imports existing SSM parameters
+
+// ApiGatewayStack - HTTP API, JWT authorizer, throttling (depends on ComputeStack for Elastic IP)
+// Story 7.7: Routes requests to EC2 with Clerk JWT validation
+const apiGatewayStack = new ApiGatewayStack(app, `${config.stackPrefix}ApiGateway`, {
+  config,
+  env,
+  elasticIp: computeStack.elasticIp.ref,
+  description: 'Zmanim Lab - API Gateway (HTTP API, JWT auth, throttling)',
+});
+apiGatewayStack.addDependency(computeStack);
 
 // DnsZoneStack - Route53 hosted zone + API origin A record (depends on Compute for Elastic IP)
 const dnsZoneStack = new DnsZoneStack(app, `${config.stackPrefix}DnsZone`, {
@@ -73,28 +126,71 @@ const dnsZoneStack = new DnsZoneStack(app, `${config.stackPrefix}DnsZone`, {
 });
 dnsZoneStack.addDependency(computeStack);
 
-// CDNStack - CloudFront, S3 (depends on DnsZone for origin domain)
+// ==========================================================================
+// Story 7.8: CertificateStack - ACM certificate in us-east-1
+// ==========================================================================
+// CRITICAL: CloudFront requires ACM certificates in us-east-1 (N. Virginia)
+// This stack MUST be deployed in us-east-1 regardless of other stacks' regions.
+//
+// We pass hosted zone ID/name as strings to avoid cross-region construct references.
+// CDK's crossRegionReferences feature is enabled to allow cross-region exports.
+const certificateStack = new CertificateStack(app, `${config.stackPrefix}Certificate`, {
+  config,
+  env: {
+    account: config.account,
+    region: 'us-east-1', // MUST be us-east-1 for CloudFront!
+  },
+  crossRegionReferences: true, // Required for cross-region certificate reference
+  hostedZoneId: dnsZoneStack.hostedZone.hostedZoneId,
+  hostedZoneName: dnsZoneStack.hostedZone.zoneName,
+  description: 'Zmanim Lab - ACM certificate in us-east-1 for CloudFront',
+});
+certificateStack.addDependency(dnsZoneStack);
+
+// CDNStack - CloudFront + static assets bucket only (depends on DnsZone, Certificate)
+// Note: Backups and releases buckets are in StorageStack (cleaner separation)
 const cdnStack = new CdnStack(app, `${config.stackPrefix}CDN`, {
   config,
   env,
+  crossRegionReferences: true, // Required for cross-region certificate reference
   apiOriginDomain: dnsZoneStack.apiOriginDomain,
-  description: 'Zmanim Lab - CDN infrastructure (CloudFront, S3)',
+  certificate: certificateStack.certificate, // AC6: Custom domain with certificate
+  description: 'Zmanim Lab - CDN infrastructure (CloudFront, static assets)',
 });
 cdnStack.addDependency(dnsZoneStack);
+cdnStack.addDependency(certificateStack);
 
-// DNSStack - ACM certificate, CloudFront alias (depends on CDN + DnsZone)
-// NOTE: For CloudFront, certificate must be in us-east-1
-// Story 7.8 will handle the cross-region certificate requirement
+// DNSStack - A record alias, health check (depends on CDN + DnsZone)
+// Story 7.8: Moved ACM certificate to separate CertificateStack in us-east-1
 const dnsStack = new DnsStack(app, `${config.stackPrefix}DNS`, {
   config,
   env,
-  crossRegionReferences: true, // Enable for future us-east-1 cert references
+  crossRegionReferences: true, // Required for cross-region health check ID export
   distribution: cdnStack.distribution,
   hostedZone: dnsZoneStack.hostedZone,
-  description: 'Zmanim Lab - DNS infrastructure (ACM certificate, CloudFront alias)',
+  certificateArn: certificateStack.certificate.certificateArn,
+  description: 'Zmanim Lab - DNS infrastructure (A record alias, health check)',
 });
 dnsStack.addDependency(cdnStack);
 dnsStack.addDependency(dnsZoneStack);
+
+// ==========================================================================
+// Story 7.8: HealthCheckAlarmStack - CloudWatch alarm in us-east-1
+// ==========================================================================
+// CRITICAL: Route 53 health check metrics are ONLY available in us-east-1.
+// CloudWatch alarms must be in the same region as the metrics they monitor.
+// Therefore, this stack MUST be deployed in us-east-1.
+const healthCheckAlarmStack = new HealthCheckAlarmStack(app, `${config.stackPrefix}HealthCheckAlarm`, {
+  config,
+  env: {
+    account: config.account,
+    region: 'us-east-1', // MUST be us-east-1 for Route 53 metrics!
+  },
+  crossRegionReferences: true, // Required for cross-region health check ID reference
+  healthCheckId: dnsStack.healthCheckId,
+  description: 'Zmanim Lab - CloudWatch alarm for health check in us-east-1',
+});
+healthCheckAlarmStack.addDependency(dnsStack);
 
 // Apply tags to all stacks
 cdk.Tags.of(app).add('Project', 'zmanim');

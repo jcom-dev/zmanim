@@ -75,6 +75,152 @@ So that **the new infrastructure has all existing data with zero loss**.
   - [ ] 7.4 Decommission Xata database (after 7 days)
   - [ ] 7.5 Update .env.example files
 
+## Definition of Done
+
+**Story is NOT complete until the dev agent has executed ALL of the following verification steps and documented the results:**
+
+### Required Verification Tests
+
+#### Phase 1: Script Preparation
+
+1. **Migration Script Syntax Validation**
+   ```bash
+   bash -n scripts/migrate-to-aws.sh 2>&1 && echo "✓ migrate-to-aws.sh syntax valid"
+   ```
+   - [ ] Script passes bash syntax check
+   - [ ] Contains pg_dump command with -Fc format
+   - [ ] Contains pg_restore command
+   - [ ] Handles extensions (PostGIS)
+
+2. **Verification Script Syntax Validation**
+   ```bash
+   bash -n scripts/verify-migration.sh 2>&1 && echo "✓ verify-migration.sh syntax valid"
+   ```
+   - [ ] Script passes bash syntax check
+   - [ ] Counts rows in all critical tables
+   - [ ] Compares source vs target counts
+   - [ ] Outputs clear pass/fail status
+
+3. **Table List Completeness Check**
+   ```bash
+   grep -E "TABLES=" scripts/verify-migration.sh
+   ```
+   - [ ] Includes: publishers, publisher_zmanim, master_zmanim_registry, cities, publisher_coverage
+   - [ ] All tables with data are included
+
+#### Phase 2: Pre-Migration Verification
+
+4. **AWS Infrastructure Ready Check**
+   ```bash
+   # Verify all prerequisite stories (7.1-7.9) are deployed
+   cd /home/coder/workspace/zmanim/infrastructure && npx cdk ls
+   ```
+   - [ ] All stacks deployed: Network, Compute, CDN, DNS
+   - [ ] EC2 instance running
+   - [ ] PostgreSQL service active on EC2
+
+5. **Database Connectivity Test**
+   ```bash
+   # Test EC2 PostgreSQL is accessible (from EC2)
+   psql -h localhost -U zmanim -d zmanim -c "SELECT 1"
+   ```
+   - [ ] EC2 PostgreSQL accepts connections
+   - [ ] PostGIS extension installed
+
+#### Phase 3: Migration Execution
+
+6. **pg_dump Export Test** (Dry Run)
+   ```bash
+   # Dry run - verify connection to Xata
+   pg_dump -Fc --no-owner --no-acl "$XATA_URL" --schema-only > /tmp/schema-test.dump
+   ls -lh /tmp/schema-test.dump
+   ```
+   - [ ] Can connect to Xata PostgreSQL
+   - [ ] Schema exports successfully
+
+7. **pg_restore Import Test** (Staging)
+   ```bash
+   # Test restore on staging/test database first
+   pg_restore --list /tmp/zmanim.dump | head -20
+   ```
+   - [ ] Dump file is valid custom format
+   - [ ] List shows expected tables and objects
+
+#### Phase 4: Data Integrity Verification
+
+8. **Row Count Verification**
+   ```bash
+   ./scripts/verify-migration.sh
+   ```
+   - [ ] All tables show matching row counts (✅ for each)
+   - [ ] No MISMATCH errors
+   - [ ] Verification report generated
+
+9. **PostGIS Geometry Verification**
+   ```bash
+   # Verify geometry data migrated correctly
+   psql -h localhost -U zmanim -d zmanim -c "SELECT COUNT(*) FROM cities WHERE geom IS NOT NULL"
+   ```
+   - [ ] City geometry count matches source
+   - [ ] Geometry queries return valid results
+
+#### Phase 5: API Testing
+
+10. **E2E Test Suite Against AWS**
+    ```bash
+    cd /home/coder/workspace/zmanim/tests && API_URL=http://<ec2-ip>:8080 npx playwright test
+    ```
+    - [ ] E2E tests pass against AWS backend
+    - [ ] Zmanim calculations match expected values
+    - [ ] Authentication flow works
+
+11. **Response Time Comparison**
+    ```bash
+    # Compare response times
+    curl -w "%{time_total}\n" -o /dev/null -s http://<ec2-ip>:8080/api/health
+    ```
+    - [ ] API response time <200ms
+    - [ ] No degradation from previous infrastructure
+
+#### Phase 6: Go-Live Checklist
+
+12. **DNS Cutover Plan Document**
+    - [ ] Current DNS configuration documented
+    - [ ] Step-by-step cutover procedure written
+    - [ ] Low-traffic window identified
+    - [ ] Team notification sent
+
+13. **Rollback Plan Document**
+    - [ ] Rollback triggers defined (5xx >5%, latency >500ms, etc.)
+    - [ ] Rollback script ready (`scripts/rollback-dns.sh`)
+    - [ ] Estimated rollback time documented (<15 min)
+    - [ ] Xata kept running as fallback for 7 days
+
+14. **Post-Migration Verification**
+    ```bash
+    # After DNS switch
+    curl -I https://zmanim.shtetl.io/api/health
+    ```
+    - [ ] DNS resolves to CloudFront
+    - [ ] SSL certificate valid
+    - [ ] Health check returns 200 OK
+    - [ ] No 5xx errors in CloudWatch
+
+### Evidence Required in Dev Agent Record
+- Migration script and verification script syntax check results
+- Row count verification report (all tables matching)
+- E2E test results against AWS backend
+- DNS cutover plan document location
+- Rollback plan document location
+- Post-migration health check results
+
+### Critical Rollback Triggers (MUST HALT if any occur)
+1. Row count mismatch >0 rows
+2. E2E tests fail >10%
+3. 5xx error rate >5% after DNS switch
+4. API latency >500ms sustained for 5+ minutes
+5. PostGIS queries return errors
+
 ## Dev Notes
 
 ### Architecture Alignment

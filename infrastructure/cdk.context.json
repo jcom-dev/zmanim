@@ -3,5 +3,6 @@
     "eu-west-1a",
     "eu-west-1b",
     "eu-west-1c"
-  ]
+  ],
+  "ami:account=768205136951:filters.architecture.0=arm64:filters.image-type.0=machine:filters.name.0=zmanim-*:filters.state.0=available:owners.0=self:region=eu-west-1": "ami-0156e59ccb696a190"
 }
