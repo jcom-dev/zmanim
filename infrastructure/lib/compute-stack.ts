@@ -13,116 +13,354 @@ export interface ComputeStackProps extends cdk.StackProps {
 /**
  * ComputeStack - EC2 instance, EBS volumes, IAM roles, Elastic IP
  *
- * Architecture:
- * - m7g.medium Graviton3 instance (2 vCPU, 4GB RAM)
- * - Root EBS: 10GB gp3 (from AMI, disposable on upgrade)
- * - Data EBS: 20GB gp3 (persistent, mounted at /data for PostgreSQL + Redis)
- * - Elastic IP for stable public address
- * - IAM role for S3, SSM, SES access
+ * Story 7.4: EC2 Instance & EBS Storage
  *
- * Story 7.4 will implement full EC2 configuration
+ * Architecture (Two-Volume Strategy):
+ * ┌─────────────────────────────────────────┐
+ * │  EC2 Instance (from Packer AMI)         │
+ * │  ┌─────────────┐  ┌───────────────────┐ │
+ * │  │ Root EBS    │  │ Data EBS          │ │
+ * │  │ 10GB gp3    │  │ 20GB gp3          │ │
+ * │  │ /           │  │ /data             │ │
+ * │  │ (from AMI)  │  │ - /data/postgres  │ │
+ * │  │ DISPOSABLE  │  │ - /data/redis     │ │
+ * │  └─────────────┘  │ PERSISTENT        │ │
+ * │        ↓          └───────────────────┘ │
+ * │   Replaced on         ↓                 │
+ * │   AMI upgrade    Survives AMI upgrades  │
+ * └─────────────────────────────────────────┘
+ *
+ * Key Design Decisions:
+ * - m7g.medium Graviton3 (ARM64): 20% better price/performance vs x86
+ * - Root volume from AMI: OS + binaries, replaced on upgrade
+ * - Data volume persistent: PostgreSQL + Redis data survives AMI upgrades
+ * - Elastic IP: Stable public address for API Gateway
+ * - IAM role: S3 (backups), SSM (secrets), SES (emails), CloudWatch (metrics/logs)
+ * - User data: Mounts /data, pulls secrets from SSM, starts services
+ *
+ * Cost Target: ~$33/month (EC2 + EBS + EIP)
  */
 export class ComputeStack extends cdk.Stack {
   public readonly instance: ec2.Instance;
   public readonly elasticIp: ec2.CfnEIP;
+  public readonly dataVolume: ec2.CfnVolume;
+  public readonly instanceRole: iam.Role;
 
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
 
     const { config, vpc, securityGroup } = props;
 
-    // IAM role for EC2 instance
-    // Grants access to S3 (backups), SSM (secrets), SES (emails)
-    const instanceRole = new iam.Role(this, 'InstanceRole', {
+    // =========================================================================
+    // Task 5: IAM Role (AC5)
+    // =========================================================================
+    // Grants access to:
+    // - S3: Backup/release buckets (s3:GetObject, s3:PutObject, s3:ListBucket)
+    // - SSM: Parameter Store secrets (ssm:GetParameter with decryption)
+    // - SES: Backup failure email notifications (ses:SendEmail)
+    // - CloudWatch: Metrics and logs (cloudwatch:PutMetricData, logs:*)
+    // - SSM Session Manager: AWS Console login (AmazonSSMManagedInstanceCore)
+    this.instanceRole = new iam.Role(this, 'InstanceRole', {
       roleName: `zmanim-instance-role-${config.environment}`,
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
       managedPolicies: [
+        // Task 5.6: SSM Session Manager for AWS Console login (no SSH keys needed)
         iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+        // CloudWatch Agent policy for metrics and logs
+        iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
       ],
-      description: 'IAM role for Zmanim EC2 instance',
+      description: 'IAM role for Zmanim EC2 instance - S3, SSM, SES, CloudWatch access',
     });
 
-    // S3 access policy (will be expanded in Story 7.5)
-    instanceRole.addToPolicy(
+    // Task 5.2: S3 access policy for backup/releases buckets
+    this.instanceRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket'],
+        sid: 'S3BucketAccess',
+        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:DeleteObject'],
         resources: [
-          `arn:aws:s3:::zmanim-*-${config.environment}`,
-          `arn:aws:s3:::zmanim-*-${config.environment}/*`,
+          `arn:aws:s3:::zmanim-backups-${config.environment}`,
+          `arn:aws:s3:::zmanim-backups-${config.environment}/*`,
+          `arn:aws:s3:::zmanim-releases-${config.environment}`,
+          `arn:aws:s3:::zmanim-releases-${config.environment}/*`,
         ],
         effect: iam.Effect.ALLOW,
       })
     );
 
-    // SSM Parameter Store access (will be expanded in Story 7.9)
-    instanceRole.addToPolicy(
+    // Task 5.3: SSM Parameter Store access for /zmanim/prod/*
+    this.instanceRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter', 'ssm:GetParameters'],
+        sid: 'SSMParameterAccess',
+        actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
         resources: [`arn:aws:ssm:${config.region}:*:parameter/zmanim/${config.environment}/*`],
         effect: iam.Effect.ALLOW,
       })
     );
 
-    // Placeholder EC2 instance - Story 7.4 will configure AMI, user data, etc.
-    // Using Amazon Linux 2023 ARM64 as placeholder (Packer AMI will replace)
+    // KMS decrypt for SSM SecureString parameters
+    this.instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'KMSDecrypt',
+        actions: ['kms:Decrypt'],
+        resources: ['*'], // SSM uses default AWS managed key
+        conditions: {
+          StringEquals: {
+            'kms:ViaService': `ssm.${config.region}.amazonaws.com`,
+          },
+        },
+        effect: iam.Effect.ALLOW,
+      })
+    );
+
+    // Task 5.4: SES policy for backup failure email notifications
+    this.instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SESSendEmail',
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
+        effect: iam.Effect.ALLOW,
+      })
+    );
+
+    // Task 5.5: CloudWatch policy for metrics and logs (supplemental to managed policy)
+    this.instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudWatchMetrics',
+        actions: [
+          'cloudwatch:PutMetricData',
+          'cloudwatch:GetMetricStatistics',
+          'cloudwatch:ListMetrics',
+        ],
+        resources: ['*'],
+        conditions: {
+          StringEquals: {
+            'cloudwatch:namespace': 'ZmanimApp',
+          },
+        },
+        effect: iam.Effect.ALLOW,
+      })
+    );
+
+    // =========================================================================
+    // Task 1: EC2 Instance from Packer AMI (AC1)
+    // =========================================================================
+    // - m7g.medium Graviton3 (2 vCPU, 4GB RAM)
+    // - AMI ID from SSM Parameter Store: /zmanim/prod/ami-id
+    // - Placed in public subnet from NetworkStack
+    // - Attached security group from NetworkStack
+
+    // Task 1.3: Lookup Packer AMI by name filter
+    // Uses ec2.LookupMachineImage to find latest AMI matching 'zmanim-*'
+    // This automatically picks up new AMIs on deployment without manual SSM updates
+    const zmanimAmi = ec2.MachineImage.lookup({
+      name: 'zmanim-*',
+      owners: ['self'], // Only look at our own AMIs
+      filters: {
+        'architecture': ['arm64'], // Graviton3 ARM64
+        'state': ['available'],
+      },
+    });
+
+    // Task 6: User Data Script (AC6)
+    // Minimal user-data: only mount data volume, let firstboot.sh handle the rest
+    const userData = ec2.UserData.forLinux();
+    userData.addCommands(
+      '#!/bin/bash',
+      'set -euo pipefail',
+      '',
+      '# ============================================',
+      '# Zmanim EC2 User Data Script',
+      '# Story 7.4: Mount data volume only',
+      '# All other config handled by firstboot.sh in AMI',
+      '# ============================================',
+      '',
+      'exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1',
+      'echo "Starting user data script at $(date)"',
+      '',
+      '# Mount data volume at /data if not already mounted',
+      '# NVMe device naming: /dev/sdf becomes /dev/nvme1n1 on Nitro instances',
+      'DATA_DEVICE="/dev/nvme1n1"',
+      'DATA_MOUNT="/data"',
+      '',
+      'if ! mountpoint -q $DATA_MOUNT; then',
+      '    echo "Data volume not mounted, checking device..."',
+      '    ',
+      '    # Wait for device to be available (up to 60 seconds)',
+      '    for i in {1..60}; do',
+      '        if [ -b "$DATA_DEVICE" ]; then',
+      '            echo "Device $DATA_DEVICE is available"',
+      '            break',
+      '        fi',
+      '        echo "Waiting for $DATA_DEVICE... ($i/60)"',
+      '        sleep 1',
+      '    done',
+      '    ',
+      '    if [ ! -b "$DATA_DEVICE" ]; then',
+      '        echo "ERROR: Device $DATA_DEVICE not found after 60 seconds"',
+      '        exit 1',
+      '    fi',
+      '    ',
+      '    # Check if already formatted (has filesystem)',
+      '    if ! blkid $DATA_DEVICE | grep -q "TYPE="; then',
+      '        echo "Formatting $DATA_DEVICE as XFS..."',
+      '        mkfs.xfs $DATA_DEVICE',
+      '    else',
+      '        echo "Device $DATA_DEVICE already formatted"',
+      '    fi',
+      '    ',
+      '    # Create mount point and mount',
+      '    mkdir -p $DATA_MOUNT',
+      '    mount $DATA_DEVICE $DATA_MOUNT',
+      '    ',
+      '    # Add to fstab for persistence (use nofail for boot resilience)',
+      '    if ! grep -q "$DATA_MOUNT" /etc/fstab; then',
+      '        echo "$DATA_DEVICE $DATA_MOUNT xfs defaults,nofail 0 2" >> /etc/fstab',
+      '    fi',
+      '    ',
+      '    echo "Data volume mounted at $DATA_MOUNT"',
+      'else',
+      '    echo "Data volume already mounted at $DATA_MOUNT"',
+      'fi',
+      '',
+      '# Create data subdirectories with correct ownership',
+      'mkdir -p /data/postgres /data/redis',
+      'chown postgres:postgres /data/postgres',
+      'chmod 700 /data/postgres',
+      'chown redis:redis /data/redis',
+      'chmod 750 /data/redis',
+      '',
+      'echo "User data script completed at $(date)"',
+      'echo "Firstboot service will handle SSM config and service startup"',
+      'echo "============================================"'
+    );
+
+    // Task 1.1 & 1.2: Define EC2 instance with m7g.medium Graviton3
     this.instance = new ec2.Instance(this, 'ZmanimInstance', {
       instanceName: `zmanim-api-${config.environment}`,
+      // Task 1.2: m7g.medium Graviton3 (2 vCPU, 4GB RAM, ARM64)
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.M7G, ec2.InstanceSize.MEDIUM),
-      machineImage: ec2.MachineImage.latestAmazonLinux2023({
-        cpuType: ec2.AmazonLinuxCpuType.ARM_64,
-      }),
+      // Task 1.3: Use latest Packer AMI by name lookup (zmanim-*)
+      machineImage: zmanimAmi,
+      // Task 1.4: Place in public subnet from NetworkStack
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      // Task 1.5: Attach security group from NetworkStack
       securityGroup,
-      role: instanceRole,
+      // Task 5.7: Attach instance profile
+      role: this.instanceRole,
+      // Task 2: Root EBS Volume (AC2) - 10GB gp3, disposable
       blockDevices: [
         {
-          deviceName: '/dev/xvda',
+          deviceName: '/dev/sda1', // Ubuntu uses /dev/sda1 for root
           volume: ec2.BlockDeviceVolume.ebs(10, {
             volumeType: ec2.EbsDeviceVolumeType.GP3,
             encrypted: true,
+            deleteOnTermination: true, // Task 2.2: Disposable on AMI upgrade
           }),
         },
       ],
+      // Task 6: User data script
+      userData,
+      // Enable detailed monitoring for CloudWatch
+      detailedMonitoring: true,
     });
 
-    // Elastic IP for stable public address
+    // =========================================================================
+    // Task 3: Persistent Data Volume (AC3)
+    // =========================================================================
+    // - 20GB gp3 with 3000 IOPS baseline
+    // - deleteOnTermination: false (CRITICAL for data persistence)
+    // - Mounted at /data for PostgreSQL and Redis data
+    // - Survives AMI upgrades
+
+    // Get the availability zone from the instance
+    const availabilityZone = vpc.publicSubnets[0].availabilityZone;
+
+    // Task 3.1 & 3.2: Create standalone EBS volume 20GB gp3 with 3000 IOPS
+    this.dataVolume = new ec2.CfnVolume(this, 'DataVolume', {
+      availabilityZone,
+      size: 20, // Task 3.1: 20GB
+      volumeType: 'gp3', // gp3 for baseline performance
+      iops: 3000, // Task 3.2: 3000 IOPS baseline
+      throughput: 125, // 125 MiB/s throughput (gp3 default)
+      encrypted: true,
+      tags: [
+        { key: 'Name', value: `zmanim-data-${config.environment}` },
+        { key: 'Project', value: 'zmanim' },
+        { key: 'Environment', value: config.environment },
+        { key: 'Type', value: 'data' },
+        { key: 'MountPoint', value: '/data' },
+        { key: 'Persistent', value: 'true' }, // Tag for easy identification
+      ],
+    });
+
+    // Task 3.3: deleteOnTermination: false is default for CfnVolume (not attached via blockDevices)
+
+    // Task 3.4: Attach data volume to instance as /dev/sdf
+    new ec2.CfnVolumeAttachment(this, 'DataVolumeAttachment', {
+      device: '/dev/sdf', // Will appear as /dev/nvme1n1 on Nitro instances
+      instanceId: this.instance.instanceId,
+      volumeId: this.dataVolume.ref,
+    });
+
+    // =========================================================================
+    // Task 4: Elastic IP (AC4)
+    // =========================================================================
+    // Task 4.1: Create Elastic IP resource
     this.elasticIp = new ec2.CfnEIP(this, 'ElasticIp', {
       domain: 'vpc',
       tags: [
         { key: 'Name', value: `zmanim-eip-${config.environment}` },
         { key: 'Project', value: 'zmanim' },
+        { key: 'Environment', value: config.environment },
       ],
     });
 
-    // Associate Elastic IP with instance
-    // Using allocationId instead of deprecated eip property
+    // Task 4.2: Associate Elastic IP with EC2 instance
     new ec2.CfnEIPAssociation(this, 'EipAssociation', {
       allocationId: this.elasticIp.attrAllocationId,
       instanceId: this.instance.instanceId,
     });
 
-    // Outputs
+    // =========================================================================
+    // CloudFormation Outputs
+    // =========================================================================
     new cdk.CfnOutput(this, 'InstanceId', {
       value: this.instance.instanceId,
       exportName: `${config.stackPrefix}-InstanceId`,
       description: 'EC2 instance ID',
     });
 
+    // Task 4.3: Export EIP address for API Gateway integration
     new cdk.CfnOutput(this, 'ElasticIpAddress', {
       value: this.elasticIp.ref,
       exportName: `${config.stackPrefix}-ElasticIp`,
-      description: 'Elastic IP address for API',
+      description: 'Elastic IP address for API Gateway integration',
     });
 
     new cdk.CfnOutput(this, 'InstanceRoleArn', {
-      value: instanceRole.roleArn,
+      value: this.instanceRole.roleArn,
       exportName: `${config.stackPrefix}-InstanceRoleArn`,
       description: 'IAM role ARN for EC2 instance',
     });
 
+    new cdk.CfnOutput(this, 'DataVolumeId', {
+      value: this.dataVolume.ref,
+      exportName: `${config.stackPrefix}-DataVolumeId`,
+      description: 'Persistent data EBS volume ID (survives AMI upgrades)',
+    });
+
+    new cdk.CfnOutput(this, 'AmiId', {
+      value: zmanimAmi.getImage(this).imageId,
+      description: 'AMI ID resolved by name lookup (zmanim-*)',
+    });
+
+    // =========================================================================
+    // Tags
+    // =========================================================================
     cdk.Tags.of(this).add('Project', 'zmanim');
     cdk.Tags.of(this).add('Environment', config.environment);
     cdk.Tags.of(this).add('ManagedBy', 'cdk');
+    cdk.Tags.of(this).add('Story', '7.4');
   }
 }
