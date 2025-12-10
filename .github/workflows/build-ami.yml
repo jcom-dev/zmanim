@@ -90,10 +90,11 @@ jobs:
       - name: Extract AMI ID
         id: ami
         run: |
-          # Packer outputs AMI ID in the format: eu-west-1: ami-xxxxx
-          AMI_ID=$(grep -oP 'eu-west-1: \K(ami-[a-f0-9]+)' infrastructure/packer/manifest.json || echo "")
-          if [ -z "$AMI_ID" ]; then
-            echo "ERROR: Could not extract AMI ID from Packer output"
+          # Packer outputs AMI ID in manifest.json as "artifact_id": "eu-west-1:ami-xxxxx"
+          cat infrastructure/packer/manifest.json
+          AMI_ID=$(jq -r '.builds[-1].artifact_id' infrastructure/packer/manifest.json | cut -d: -f2)
+          if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "null" ]; then
+            echo "ERROR: Could not extract AMI ID from Packer manifest"
             exit 1
           fi
           echo "ami_id=${AMI_ID}" >> $GITHUB_OUTPUT
