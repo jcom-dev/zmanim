@@ -40,7 +40,7 @@ export class GitHubOidcStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: GitHubOidcStackProps) {
     super(scope, id, props);
 
-    const { githubRepo, allowedRefs = ['main'] } = props;
+    const { githubRepo } = props;
 
     // GitHub's OIDC provider thumbprint (constant, provided by GitHub)
     // See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
@@ -55,11 +55,14 @@ export class GitHubOidcStack extends cdk.Stack {
     });
 
     // Build the trust policy conditions for the specific repo and refs
-    // Format: repo:<owner>/<repo>:ref:refs/heads/<branch>
-    // Also allow tag pushes: repo:<owner>/<repo>:ref:refs/tags/*
+    // Format varies by trigger type:
+    // - push: repo:<owner>/<repo>:ref:refs/heads/<branch>
+    // - tag: repo:<owner>/<repo>:ref:refs/tags/<tag>
+    // - workflow_dispatch: repo:<owner>/<repo>:ref:refs/heads/<branch>
+    // - pull_request: repo:<owner>/<repo>:pull_request
+    // Using wildcard to allow all refs from this specific repo
     const allowedSubjects = [
-      ...allowedRefs.map(ref => `repo:${githubRepo}:ref:refs/heads/${ref}`),
-      `repo:${githubRepo}:ref:refs/tags/*`, // Allow all tag pushes for releases
+      `repo:${githubRepo}:*`, // Allow all refs from this repo (branches, tags, workflow_dispatch, etc.)
     ];
 
     // Create IAM role that GitHub Actions can assume
