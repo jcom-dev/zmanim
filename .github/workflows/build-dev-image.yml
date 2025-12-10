@@ -17,8 +17,6 @@ jobs:
   build:
     name: Build and Push Development Image
     runs-on: ubuntu-latest
-    env:
-      DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/zmanim-lab
 
     steps:
       - name: Checkout
@@ -37,7 +35,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_IMAGE }}
+          images: jcomdev/zmanim-lab
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-
@@ -51,8 +49,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+          cache-from: type=registry,ref=jcomdev/zmanim-lab:buildcache
+          cache-to: type=registry,ref=jcomdev/zmanim-lab:buildcache,mode=max
           platforms: linux/amd64
 
       - name: Image digest
