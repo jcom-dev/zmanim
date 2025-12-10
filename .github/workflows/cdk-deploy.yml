@@ -1,0 +1,142 @@
+name: CDK Deploy
+
+# Deploys AWS infrastructure on tag push matching v* pattern
+# Uses OIDC authentication - no static AWS credentials required
+# Region: eu-west-1 (Ireland)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (prod only)'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+
+env:
+  AWS_REGION: eu-west-1
+  NODE_VERSION: '20'
+
+# Required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    name: Validate CDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infrastructure
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Synthesize CloudFormation templates
+        run: npx cdk synth
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+
+      - name: Upload synthesized templates
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-out
+          path: infrastructure/cdk.out
+          retention-days: 7
+
+  deploy:
+    name: Deploy to AWS
+    needs: validate
+    runs-on: ubuntu-latest
+    # Only deploy on tag push or manual trigger
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: infrastructure
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-cdk-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: Show expected changes
+        run: npx cdk diff --all
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+        continue-on-error: true
+
+      - name: Deploy all stacks
+        run: npx cdk deploy --all --require-approval never
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+
+      - name: Output deployment status
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Authentication:** OIDC (no static credentials)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Stacks Deployed:" >> $GITHUB_STEP_SUMMARY
+          echo "- ZmanimGitHubOidc (OIDC provider + IAM role)" >> $GITHUB_STEP_SUMMARY
+          echo "- ZmanimProdNetwork" >> $GITHUB_STEP_SUMMARY
+          echo "- ZmanimProdCompute" >> $GITHUB_STEP_SUMMARY
+          echo "- ZmanimProdCDN" >> $GITHUB_STEP_SUMMARY
+          echo "- ZmanimProdDNS" >> $GITHUB_STEP_SUMMARY
+
+# GitHub Secrets Required:
+# - AWS_ACCOUNT_ID: AWS account ID (12 digits) - e.g., 768205136951
+# - AWS_DEPLOY_ROLE_ARN: IAM role ARN for OIDC - e.g., arn:aws:iam::768205136951:role/github-actions-cdk-deploy
+#
+# OIDC Setup:
+# The ZmanimGitHubOidc stack creates the OIDC provider and IAM role.
+# Bootstrap by running `cdk deploy ZmanimGitHubOidc` locally with AWS credentials.
+# After bootstrap, GitHub Actions uses OIDC - no static AWS_ACCESS_KEY_ID/SECRET needed.
+#
+# IAM Role Trust Policy:
+# - Only allows: repo:jcom-dev/zmanim-lab:ref:refs/heads/main
+# - Only allows: repo:jcom-dev/zmanim-lab:ref:refs/tags/*
+# - Other branches/repos cannot assume the role
+#
+# IAM Role Permissions:
+# - AdministratorAccess (for CDK deployments)
+# - Consider scoping down for production security
