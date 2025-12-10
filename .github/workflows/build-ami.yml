@@ -79,7 +79,6 @@ jobs:
           echo "Building AMI version: ${VERSION}"
 
       - name: Build AMI with Packer
-        id: packer-build
         run: |
           cd infrastructure/packer
           packer build \
@@ -87,60 +86,18 @@ jobs:
             -var "api_binary_path=../../bin/zmanim-api" \
             .
 
-      - name: Extract AMI ID
-        id: ami
-        run: |
-          # Packer outputs AMI ID in manifest.json as "artifact_id": "eu-west-1:ami-xxxxx"
-          cat infrastructure/packer/manifest.json
-          AMI_ID=$(jq -r '.builds[-1].artifact_id' infrastructure/packer/manifest.json | cut -d: -f2)
-          if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "null" ]; then
-            echo "ERROR: Could not extract AMI ID from Packer manifest"
-            exit 1
-          fi
-          echo "ami_id=${AMI_ID}" >> $GITHUB_OUTPUT
-          echo "Built AMI: ${AMI_ID}"
-
-      - name: Store AMI ID in SSM Parameter Store
-        run: |
-          aws ssm put-parameter \
-            --name "/zmanim/prod/ami-id" \
-            --type "String" \
-            --value "${{ steps.ami.outputs.ami_id }}" \
-            --overwrite \
-            --region eu-west-1
-
-          aws ssm put-parameter \
-            --name "/zmanim/prod/ami-version" \
-            --type "String" \
-            --value "${{ steps.version.outputs.version }}" \
-            --overwrite \
-            --region eu-west-1
-
-      - name: Tag AMI
-        run: |
-          aws ec2 create-tags \
-            --resources "${{ steps.ami.outputs.ami_id }}" \
-            --tags \
-              Key=Version,Value=${{ steps.version.outputs.version }} \
-              Key=GitCommit,Value=${{ github.sha }} \
-              Key=GitRef,Value=${{ github.ref }} \
-              Key=BuildDate,Value=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-            --region eu-west-1
-
       - name: Output AMI information
         run: |
           echo "AMI Build Complete!"
           echo "===================="
-          echo "AMI ID: ${{ steps.ami.outputs.ami_id }}"
           echo "Version: ${{ steps.version.outputs.version }}"
           echo "Region: eu-west-1"
+          echo "AMI Name: zmanim-${{ steps.version.outputs.version }}"
           echo ""
-          echo "SSM Parameters updated:"
-          echo "  /zmanim/prod/ami-id"
-          echo "  /zmanim/prod/ami-version"
+          echo "CDK will automatically find this AMI using:"
+          echo "  ec2.MachineImage.lookup({ name: 'zmanim-*', owners: ['self'] })"
           echo ""
-          echo "To launch an instance:"
-          echo "  aws ec2 run-instances --image-id ${{ steps.ami.outputs.ami_id }} ..."
+          cat infrastructure/packer/manifest.json
 
       - name: Upload Packer manifest
         uses: actions/upload-artifact@v4
