@@ -163,7 +163,7 @@ Use INDEX files for navigation, ADRs for understanding why, scripts for complian
 ## 📁 File Structure
 
 ```
-zmanim-lab/
+zmanim/
 ├── docs/
 │   ├── AI_QUICK_START.md                        ← Start here
 │   ├── AI_REFACTOR_IMPLEMENTATION_SUMMARY.md    ← What was built

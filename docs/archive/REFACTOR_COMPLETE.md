@@ -17,21 +17,21 @@ All 22 raw SQL violations in `api/internal/handlers/version_history.go` have bee
 ## What Was Done
 
 ### 1. Database Schema (Migration)
-Created `/home/daniel/repos/zmanim-lab/db/migrations/00000000000003_algorithm_version_history.sql`:
+Created `/home/daniel/repos/zmanim/db/migrations/00000000000003_algorithm_version_history.sql`:
 - ✅ `algorithm_version_history` table - version snapshots
 - ✅ `algorithm_rollback_audit` table - audit trail
 - ✅ `get_next_algorithm_version()` function - version counter
 - ✅ Applied successfully to database
 
 ### 2. SQLc Queries
-Created `/home/daniel/repos/zmanim-lab/api/internal/db/queries/version_history.sql`:
+Created `/home/daniel/repos/zmanim/api/internal/db/queries/version_history.sql`:
 - ✅ 10 SQLc queries covering all database operations
 - ✅ Type-safe parameter structs
 - ✅ Proper null handling
 - ✅ Auto-generated Go code at `sqlcgen/version_history.sql.go`
 
 ### 3. Handler Refactor
-Refactored `/home/daniel/repos/zmanim-lab/api/internal/handlers/version_history.go`:
+Refactored `/home/daniel/repos/zmanim/api/internal/handlers/version_history.go`:
 - ✅ `GetVersionHistory()` - 4 queries → SQLc
 - ✅ `GetVersionDetail()` - 3 queries → SQLc
 - ✅ `GetVersionDiff()` - 4 queries → SQLc
@@ -42,7 +42,7 @@ Refactored `/home/daniel/repos/zmanim-lab/api/internal/handlers/version_history.
 - ✅ Consistent error handling
 
 ### 4. Bonus Fix
-Fixed `/home/daniel/repos/zmanim-lab/api/internal/db/queries/publishers.sql`:
+Fixed `/home/daniel/repos/zmanim/api/internal/db/queries/publishers.sql`:
 - ✅ Changed `cities` → `geo_cities` (correct table name)
 - ✅ Unblocked SQLc generation
 

@@ -257,8 +257,8 @@ package handlers
 import (
     "context"
 
-    "github.com/jcom-dev/zmanim-lab/api/internal/middleware"
-    "github.com/jcom-dev/zmanim-lab/api/internal/services"
+    "github.com/jcom-dev/zmanim/api/internal/middleware"
+    "github.com/jcom-dev/zmanim/api/internal/services"
 )
 
 // getActorInfo returns actor_id and actor_type based on context

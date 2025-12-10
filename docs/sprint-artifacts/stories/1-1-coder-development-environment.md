@@ -20,7 +20,7 @@ so that **I can develop, test, and debug the application with consistent tooling
 
 - [x] Task 1: Adapt .coder directory from shtetl project (AC: 1)
   - [x] 1.1 Copy .coder directory from shtetl repo
-  - [x] 1.2 Rename workspace from "shtetl" to "zmanim-lab"
+  - [x] 1.2 Rename workspace from "shtetl" to "zmanim"
   - [x] 1.3 Remove multi-repo submodule configuration (single monorepo)
   - [x] 1.4 Update workspace metadata and descriptions
 
@@ -138,7 +138,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### Debug Log References
 
 **2025-11-25 - Implementation Plan:**
-- Adapt .coder/ from shtetl (multi-repo) to zmanim-lab (monorepo)
+- Adapt .coder/ from shtetl (multi-repo) to zmanim (monorepo)
 - Remove local PostgreSQL/Redis containers (using Xata/Upstash externally)
 - Update ports: Web 3000, API 8080
 - Add Playwright browser installation for E2E testing
@@ -148,8 +148,8 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### Completion Notes List
 
 **2025-11-25 - Story Completed:**
-- Adapted .coder/ from shtetl multi-repo to zmanim-lab monorepo structure
-- Created zmanim-lab-workspace.tf (renamed from shtetl-workspace.tf)
+- Adapted .coder/ from shtetl multi-repo to zmanim monorepo structure
+- Created zmanim-workspace.tf (renamed from shtetl-workspace.tf)
 - Removed local PostgreSQL/Redis containers (using Xata/Upstash externally)
 - Updated ports: Web 3001, API 8080
 - startup.sh installs Go 1.21+, Node.js 20, PostgreSQL CLI, Playwright
@@ -162,13 +162,13 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### File List
 
 **Created:**
-- `.coder/zmanim-lab-workspace.tf` - Terraform workspace definition for Coder
+- `.coder/zmanim-workspace.tf` - Terraform workspace definition for Coder
 - `.env.example` - Environment variable template
 
 **Modified:**
 - `.coder/startup.sh` - Startup script for monorepo (Go 1.21, Node 20, Playwright)
 - `.coder/start-services.sh` - Service startup helper with tmux and health checks
-- `.coder/README.md` - Updated documentation for zmanim-lab
+- `.coder/README.md` - Updated documentation for zmanim
 - `README.md` - Added Coder setup instructions, updated tech stack
 
 **Deleted:**

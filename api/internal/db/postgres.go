@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jcom-dev/zmanim-lab/internal/config"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/config"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 // DB wraps the database connection pool and SQLc queries

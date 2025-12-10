@@ -125,7 +125,7 @@ Story 1.3 (Admin Publisher Management)
   ```typescript
   {
     emailAddress: 'user@example.com',
-    redirectUrl: 'https://app.zmanim-lab.com/accept-invitation',
+    redirectUrl: 'https://app.zmanim.com/accept-invitation',
     publicMetadata: {
       role: 'publisher',
       publisher_access_list: [publisher_uuid]

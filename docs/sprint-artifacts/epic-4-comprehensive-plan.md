@@ -45,7 +45,7 @@ Epic 4 transforms the zmanim algorithm editor from Epic 1's basic JSON-based sys
 4. **Bilingual Interface** - Full Hebrew + English support throughout
 5. **Weekly Preview** - Calendar view with Hebrew dates and Jewish events (hebcal-go)
 6. **Copy/Fork System** - Browse and copy formulas from other publishers
-7. **RAG Knowledge Base** - Vector embeddings from hebcal, KosherJava, and zmanim-lab docs
+7. **RAG Knowledge Base** - Vector embeddings from hebcal, KosherJava, and zmanim docs
 
 ### User Journey
 
@@ -259,7 +259,7 @@ Vector embeddings for AI context retrieval.
 ```sql
 CREATE TABLE zmanim_knowledge (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  source TEXT NOT NULL,  -- 'hebcal', 'kosherjava', 'zmanim-lab'
+  source TEXT NOT NULL,  -- 'hebcal', 'kosherjava', 'zmanim'
   source_url TEXT,
   category TEXT NOT NULL,  -- 'calculation', 'halacha', 'astronomy', 'example'
   content TEXT NOT NULL,
@@ -626,7 +626,7 @@ const (
 │  Clone Repos                                        │
 │  ├─ hebcal                                          │
 │  ├─ KosherJava/zmanim                               │
-│  └─ zmanim-lab                                      │
+│  └─ zmanim                                      │
 │       ↓                                              │
 │  Extract Content                                     │
 │  ├─ Code comments                                   │
@@ -683,7 +683,7 @@ git clone --depth 1 https://github.com/hebcal/hebcal.git tmp/rag-sources/hebcal
 git clone --depth 1 https://github.com/KosherJava/zmanim.git tmp/rag-sources/kosherjava
 
 # Our own docs (already local)
-cp -r docs tmp/rag-sources/zmanim-lab
+cp -r docs tmp/rag-sources/zmanim
 ```
 
 #### Step 2: Extract & Chunk Content
@@ -692,7 +692,7 @@ cp -r docs tmp/rag-sources/zmanim-lab
 // scripts/seed-rag/chunk-knowledge.ts
 
 interface KnowledgeChunk {
-  source: 'hebcal' | 'kosherjava' | 'zmanim-lab';
+  source: 'hebcal' | 'kosherjava' | 'zmanim';
   source_url: string;
   category: 'calculation' | 'halacha' | 'astronomy' | 'example';
   content: string;
@@ -1193,7 +1193,7 @@ const zmanim DSLLanguage = StreamLanguage.define({
 **Estimated Effort:** 5 days
 
 **Acceptance Criteria:**
-- Vector embeddings for hebcal docs, KosherJava source, zmanim-lab patterns
+- Vector embeddings for hebcal docs, KosherJava source, zmanim patterns
 - pgvector storage with HNSW index
 - Semantic search retrieves top-K relevant chunks
 - Seeding script processes documentation
@@ -1202,7 +1202,7 @@ const zmanim DSLLanguage = StreamLanguage.define({
 **Seeding Sources:**
 1. **hebcal documentation** (markdown files)
 2. **KosherJava source code** (Java comments + method signatures)
-3. **zmanim-lab internal docs** (architecture, patterns)
+3. **zmanim internal docs** (architecture, patterns)
 
 **Deliverables:**
 - `api/cmd/seed-rag/main.go` - Seeding CLI

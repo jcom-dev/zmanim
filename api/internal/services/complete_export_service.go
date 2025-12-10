@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 // CompleteExportService handles complete publisher export operations

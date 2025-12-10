@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/middleware"
 )
 
 // PublisherContext contains resolved publisher information for a request

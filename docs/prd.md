@@ -1,4 +1,4 @@
-# zmanim-lab - Product Requirements Document
+# zmanim - Product Requirements Document
 
 **Author:** BMad
 **Date:** 2025-11-25

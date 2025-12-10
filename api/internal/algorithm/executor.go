@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/astro"
+	"github.com/jcom-dev/zmanim/internal/astro"
 )
 
 // Executor executes algorithm calculations

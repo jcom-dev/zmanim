@@ -28,7 +28,7 @@ This guide covers deployment configuration for Zmanim Lab across all platforms.
 ## Backend Deployment (Fly.io)
 
 ### Current Status
-- **URL:** https://zmanim-lab.fly.dev
+- **URL:** https://zmanim.fly.dev
 - **Status:** Deployed
 
 ### Dockerfile
@@ -123,7 +123,7 @@ CMD ["./main"]
 
 3. **Set environment variables:**
    ```
-   NEXT_PUBLIC_API_URL=https://zmanim-lab.fly.dev
+   NEXT_PUBLIC_API_URL=https://zmanim.fly.dev
    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
    CLERK_SECRET_KEY=sk_...
    ```

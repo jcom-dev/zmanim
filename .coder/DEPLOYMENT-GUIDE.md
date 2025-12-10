@@ -125,7 +125,7 @@ The project uses separate `.env.*` files in the project root for each service:
 1. Run database migrations:
    ```bash
    # From the API directory
-   cd /home/coder/workspace/zmanim-lab/api
+   cd /home/coder/workspace/zmanim/api
 
    # Run migrations against test database
    TEST_DATABASE_URL=postgresql://zmanim_test:test_password@localhost:5433/zmanim_test \
@@ -136,7 +136,7 @@ The project uses separate `.env.*` files in the project root for each service:
 
 1. Navigate to tests directory:
    ```bash
-   cd /home/coder/workspace/zmanim-lab/tests
+   cd /home/coder/workspace/zmanim/tests
    ```
 
 2. Run the full E2E test suite:

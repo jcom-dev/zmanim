@@ -196,7 +196,7 @@
 
     <dependencies>
       <go>
-        <package>github.com/jcom-dev/zmanim-lab</package>
+        <package>github.com/jcom-dev/zmanim</package>
         <deps>
           <dep>github.com/go-chi/chi/v5 v5.0.11</dep>
           <dep>github.com/jackc/pgx/v5 v5.5.1</dep>

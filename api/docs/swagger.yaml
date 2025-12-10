@@ -1,13 +1,13 @@
 basePath: /api/v1
 definitions:
-  github_com_jcom-dev_zmanim-lab_internal_dsl.CalculationStep:
+  github_com_jcom-dev_zmanim_internal_dsl.CalculationStep:
     properties:
       step:
         type: string
       value:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_dsl.ValidationError:
+  github_com_jcom-dev_zmanim_internal_dsl.ValidationError:
     properties:
       column:
         type: integer
@@ -18,7 +18,7 @@ definitions:
       suggestion:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.City:
+  github_com_jcom-dev_zmanim_internal_models.City:
     properties:
       continent:
         description: Continent code (AF, AN, AS, EU, NA, OC, SA)
@@ -50,16 +50,16 @@ definitions:
       timezone:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.CitySearchResponse:
+  github_com_jcom-dev_zmanim_internal_models.CitySearchResponse:
     properties:
       cities:
         items:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.City'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.City'
         type: array
       total:
         type: integer
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.Publisher:
+  github_com_jcom-dev_zmanim_internal_models.Publisher:
     properties:
       bio:
         type: string
@@ -94,7 +94,7 @@ definitions:
       website:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage:
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverage:
     properties:
       city_id:
         type: string
@@ -127,7 +127,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageCreateRequest:
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverageCreateRequest:
     properties:
       city_id:
         type: string
@@ -143,23 +143,23 @@ definitions:
       region:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageListResponse:
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverageListResponse:
     properties:
       coverage:
         items:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage'
         type: array
       total:
         type: integer
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageUpdateRequest:
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverageUpdateRequest:
     properties:
       is_active:
         type: boolean
       priority:
         type: integer
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.PublisherForCity:
+  github_com_jcom-dev_zmanim_internal_models.PublisherForCity:
     properties:
       coverage_level:
         type: string
@@ -173,7 +173,7 @@ definitions:
       publisher_name:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.PublisherProfileUpdateRequest:
+  github_com_jcom-dev_zmanim_internal_models.PublisherProfileUpdateRequest:
     properties:
       bio:
         type: string
@@ -185,18 +185,18 @@ definitions:
       website:
         type: string
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.PublishersForCityResponse:
+  github_com_jcom-dev_zmanim_internal_models.PublishersForCityResponse:
     properties:
       city_id:
         type: string
       publishers:
         items:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherForCity'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherForCity'
         type: array
       total:
         type: integer
     type: object
-  github_com_jcom-dev_zmanim-lab_internal_models.ZmanimRequest:
+  github_com_jcom-dev_zmanim_internal_models.ZmanimRequest:
     properties:
       date:
         description: YYYY-MM-DD format
@@ -533,7 +533,7 @@ definitions:
     properties:
       breakdown:
         items:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_dsl.CalculationStep'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_dsl.CalculationStep'
         type: array
       result:
         description: Formatted time (HH:MM:SS)
@@ -583,7 +583,7 @@ definitions:
         type: array
       errors:
         items:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_dsl.ValidationError'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_dsl.ValidationError'
         type: array
       valid:
         type: boolean
@@ -1008,13 +1008,13 @@ definitions:
 host: localhost:8080
 info:
   contact:
-    email: support@zmanim-lab.com
+    email: support@zmanim.com
     name: Zmanim Lab Support
   description: API for Jewish prayer times calculation and publisher management
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  termsOfService: https://zmanim-lab.com/terms
+  termsOfService: https://zmanim.com/terms
   title: Zmanim Lab API
   version: "1.0"
 paths:
@@ -1964,7 +1964,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.CitySearchResponse'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.CitySearchResponse'
               type: object
         "400":
           description: Invalid parameters
@@ -2007,7 +2007,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublishersForCityResponse'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublishersForCityResponse'
               type: object
         "400":
           description: Invalid request
@@ -2388,7 +2388,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageListResponse'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageListResponse'
               type: object
         "401":
           description: Unauthorized
@@ -2438,7 +2438,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageCreateRequest'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageCreateRequest'
       produces:
       - application/json
       responses:
@@ -2449,7 +2449,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage'
               type: object
         "400":
           description: Invalid request or duplicate coverage
@@ -2570,7 +2570,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageUpdateRequest'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageUpdateRequest'
       produces:
       - application/json
       responses:
@@ -2581,7 +2581,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage'
               type: object
         "400":
           description: Invalid request
@@ -2686,7 +2686,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.Publisher'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher'
               type: object
         "401":
           description: Unauthorized
@@ -2725,7 +2725,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherProfileUpdateRequest'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherProfileUpdateRequest'
       produces:
       - application/json
       responses:
@@ -2736,7 +2736,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.Publisher'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher'
               type: object
         "400":
           description: Invalid request
@@ -3091,7 +3091,7 @@ paths:
             - $ref: '#/definitions/internal_handlers.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.Publisher'
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher'
               type: object
         "400":
           description: Invalid request
@@ -3237,7 +3237,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.ZmanimRequest'
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.ZmanimRequest'
       produces:
       - application/json
       responses:

@@ -91,7 +91,7 @@ export class ComputeStack extends cdk.Stack {
       domain: 'vpc',
       tags: [
         { key: 'Name', value: `zmanim-eip-${config.environment}` },
-        { key: 'Project', value: 'zmanim-lab' },
+        { key: 'Project', value: 'zmanim' },
       ],
     });
 
@@ -121,7 +121,7 @@ export class ComputeStack extends cdk.Stack {
       description: 'IAM role ARN for EC2 instance',
     });
 
-    cdk.Tags.of(this).add('Project', 'zmanim-lab');
+    cdk.Tags.of(this).add('Project', 'zmanim');
     cdk.Tags.of(this).add('Environment', config.environment);
     cdk.Tags.of(this).add('ManagedBy', 'cdk');
   }

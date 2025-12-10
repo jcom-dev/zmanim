@@ -467,7 +467,7 @@ This story successfully consolidates geography type definitions into a single so
 
 **References:**
 - TypeScript Handbook: [Type Guards](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates)
-- Project Coding Standards: `/home/coder/workspace/zmanim-lab/docs/coding-standards.md`
+- Project Coding Standards: `/home/coder/workspace/zmanim/docs/coding-standards.md`
 
 ---
 
@@ -487,19 +487,19 @@ This story successfully consolidates geography type definitions into a single so
 ### Files Reviewed
 
 **Primary Implementation:**
-- `/home/coder/workspace/zmanim-lab/web/types/geography.ts` (336 lines) - Central type definitions
+- `/home/coder/workspace/zmanim/web/types/geography.ts` (336 lines) - Central type definitions
 
 **Updated Components:**
-- `/home/coder/workspace/zmanim-lab/web/components/shared/CoverageSearchPanel.tsx` (472 lines)
-- `/home/coder/workspace/zmanim-lab/web/components/shared/LocationSearch.tsx` (512 lines)
-- `/home/coder/workspace/zmanim-lab/web/components/shared/CoveragePreviewMap.tsx` (356 lines)
-- `/home/coder/workspace/zmanim-lab/web/components/publisher/CitySelector.tsx` (384 lines)
+- `/home/coder/workspace/zmanim/web/components/shared/CoverageSearchPanel.tsx` (472 lines)
+- `/home/coder/workspace/zmanim/web/components/shared/LocationSearch.tsx` (512 lines)
+- `/home/coder/workspace/zmanim/web/components/shared/CoveragePreviewMap.tsx` (356 lines)
+- `/home/coder/workspace/zmanim/web/components/publisher/CitySelector.tsx` (384 lines)
 
 **Verified Imports:**
-- `/home/coder/workspace/zmanim-lab/web/app/publisher/coverage/page.tsx` (imports via re-export)
-- `/home/coder/workspace/zmanim-lab/web/app/publisher/algorithm/page.tsx` (imports LocationSearch)
-- `/home/coder/workspace/zmanim-lab/web/components/onboarding/steps/CoverageSetupStep.tsx` (imports via re-export)
-- `/home/coder/workspace/zmanim-lab/web/components/onboarding/OnboardingWizard.tsx` (imports via re-export)
+- `/home/coder/workspace/zmanim/web/app/publisher/coverage/page.tsx` (imports via re-export)
+- `/home/coder/workspace/zmanim/web/app/publisher/algorithm/page.tsx` (imports LocationSearch)
+- `/home/coder/workspace/zmanim/web/components/onboarding/steps/CoverageSetupStep.tsx` (imports via re-export)
+- `/home/coder/workspace/zmanim/web/components/onboarding/OnboardingWizard.tsx` (imports via re-export)
 
 **Validation Results:**
 - Type-check output: 0 errors

@@ -1,6 +1,6 @@
 # Sprint Status - Zmanim Lab
-# generated: 2025-11-26
-# project: zmanim-lab
+# generated: 2025-12-10
+# project: zmanim
 # tracking_system: file-system
 # story_location: docs/sprint-artifacts
 
@@ -29,8 +29,8 @@
 # - SM typically drafts next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', SM reviews, then Dev moves to 'done'
 
-generated: 2025-11-26
-project: zmanim-lab
+generated: 2025-12-10
+project: zmanim
 tracking_system: file-system
 story_location: docs/sprint-artifacts
 
@@ -148,4 +148,21 @@ development_status:
   6-4-publisher-location-overrides: done       # Override city lat/lon/elevation/timezone + inline map view - COMPLETED 2025-12-08
   6-5-public-correction-requests: done         # Request corrections + admin edit + email notifications - COMPLETED 2025-12-08
   6-6-database-query-optimization: done        # Indexes, EXPLAIN ANALYZE, performance tests - COMPLETED 2025-12-08
-  epic-6-retrospective: optional
+  epic-6-retrospective: completed  # Marked complete 2025-12-10
+
+  # Epic 7: AWS Migration & Infrastructure (10 stories, 44 points)
+  # Focus: Migrate from Fly.io/Vercel/Xata/Upstash to unified AWS infrastructure
+  # Epic defined: docs/sprint-artifacts/epic-7-aws-migration.md
+  # Target: Zero cold starts, ~$44/month, eu-west-1 region
+  epic-7: contexted
+  7-1-aws-cdk-project-setup: review             # CDK project, stacks, GitHub Actions - IMPLEMENTED 2025-12-10
+  7-2-packer-ami-build-pipeline: ready-for-dev    # Amazon Linux 2023 ARM64, PostgreSQL, Redis, Go API
+  7-3-vpc-network-infrastructure: ready-for-dev   # VPC, public subnet, S3 Gateway Endpoint
+  7-4-ec2-instance-ebs-storage: ready-for-dev     # m7g.medium, root + data EBS volumes
+  7-5-s3-buckets-restic-backup: ready-for-dev     # Backups, releases, static assets buckets
+  7-6-cloudfront-distribution: ready-for-dev      # CDN, Origin Shield, cache policies
+  7-7-api-gateway-configuration: ready-for-dev    # HTTP API, JWT authorizer, throttling
+  7-8-route53-ssl-certificates: ready-for-dev     # DNS, ACM certificate, health check
+  7-9-ssm-parameter-store-configuration: ready-for-dev  # Secrets management (free tier)
+  7-10-data-migration-go-live: ready-for-dev      # Xata→AWS PostgreSQL migration, cutover
+  epic-7-retrospective: optional

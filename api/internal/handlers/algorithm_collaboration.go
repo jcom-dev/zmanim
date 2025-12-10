@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/middleware"
 )
 
 // PublicAlgorithm represents a public algorithm for browsing

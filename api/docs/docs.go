@@ -9,10 +9,10 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "https://zmanim-lab.com/terms",
+        "termsOfService": "https://zmanim.com/terms",
         "contact": {
             "name": "Zmanim Lab Support",
-            "email": "support@zmanim-lab.com"
+            "email": "support@zmanim.com"
         },
         "license": {
             "name": "MIT",
@@ -1575,7 +1575,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.CitySearchResponse"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.CitySearchResponse"
                                         }
                                     }
                                 }
@@ -1736,7 +1736,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublishersForCityResponse"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublishersForCityResponse"
                                         }
                                     }
                                 }
@@ -2341,7 +2341,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageListResponse"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageListResponse"
                                         }
                                     }
                                 }
@@ -2435,7 +2435,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageCreateRequest"
+                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageCreateRequest"
                         }
                     }
                 ],
@@ -2451,7 +2451,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage"
                                         }
                                     }
                                 }
@@ -2554,7 +2554,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageUpdateRequest"
+                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageUpdateRequest"
                         }
                     }
                 ],
@@ -2570,7 +2570,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage"
                                         }
                                     }
                                 }
@@ -2891,7 +2891,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.Publisher"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher"
                                         }
                                     }
                                 }
@@ -2966,7 +2966,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherProfileUpdateRequest"
+                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherProfileUpdateRequest"
                         }
                     }
                 ],
@@ -2982,7 +2982,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.Publisher"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher"
                                         }
                                     }
                                 }
@@ -3617,7 +3617,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.Publisher"
+                                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher"
                                         }
                                     }
                                 }
@@ -3879,7 +3879,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.ZmanimRequest"
+                            "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.ZmanimRequest"
                         }
                     }
                 ],
@@ -3943,7 +3943,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_jcom-dev_zmanim-lab_internal_dsl.CalculationStep": {
+        "github_com_jcom-dev_zmanim_internal_dsl.CalculationStep": {
             "type": "object",
             "properties": {
                 "step": {
@@ -3954,7 +3954,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_dsl.ValidationError": {
+        "github_com_jcom-dev_zmanim_internal_dsl.ValidationError": {
             "type": "object",
             "properties": {
                 "column": {
@@ -3971,7 +3971,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.City": {
+        "github_com_jcom-dev_zmanim_internal_models.City": {
             "type": "object",
             "properties": {
                 "continent": {
@@ -4018,13 +4018,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.CitySearchResponse": {
+        "github_com_jcom-dev_zmanim_internal_models.CitySearchResponse": {
             "type": "object",
             "properties": {
                 "cities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.City"
+                        "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.City"
                     }
                 },
                 "total": {
@@ -4032,7 +4032,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.Publisher": {
+        "github_com_jcom-dev_zmanim_internal_models.Publisher": {
             "type": "object",
             "properties": {
                 "bio": {
@@ -4084,7 +4084,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage": {
+        "github_com_jcom-dev_zmanim_internal_models.PublisherCoverage": {
             "type": "object",
             "properties": {
                 "city_id": {
@@ -4133,7 +4133,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageCreateRequest": {
+        "github_com_jcom-dev_zmanim_internal_models.PublisherCoverageCreateRequest": {
             "type": "object",
             "properties": {
                 "city_id": {
@@ -4157,13 +4157,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageListResponse": {
+        "github_com_jcom-dev_zmanim_internal_models.PublisherCoverageListResponse": {
             "type": "object",
             "properties": {
                 "coverage": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverage"
+                        "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage"
                     }
                 },
                 "total": {
@@ -4171,7 +4171,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.PublisherCoverageUpdateRequest": {
+        "github_com_jcom-dev_zmanim_internal_models.PublisherCoverageUpdateRequest": {
             "type": "object",
             "properties": {
                 "is_active": {
@@ -4182,7 +4182,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.PublisherForCity": {
+        "github_com_jcom-dev_zmanim_internal_models.PublisherForCity": {
             "type": "object",
             "properties": {
                 "coverage_level": {
@@ -4203,7 +4203,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.PublisherProfileUpdateRequest": {
+        "github_com_jcom-dev_zmanim_internal_models.PublisherProfileUpdateRequest": {
             "type": "object",
             "properties": {
                 "bio": {
@@ -4221,7 +4221,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.PublishersForCityResponse": {
+        "github_com_jcom-dev_zmanim_internal_models.PublishersForCityResponse": {
             "type": "object",
             "properties": {
                 "city_id": {
@@ -4230,7 +4230,7 @@ const docTemplate = `{
                 "publishers": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_models.PublisherForCity"
+                        "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherForCity"
                     }
                 },
                 "total": {
@@ -4238,7 +4238,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_jcom-dev_zmanim-lab_internal_models.ZmanimRequest": {
+        "github_com_jcom-dev_zmanim_internal_models.ZmanimRequest": {
             "type": "object",
             "properties": {
                 "date": {
@@ -4741,7 +4741,7 @@ const docTemplate = `{
                 "breakdown": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_dsl.CalculationStep"
+                        "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_dsl.CalculationStep"
                     }
                 },
                 "result": {
@@ -4815,7 +4815,7 @@ const docTemplate = `{
                 "errors": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_jcom-dev_zmanim-lab_internal_dsl.ValidationError"
+                        "$ref": "#/definitions/github_com_jcom-dev_zmanim_internal_dsl.ValidationError"
                     }
                 },
                 "valid": {

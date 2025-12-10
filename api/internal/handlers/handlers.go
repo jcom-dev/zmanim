@@ -8,13 +8,13 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/ai"
-	"github.com/jcom-dev/zmanim-lab/internal/cache"
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
-	"github.com/jcom-dev/zmanim-lab/internal/models"
-	"github.com/jcom-dev/zmanim-lab/internal/services"
+	"github.com/jcom-dev/zmanim/internal/ai"
+	"github.com/jcom-dev/zmanim/internal/cache"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/models"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // Handlers holds all HTTP handlers

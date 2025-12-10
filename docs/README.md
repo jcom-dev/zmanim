@@ -13,7 +13,7 @@
 ### Product & Design
 3. **[PRD (Product Requirements)](prd.md)** - Complete product requirements document
 4. **[Business Documentation](business/)** - Non-technical documentation
-   - [What is Zmanim Lab?](business/01-what-is-zmanim-lab.md) - Vision, purpose, problems solved
+   - [What is Zmanim Lab?](business/01-what-is-zmanim.md) - Vision, purpose, problems solved
    - [Comprehensive Features List](business/02-features-comprehensive-list.md) - All 135+ features
    - [Technical Architecture Overview](business/03-technical-architecture.md) - High-level tech explanation
 5. **[UX DSL Editor Spec](ux-dsl-editor-inline-guidance.md)** - Current UX specification for DSL editor
@@ -65,7 +65,7 @@ docs/
 ├── ux-dsl-editor-inline-guidance.md   # Current UX spec
 ├── business/                          # Business documentation
 │   ├── README.md
-│   ├── 01-what-is-zmanim-lab.md
+│   ├── 01-what-is-zmanim.md
 │   ├── 02-features-comprehensive-list.md
 │   └── 03-technical-architecture.md
 ├── sprint-artifacts/                  # Epic & story history
@@ -116,7 +116,7 @@ docs/
 → Use **[api-reference.md](api-reference.md)** for endpoints  
 
 ### For Product/Business
-→ Start with **[business/01-what-is-zmanim-lab.md](business/01-what-is-zmanim-lab.md)**  
+→ Start with **[business/01-what-is-zmanim.md](business/01-what-is-zmanim.md)**  
 → Review **[business/02-features-comprehensive-list.md](business/02-features-comprehensive-list.md)**  
 → See **[prd.md](prd.md)** for requirements  
 → Check **[epics.md](epics.md)** for development history  

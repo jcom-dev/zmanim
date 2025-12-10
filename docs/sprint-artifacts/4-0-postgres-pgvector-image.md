@@ -41,7 +41,7 @@ so that **our local development environment matches production capabilities and 
   - [x] 1.5 Create `.coder/docker/init-extensions.sql` to auto-enable extensions
 
 - [x] Task 2: Update Coder workspace Terraform (AC: 4)
-  - [x] 2.1 Modify `.coder/zmanim-lab-workspace.tf` to use custom image
+  - [x] 2.1 Modify `.coder/zmanim-workspace.tf` to use custom image
   - [x] 2.2 Update image reference to `zmanim-postgres:17-postgis-pgvector`
   - [x] 2.3 Ensure container mounts init script (via docker_image build block)
 
@@ -61,8 +61,8 @@ so that **our local development environment matches production capabilities and 
   - [x] 5.5 Run E2E test suite
 
 - [x] Task 6: API key configuration and verification (AC: 8, 9)
-  - [x] 6.1 Update `.coder/zmanim-lab-workspace.tf` to include `OPENAI_API_KEY` env var from Coder parameter (already done)
-  - [x] 6.2 Update `.coder/zmanim-lab-workspace.tf` to include `ANTHROPIC_API_KEY` env var from Coder parameter (already done)
+  - [x] 6.1 Update `.coder/zmanim-workspace.tf` to include `OPENAI_API_KEY` env var from Coder parameter (already done)
+  - [x] 6.2 Update `.coder/zmanim-workspace.tf` to include `ANTHROPIC_API_KEY` env var from Coder parameter (already done)
   - [x] 6.3 Update `.coder/push-template.sh` to source from `.env.openai` and `.env.claude` (already done)
   - [x] 6.4 Terraform variables for API keys (sensitive=true) (already configured)
   - [x] 6.5 Create verification script `scripts/verify-api-keys.sh`
@@ -118,7 +118,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ### Coder Terraform API Key Parameters
 
 ```terraform
-# .coder/zmanim-lab-workspace.tf
+# .coder/zmanim-workspace.tf
 
 data "coder_parameter" "openai_api_key" {
   name        = "openai_api_key"
@@ -158,7 +158,7 @@ resource "docker_container" "workspace" {
 # scripts/push-template.sh additions
 
 echo "Validating Coder parameters..."
-if ! coder templates list | grep -q "zmanim-lab"; then
+if ! coder templates list | grep -q "zmanim"; then
   echo "WARNING: Template not found. Creating new template..."
 fi
 
@@ -169,7 +169,7 @@ echo "These are required for AI features in Epic 4"
 ### Project Structure Notes
 
 - New directory: `.coder/docker/` for Docker build files
-- Modified: `.coder/zmanim-lab-workspace.tf`
+- Modified: `.coder/zmanim-workspace.tf`
 - Modified: `scripts/push-template.sh`
 - Modified: `docker-compose.yml`
 
@@ -223,7 +223,7 @@ claude-opus-4-5-20251101
 - scripts/verify-api-keys.sh
 
 **Modified files:**
-- .coder/zmanim-lab-workspace.tf (added docker_image resource, updated postgres container)
+- .coder/zmanim-workspace.tf (added docker_image resource, updated postgres container)
 - .coder/push-template.sh (added Dockerfile verification, removed .claude.json copying)
 - docker-compose.yml (updated postgres-test service to build custom image)
 - docs/sprint-artifacts/sprint-status.yaml (status: ready-for-dev → in-progress → review)

@@ -35,7 +35,7 @@ print_error() {
 sudo chown -R coder:coder /home/coder/workspace
 
 # Change to workspace directory
-cd /home/coder/workspace/zmanim-lab
+cd /home/coder/workspace/zmanim
 
 # Step 1: Update repository to latest
 print_status "Updating repository to latest..."

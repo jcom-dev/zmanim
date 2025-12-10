@@ -29,7 +29,7 @@ This is the foundation story for Epic 3 - all other stories depend on this testi
 - [x] `createTestAdmin()` function creates a Clerk user with admin role in publicMetadata
 - [x] `createTestPublisher(publisherId)` function creates a Clerk user linked to a publisher
 - [x] `createTestUser()` function creates a regular user without special roles
-- [x] Test users have predictable email format (e.g., `test-admin-{uuid}@test.zmanim-lab.local`)
+- [x] Test users have predictable email format (e.g., `test-admin-{uuid}@test.zmanim.local`)
 - [x] Test users are created with password for potential UI login fallback
 
 ### AC-2: Authentication Injection
@@ -104,7 +104,7 @@ const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
 // Create user
 const user = await clerk.users.createUser({
-  emailAddress: [`test-admin-${uuid}@test.zmanim-lab.local`],
+  emailAddress: [`test-admin-${uuid}@test.zmanim.local`],
   password: 'TestPassword123!',
   publicMetadata: {
     role: 'admin'
@@ -174,7 +174,7 @@ export async function createTestPublisherEntity(overrides = {}) {
   const testPublisher = {
     name: `Test Publisher ${Date.now()}`,
     organization: 'Test Organization',
-    email: `test-publisher-${Date.now()}@test.zmanim-lab.local`,
+    email: `test-publisher-${Date.now()}@test.zmanim.local`,
     status: 'verified',
     ...overrides
   };
@@ -219,7 +219,7 @@ export async function createTestAlgorithm(publisherId: string) {
 
 ```typescript
 // cleanup.ts
-const TEST_EMAIL_PATTERN = /@test\.zmanim-lab\.local$/;
+const TEST_EMAIL_PATTERN = /@test\.zmanim\.local$/;
 const TEST_NAME_PREFIX = 'Test ';
 
 export async function cleanupTestUsers() {
@@ -237,7 +237,7 @@ export async function cleanupTestUsers() {
 export async function cleanupTestData() {
   // Delete test publishers (cascades to algorithms, coverage)
   await pool.query(
-    `DELETE FROM publishers WHERE email LIKE '%@test.zmanim-lab.local'`
+    `DELETE FROM publishers WHERE email LIKE '%@test.zmanim.local'`
   );
 }
 ```
@@ -396,7 +396,7 @@ Key decision: Use Clerk Backend API for programmatic auth rather than simulating
 
 **Key Implementation Decisions:**
 1. **Sign-in token strategy** for auth injection - Uses Clerk's sign-in tokens which exchange for real sessions
-2. **Test email domain** `@test.zmanim-lab.local` for easy identification and cleanup
+2. **Test email domain** `@test.zmanim.local` for easy identification and cleanup
 3. **Caching** for created test users/entities to avoid recreation
 4. **Idempotent cleanup** - Safe to run multiple times
 

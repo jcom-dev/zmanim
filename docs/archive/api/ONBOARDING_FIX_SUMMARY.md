@@ -36,7 +36,7 @@ Actual schema has: `profile_complete`, `algorithm_selected`, `zmanim_configured`
 
 ### 2. Generated SQLc Code
 - Ran `sqlc generate` successfully
-- Generated `/home/daniel/repos/zmanim-lab/api/internal/db/sqlcgen/onboarding.sql.go`
+- Generated `/home/daniel/repos/zmanim/api/internal/db/sqlcgen/onboarding.sql.go`
 
 ## What Cannot Be Fixed (Schema Mismatch)
 

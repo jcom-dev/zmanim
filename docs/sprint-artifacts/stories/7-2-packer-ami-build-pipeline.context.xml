@@ -1,0 +1,290 @@
+<story-context id="epic-7/story-7-2" v="1.0">
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.2</storyId>
+    <title>Packer AMI Build Pipeline</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-2-packer-ami-build-pipeline.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a Packer-built AMI with all dependencies pre-installed</iWant>
+    <soThat>EC2 instances boot instantly without requiring NAT Gateway for runtime package installation</soThat>
+    <tasks>
+      <task id="1" name="Create Packer Template" ac="1">
+        <subtask>1.1 Create `infrastructure/packer/` directory</subtask>
+        <subtask>1.2 Create `zmanim-ami.pkr.hcl` with Amazon Linux 2023 ARM64 base</subtask>
+        <subtask>1.3 Configure Packer variables for version, region</subtask>
+        <subtask>1.4 Set up source AMI filter for latest AL2023</subtask>
+      </task>
+      <task id="2" name="Install PostgreSQL + PostGIS" ac="2">
+        <subtask>2.1 Add provisioner to install PostgreSQL 16 from dnf</subtask>
+        <subtask>2.2 Install PostGIS 3.4 extension</subtask>
+        <subtask>2.3 Create `postgresql.conf` with optimized settings</subtask>
+        <subtask>2.4 Create `pg_hba.conf` for local socket authentication</subtask>
+        <subtask>2.5 Configure data directory at `/data/postgres`</subtask>
+      </task>
+      <task id="3" name="Install Redis" ac="3">
+        <subtask>3.1 Add provisioner to install Redis 7 from dnf</subtask>
+        <subtask>3.2 Create `redis.conf` with persistence (RDB + AOF)</subtask>
+        <subtask>3.3 Set memory limit to 1GB</subtask>
+        <subtask>3.4 Configure data directory at `/data/redis`</subtask>
+      </task>
+      <task id="4" name="Include Go API Binary" ac="4">
+        <subtask>4.1 Create `/opt/zmanim/` directory structure</subtask>
+        <subtask>4.2 Add file provisioner to copy pre-built binary</subtask>
+        <subtask>4.3 Set executable permissions</subtask>
+        <subtask>4.4 Create `config.env.template` for environment variables</subtask>
+      </task>
+      <task id="5" name="Configure systemd Services" ac="5">
+        <subtask>5.1 Create `postgresql.service` (if not provided by package)</subtask>
+        <subtask>5.2 Create `redis.service` (if not provided by package)</subtask>
+        <subtask>5.3 Create `zmanim-api.service` with dependencies on postgres/redis</subtask>
+        <subtask>5.4 Configure `ExecStartPre` for binary download script</subtask>
+        <subtask>5.5 Enable services for auto-start</subtask>
+      </task>
+      <task id="6" name="Include Backup Scripts" ac="6">
+        <subtask>6.1 Install Restic from dnf</subtask>
+        <subtask>6.2 Create `/opt/zmanim/backup.sh` script</subtask>
+        <subtask>6.3 Create `restic-backup.service` systemd unit</subtask>
+        <subtask>6.4 Create `restic-backup.timer` for daily 3 AM UTC</subtask>
+        <subtask>6.5 Create `backup-notify@.service` for failure emails</subtask>
+        <subtask>6.6 Create `/opt/zmanim/notify-failure.sh` script</subtask>
+      </task>
+      <task id="7" name="GitHub Actions AMI Build" ac="7,8">
+        <subtask>7.1 Create `.github/workflows/build-ami.yml`</subtask>
+        <subtask>7.2 Configure trigger on release tags (`v*-ami`)</subtask>
+        <subtask>7.3 Build Go binary for linux/arm64</subtask>
+        <subtask>7.4 Run `packer init` and `packer build`</subtask>
+        <subtask>7.5 Store AMI ID in SSM Parameter Store `/zmanim/prod/ami-id`</subtask>
+        <subtask>7.6 Add required secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`</subtask>
+      </task>
+      <task id="8" name="Verification" ac="1-8">
+        <subtask>8.1 Build AMI locally with `packer build`</subtask>
+        <subtask>8.2 Launch test instance from AMI</subtask>
+        <subtask>8.3 Verify all services start automatically</subtask>
+        <subtask>8.4 Verify PostgreSQL accepts connections</subtask>
+        <subtask>8.5 Verify Redis accepts connections</subtask>
+        <subtask>8.6 Document AMI contents and configuration</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Packer template builds Amazon Linux 2023 ARM64</criterion>
+    <criterion id="AC2">PostgreSQL 16 + PostGIS installed and configured</criterion>
+    <criterion id="AC3">Redis 7 installed with persistence enabled</criterion>
+    <criterion id="AC4">Go API binary included in `/opt/zmanim/`</criterion>
+    <criterion id="AC5">systemd services configured for all components</criterion>
+    <criterion id="AC6">Backup scripts included</criterion>
+    <criterion id="AC7">GitHub Actions builds AMI on release tag</criterion>
+    <criterion id="AC8">AMI ID stored in SSM Parameter Store</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc type="epic" path="docs/sprint-artifacts/epic-7-aws-migration.md">
+        Epic 7 AWS Migration - Packer AMI strategy eliminates NAT Gateway costs (~$32/month savings),
+        Amazon Linux 2023 ARM64 for Graviton3, co-located services architecture, backup strategy with Restic
+      </doc>
+      <doc type="tech-spec" path="docs/sprint-artifacts/tech-spec-epic-7.md">
+        Story 7.2 acceptance criteria, AMI contents specification, systemd service architecture,
+        backup flow with Restic streaming to S3, deployment paths (AMI update vs code update)
+      </doc>
+      <doc type="packer-ami-contents" path="docs/sprint-artifacts/epic-7-aws-migration.md#Packer-AMI-Contents">
+        Detailed AMI contents: PostgreSQL 16 + PostGIS 3.4 + pg_cron, Redis 7 with persistence,
+        Go API binary at `/opt/zmanim/`, Restic backup tool, AWS CLI v2, CloudWatch Agent
+      </doc>
+      <doc type="backup-strategy" path="docs/sprint-artifacts/epic-7-aws-migration.md#Backup-Strategy">
+        Restic-based backup strategy: streaming backups to S3, no local staging, systemd timer,
+        email notifications on failure, retention policies (7 daily, 4 weekly, 3 monthly)
+      </doc>
+      <doc type="coding-standards" path="docs/coding-standards.md">
+        Security: ZERO TOLERANCE for secrets in code, use environment variables,
+        CI/CD: Test locally before committing
+      </doc>
+    </docs>
+
+    <code>
+      <existing>
+        <relevantFiles>
+          <file path="api/cmd/api/main.go">Go API entry point - will be compiled to `/opt/zmanim/zmanim-api`</file>
+          <file path=".github/workflows/ci.yml">Existing CI pattern - Go 1.24 build process</file>
+          <file path=".github/workflows/deploy-api.yml">Current Fly.io deployment - reference for build steps</file>
+        </relevantFiles>
+      </existing>
+      <toCreate>
+        <file path="infrastructure/packer/zmanim-ami.pkr.hcl">Main Packer template - source AMI, build config</file>
+        <file path="infrastructure/packer/variables.pkr.hcl">Packer variables for version, region</file>
+        <file path="infrastructure/packer/scripts/install-packages.sh">Install PostgreSQL 16, PostGIS, Redis 7, Restic, AWS CLI</file>
+        <file path="infrastructure/packer/scripts/configure-postgres.sh">Configure PostgreSQL for /data/postgres</file>
+        <file path="infrastructure/packer/scripts/configure-redis.sh">Configure Redis for /data/redis</file>
+        <file path="infrastructure/packer/scripts/configure-systemd.sh">Enable and configure systemd services</file>
+        <file path="infrastructure/packer/files/postgresql.conf">Optimized PostgreSQL configuration</file>
+        <file path="infrastructure/packer/files/pg_hba.conf">PostgreSQL authentication config (local socket)</file>
+        <file path="infrastructure/packer/files/redis.conf">Redis config with RDB + AOF persistence, 1GB memory limit</file>
+        <file path="infrastructure/packer/files/zmanim-api.service">systemd unit for Go API with dependencies</file>
+        <file path="infrastructure/packer/files/restic-backup.service">systemd oneshot service for backup</file>
+        <file path="infrastructure/packer/files/restic-backup.timer">systemd timer for daily 3 AM UTC backup</file>
+        <file path="infrastructure/packer/files/backup-notify@.service">systemd service for failure email notifications</file>
+        <file path="infrastructure/packer/files/backup.sh">Restic backup script (pg_dump + redis streaming to S3)</file>
+        <file path="infrastructure/packer/files/notify-failure.sh">Email notification script via AWS SES</file>
+        <file path="infrastructure/packer/files/download-latest.sh">Script to download latest API binary from S3</file>
+        <file path="infrastructure/packer/files/config.env.template">Template for environment variables</file>
+        <file path=".github/workflows/build-ami.yml">GitHub Actions workflow for AMI build</file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <packerDependencies>
+        <package name="packer" version="^1.9">HashiCorp Packer for AMI builds</package>
+        <package name="amazon-ebs" version="latest">Packer plugin for AWS EBS-backed AMIs</package>
+      </packerDependencies>
+      <amiSoftware>
+        <software name="Amazon Linux 2023" arch="ARM64" version="latest">Base OS for Graviton3</software>
+        <software name="PostgreSQL" version="16" source="dnf">Database with PostGIS extension</software>
+        <software name="PostGIS" version="3.4" source="dnf">Geographic queries extension</software>
+        <software name="pg_cron" version="latest" source="dnf">PostgreSQL job scheduler</software>
+        <software name="Redis" version="7" source="dnf">In-memory cache with persistence</software>
+        <software name="Restic" version="^0.16" source="dnf">Backup tool with S3 streaming</software>
+        <software name="AWS CLI" version="v2" source="dnf">AWS service interactions (SSM, S3, SES)</software>
+        <software name="CloudWatch Agent" version="latest" source="AWS">Metrics and log shipping</software>
+      </amiSoftware>
+      <systemdServices>
+        <service name="postgresql.service">Database service (package-provided or custom)</service>
+        <service name="redis.service">Cache service (package-provided or custom)</service>
+        <service name="zmanim-api.service">Go API with dependencies on PostgreSQL and Redis</service>
+        <service name="restic-backup.service">Oneshot backup service (triggered by timer)</service>
+        <service name="restic-backup.timer">Daily backup timer at 3 AM UTC</service>
+        <service name="backup-notify@.service">Failure notification service (triggered by OnFailure)</service>
+      </systemdServices>
+      <existingProjectDeps>
+        <backend>Go 1.24+, Chi router, pgx, SQLc, Clerk SDK</backend>
+        <buildTarget>linux/arm64 for Graviton3</buildTarget>
+        <outputBinary>/opt/zmanim/zmanim-api</outputBinary>
+      </existingProjectDeps>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint priority="critical">Base AMI MUST be Amazon Linux 2023 ARM64 (latest)</constraint>
+      <constraint priority="critical">Build instance type MUST be ARM64 (t4g.small minimum)</constraint>
+      <constraint priority="critical">Data directories MUST be at /data (separate EBS volume mount point)</constraint>
+      <constraint priority="critical">PostgreSQL data: /data/postgres, Redis data: /data/redis</constraint>
+      <constraint priority="high">AMI naming pattern: zmanim-{version} for versioning</constraint>
+      <constraint priority="high">Go binary MUST be compiled for linux/arm64</constraint>
+      <constraint priority="high">systemd services MUST be enabled for auto-start on boot</constraint>
+      <constraint priority="medium">Restic MUST stream directly to S3 (no local staging)</constraint>
+    </architectural>
+    <security>
+      <constraint priority="critical">NEVER include secrets in AMI - use SSM Parameter Store at runtime</constraint>
+      <constraint priority="critical">No database passwords, API keys, or credentials in AMI</constraint>
+      <constraint priority="critical">config.env.template MUST have placeholder values only</constraint>
+      <constraint priority="high">PostgreSQL MUST use local socket authentication (no network access in AMI)</constraint>
+      <constraint priority="high">AWS credentials from IAM instance role ONLY (no access keys in AMI)</constraint>
+    </security>
+    <cost>
+      <constraint priority="critical">Pre-baking eliminates NAT Gateway (~$32/month savings)</constraint>
+      <constraint priority="high">Packer build instance ephemeral (only during build)</constraint>
+      <constraint priority="medium">AMI storage cost minimal (root volume snapshot)</constraint>
+    </cost>
+    <serviceDependencies>
+      <dependency>zmanim-api.service MUST have After=postgresql.service redis.service</dependency>
+      <dependency>zmanim-api.service MUST have Requires=postgresql.service redis.service</dependency>
+      <dependency>restic-backup.timer MUST activate restic-backup.service</dependency>
+      <dependency>restic-backup.service MUST have OnFailure=backup-notify@%n.service</dependency>
+    </serviceDependencies>
+  </constraints>
+
+  <interfaces>
+    <packerInputs>
+      <input name="version">AMI version (from GitHub tag, e.g., v1.0.0)</input>
+      <input name="region">AWS region (eu-west-1)</input>
+      <input name="instance_type">Build instance type (t4g.small)</input>
+      <input name="source_ami_filter">Filter for latest AL2023 ARM64 AMI</input>
+      <input name="api_binary_path">Path to pre-built Go binary (bin/zmanim-api)</input>
+    </packerInputs>
+    <packerOutputs>
+      <output name="ami_id">AMI identifier for EC2 launch</output>
+      <output name="ami_name">AMI name (zmanim-{version})</output>
+      <output name="manifest">Packer manifest with build metadata</output>
+    </packerOutputs>
+    <ssmParameters>
+      <parameter name="/zmanim/prod/ami-id">Latest AMI ID (stored after build)</parameter>
+    </ssmParameters>
+    <amiFileSystem>
+      <directory path="/opt/zmanim/">Go API binary, config template, scripts</directory>
+      <directory path="/data/postgres">PostgreSQL data (on separate EBS volume)</directory>
+      <directory path="/data/redis">Redis data (on separate EBS volume)</directory>
+      <directory path="/etc/restic/">Restic environment file (generated at boot)</directory>
+      <directory path="/etc/systemd/system/">systemd service and timer units</directory>
+    </amiFileSystem>
+    <githubWorkflow>
+      <trigger>Tag push matching `v*-ami` pattern (e.g., v1.0.0-ami)</trigger>
+      <secrets>
+        <secret name="AWS_ACCESS_KEY_ID">AWS IAM user access key</secret>
+        <secret name="AWS_SECRET_ACCESS_KEY">AWS IAM user secret key</secret>
+      </secrets>
+      <steps>
+        <step>Checkout code</step>
+        <step>Setup Go 1.24</step>
+        <step>Build Go binary (GOOS=linux GOARCH=arm64)</step>
+        <step>Download artifact (binary)</step>
+        <step>Configure AWS credentials</step>
+        <step>packer init</step>
+        <step>packer build -var version=$TAG</step>
+        <step>Store AMI ID in SSM Parameter Store</step>
+      </steps>
+    </githubWorkflow>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard source="coding-standards.md">
+        Security: ZERO TOLERANCE for secrets - no credentials in AMI or code
+      </standard>
+      <standard source="coding-standards.md">
+        CI/CD: Test ALL changes locally BEFORE committing - build AMI locally first
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        AMI boot test: EC2 boots from AMI in less than 60 seconds
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        Service health: API responds to /health within 5 seconds of boot
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        Backup verification: Restic backup completes successfully, restore recovers data
+      </standard>
+    </standards>
+    <locations>
+      <location path="infrastructure/packer/">Packer templates and scripts</location>
+      <location path=".github/workflows/build-ami.yml">AMI build workflow</location>
+      <location path="infrastructure/packer/scripts/">Shell scripts for package installation and configuration</location>
+      <location path="infrastructure/packer/files/">Configuration files and systemd units</location>
+    </locations>
+    <ideas>
+      <testIdea type="unit">Packer validate passes for zmanim-ami.pkr.hcl</testIdea>
+      <testIdea type="unit">Packer build completes without errors (local test)</testIdea>
+      <testIdea type="integration">Launch EC2 from built AMI, verify boot time less than 60 seconds</testIdea>
+      <testIdea type="integration">Verify systemctl status postgresql.service shows active (running)</testIdea>
+      <testIdea type="integration">Verify systemctl status redis.service shows active (running)</testIdea>
+      <testIdea type="integration">Verify systemctl status zmanim-api.service shows active (running)</testIdea>
+      <testIdea type="integration">Verify PostgreSQL accepts connections: psql -U postgres -c "SELECT version()"</testIdea>
+      <testIdea type="integration">Verify Redis accepts connections: redis-cli PING returns PONG</testIdea>
+      <testIdea type="integration">Verify PostGIS extension: psql -U postgres -c "SELECT PostGIS_version()"</testIdea>
+      <testIdea type="integration">Verify /opt/zmanim/zmanim-api binary exists and is executable</testIdea>
+      <testIdea type="integration">Verify restic-backup.timer is enabled: systemctl status restic-backup.timer</testIdea>
+      <testIdea type="backup">Run backup script manually, verify S3 objects created</testIdea>
+      <testIdea type="backup">Test restore procedure: restic restore, verify data integrity</testIdea>
+      <testIdea type="security">Scan AMI for secrets with trufflehog or git-secrets</testIdea>
+      <testIdea type="security">Verify no hardcoded passwords in config files</testIdea>
+      <testIdea type="security">Verify config.env.template has placeholders only</testIdea>
+      <testIdea type="github-actions">GitHub Actions workflow syntax validation</testIdea>
+      <testIdea type="github-actions">Verify AMI ID stored in SSM after build</testIdea>
+    </ideas>
+  </tests>
+</story-context>

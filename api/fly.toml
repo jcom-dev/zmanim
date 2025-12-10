@@ -1,16 +1,16 @@
-# fly.toml app configuration file generated for zmanim-lab on 2025-11-24T21:31:01Z
+# fly.toml app configuration file generated for zmanim on 2025-11-24T21:31:01Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'zmanim-lab'
+app = 'zmanim'
 primary_region = 'lhr'
 
 [build]
   dockerfile = 'Dockerfile'
 
 [env]
-  ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:3001,https://zmanim-lab.vercel.app,https://zmanim.shtetl.dev"
+  ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:3001,https://zmanim.vercel.app,https://zmanim.shtetl.dev"
 
 [http_service]
   internal_port = 8080

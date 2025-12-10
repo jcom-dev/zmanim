@@ -76,18 +76,18 @@ print_status "Checking repository..."
 mkdir -p ~/.ssh
 ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
 
-if [ ! -d "zmanim-lab/.git" ]; then
-    print_status "Cloning zmanim-lab repository..."
-    rm -rf zmanim-lab 2>/dev/null
-    git clone ${ZMANIM_REPO:-git@github.com:jcom-dev/zmanim-lab.git} zmanim-lab || print_warning "Failed to clone zmanim-lab"
+if [ ! -d "zmanim/.git" ]; then
+    print_status "Cloning zmanim repository..."
+    rm -rf zmanim 2>/dev/null
+    git clone ${ZMANIM_REPO:-git@github.com:jcom-dev/zmanim.git} zmanim || print_warning "Failed to clone zmanim"
 else
-    print_success "zmanim-lab already cloned"
+    print_success "zmanim already cloned"
 fi
 
 # Checkout specified branch
 if [ -n "${ZMANIM_BRANCH}" ] && [ "${ZMANIM_BRANCH}" != "main" ]; then
     print_status "Checking out branch '${ZMANIM_BRANCH}'..."
-    cd zmanim-lab
+    cd zmanim
     if git fetch origin "${ZMANIM_BRANCH}" 2>/dev/null && git checkout "${ZMANIM_BRANCH}" 2>/dev/null; then
         print_success "Checked out ${ZMANIM_BRANCH}"
     else
@@ -98,8 +98,8 @@ fi
 
 # Step 4: Install Go dependencies
 print_status "Installing Go dependencies..."
-if [ -d "zmanim-lab/api" ]; then
-    cd zmanim-lab/api
+if [ -d "zmanim/api" ]; then
+    cd zmanim/api
     go mod download || print_warning "Failed to download Go dependencies"
     cd /home/coder/workspace
     print_success "Go dependencies installed"
@@ -107,8 +107,8 @@ fi
 
 # Step 5: Install Node.js dependencies
 print_status "Installing Node.js dependencies..."
-if [ -d "zmanim-lab/web" ]; then
-    cd zmanim-lab/web
+if [ -d "zmanim/web" ]; then
+    cd zmanim/web
     npm install || print_warning "Failed to install web dependencies"
     cd /home/coder/workspace
     print_success "Web dependencies installed"
@@ -116,8 +116,8 @@ fi
 
 # Step 6: Install Playwright browsers for E2E testing
 print_status "Installing Playwright browsers..."
-if [ -d "zmanim-lab/web" ]; then
-    cd zmanim-lab/web
+if [ -d "zmanim/web" ]; then
+    cd zmanim/web
     npx playwright install --with-deps chromium || print_warning "Failed to install Playwright browsers"
     cd /home/coder/workspace
     print_success "Playwright browsers installed"
@@ -125,7 +125,7 @@ fi
 
 # Step 7: Create .env files from Coder template variables
 print_status "Setting up environment files from Coder variables..."
-cd zmanim-lab
+cd zmanim
 
 # Create api/.env from environment variables (set by Coder template)
 if [ -n "$DATABASE_URL" ]; then
@@ -336,7 +336,7 @@ if ! command -v claude &> /dev/null; then
     # Add to PATH for current session
     export PATH="$HOME/.claude/bin:$PATH"
     echo 'export PATH="$HOME/.claude/bin:$PATH"' >> ~/.bashrc
-    cd /home/coder/workspace/zmanim-lab/web
+    cd /home/coder/workspace/zmanim/web
     claude mcp add --scope user playwright npx '@playwright/mcp@latest'
     print_success "Claude Code installed"
 else
@@ -376,7 +376,7 @@ print_success "PATH exports and claude alias added"
 
 # Step 12c: Copy API key env files from Coder secrets
 print_status "Setting up API key environment files..."
-cd /home/coder/workspace/zmanim-lab
+cd /home/coder/workspace/zmanim
 
 # Clerk Authentication (required by push-template.sh)
 if [ -n "$CLERK_SECRET_KEY" ]; then
@@ -499,7 +499,7 @@ echo "  - Clerk: ${CLERK_TEST_SECRET_KEY:+TEST instance}${CLERK_TEST_SECRET_KEY:
 echo "  - Email: Resend"
 echo ""
 echo "🚀 To Start Services:"
-echo "  cd /home/coder/workspace/zmanim-lab"
+echo "  cd /home/coder/workspace/zmanim"
 echo "  ./.coder/start-services.sh"
 echo ""
 echo "  Or manually:"
@@ -525,7 +525,7 @@ echo "=========================================="
 
 # Step 15: Run database migrations
 print_status "Running database migrations..."
-cd /home/coder/workspace/zmanim-lab
+cd /home/coder/workspace/zmanim
 if [ -f "scripts/migrate.sh" ]; then
     chmod +x scripts/migrate.sh
     ./scripts/migrate.sh || print_warning "Migration failed - database may need manual setup"
@@ -536,7 +536,7 @@ fi
 
 # Step 16: Auto-start services
 print_status "Starting services in background..."
-cd /home/coder/workspace/zmanim-lab
+cd /home/coder/workspace/zmanim
 if [ -f ".coder/start-services.sh" ]; then
     chmod +x .coder/start-services.sh
     ./.coder/start-services.sh --no-attach

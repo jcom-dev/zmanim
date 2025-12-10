@@ -1,0 +1,673 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.8</storyId>
+    <title>Route 53 &amp; SSL Certificates</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-8-route53-ssl-certificates.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>DNS and SSL configured</iWant>
+    <soThat>zmanim.shtetl.io serves over HTTPS with trusted certificates</soThat>
+
+    <tasks>
+      <task id="1" ac="1">
+        <description>ACM Certificate</description>
+        <subtasks>
+          <subtask id="1.1">Define ACM certificate in lib/dns-stack.ts</subtask>
+          <subtask id="1.2">Request certificate for zmanim.shtetl.io</subtask>
+          <subtask id="1.3">Request certificate in us-east-1 (required for CloudFront)</subtask>
+          <subtask id="1.4">Configure wildcard if needed (*.zmanim.shtetl.io)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="2" ac="2">
+        <description>DNS Validation</description>
+        <subtasks>
+          <subtask id="2.1">Choose validation method (DNS or Email)</subtask>
+          <subtask id="2.2">If Route 53 hosted zone: create CNAME validation records</subtask>
+          <subtask id="2.3">If external DNS: document manual validation steps</subtask>
+          <subtask id="2.4">Wait for certificate validation (CDK waits automatically)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="3" ac="3">
+        <description>Route 53 Configuration</description>
+        <subtasks>
+          <subtask id="3.1">Create or import hosted zone for shtetl.io</subtask>
+          <subtask id="3.2">Create A record alias for zmanim.shtetl.io</subtask>
+          <subtask id="3.3">Point alias to CloudFront distribution</subtask>
+          <subtask id="3.4">Configure TTL (300 seconds recommended)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="4" ac="4">
+        <description>Health Check</description>
+        <subtasks>
+          <subtask id="4.1">Create Route 53 health check</subtask>
+          <subtask id="4.2">Configure check for https://zmanim.shtetl.io/api/health</subtask>
+          <subtask id="4.3">Set check interval (30 seconds)</subtask>
+          <subtask id="4.4">Configure failure threshold (3 consecutive failures)</subtask>
+          <subtask id="4.5">Create CloudWatch alarm for health check failures</subtask>
+        </subtasks>
+      </task>
+
+      <task id="5" ac="2,3">
+        <description>External DNS Option</description>
+        <subtasks>
+          <subtask id="5.1">Document alternative for external DNS providers</subtask>
+          <subtask id="5.2">Provide CNAME record instructions</subtask>
+          <subtask id="5.3">Document ACM email validation if DNS validation not possible</subtask>
+        </subtasks>
+      </task>
+
+      <task id="6" ac="1-4">
+        <description>Testing</description>
+        <subtasks>
+          <subtask id="6.1">Verify certificate is issued and valid</subtask>
+          <subtask id="6.2">Test DNS resolution from multiple locations</subtask>
+          <subtask id="6.3">Verify HTTPS works with valid certificate</subtask>
+          <subtask id="6.4">Test health check triggers on endpoint failure</subtask>
+          <subtask id="6.5">Verify alarm notification works</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">
+      <description>ACM certificate requested for zmanim.shtetl.io</description>
+      <verification>Certificate resource exists in CDK stack, certificate issued and validated in us-east-1 region</verification>
+    </criterion>
+
+    <criterion id="AC2">
+      <description>DNS validation configured</description>
+      <verification>CNAME validation records created (Route 53) or manual validation steps documented (external DNS), certificate status shows "Issued"</verification>
+    </criterion>
+
+    <criterion id="AC3">
+      <description>A record alias points to CloudFront</description>
+      <verification>DNS query for zmanim.shtetl.io returns CloudFront distribution address as A record alias</verification>
+    </criterion>
+
+    <criterion id="AC4">
+      <description>Health check monitors /health endpoint</description>
+      <verification>Route 53 health check exists, checks HTTPS endpoint at /api/health, CloudWatch alarm configured for failures</verification>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <documentation>
+      <existing>
+        <file path="docs/sprint-artifacts/epic-7-aws-migration.md" section="Story 7.8">Epic overview with DNS/SSL requirements</file>
+        <file path="docs/sprint-artifacts/tech-spec-epic-7.md" section="Story 7.8">Technical specification for DNS and SSL configuration</file>
+        <file path="docs/sprint-artifacts/tech-spec-epic-7.md" section="Reliability/Availability">Health check requirements and recovery procedures</file>
+      </existing>
+
+      <toCreate>
+        <file path="docs/runbooks/ssl-certificate-renewal.md">Procedures for ACM certificate renewal and validation</file>
+        <file path="docs/runbooks/dns-troubleshooting.md">DNS resolution debugging steps</file>
+        <file path="docs/infrastructure/external-dns-setup.md">Instructions for external DNS provider configuration (if not using Route 53)</file>
+      </toCreate>
+    </documentation>
+
+    <code>
+      <existing>
+        <file path="infrastructure/cdk/lib/cdn-stack.ts">CloudFront distribution (Story 7.6) - will reference certificate</file>
+        <file path="api/internal/handlers/health.go">Health check endpoint implementation</file>
+      </existing>
+
+      <toCreate>
+        <file path="infrastructure/cdk/lib/dns-stack.ts">DNS stack with Route 53 hosted zone, ACM certificate, A record alias, health check</file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <upstream>
+        <story id="7.6">CloudFront Distribution - must exist to create A record alias target</story>
+        <story id="7.7">API Gateway Configuration - provides backend for health check endpoint</story>
+        <story id="7.4">EC2 Instance - API must respond to /health requests</story>
+      </upstream>
+
+      <downstream>
+        <story id="7.10">Data Migration &amp; Go-Live - DNS cutover uses this configuration</story>
+      </downstream>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint id="ARCH-1">
+        <description>ACM certificates for CloudFront MUST be created in us-east-1 (N. Virginia) region</description>
+        <rationale>CloudFront is a global service and only accepts certificates from us-east-1 regardless of origin region</rationale>
+        <implementation>Use CDK cross-region certificate construct or DnsValidatedCertificate with region: 'us-east-1'</implementation>
+      </constraint>
+
+      <constraint id="ARCH-2">
+        <description>DNS must support CloudFront alias records or CNAME flattening</description>
+        <rationale>Root domain (apex) requires A record alias support (Route 53) or CNAME flattening (Cloudflare)</rationale>
+        <implementation>Route 53 preferred for native alias support; document external DNS alternatives</implementation>
+      </constraint>
+
+      <constraint id="ARCH-3">
+        <description>Health check endpoint must be accessible through CloudFront and API Gateway</description>
+        <rationale>Health check validates entire request path from DNS through CDN to backend</rationale>
+        <implementation>Use /api/health path that traverses full stack: Route 53 → CloudFront → API Gateway → EC2</implementation>
+      </constraint>
+    </architectural>
+
+    <security>
+      <constraint id="SEC-1">
+        <description>TLS 1.2 minimum, prefer TLS 1.3</description>
+        <rationale>Security best practice, CloudFront supports both</rationale>
+        <implementation>Configure CloudFront security policy: TLSv1.2_2021 or TLSv1.3_2021</implementation>
+      </constraint>
+
+      <constraint id="SEC-2">
+        <description>Certificate auto-renewal must be enabled</description>
+        <rationale>Prevent service disruption from expired certificates</rationale>
+        <implementation>ACM auto-renews certificates with DNS validation; verify validation records persist</implementation>
+      </constraint>
+
+      <constraint id="SEC-3">
+        <description>HTTPS only, HTTP redirects to HTTPS</description>
+        <rationale>Protect data in transit</rationale>
+        <implementation>CloudFront viewer protocol policy: redirect-to-https (configured in Story 7.6)</implementation>
+      </constraint>
+    </security>
+
+    <cost>
+      <constraint id="COST-1">
+        <description>Route 53 hosted zone costs $0.50/month per zone</description>
+        <impact>Additional recurring cost for DNS management</impact>
+        <alternative>External DNS (Cloudflare, etc.) - zero AWS cost but requires manual CNAME setup</alternative>
+      </constraint>
+
+      <constraint id="COST-2">
+        <description>ACM certificates are free when used with AWS services</description>
+        <rationale>No additional cost for SSL certificates when attached to CloudFront or Load Balancer</rationale>
+        <note>Certificate must be used by AWS service; detached certificates may incur charges</note>
+      </constraint>
+
+      <constraint id="COST-3">
+        <description>Health checks cost $0.50/month per check</description>
+        <impact>Minimal cost for availability monitoring</impact>
+        <justification>Critical for production availability monitoring and alerting</justification>
+      </constraint>
+    </cost>
+  </constraints>
+
+  <interfaces>
+    <inputs>
+      <input id="IN-1">
+        <source>Story 7.6 (CloudFront Distribution)</source>
+        <data>CloudFront distribution domain name and distribution ID</data>
+        <format>CDK construct reference or exported value</format>
+        <usage>Target for Route 53 A record alias</usage>
+      </input>
+
+      <input id="IN-2">
+        <source>Domain registrar or existing DNS provider</source>
+        <data>Domain ownership verification (for Route 53 import) or NS records (for external DNS)</data>
+        <format>Domain registrar access or DNS configuration</format>
+        <usage>Domain delegation to Route 53 or CNAME record creation</usage>
+      </input>
+
+      <input id="IN-3">
+        <source>Story 7.7 (API Gateway)</source>
+        <data>API Gateway endpoint URL or EC2 Elastic IP</data>
+        <format>HTTPS URL</format>
+        <usage>Health check target validation</usage>
+      </input>
+    </inputs>
+
+    <outputs>
+      <output id="OUT-1">
+        <destination>Story 7.10 (Data Migration &amp; Go-Live)</destination>
+        <data>DNS configuration status and cutover readiness</data>
+        <format>Boolean ready state and rollback instructions</format>
+        <usage>Pre-migration DNS validation</usage>
+      </output>
+
+      <output id="OUT-2">
+        <destination>CloudWatch Alarms</destination>
+        <data>Health check status metric</data>
+        <format>CloudWatch metric (HealthCheckStatus)</format>
+        <usage>Availability monitoring and alerting</usage>
+      </output>
+
+      <output id="OUT-3">
+        <destination>Developer documentation</destination>
+        <data>External DNS setup instructions (if Route 53 not used)</data>
+        <format>Markdown documentation with CNAME records and validation steps</format>
+        <usage>Alternative DNS provider configuration</usage>
+      </output>
+    </outputs>
+
+    <integrations>
+      <integration id="INT-1">
+        <service>AWS Certificate Manager (ACM)</service>
+        <region>us-east-1</region>
+        <authentication>IAM role from CDK deployment</authentication>
+        <operations>RequestCertificate, DescribeCertificate, ValidateCertificate</operations>
+        <errorHandling>CDK retries validation, deployment fails if certificate not issued within timeout</errorHandling>
+      </integration>
+
+      <integration id="INT-2">
+        <service>Route 53</service>
+        <region>Global (control plane in us-east-1)</region>
+        <authentication>IAM role from CDK deployment</authentication>
+        <operations>CreateHostedZone, CreateRecordSet, CreateHealthCheck, GetChange</operations>
+        <errorHandling>CDK waits for record set propagation, health check creation failures halt deployment</errorHandling>
+      </integration>
+
+      <integration id="INT-3">
+        <service>CloudFront</service>
+        <region>Global (edge locations)</region>
+        <authentication>CDK deployment references distribution ARN</authentication>
+        <operations>AttachCertificate (via CloudFront configuration)</operations>
+        <errorHandling>Certificate must be in us-east-1, CloudFront validates certificate before accepting</errorHandling>
+      </integration>
+
+      <integration id="INT-4">
+        <service>CloudWatch</service>
+        <region>us-east-1</region>
+        <authentication>IAM role from CDK deployment</authentication>
+        <operations>PutMetricAlarm, DescribeAlarms</operations>
+        <errorHandling>Alarm creation failures are non-blocking but require manual verification</errorHandling>
+      </integration>
+    </integrations>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard id="TEST-STD-1">
+        <description>Certificate must be issued and validated before deployment completes</description>
+        <verification>CDK deployment waits for ACM certificate status "Issued"</verification>
+        <automation>CDK construct built-in waiters</automation>
+      </standard>
+
+      <standard id="TEST-STD-2">
+        <description>DNS propagation must be verified from multiple geographic locations</description>
+        <verification>Use dig or nslookup from US, EU, and Israel DNS resolvers</verification>
+        <automation>Shell script with multiple DNS server queries</automation>
+      </standard>
+
+      <standard id="TEST-STD-3">
+        <description>HTTPS connection must use valid certificate with correct domain</description>
+        <verification>curl -v https://zmanim.shtetl.io shows valid certificate, no warnings</verification>
+        <automation>CI/CD pipeline step with SSL validation check</automation>
+      </standard>
+
+      <standard id="TEST-STD-4">
+        <description>Health check must detect endpoint failures within threshold period</description>
+        <verification>Simulate failure (stop API), verify health check status changes within 90 seconds (3 checks × 30s interval)</verification>
+        <automation>Manual test during deployment verification</automation>
+      </standard>
+    </standards>
+
+    <locations>
+      <location path="infrastructure/cdk/test/dns-stack.test.ts">CDK unit tests for DNS stack construct synthesis</location>
+      <location path="infrastructure/cdk/scripts/verify-dns.sh">Shell script to verify DNS propagation from multiple resolvers</location>
+      <location path="infrastructure/cdk/scripts/verify-ssl.sh">Shell script to validate SSL certificate and HTTPS connection</location>
+      <location path="infrastructure/cdk/scripts/test-health-check.sh">Shell script to verify health check detection of failures</location>
+    </locations>
+
+    <testIdeas>
+      <idea id="IDEA-1">
+        <description>Certificate validation timeout handling</description>
+        <scenario>Test CDK deployment behavior when DNS validation records fail to propagate</scenario>
+        <expectedBehavior>Deployment should timeout with clear error message, not hang indefinitely</expectedBehavior>
+        <implementation>Mock DNS validation failure in test environment</implementation>
+      </idea>
+
+      <idea id="IDEA-2">
+        <description>DNS failover behavior</description>
+        <scenario>Test Route 53 response when CloudFront distribution is unavailable</scenario>
+        <expectedBehavior>DNS continues to resolve, CloudFront returns 503 error, health check detects failure</expectedBehavior>
+        <implementation>Temporarily detach origin from CloudFront distribution</implementation>
+      </idea>
+
+      <idea id="IDEA-3">
+        <description>Certificate auto-renewal verification</description>
+        <scenario>Verify ACM auto-renewal process works with DNS validation records</scenario>
+        <expectedBehavior>Certificate renews automatically 60 days before expiration without manual intervention</expectedBehavior>
+        <implementation>Check ACM console for renewal timeline, verify validation records persist</implementation>
+      </idea>
+
+      <idea id="IDEA-4">
+        <description>Health check alarm notification</description>
+        <scenario>Trigger health check failure, verify CloudWatch alarm fires and notification sent</scenario>
+        <expectedBehavior>Alarm state changes to ALARM within 2 minutes, SNS notification sent to configured endpoint</expectedBehavior>
+        <implementation>Stop EC2 systemd service, monitor CloudWatch alarm state</implementation>
+      </idea>
+
+      <idea id="IDEA-5">
+        <description>External DNS CNAME configuration</description>
+        <scenario>Document and test CNAME record setup for external DNS providers (Cloudflare, etc.)</scenario>
+        <expectedBehavior>CNAME record points to CloudFront, HTTPS works correctly, certificate validates domain</expectedBehavior>
+        <implementation>Test with Cloudflare staging domain if available</implementation>
+      </idea>
+
+      <idea id="IDEA-6">
+        <description>Multi-region DNS resolution latency</description>
+        <scenario>Measure DNS resolution time from US, EU, and Israel</scenario>
+        <expectedBehavior>Resolution under 50ms from all regions (Route 53 global anycast)</expectedBehavior>
+        <implementation>Use dnsperf or similar tool from multiple geographic locations</implementation>
+      </idea>
+    </testIdeas>
+  </tests>
+
+  <implementation>
+    <cdkPattern>
+      <description>DNS stack creates ACM certificate in us-east-1, Route 53 hosted zone, A record alias to CloudFront, and health check with CloudWatch alarm</description>
+
+      <certificateConfiguration>
+        <snippet language="typescript">
+// lib/dns-stack.ts
+
+import * as cdk from 'aws-cdk-lib';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+
+export interface DnsStackProps extends cdk.StackProps {
+  cloudFrontDistribution: cloudfront.IDistribution;
+  domainName: string; // 'zmanim.shtetl.io'
+  useRoute53: boolean; // true = create hosted zone, false = document external DNS
+}
+
+export class DnsStack extends cdk.Stack {
+  public readonly certificate: acm.ICertificate;
+  public readonly hostedZone?: route53.IHostedZone;
+
+  constructor(scope: cdk.App, id: string, props: DnsStackProps) {
+    super(scope, id, props);
+
+    if (props.useRoute53) {
+      // Option 1: Route 53 managed DNS
+      this.setupRoute53(props);
+    } else {
+      // Option 2: External DNS (Cloudflare, etc.)
+      this.documentExternalDns(props);
+    }
+  }
+
+  private setupRoute53(props: DnsStackProps) {
+    const parentDomain = props.domainName.split('.').slice(1).join('.');
+
+    // Create or import hosted zone for parent domain (shtetl.io)
+    this.hostedZone = route53.HostedZone.fromLookup(this, 'ShtetlZone', {
+      domainName: parentDomain,
+    });
+
+    // CRITICAL: Certificate MUST be in us-east-1 for CloudFront
+    this.certificate = new acm.Certificate(this, 'ZmanimCert', {
+      domainName: props.domainName,
+      validation: acm.CertificateValidation.fromDns(this.hostedZone),
+      // CDK automatically creates cross-region certificate if stack region differs
+    });
+
+    // Alternative: Explicit cross-region certificate
+    // this.certificate = new acm.DnsValidatedCertificate(this, 'ZmanimCert', {
+    //   domainName: props.domainName,
+    //   hostedZone: this.hostedZone,
+    //   region: 'us-east-1', // Required for CloudFront
+    // });
+
+    // A record alias to CloudFront distribution
+    new route53.ARecord(this, 'ZmanimAlias', {
+      zone: this.hostedZone,
+      recordName: props.domainName.split('.')[0], // 'zmanim'
+      target: route53.RecordTarget.fromAlias(
+        new targets.CloudFrontTarget(props.cloudFrontDistribution)
+      ),
+      ttl: cdk.Duration.seconds(300),
+    });
+
+    // Health check for /api/health endpoint
+    const healthCheck = new route53.CfnHealthCheck(this, 'ZmanimHealthCheck', {
+      healthCheckConfig: {
+        type: 'HTTPS',
+        fullyQualifiedDomainName: props.domainName,
+        resourcePath: '/api/health',
+        requestInterval: 30, // seconds
+        failureThreshold: 3, // consecutive failures
+      },
+      healthCheckTags: [
+        {
+          key: 'Name',
+          value: 'zmanim-api-health',
+        },
+      ],
+    });
+
+    // CloudWatch alarm for health check failures
+    const healthCheckAlarm = new cloudwatch.Alarm(this, 'HealthCheckAlarm', {
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/Route53',
+        metricName: 'HealthCheckStatus',
+        dimensionsMap: {
+          HealthCheckId: healthCheck.attrHealthCheckId,
+        },
+        statistic: 'Minimum',
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+      alarmDescription: 'Alert when API health check fails',
+      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+    });
+
+    // Output certificate ARN and DNS validation records
+    new cdk.CfnOutput(this, 'CertificateArn', {
+      value: this.certificate.certificateArn,
+      description: 'ACM Certificate ARN (us-east-1)',
+    });
+
+    new cdk.CfnOutput(this, 'NameServers', {
+      value: cdk.Fn.join(', ', this.hostedZone.hostedZoneNameServers || []),
+      description: 'Route 53 nameservers for domain delegation',
+    });
+  }
+
+  private documentExternalDns(props: DnsStackProps) {
+    // Create certificate with email validation (DNS validation requires hosted zone)
+    this.certificate = new acm.Certificate(this, 'ZmanimCert', {
+      domainName: props.domainName,
+      validation: acm.CertificateValidation.fromEmail(),
+    });
+
+    // Output CloudFront distribution domain for CNAME record
+    new cdk.CfnOutput(this, 'CloudFrontDomain', {
+      value: props.cloudFrontDistribution.distributionDomainName,
+      description: 'CNAME target for external DNS: zmanim.shtetl.io -> [this value]',
+    });
+
+    new cdk.CfnOutput(this, 'ExternalDnsInstructions', {
+      value: `See docs/infrastructure/external-dns-setup.md for CNAME configuration`,
+      description: 'External DNS setup instructions',
+    });
+
+    // Note: Health check still possible with external DNS, but requires manual domain validation
+  }
+}
+        </snippet>
+      </certificateConfiguration>
+
+      <healthCheckEndpoint>
+        <description>Go API health check endpoint must verify PostgreSQL and Redis connectivity</description>
+        <snippet language="go">
+// api/internal/handlers/health.go
+
+package handlers
+
+import (
+    "context"
+    "net/http"
+    "time"
+)
+
+// Health checks API, PostgreSQL, and Redis health
+// Route: GET /api/health
+// Used by: Route 53 health check, monitoring systems
+func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    health := map[string]string{
+        "status": "healthy",
+    }
+
+    // Check PostgreSQL
+    if err := h.db.Pool.Ping(ctx); err != nil {
+        health["status"] = "unhealthy"
+        health["postgres"] = "unavailable"
+        RespondJSON(w, r, http.StatusServiceUnavailable, health)
+        return
+    }
+    health["postgres"] = "ok"
+
+    // Check Redis
+    if err := h.redisClient.Ping(ctx).Err(); err != nil {
+        health["status"] = "unhealthy"
+        health["redis"] = "unavailable"
+        RespondJSON(w, r, http.StatusServiceUnavailable, health)
+        return
+    }
+    health["redis"] = "ok"
+
+    RespondJSON(w, r, http.StatusOK, health)
+}
+        </snippet>
+      </healthCheckEndpoint>
+    </cdkPattern>
+
+    <certificateRequirements>
+      <requirement id="CERT-1">ACM certificate must be in us-east-1 region for CloudFront compatibility</requirement>
+      <requirement id="CERT-2">DNS validation preferred over email validation for automation</requirement>
+      <requirement id="CERT-3">Certificate must cover exact domain (zmanim.shtetl.io) or use wildcard (*.shtetl.io)</requirement>
+      <requirement id="CERT-4">CDK deployment must wait for certificate validation to complete before proceeding</requirement>
+    </certificateRequirements>
+
+    <dnsOptions>
+      <option id="DNS-OPT-1">
+        <name>Route 53 Hosted Zone</name>
+        <pros>Full CDK automation, automatic certificate validation, native CloudFront alias support</pros>
+        <cons>$0.50/month per hosted zone</cons>
+        <implementation>Create hosted zone in CDK, delegate NS records at domain registrar</implementation>
+        <recommended>true</recommended>
+      </option>
+
+      <option id="DNS-OPT-2">
+        <name>External DNS (Cloudflare, etc.)</name>
+        <pros>No additional AWS cost, may already be in use</pros>
+        <cons>Manual CNAME record creation, email or manual DNS validation for ACM, CNAME flattening may be needed for apex domain</cons>
+        <implementation>Document CNAME record and validation steps, manual configuration required</implementation>
+        <recommended>false</recommended>
+      </option>
+    </dnsOptions>
+  </implementation>
+
+  <troubleshooting>
+    <issue id="TROUBLE-1">
+      <symptom>Certificate validation stuck in "Pending validation" state</symptom>
+      <causes>
+        <cause>DNS validation CNAME records not propagated</cause>
+        <cause>CNAME records created in wrong hosted zone</cause>
+        <cause>TTL too high on conflicting records</cause>
+      </causes>
+      <resolution>
+        <step>Check ACM console for validation CNAME name and value</step>
+        <step>Verify CNAME record exists in Route 53: aws route53 list-resource-record-sets --hosted-zone-id [ID]</step>
+        <step>Test DNS propagation: dig _[validation-hash].zmanim.shtetl.io CNAME</step>
+        <step>Wait up to 30 minutes for propagation and validation</step>
+      </resolution>
+    </issue>
+
+    <issue id="TROUBLE-2">
+      <symptom>DNS not resolving to CloudFront distribution</symptom>
+      <causes>
+        <cause>A record not created or incorrect target</cause>
+        <cause>DNS propagation delay</cause>
+        <cause>Cached DNS response at resolver</cause>
+      </causes>
+      <resolution>
+        <step>Verify A record in Route 53 console, confirm alias target matches CloudFront domain</step>
+        <step>Test with authoritative nameserver: dig @[route53-ns] zmanim.shtetl.io A</step>
+        <step>Wait for TTL expiration (300 seconds)</step>
+        <step>Flush local DNS cache: sudo systemd-resolve --flush-caches (Linux) or sudo dscacheutil -flushcache (macOS)</step>
+      </resolution>
+    </issue>
+
+    <issue id="TROUBLE-3">
+      <symptom>HTTPS shows certificate error or wrong domain</symptom>
+      <causes>
+        <cause>Certificate not attached to CloudFront distribution</cause>
+        <cause>Certificate domain mismatch (cert for *.shtetl.io but accessing zmanim.shtetl.io or vice versa)</cause>
+        <cause>Using CloudFront domain directly instead of custom domain</cause>
+      </causes>
+      <resolution>
+        <step>Verify CloudFront distribution has correct certificate attached in Viewer settings</step>
+        <step>Check certificate domain matches exactly or uses wildcard: aws acm describe-certificate --certificate-arn [ARN]</step>
+        <step>Verify accessing site via custom domain (zmanim.shtetl.io), not CloudFront domain ([id].cloudfront.net)</step>
+        <step>Redeploy CloudFront distribution if certificate recently changed</step>
+      </resolution>
+    </issue>
+
+    <issue id="TROUBLE-4">
+      <symptom>Health check always failing despite API responding</symptom>
+      <causes>
+        <cause>/api/health endpoint not accessible through CloudFront and API Gateway</cause>
+        <cause>Health check using wrong protocol (HTTP vs HTTPS)</cause>
+        <cause>Health check path incorrect or endpoint returning non-200 status</cause>
+        <cause>CloudFront cache returning stale 503/504 error</cause>
+      </causes>
+      <resolution>
+        <step>Test endpoint manually: curl -v https://zmanim.shtetl.io/api/health</step>
+        <step>Verify health check configuration in Route 53 console: protocol HTTPS, path /api/health</step>
+        <step>Check health check interval and failure threshold allow enough time for API response</step>
+        <step>Invalidate CloudFront cache for /api/health path</step>
+        <step>Review API Gateway and CloudFront logs for health check requests</step>
+      </resolution>
+    </issue>
+  </troubleshooting>
+
+  <references>
+    <reference id="REF-1">
+      <title>ACM Certificate for CloudFront</title>
+      <url>https://docs.aws.amazon.com/acm/latest/userguide/acm-regions.html</url>
+      <relevance>Documents us-east-1 requirement for CloudFront certificates</relevance>
+    </reference>
+
+    <reference id="REF-2">
+      <title>Route 53 Alias Records</title>
+      <url>https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resource-record-sets-choosing-alias-non-alias.html</url>
+      <relevance>Explains alias record advantages over CNAME for CloudFront</relevance>
+    </reference>
+
+    <reference id="REF-3">
+      <title>Route 53 Health Checks</title>
+      <url>https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/health-checks-types.html</url>
+      <relevance>Health check types and configuration options</relevance>
+    </reference>
+
+    <reference id="REF-4">
+      <title>CDK DnsValidatedCertificate</title>
+      <url>https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_certificatemanager.DnsValidatedCertificate.html</url>
+      <relevance>CDK construct for cross-region certificate creation</relevance>
+    </reference>
+
+    <reference id="REF-5">
+      <title>CloudWatch Alarms for Route 53 Health Checks</title>
+      <url>https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/monitoring-health-checks.html</url>
+      <relevance>Setting up alarms and notifications for health check failures</relevance>
+    </reference>
+  </references>
+</storyContext>

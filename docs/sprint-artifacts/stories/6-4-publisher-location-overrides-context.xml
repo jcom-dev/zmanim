@@ -258,11 +258,11 @@
           Fields: id (UUID), name, slug, status_id, created_at
         </schema>
       </dependency>
-      <dependency type="go_package" name="github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen">
+      <dependency type="go_package" name="github.com/jcom-dev/zmanim/internal/db/sqlcgen">
         <description>SQLc-generated Go code for database queries</description>
         <location>api/internal/db/sqlcgen/</location>
       </dependency>
-      <dependency type="go_package" name="github.com/jcom-dev/zmanim-lab/internal/handlers">
+      <dependency type="go_package" name="github.com/jcom-dev/zmanim/internal/handlers">
         <description>HTTP handlers package where new location_overrides.go will be added</description>
         <location>api/internal/handlers/</location>
       </dependency>

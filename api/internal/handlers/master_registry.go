@@ -19,7 +19,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
-	db "github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	db "github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 // ============================================

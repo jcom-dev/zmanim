@@ -133,8 +133,8 @@ jobs:
 # After bootstrap, GitHub Actions uses OIDC - no static AWS_ACCESS_KEY_ID/SECRET needed.
 #
 # IAM Role Trust Policy:
-# - Only allows: repo:jcom-dev/zmanim-lab:ref:refs/heads/main
-# - Only allows: repo:jcom-dev/zmanim-lab:ref:refs/tags/*
+# - Only allows: repo:jcom-dev/zmanim:ref:refs/heads/main
+# - Only allows: repo:jcom-dev/zmanim:ref:refs/tags/*
 # - Other branches/repos cannot assume the role
 #
 # IAM Role Permissions:

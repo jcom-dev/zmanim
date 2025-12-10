@@ -38,7 +38,7 @@ variable "zmanim_branch" {
 
 variable "zmanim_repo" {
   type        = string
-  default     = "git@github.com:jcom-dev/zmanim-lab.git"
+  default     = "git@github.com:jcom-dev/zmanim.git"
   description = "Zmanim Lab repository URL"
 }
 
@@ -209,7 +209,7 @@ resource "docker_container" "redis" {
 
 # Pre-built development image with all dependencies
 resource "docker_image" "workspace" {
-  name          = "jcomdev/zmanim-lab:latest"
+  name          = "jcomdev/zmanim:latest"
   pull_triggers = ["always"]
 }
 

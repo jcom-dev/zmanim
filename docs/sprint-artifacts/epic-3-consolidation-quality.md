@@ -102,7 +102,7 @@ Currently we cannot test authenticated flows (admin dashboard, publisher dashboa
 - [x] `createTestAdmin()` function creates a Clerk user with admin role
 - [x] `createTestPublisher(publisherId)` function creates a Clerk user linked to a publisher
 - [x] `createTestUser()` function creates a regular user without special roles
-- [x] Test users have predictable email format (e.g., `test-admin-{uuid}@test.zmanim-lab.local`)
+- [x] Test users have predictable email format (e.g., `test-admin-{uuid}@test.zmanim.local`)
 
 **AC-2: Authentication Injection**
 - [x] `loginAsAdmin(page)` injects admin auth into Playwright browser context

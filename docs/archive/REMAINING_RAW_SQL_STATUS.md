@@ -52,7 +52,7 @@ Refactor handler response types to match SQLc-generated types:
 4. Check for remaining raw SQL: `grep -c "Pool\." master_registry.go` should be 0
 
 ## Violations Location
-All 30 remaining violations are in `/home/daniel/repos/zmanim-lab/api/internal/handlers/master_registry.go`
+All 30 remaining violations are in `/home/daniel/repos/zmanim/api/internal/handlers/master_registry.go`
 
 Lines with raw SQL still present:
 ```

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 // OnboardingState represents the publisher's onboarding progress (actual schema)

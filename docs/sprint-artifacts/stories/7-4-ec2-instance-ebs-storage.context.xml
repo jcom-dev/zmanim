@@ -1,0 +1,822 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.4</storyId>
+    <title>EC2 Instance &amp; EBS Storage</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-4-ec2-instance-ebs-storage.md</sourceStoryPath>
+    <epicPath>docs/sprint-artifacts/epic-7-aws-migration.md</epicPath>
+    <techSpecPath>docs/sprint-artifacts/tech-spec-epic-7.md</techSpecPath>
+  </metadata>
+
+  <story>
+    <userStory>
+      <asA>developer</asA>
+      <iWant>an EC2 instance running the Packer AMI with persistent storage</iWant>
+      <soThat>I have zero cold start compute with data that survives AMI upgrades</soThat>
+    </userStory>
+
+    <tasks>
+      <task id="1" acceptanceCriteria="1">
+        <title>EC2 Instance from AMI</title>
+        <subtasks>
+          <subtask id="1.1">Define EC2 instance in lib/compute-stack.ts</subtask>
+          <subtask id="1.2">Configure instance type m7g.medium (Graviton3)</subtask>
+          <subtask id="1.3">Reference Packer AMI from SSM Parameter Store</subtask>
+          <subtask id="1.4">Place in public subnet from NetworkStack</subtask>
+          <subtask id="1.5">Attach security group from NetworkStack</subtask>
+        </subtasks>
+      </task>
+
+      <task id="2" acceptanceCriteria="2">
+        <title>Root EBS Volume</title>
+        <subtasks>
+          <subtask id="2.1">Configure root volume 10GB gp3</subtask>
+          <subtask id="2.2">Set deleteOnTermination: true (disposable)</subtask>
+          <subtask id="2.3">Document that root is replaced on AMI upgrade</subtask>
+        </subtasks>
+      </task>
+
+      <task id="3" acceptanceCriteria="3">
+        <title>Persistent Data Volume</title>
+        <subtasks>
+          <subtask id="3.1">Create standalone EBS volume 20GB gp3</subtask>
+          <subtask id="3.2">Configure 3000 IOPS baseline</subtask>
+          <subtask id="3.3">Set deleteOnTermination: false (persistent)</subtask>
+          <subtask id="3.4">Attach to instance as /dev/sdf</subtask>
+          <subtask id="3.5">Document mount point /data</subtask>
+        </subtasks>
+      </task>
+
+      <task id="4" acceptanceCriteria="4">
+        <title>Elastic IP</title>
+        <subtasks>
+          <subtask id="4.1">Create Elastic IP resource</subtask>
+          <subtask id="4.2">Associate with EC2 instance</subtask>
+          <subtask id="4.3">Export EIP address for API Gateway integration</subtask>
+        </subtasks>
+      </task>
+
+      <task id="5" acceptanceCriteria="5">
+        <title>IAM Role</title>
+        <subtasks>
+          <subtask id="5.1">Create IAM role for EC2 instance</subtask>
+          <subtask id="5.2">Add S3 policy for backup/releases buckets</subtask>
+          <subtask id="5.3">Add SSM policy for ssm:GetParameter on /zmanim/prod/*</subtask>
+          <subtask id="5.4">Add SES policy for backup failure emails</subtask>
+          <subtask id="5.5">Add CloudWatch policy for metrics/logs</subtask>
+          <subtask id="5.6">Attach instance profile to EC2</subtask>
+        </subtasks>
+      </task>
+
+      <task id="6" acceptanceCriteria="6">
+        <title>User Data Script</title>
+        <subtasks>
+          <subtask id="6.1">Create user data script in CDK</subtask>
+          <subtask id="6.2">Mount data volume at /data if not already formatted</subtask>
+          <subtask id="6.3">Create PostgreSQL data directory /data/postgres</subtask>
+          <subtask id="6.4">Create Redis data directory /data/redis</subtask>
+          <subtask id="6.5">Pull secrets from SSM Parameter Store</subtask>
+          <subtask id="6.6">Generate /opt/zmanim/config.env from secrets</subtask>
+          <subtask id="6.7">Generate /etc/restic/env for backup</subtask>
+          <subtask id="6.8">Start systemd services</subtask>
+        </subtasks>
+      </task>
+
+      <task id="7" acceptanceCriteria="7">
+        <title>CloudWatch Agent</title>
+        <subtasks>
+          <subtask id="7.1">Ensure CloudWatch agent installed in AMI</subtask>
+          <subtask id="7.2">Create CloudWatch agent config file</subtask>
+          <subtask id="7.3">Configure metrics: CPU, Memory, Disk, Network</subtask>
+          <subtask id="7.4">Configure log groups for app/postgres/redis logs</subtask>
+          <subtask id="7.5">Start CloudWatch agent via user data</subtask>
+        </subtasks>
+      </task>
+
+      <task id="8" acceptanceCriteria="1-7">
+        <title>Testing</title>
+        <subtasks>
+          <subtask id="8.1">Deploy to staging account</subtask>
+          <subtask id="8.2">Verify instance launches from correct AMI</subtask>
+          <subtask id="8.3">Verify data volume mounts at /data</subtask>
+          <subtask id="8.4">Verify PostgreSQL uses /data/postgres</subtask>
+          <subtask id="8.5">Verify Redis uses /data/redis</subtask>
+          <subtask id="8.6">Verify SSM parameters are retrieved</subtask>
+          <subtask id="8.7">Verify CloudWatch metrics appear</subtask>
+          <subtask id="8.8">Test AMI upgrade with data preservation</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">
+      <requirement>m7g.medium instance launches from Packer AMI</requirement>
+      <verificationMethod>AWS Console or CLI verification of instance type and AMI ID</verificationMethod>
+      <dependencies>Story 7.2 (Packer AMI), Story 7.3 (Network Stack)</dependencies>
+    </criterion>
+
+    <criterion id="AC2">
+      <requirement>Root EBS: 10GB gp3 (from AMI, disposable)</requirement>
+      <verificationMethod>aws ec2 describe-volumes verification of root volume properties</verificationMethod>
+      <rationale>Root volume contains OS and binaries from AMI, replaced on AMI upgrades</rationale>
+    </criterion>
+
+    <criterion id="AC3">
+      <requirement>Data EBS: 20GB gp3 (persistent, mounted at /data)</requirement>
+      <verificationMethod>SSH verification of mount point, df -h output, deleteOnTermination: false</verificationMethod>
+      <rationale>Data volume persists across AMI upgrades, contains PostgreSQL and Redis data</rationale>
+    </criterion>
+
+    <criterion id="AC4">
+      <requirement>Elastic IP attached</requirement>
+      <verificationMethod>aws ec2 describe-addresses verification of association</verificationMethod>
+      <rationale>Static IP required for API Gateway integration</rationale>
+    </criterion>
+
+    <criterion id="AC5">
+      <requirement>IAM role grants S3, SSM, SES access</requirement>
+      <verificationMethod>aws iam get-role-policy verification of policy documents</verificationMethod>
+      <policies>
+        <policy name="S3Access">s3:GetObject, s3:PutObject, s3:ListBucket on backups/releases buckets</policy>
+        <policy name="SSMAccess">ssm:GetParameter on /zmanim/prod/* with SecureString decryption</policy>
+        <policy name="SESAccess">ses:SendEmail for backup failure notifications</policy>
+        <policy name="CloudWatchAccess">cloudwatch:PutMetricData, logs:* for metrics and log shipping</policy>
+      </policies>
+    </criterion>
+
+    <criterion id="AC6">
+      <requirement>User data mounts data volume, pulls secrets, starts services</requirement>
+      <verificationMethod>SSH verification of /data mount, systemctl status for all services</verificationMethod>
+      <services>
+        <service>postgresql.service</service>
+        <service>redis.service</service>
+        <service>zmanim-api.service</service>
+        <service>amazon-cloudwatch-agent.service</service>
+      </services>
+    </criterion>
+
+    <criterion id="AC7">
+      <requirement>CloudWatch agent configured</requirement>
+      <verificationMethod>CloudWatch Console verification of metrics and log streams</verificationMethod>
+      <metrics>CPU, Memory, Disk, Network</metrics>
+      <logGroups>/aws/ec2/zmanim-api, /aws/ec2/postgresql, /aws/ec2/redis</logGroups>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <documentation>
+      <existing>
+        <doc>docs/sprint-artifacts/epic-7-aws-migration.md</doc>
+        <doc>docs/sprint-artifacts/tech-spec-epic-7.md</doc>
+        <doc>docs/sprint-artifacts/stories/7-4-ec2-instance-ebs-storage.md</doc>
+        <doc>docs/coding-standards.md (Security - Secrets Management)</doc>
+      </existing>
+      <toCreate>
+        <doc>infrastructure/README.md (CDK project documentation)</doc>
+        <doc>infrastructure/cdk/lib/compute-stack.ts documentation comments</doc>
+        <doc>User data script inline comments</doc>
+        <doc>IAM policy documentation</doc>
+      </toCreate>
+    </documentation>
+
+    <code>
+      <existing>
+        <file location="infrastructure/cdk/" description="CDK project from Story 7.1">
+          <stack>lib/network-stack.ts</stack>
+          <stack>lib/compute-stack.ts (to be created in this story)</stack>
+          <config>bin/cdk.ts</config>
+        </file>
+        <file location="N/A (Story 7.2 dependency)" description="Packer AMI">
+          <ami>AMI ID stored in SSM Parameter: /zmanim/packer/ami-id</ami>
+        </file>
+      </existing>
+
+      <toCreate>
+        <file>infrastructure/cdk/lib/compute-stack.ts</file>
+        <file>infrastructure/cdk/lib/compute-stack-user-data.sh (embedded or separate)</file>
+        <file>infrastructure/cdk/lib/constructs/ec2-instance.ts (optional construct)</file>
+        <file>infrastructure/cdk/lib/constructs/iam-role.ts (optional construct)</file>
+        <file>infrastructure/cdk/test/compute-stack.test.ts (CDK assertions)</file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <upstream>
+        <story id="7.1" status="required">AWS CDK Project Setup</story>
+        <story id="7.2" status="required">Packer AMI Build Pipeline (AMI must exist)</story>
+        <story id="7.3" status="required">VPC &amp; Network Infrastructure (VPC, subnet, security groups)</story>
+        <story id="7.9" status="recommended">SSM Parameter Store (secrets exist, but can be created manually for testing)</story>
+      </upstream>
+
+      <downstream>
+        <story id="7.5">S3 Buckets &amp; Restic Backup (IAM role needs S3 policies from this story)</story>
+        <story id="7.7">API Gateway Configuration (requires Elastic IP from this story)</story>
+        <story id="7.10">Data Migration &amp; Go-Live (requires running EC2 instance)</story>
+      </downstream>
+
+      <external>
+        <service>AWS EC2</service>
+        <service>AWS EBS</service>
+        <service>AWS IAM</service>
+        <service>AWS SSM Parameter Store</service>
+        <service>AWS CloudWatch</service>
+      </external>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint id="A1" type="pattern">
+        <title>Two-Volume Architecture</title>
+        <description>MUST use separate root (disposable) and data (persistent) EBS volumes</description>
+        <rationale>Enables AMI upgrades without data loss. Root volume replaced on infrastructure updates, data volume persists and reattaches.</rationale>
+        <implementation>
+          <volume type="root" size="10GB" purpose="OS + binaries from AMI" lifecycle="disposable" deleteOnTermination="true"/>
+          <volume type="data" size="20GB" purpose="PostgreSQL + Redis data" lifecycle="persistent" deleteOnTermination="false" mountPoint="/data"/>
+        </implementation>
+      </constraint>
+
+      <constraint id="A2" type="instance-type">
+        <title>Graviton3 ARM64</title>
+        <description>MUST use m7g.medium (Graviton3, ARM64)</description>
+        <rationale>20% better price/performance vs x86, 2 vCPU and 4GB RAM sufficient for workload</rationale>
+        <specs>
+          <instanceType>m7g.medium</instanceType>
+          <architecture>arm64</architecture>
+          <vCPU>2</vCPU>
+          <memory>4GB</memory>
+          <region>eu-west-1</region>
+        </specs>
+      </constraint>
+
+      <constraint id="A3" type="deployment">
+        <title>Zero Cold Start Requirement</title>
+        <description>MUST be always-on, no serverless cold starts</description>
+        <rationale>Co-located services (API, PostgreSQL, Redis) eliminate network latency and guarantee instant responses</rationale>
+      </constraint>
+    </architectural>
+
+    <security>
+      <constraint id="S1" type="secrets-management">
+        <title>NO Secrets in User Data or AMI</title>
+        <description>MUST pull all secrets from SSM Parameter Store at boot time</description>
+        <rationale>Follows coding-standards.md Section: Security - Secrets Management - ZERO TOLERANCE</rationale>
+        <implementation>User data script uses aws ssm get-parameter --with-decryption to retrieve secrets at runtime</implementation>
+        <forbiddenPatterns>
+          <pattern>Hardcoded credentials in user data</pattern>
+          <pattern>Secrets baked into AMI</pattern>
+          <pattern>Unencrypted environment files</pattern>
+        </forbiddenPatterns>
+        <requiredSecrets>
+          <secret>/zmanim/prod/clerk-secret-key (SecureString)</secret>
+          <secret>/zmanim/prod/postgres-password (SecureString)</secret>
+          <secret>/zmanim/prod/restic-password (SecureString)</secret>
+        </requiredSecrets>
+      </constraint>
+
+      <constraint id="S2" type="iam">
+        <title>Principle of Least Privilege</title>
+        <description>IAM role MUST grant only required permissions with resource-level restrictions</description>
+        <policies>
+          <policy name="S3" scope="specific-buckets">zmanim-backups-prod, zmanim-releases-prod</policy>
+          <policy name="SSM" scope="path-prefix">/zmanim/prod/*</policy>
+          <policy name="SES" scope="account-level">SendEmail only</policy>
+          <policy name="CloudWatch" scope="account-level">PutMetricData, logs:*</policy>
+        </policies>
+      </constraint>
+
+      <constraint id="S3" type="network">
+        <title>Security Group Restrictions</title>
+        <description>MUST use security group from NetworkStack (Story 7.3) with minimal ingress</description>
+        <rules>
+          <ingress>443 from CloudFront Prefix List only</ingress>
+          <ingress>22 from admin IP whitelist only</ingress>
+          <egress>All (required for S3 Gateway Endpoint, SSM, SES)</egress>
+        </rules>
+      </constraint>
+    </security>
+
+    <cost>
+      <constraint id="C1" type="budget">
+        <title>EC2 Cost Target</title>
+        <description>m7g.medium + EBS + EIP MUST stay under $35/month</description>
+        <breakdown>
+          <item>m7g.medium (eu-west-1): ~$30/month</item>
+          <item>Root EBS 10GB gp3: ~$1/month</item>
+          <item>Data EBS 20GB gp3: ~$2/month</item>
+          <item>Elastic IP (attached): $0/month</item>
+          <total>~$33/month</total>
+        </breakdown>
+        <optimization>No NAT Gateway ($32/month savings) thanks to Packer AMI pre-baking dependencies</optimization>
+      </constraint>
+
+      <constraint id="C2" type="efficiency">
+        <title>No NAT Gateway Requirement</title>
+        <description>MUST NOT require NAT Gateway for boot process</description>
+        <rationale>Packer AMI pre-installs all dependencies, eliminating runtime package installs</rationale>
+        <savings>~$32/month</savings>
+      </constraint>
+    </cost>
+  </constraints>
+
+  <interfaces>
+    <inputs>
+      <input source="Story 7.2 (Packer AMI)">
+        <parameter name="AMI ID" type="SSM Parameter" path="/zmanim/packer/ami-id"/>
+        <content>Amazon Linux 2023 ARM64 with PostgreSQL 16, PostGIS, Redis 7, Go API binary, systemd services</content>
+      </input>
+
+      <input source="Story 7.3 (Network Stack)">
+        <parameter name="VPC ID" type="CDK export" stackName="NetworkStack"/>
+        <parameter name="Public Subnet ID" type="CDK export" stackName="NetworkStack"/>
+        <parameter name="Security Group ID" type="CDK export" stackName="NetworkStack"/>
+      </input>
+
+      <input source="Story 7.9 (SSM Parameters)">
+        <parameter name="Clerk Secret Key" type="SSM SecureString" path="/zmanim/prod/clerk-secret-key"/>
+        <parameter name="PostgreSQL Password" type="SSM SecureString" path="/zmanim/prod/postgres-password"/>
+        <parameter name="Restic Password" type="SSM SecureString" path="/zmanim/prod/restic-password"/>
+        <parameter name="Config" type="SSM String" path="/zmanim/prod/config"/>
+      </input>
+
+      <input source="CDK Context">
+        <parameter name="Environment" type="string" value="prod"/>
+        <parameter name="Region" type="string" value="eu-west-1"/>
+        <parameter name="Admin CIDR" type="string" description="IP range for SSH access"/>
+      </input>
+    </inputs>
+
+    <outputs>
+      <output target="Story 7.7 (API Gateway)">
+        <parameter name="Elastic IP Address" type="CDK export" stackName="ComputeStack" exportName="ZmanimEC2ElasticIP"/>
+        <usage>API Gateway HTTP proxy integration target</usage>
+      </output>
+
+      <output target="Story 7.5 (S3 Backup)">
+        <parameter name="Instance Role ARN" type="CDK export" stackName="ComputeStack" exportName="ZmanimInstanceRoleARN"/>
+        <usage>Grants S3 bucket policies for backup access</usage>
+      </output>
+
+      <output target="Story 7.10 (Migration)">
+        <parameter name="Instance ID" type="CDK export" stackName="ComputeStack" exportName="ZmanimEC2InstanceID"/>
+        <parameter name="Data Volume ID" type="CDK export" stackName="ComputeStack" exportName="ZmanimDataVolumeID"/>
+        <usage>SSH access for data migration and verification</usage>
+      </output>
+
+      <output target="CloudWatch">
+        <logGroup>/aws/ec2/zmanim-api</logGroup>
+        <logGroup>/aws/ec2/postgresql</logGroup>
+        <logGroup>/aws/ec2/redis</logGroup>
+        <metricNamespace>ZmanimApp</metricNamespace>
+      </output>
+    </outputs>
+
+    <integrations>
+      <integration name="SSM Parameter Store">
+        <direction>read</direction>
+        <authentication>IAM Instance Profile</authentication>
+        <operations>
+          <operation>GetParameter with --with-decryption for SecureString parameters</operation>
+        </operations>
+        <timing>At instance boot via user data script</timing>
+      </integration>
+
+      <integration name="S3 (via VPC Gateway Endpoint)">
+        <direction>read/write</direction>
+        <authentication>IAM Instance Profile</authentication>
+        <operations>
+          <operation>GetObject from zmanim-releases-prod (API binary downloads)</operation>
+          <operation>PutObject to zmanim-backups-prod (Restic backups)</operation>
+        </operations>
+        <timing>Continuous (backups daily, binary updates on restart)</timing>
+      </integration>
+
+      <integration name="CloudWatch">
+        <direction>write</direction>
+        <authentication>IAM Instance Profile</authentication>
+        <operations>
+          <operation>PutMetricData for custom metrics</operation>
+          <operation>CreateLogStream and PutLogEvents for application logs</operation>
+        </operations>
+        <timing>Continuous via CloudWatch Agent</timing>
+      </integration>
+
+      <integration name="SES">
+        <direction>write</direction>
+        <authentication>IAM Instance Profile</authentication>
+        <operations>
+          <operation>SendEmail for backup failure notifications</operation>
+        </operations>
+        <timing>On systemd service failure (OnFailure=backup-notify@.service)</timing>
+      </integration>
+    </integrations>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard>CDK Assertions (infrastructure tests)</standard>
+      <standard>AWS CLI verification (deployed resources)</standard>
+      <standard>SSH manual verification (services, mounts)</standard>
+      <standard>CloudWatch metrics/logs verification</standard>
+      <standard>End-to-end API health check</standard>
+    </standards>
+
+    <locations>
+      <location>infrastructure/cdk/test/compute-stack.test.ts (CDK assertions)</location>
+      <location>tests/infrastructure/ (future E2E infrastructure tests)</location>
+      <location>Manual verification via SSH and AWS Console</location>
+    </locations>
+
+    <testIdeas>
+      <testCase id="TC-7.4.1" level="unit">
+        <title>CDK Compute Stack Synthesis</title>
+        <method>CDK Assertions</method>
+        <verification>Stack synthesizes without errors, outputs correct CloudFormation template</verification>
+        <assertions>
+          <assertion>EC2 instance resource exists with type m7g.medium</assertion>
+          <assertion>Root volume configured as 10GB gp3 with deleteOnTermination=true</assertion>
+          <assertion>Data volume configured as 20GB gp3 with deleteOnTermination=false</assertion>
+          <assertion>Elastic IP resource exists and associated</assertion>
+          <assertion>IAM role has S3, SSM, SES, CloudWatch policies</assertion>
+          <assertion>User data script contains mount, secret retrieval, service start commands</assertion>
+        </assertions>
+      </testCase>
+
+      <testCase id="TC-7.4.2" level="integration">
+        <title>EC2 Instance Launch and Boot</title>
+        <method>AWS CLI + SSH</method>
+        <verification>Instance launches successfully and all services start</verification>
+        <steps>
+          <step>Deploy ComputeStack to staging account</step>
+          <step>Verify instance running: aws ec2 describe-instances --instance-ids $INSTANCE_ID</step>
+          <step>Verify correct AMI: check ImageId matches Packer AMI</step>
+          <step>Verify Elastic IP associated: aws ec2 describe-addresses</step>
+          <step>Wait for boot completion (~60 seconds)</step>
+          <step>SSH to instance: ssh -i key.pem ec2-user@$ELASTIC_IP</step>
+          <step>Verify /data mounted: df -h | grep /data</step>
+          <step>Verify services running: systemctl status postgresql redis zmanim-api</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.3" level="integration">
+        <title>EBS Volume Configuration</title>
+        <method>AWS CLI + SSH</method>
+        <verification>Root and data volumes configured correctly</verification>
+        <steps>
+          <step>Verify root volume: aws ec2 describe-volumes --filters Name=attachment.instance-id,Values=$INSTANCE_ID Name=attachment.device,Values=/dev/xvda</step>
+          <step>Check root volume: 10GB, gp3, deleteOnTermination=true</step>
+          <step>Verify data volume: aws ec2 describe-volumes --filters Name=attachment.instance-id,Values=$INSTANCE_ID Name=attachment.device,Values=/dev/sdf</step>
+          <step>Check data volume: 20GB, gp3, deleteOnTermination=false, 3000 IOPS</step>
+          <step>SSH: Verify mount: mount | grep /data</step>
+          <step>SSH: Verify fstab entry: grep /data /etc/fstab</step>
+          <step>SSH: Verify PostgreSQL data dir: ls -la /data/postgres</step>
+          <step>SSH: Verify Redis data dir: ls -la /data/redis</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.4" level="integration">
+        <title>IAM Role Permissions</title>
+        <method>AWS CLI + SSH</method>
+        <verification>IAM role grants required permissions</verification>
+        <steps>
+          <step>Get instance profile: aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].IamInstanceProfile.Arn'</step>
+          <step>Get role policies: aws iam list-attached-role-policies --role-name $ROLE_NAME</step>
+          <step>Verify S3 policy: GetObject, PutObject, ListBucket on backup/releases buckets</step>
+          <step>Verify SSM policy: GetParameter on /zmanim/prod/*</step>
+          <step>Verify SES policy: SendEmail</step>
+          <step>Verify CloudWatch policy: PutMetricData, logs:*</step>
+          <step>SSH: Test SSM retrieval: aws ssm get-parameter --name /zmanim/prod/postgres-password --with-decryption</step>
+          <step>SSH: Test S3 access: aws s3 ls s3://zmanim-backups-prod/</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.5" level="integration">
+        <title>User Data Script Execution</title>
+        <method>SSH + CloudWatch Logs</method>
+        <verification>User data mounts volume, retrieves secrets, starts services</verification>
+        <steps>
+          <step>SSH: Check user data log: cat /var/log/cloud-init-output.log</step>
+          <step>Verify mount commands executed successfully</step>
+          <step>Verify SSM parameter retrieval succeeded (without logging secret values)</step>
+          <step>Verify config file generation: ls -la /opt/zmanim/config.env /etc/restic/env</step>
+          <step>Verify services started: systemctl status postgresql redis zmanim-api</step>
+          <step>Verify PostgreSQL using /data/postgres: sudo -u postgres psql -c "SHOW data_directory;"</step>
+          <step>Verify Redis using /data/redis: redis-cli CONFIG GET dir</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.6" level="integration">
+        <title>CloudWatch Agent Configuration</title>
+        <method>AWS CloudWatch Console + CLI</method>
+        <verification>CloudWatch agent sends metrics and logs</verification>
+        <steps>
+          <step>SSH: Verify agent running: systemctl status amazon-cloudwatch-agent</step>
+          <step>SSH: Check agent config: cat /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json</step>
+          <step>CloudWatch Console: Verify metrics appearing in ZmanimApp namespace</step>
+          <step>Check CPU, Memory, Disk, Network metrics present</step>
+          <step>CloudWatch Console: Verify log groups created: /aws/ec2/zmanim-api, /aws/ec2/postgresql, /aws/ec2/redis</step>
+          <step>Verify log streams present with recent entries</step>
+          <step>Test log ingestion: SSH and echo test message, verify in CloudWatch</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.7" level="integration">
+        <title>API Health Check</title>
+        <method>HTTP Request + SSH</method>
+        <verification>Go API responds to health check endpoint</verification>
+        <steps>
+          <step>Wait for all services to start (systemctl is-active postgresql redis zmanim-api)</step>
+          <step>SSH: curl http://localhost:8080/health</step>
+          <step>Verify 200 OK response</step>
+          <step>Verify response includes database connectivity check</step>
+          <step>Verify response includes Redis connectivity check</step>
+          <step>External: curl http://$ELASTIC_IP:8080/health (if security group allows)</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.8" level="integration">
+        <title>AMI Upgrade Simulation (Data Persistence)</title>
+        <method>AWS CLI + SSH</method>
+        <verification>Data volume survives instance termination and reattachment</verification>
+        <steps>
+          <step>SSH: Create test data in PostgreSQL: psql -c "CREATE TABLE test_persistence (id serial, value text);"</step>
+          <step>SSH: Insert test row: psql -c "INSERT INTO test_persistence (value) VALUES ('before-upgrade');"</step>
+          <step>SSH: Create test file on data volume: echo "test" > /data/test.txt</step>
+          <step>Note data volume ID: aws ec2 describe-volumes --filters Name=attachment.instance-id,Values=$INSTANCE_ID Name=tag:Type,Values=data</step>
+          <step>Stop instance: aws ec2 stop-instances --instance-ids $INSTANCE_ID</step>
+          <step>Detach data volume: aws ec2 detach-volume --volume-id $DATA_VOLUME_ID</step>
+          <step>Terminate instance: aws ec2 terminate-instances --instance-ids $INSTANCE_ID</step>
+          <step>Verify root volume deleted (deleteOnTermination=true)</step>
+          <step>Verify data volume still exists (deleteOnTermination=false)</step>
+          <step>Launch new instance from same or updated AMI</step>
+          <step>Attach data volume to new instance: aws ec2 attach-volume --volume-id $DATA_VOLUME_ID --instance-id $NEW_INSTANCE_ID --device /dev/sdf</step>
+          <step>Wait for boot, SSH to new instance</step>
+          <step>Verify /data mounted with existing data: cat /data/test.txt</step>
+          <step>Verify PostgreSQL data persisted: psql -c "SELECT * FROM test_persistence;"</step>
+          <step>Verify row contains 'before-upgrade'</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.9" level="security">
+        <title>Secrets Management Verification</title>
+        <method>SSH + Code Review</method>
+        <verification>No secrets in user data, AMI, or logs</verification>
+        <steps>
+          <step>Code review: Verify user data script uses aws ssm get-parameter --with-decryption</step>
+          <step>Code review: Verify no hardcoded credentials in CDK code</step>
+          <step>SSH: Check user data log does not contain secret values: sudo cat /var/log/cloud-init-output.log | grep -i password</step>
+          <step>SSH: Verify config files have restricted permissions: ls -la /opt/zmanim/config.env /etc/restic/env</step>
+          <step>SSH: Verify config files owned by service users, not world-readable</step>
+          <step>AWS Console: Verify SSM parameters are SecureString type with KMS encryption</step>
+        </steps>
+      </testCase>
+
+      <testCase id="TC-7.4.10" level="cost">
+        <title>Cost Verification</title>
+        <method>AWS Cost Explorer</method>
+        <verification>EC2 + EBS costs within budget (~$33/month)</verification>
+        <steps>
+          <step>Wait 24 hours for cost data to appear</step>
+          <step>AWS Cost Explorer: Filter by service EC2</step>
+          <step>Verify m7g.medium instance cost ~$30/month (eu-west-1 pricing)</step>
+          <step>Filter by service EBS: Verify root volume ~$1/month, data volume ~$2/month</step>
+          <step>Verify Elastic IP cost $0/month (attached to running instance)</step>
+          <step>Verify no NAT Gateway charges ($0/month)</step>
+          <step>Total projected monthly cost ~$33/month</step>
+        </steps>
+      </testCase>
+    </testIdeas>
+  </tests>
+
+  <technicalNotes>
+    <architecture>
+      <note title="Two-Volume Strategy">
+        <rationale>Separating root (OS/binaries) from data (PostgreSQL/Redis) enables immutable infrastructure. On AMI upgrade: terminate instance (destroys root), launch new instance from updated AMI, reattach same data volume. Zero data loss, minimal downtime (~2-3 minutes).</rationale>
+        <diagram>
+          EC2 Instance
+          ├── Root EBS (10GB gp3)
+          │   ├── / (from AMI)
+          │   ├── /opt/zmanim/zmanim-api (Go binary)
+          │   ├── /etc/systemd/system/*.service
+          │   └── DISPOSABLE (deleteOnTermination=true)
+          └── Data EBS (20GB gp3)
+              ├── /data (mounted at boot)
+              ├── /data/postgres (PostgreSQL PGDATA)
+              ├── /data/redis (Redis RDB/AOF)
+              └── PERSISTENT (deleteOnTermination=false)
+        </diagram>
+      </note>
+
+      <note title="Graviton3 ARM64 Benefits">
+        <performance>20% better price/performance vs x86 (m6i.medium)</performance>
+        <cost>~$30/month vs ~$36/month for equivalent x86 instance</cost>
+        <compatibility>Requires ARM64 AMI (Packer builds for arm64), Go binary built with GOARCH=arm64</compatibility>
+      </note>
+
+      <note title="Co-located Services">
+        <latency>API to PostgreSQL: ~1ms (Unix socket), API to Redis: ~1ms (localhost TCP)</latency>
+        <vs-managed>RDS: +10-20ms network latency, ElastiCache: +10-20ms network latency</vs-managed>
+        <tradeoff>No HA/auto-scaling, but zero cold start and minimal latency for low-traffic workload</tradeoff>
+      </note>
+    </architecture>
+
+    <implementation>
+      <note title="User Data Script Flow">
+        <step1>Check if /data already mounted (for restart scenarios)</step1>
+        <step2>If not mounted: format /dev/nvme1n1 as XFS (only if unformatted), mount at /data, add to /etc/fstab</step2>
+        <step3>Create data directories: mkdir -p /data/postgres /data/redis, set ownership</step3>
+        <step4>Pull secrets from SSM: aws ssm get-parameter --name /zmanim/prod/clerk-secret-key --with-decryption</step4>
+        <step5>Generate config files: envsubst template to /opt/zmanim/config.env, generate /etc/restic/env</step5>
+        <step6>Start services: systemctl start postgresql redis zmanim-api amazon-cloudwatch-agent</step6>
+        <note>User data runs as root, one-time at first boot. Use cloud-init directives for idempotency.</note>
+      </note>
+
+      <note title="IAM Policy Scoping">
+        <s3>Resource-level restrictions: arn:aws:s3:::zmanim-backups-prod/*, arn:aws:s3:::zmanim-releases-prod/*</s3>
+        <ssm>Path prefix restriction: arn:aws:ssm:eu-west-1:*:parameter/zmanim/prod/*</ssm>
+        <ses>Account-level: ses:SendEmail (cannot scope further for verified identities)</ses>
+        <cloudwatch>Account-level: cloudwatch:PutMetricData, logs:* (standard for CloudWatch Agent)</cloudwatch>
+        <principle>Least privilege: only required actions, scoped to specific resources where possible</principle>
+      </note>
+
+      <note title="CloudWatch Agent Configuration">
+        <metrics>
+          <namespace>ZmanimApp</namespace>
+          <collected>CPU (utilization, idle), Memory (used, available, swap), Disk (used, free, inodes), Network (bytes in/out, packets)</collected>
+          <interval>60 seconds</interval>
+        </metrics>
+        <logs>
+          <logGroup>/aws/ec2/zmanim-api</logGroup>
+          <logGroup>/aws/ec2/postgresql</logGroup>
+          <logGroup>/aws/ec2/redis</logGroup>
+          <retention>7 days (configurable)</retention>
+          <format>JSON for structured logging (Go slog), text for PostgreSQL/Redis</format>
+        </logs>
+        <configLocation>/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json</configLocation>
+      </note>
+
+      <note title="Device Naming for ARM64">
+        <nvme>EBS volumes appear as NVMe devices on Nitro instances (including Graviton3)</nvme>
+        <mapping>/dev/sdf (CDK attachment) → /dev/nvme1n1 (actual device in OS)</mapping>
+        <detection>Use lsblk or nvme list to identify data volume by size (20GB) if needed</detection>
+        <alternative>Use volume labels or partition UUIDs in /etc/fstab for robustness</alternative>
+      </note>
+    </implementation>
+
+    <deployment>
+      <note title="Deployment Path 1: AMI Update">
+        <when>PostgreSQL/Redis version upgrade, OS patches, systemd config changes</when>
+        <process>
+          1. Build new AMI with Packer (Story 7.2)
+          2. Update SSM parameter /zmanim/packer/ami-id with new AMI ID
+          3. Stop EC2 instance (systemctl stop all services first for clean shutdown)
+          4. Detach data volume: aws ec2 detach-volume --volume-id $DATA_VOLUME_ID
+          5. Terminate old instance (root volume deleted automatically)
+          6. Update ComputeStack CDK code to reference new AMI (or use SSM parameter dynamically)
+          7. Deploy ComputeStack: cdk deploy ComputeStack
+          8. New instance launches from new AMI
+          9. Attach data volume: aws ec2 attach-volume --volume-id $DATA_VOLUME_ID --instance-id $NEW_INSTANCE_ID --device /dev/sdf
+          10. Associate Elastic IP: aws ec2 associate-address --instance-id $NEW_INSTANCE_ID --allocation-id $EIP_ALLOCATION_ID
+          11. Instance boots, user data mounts /data, starts services
+        </process>
+        <downtime>~2-3 minutes (instance launch + boot + service start)</downtime>
+        <dataLoss>Zero (data volume reattached with all existing data)</dataLoss>
+      </note>
+
+      <note title="Deployment Path 2: API Binary Update">
+        <when>Go API code changes only, no infrastructure changes</when>
+        <process>
+          1. Build Go binary: GOOS=linux GOARCH=arm64 go build -o zmanim-api ./cmd/api
+          2. Upload to S3: aws s3 cp zmanim-api s3://zmanim-releases-prod/zmanim-api-v1.2.3
+          3. Update latest.txt: echo "v1.2.3" | aws s3 cp - s3://zmanim-releases-prod/latest.txt
+          4. Restart API via SSM: aws ssm send-command --instance-ids $INSTANCE_ID --document-name "AWS-RunShellScript" --parameters 'commands=["systemctl restart zmanim-api"]'
+          5. systemd ExecStartPre runs /opt/zmanim/download-latest.sh (downloads new binary from S3)
+          6. systemd starts zmanim-api with new binary
+        </process>
+        <downtime>~5-10 seconds (service restart)</downtime>
+        <amiChange>None (AMI unchanged)</amiChange>
+      </note>
+
+      <note title="Rollback Procedure">
+        <scenario1-bad-ami>
+          If new AMI has issues: Terminate new instance, launch from previous working AMI ID, reattach data volume and EIP
+        </scenario1-bad-ami>
+        <scenario2-bad-binary>
+          If new API binary has issues: Revert latest.txt to previous version, restart zmanim-api service (downloads previous binary)
+        </scenario2-bad-binary>
+        <scenario3-data-corruption>
+          If database corrupted: Stop services, restore from Restic backup (Story 7.5), restart services
+        </scenario3-data-corruption>
+      </note>
+    </deployment>
+
+    <monitoring>
+      <note title="Health Check Strategy">
+        <endpoint>GET /health (Go API)</endpoint>
+        <checks>
+          - Database connectivity: PostgreSQL SELECT 1
+          - Cache connectivity: Redis PING
+          - Disk space: /data usage less than 80%
+          - Memory: Available memory greater than 512MB
+        </checks>
+        <response>200 OK with JSON: {"status": "healthy", "checks": {...}}</response>
+        <frequency>Route 53 health check every 30 seconds (Story 7.8)</frequency>
+      </note>
+
+      <note title="CloudWatch Alarms">
+        <alarm name="EC2-CPU-High" metric="CPUUtilization" threshold="80%" period="5 minutes" action="SNS notification"/>
+        <alarm name="EC2-Disk-High" metric="disk_used_percent" threshold="80%" period="5 minutes" action="SNS notification"/>
+        <alarm name="EC2-Memory-High" metric="mem_used_percent" threshold="80%" period="5 minutes" action="SNS notification"/>
+        <alarm name="EC2-StatusCheckFailed" metric="StatusCheckFailed" threshold="1" period="2 minutes" action="SNS notification + auto-recovery"/>
+      </note>
+    </monitoring>
+
+    <security>
+      <note title="Secrets Rotation">
+        <clerk>Rotate Clerk secret key in Clerk Dashboard, update SSM parameter /zmanim/prod/clerk-secret-key, restart zmanim-api</clerk>
+        <postgres>Rotate PostgreSQL password: psql -c "ALTER USER postgres PASSWORD 'new-password';", update SSM parameter, update /opt/zmanim/config.env, restart zmanim-api</postgres>
+        <restic>Rotate Restic password: Not recommended (requires re-encrypting entire backup repository). If necessary, initialize new Restic repository with new password.</restic>
+      </note>
+
+      <note title="SSH Access">
+        <keyPair>Generate EC2 key pair, store private key securely (not in git)</keyPair>
+        <access>SSH allowed only from admin IP whitelist (security group ingress rule port 22)</access>
+        <alternative>Use AWS Systems Manager Session Manager for SSH without opening port 22 (requires SSM agent, already in Amazon Linux 2023)</alternative>
+      </note>
+
+      <note title="Security Group Best Practices">
+        <cloudfront>Use AWS-managed CloudFront prefix list for port 443 ingress (automatically updated as CloudFront IPs change)</cloudfront>
+        <ssh>Restrict port 22 to specific admin CIDR (e.g., VPN IP range, not 0.0.0.0/0)</ssh>
+        <egress>Allow all egress (required for S3 Gateway Endpoint, SSM Parameter Store, SES)</egress>
+      </note>
+    </security>
+
+    <troubleshooting>
+      <issue title="Instance fails to launch">
+        <check>AMI ID exists and is available in eu-west-1</check>
+        <check>Subnet has available IP addresses</check>
+        <check>IAM instance profile exists and role has ec2.amazonaws.com trust policy</check>
+        <check>Security group allows outbound traffic for user data script execution</check>
+        <logs>CloudWatch Logs: /var/log/cloud-init-output.log</logs>
+      </issue>
+
+      <issue title="Data volume not mounting">
+        <check>Volume attached to instance: aws ec2 describe-volumes --volume-ids $VOLUME_ID</check>
+        <check>Device name correct: /dev/sdf (CDK) → /dev/nvme1n1 (OS on Nitro instances)</check>
+        <check>Volume formatted: lsblk -f /dev/nvme1n1 (should show XFS filesystem)</check>
+        <check>Mount point exists: ls -la /data</check>
+        <check>fstab entry correct: grep /data /etc/fstab</check>
+        <logs>dmesg | grep nvme, /var/log/cloud-init-output.log</logs>
+      </issue>
+
+      <issue title="Services not starting">
+        <check>User data script completed: tail -n 50 /var/log/cloud-init-output.log</check>
+        <check>Config files generated: ls -la /opt/zmanim/config.env /etc/restic/env</check>
+        <check>Data directories exist with correct ownership: ls -la /data/postgres /data/redis</check>
+        <check>SSM parameters retrieved: aws ssm get-parameter --name /zmanim/prod/postgres-password (from instance)</check>
+        <check>systemd status: systemctl status postgresql redis zmanim-api</check>
+        <logs>journalctl -u postgresql -u redis -u zmanim-api --since "10 minutes ago"</logs>
+      </issue>
+
+      <issue title="CloudWatch metrics/logs not appearing">
+        <check>CloudWatch Agent running: systemctl status amazon-cloudwatch-agent</check>
+        <check>Agent config valid: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a query</check>
+        <check>IAM role has cloudwatch:PutMetricData and logs:* permissions</check>
+        <check>Log groups created: aws logs describe-log-groups --log-group-name-prefix /aws/ec2/</check>
+        <logs>/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log</logs>
+      </issue>
+
+      <issue title="Cannot SSH to instance">
+        <check>Elastic IP associated: aws ec2 describe-addresses --allocation-ids $EIP_ALLOCATION_ID</check>
+        <check>Security group allows port 22 from your IP: aws ec2 describe-security-groups --group-ids $SG_ID</check>
+        <check>Key pair matches: ssh -i /path/to/key.pem ec2-user@$ELASTIC_IP</check>
+        <check>Instance status checks passing: aws ec2 describe-instance-status --instance-ids $INSTANCE_ID</check>
+        <alternative>Use Session Manager: aws ssm start-session --target $INSTANCE_ID</alternative>
+      </issue>
+    </troubleshooting>
+  </technicalNotes>
+
+  <references>
+    <internal>
+      <ref>docs/sprint-artifacts/epic-7-aws-migration.md (Epic overview)</ref>
+      <ref>docs/sprint-artifacts/tech-spec-epic-7.md (Technical specification)</ref>
+      <ref>docs/sprint-artifacts/stories/7-4-ec2-instance-ebs-storage.md (Story definition)</ref>
+      <ref>docs/coding-standards.md Section: Security - Secrets Management (ZERO TOLERANCE for hardcoded secrets)</ref>
+    </internal>
+
+    <external>
+      <ref>AWS EC2 User Guide: https://docs.aws.amazon.com/ec2/</ref>
+      <ref>AWS EBS Documentation: https://docs.aws.amazon.com/ebs/</ref>
+      <ref>AWS Graviton3 Processors: https://aws.amazon.com/ec2/graviton/</ref>
+      <ref>AWS CDK EC2 Module: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ec2-readme.html</ref>
+      <ref>AWS SSM Parameter Store: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html</ref>
+      <ref>CloudWatch Agent Configuration: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html</ref>
+      <ref>Amazon Linux 2023 User Guide: https://docs.aws.amazon.com/linux/al2023/</ref>
+      <ref>NVMe on Nitro Instances: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvme-ebs-volumes.html</ref>
+    </external>
+  </references>
+</storyContext>

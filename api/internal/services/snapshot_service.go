@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 // SnapshotService handles publisher snapshot version control

@@ -122,9 +122,9 @@ No context file provided for this story. Proceeded with story file and technical
 claude-sonnet-4-5 (Code Mode)
 
 ### Debug Log References
-- Go build successful: `cd zmanim-lab/api && go build ./cmd/api` (exit code 0)
-- Go test run: `cd zmanim-lab/api && go test ./... -v` (no test files)
-- Frontend build successful: `cd zmanim-lab/web && npm run build` (exit code 0)
+- Go build successful: `cd zmanim/api && go build ./cmd/api` (exit code 0)
+- Go test run: `cd zmanim/api && go test ./... -v` (no test files)
+- Frontend build successful: `cd zmanim/web && npm run build` (exit code 0)
 - Fixed duplicate method declarations in handlers.go during validation
 
 ### Completion Notes List

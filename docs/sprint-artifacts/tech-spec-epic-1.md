@@ -205,7 +205,7 @@ CREATE INDEX idx_cities_search ON cities(name, country, region);
 
 ### APIs and Interfaces
 
-**Base URL:** `https://api.zmanim-lab.com` (production) / `http://localhost:8080` (development)
+**Base URL:** `https://api.zmanim.com` (production) / `http://localhost:8080` (development)
 
 **Response Format:**
 ```json

@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/algorithm"
-	"github.com/jcom-dev/zmanim-lab/internal/astro"
-	"github.com/jcom-dev/zmanim-lab/internal/calendar"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
-	"github.com/jcom-dev/zmanim-lab/internal/models"
+	"github.com/jcom-dev/zmanim/internal/algorithm"
+	"github.com/jcom-dev/zmanim/internal/astro"
+	"github.com/jcom-dev/zmanim/internal/calendar"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/models"
 )
 
 // ZmanimRequest represents a request for zmanim calculations

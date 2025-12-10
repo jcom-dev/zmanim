@@ -12,9 +12,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jcom-dev/zmanim-lab/internal/ai"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/ai"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/middleware"
 )
 
 // GenerateFormulaRequest represents a formula generation request

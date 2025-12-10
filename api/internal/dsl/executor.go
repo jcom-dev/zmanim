@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/astro"
+	"github.com/jcom-dev/zmanim/internal/astro"
 )
 
 // ExecutionContext provides all the data needed to execute a DSL formula

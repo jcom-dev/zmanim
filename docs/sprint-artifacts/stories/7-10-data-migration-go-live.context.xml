@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<context>
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.10</storyId>
+    <title>Data Migration &amp; Go-Live</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-10-data-migration-go-live.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <userStory>
+      <asA>developer</asA>
+      <iWant>to migrate production data from Xata to AWS PostgreSQL</iWant>
+      <soThat>the new infrastructure has all existing data with zero loss</soThat>
+    </userStory>
+
+    <tasks>
+      <task id="1" acceptanceCriteria="AC1,AC2">
+        <title>Migration Script</title>
+        <subtasks>
+          <subtask id="1.1">Create migration script /scripts/migrate-to-aws.sh</subtask>
+          <subtask id="1.2">Configure Xata connection string</subtask>
+          <subtask id="1.3">Run pg_dump with custom format (-Fc)</subtask>
+          <subtask id="1.4">Transfer dump file to AWS EC2</subtask>
+          <subtask id="1.5">Run pg_restore on AWS PostgreSQL</subtask>
+          <subtask id="1.6">Handle extensions (PostGIS, pg_cron)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="2" acceptanceCriteria="AC3">
+        <title>Data Integrity Verification</title>
+        <subtasks>
+          <subtask id="2.1">Create verification script /scripts/verify-migration.sh</subtask>
+          <subtask id="2.2">Count rows in all tables (source vs target)</subtask>
+          <subtask id="2.3">Compare checksums for critical tables</subtask>
+          <subtask id="2.4">Verify PostGIS geometry data</subtask>
+          <subtask id="2.5">Generate verification report</subtask>
+        </subtasks>
+      </task>
+
+      <task id="3" acceptanceCriteria="AC4">
+        <title>API Testing</title>
+        <subtasks>
+          <subtask id="3.1">Run E2E test suite against AWS backend</subtask>
+          <subtask id="3.2">Test zmanim calculations match</subtask>
+          <subtask id="3.3">Test publisher management flows</subtask>
+          <subtask id="3.4">Test admin operations</subtask>
+          <subtask id="3.5">Test authentication (Clerk JWT)</subtask>
+          <subtask id="3.6">Compare response times</subtask>
+        </subtasks>
+      </task>
+
+      <task id="4" acceptanceCriteria="AC5">
+        <title>DNS Cutover Plan</title>
+        <subtasks>
+          <subtask id="4.1">Document current DNS configuration</subtask>
+          <subtask id="4.2">Create step-by-step cutover procedure</subtask>
+          <subtask id="4.3">Calculate DNS propagation time</subtask>
+          <subtask id="4.4">Identify low-traffic window</subtask>
+          <subtask id="4.5">Prepare monitoring dashboard</subtask>
+        </subtasks>
+      </task>
+
+      <task id="5" acceptanceCriteria="AC6">
+        <title>Rollback Plan</title>
+        <subtasks>
+          <subtask id="5.1">Document rollback triggers (what failures trigger rollback)</subtask>
+          <subtask id="5.2">Create rollback script (revert DNS)</subtask>
+          <subtask id="5.3">Estimate rollback time</subtask>
+          <subtask id="5.4">Test rollback procedure in staging</subtask>
+          <subtask id="5.5">Document data sync-back if needed</subtask>
+        </subtasks>
+      </task>
+
+      <task id="6" acceptanceCriteria="AC7">
+        <title>Go-Live Execution</title>
+        <subtasks>
+          <subtask id="6.1">Announce maintenance window</subtask>
+          <subtask id="6.2">Enable Xata read-only mode (if possible)</subtask>
+          <subtask id="6.3">Run final pg_dump from Xata</subtask>
+          <subtask id="6.4">Import to AWS PostgreSQL</subtask>
+          <subtask id="6.5">Verify data integrity</subtask>
+          <subtask id="6.6">Run smoke tests</subtask>
+          <subtask id="6.7">Update DNS to CloudFront</subtask>
+          <subtask id="6.8">Monitor for 30 minutes</subtask>
+          <subtask id="6.9">Confirm go-live success or initiate rollback</subtask>
+        </subtasks>
+      </task>
+
+      <task id="7" acceptanceCriteria="AC1,AC2,AC3,AC4,AC5,AC6,AC7">
+        <title>Post-Migration</title>
+        <subtasks>
+          <subtask id="7.1">Monitor CloudWatch metrics for 24 hours</subtask>
+          <subtask id="7.2">Verify backup runs successfully</subtask>
+          <subtask id="7.3">Update documentation with new endpoints</subtask>
+          <subtask id="7.4">Decommission Xata database (after 7 days)</subtask>
+          <subtask id="7.5">Update .env.example files</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">
+      <description>pg_dump exports data from Xata PostgreSQL</description>
+      <verification>Verify dump file created with all tables, indices, and extensions</verification>
+    </criterion>
+    <criterion id="AC2">
+      <description>pg_restore imports to AWS PostgreSQL</description>
+      <verification>Verify restore completes without errors, PostGIS extension functional</verification>
+    </criterion>
+    <criterion id="AC3">
+      <description>Data integrity verified (row counts match)</description>
+      <verification>Verification script reports 100% match for all critical tables</verification>
+    </criterion>
+    <criterion id="AC4">
+      <description>All API endpoints tested against new DB</description>
+      <verification>E2E test suite passes with 100% success rate</verification>
+    </criterion>
+    <criterion id="AC5">
+      <description>DNS cutover plan documented</description>
+      <verification>Step-by-step cutover procedure exists with timing, rollback triggers</verification>
+    </criterion>
+    <criterion id="AC6">
+      <description>Rollback plan documented</description>
+      <verification>Rollback script tested in staging, triggers documented, timing estimated</verification>
+    </criterion>
+    <criterion id="AC7">
+      <description>Go-live executed with zero data loss</description>
+      <verification>Production running on AWS with 100% data match, no errors for 24 hours</verification>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <documentation>
+      <doc type="epic" path="docs/sprint-artifacts/epic-7-aws-migration.md">AWS Migration architecture overview</doc>
+      <doc type="tech-spec" path="docs/sprint-artifacts/tech-spec-epic-7.md">Technical specification with migration strategy</doc>
+      <doc type="standards" path="docs/coding-standards.md">Coding standards and compliance requirements</doc>
+    </documentation>
+
+    <code>
+      <existing>
+        <file path="api/internal/db/queries/*.sql">SQLc query definitions for data verification</file>
+        <file path="tests/e2e/*">Playwright E2E test suite</file>
+        <file path="api/cmd/api/main.go">API entry point with database connection</file>
+        <file path="web/lib/api-client.ts">Unified API client</file>
+      </existing>
+
+      <toCreate>
+        <file path="scripts/migrate-to-aws.sh">
+          Migration script using pg_dump/pg_restore
+          - Connect to Xata PostgreSQL
+          - Export with custom format (-Fc --no-owner --no-acl)
+          - Transfer to AWS EC2
+          - Restore to AWS PostgreSQL with --clean --if-exists
+          - Handle PostGIS and pg_cron extensions
+        </file>
+        <file path="scripts/verify-migration.sh">
+          Data integrity verification script
+          - Compare row counts for all tables
+          - Verify checksums for critical tables (publishers, master_zmanim_registry, cities)
+          - Validate PostGIS geometry data
+          - Generate verification report
+        </file>
+        <file path="scripts/cutover-plan.md">
+          DNS cutover procedure
+          - Current DNS configuration snapshot
+          - Step-by-step cutover sequence
+          - DNS propagation timeline
+          - Monitoring checklist
+        </file>
+        <file path="scripts/rollback-plan.md">
+          Rollback procedure
+          - Rollback triggers (data mismatch, test failures, 5xx errors)
+          - Revert DNS script
+          - Re-enable Xata writes
+          - Rollback time estimation (&lt;15 minutes)
+        </file>
+        <file path="scripts/smoke-tests.sh">
+          Post-migration smoke tests
+          - Test /health endpoint
+          - Test zmanim calculation
+          - Test publisher authentication
+          - Verify cache functionality
+        </file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <infrastructure>
+        <dependency story="7.4">EC2 instance running and accessible</dependency>
+        <dependency story="7.3">VPC and networking configured</dependency>
+        <dependency story="7.9">SSM Parameter Store with PostgreSQL password</dependency>
+        <dependency story="7.6">CloudFront distribution ready</dependency>
+        <dependency story="7.8">Route 53 DNS configuration ready</dependency>
+      </infrastructure>
+
+      <external>
+        <service name="Xata PostgreSQL">Source database for migration</service>
+        <service name="AWS EC2 PostgreSQL">Target database (port 5432)</service>
+        <service name="pg_dump">Version 16+ for PostgreSQL export</service>
+        <service name="pg_restore">Version 16+ for PostgreSQL import</service>
+      </external>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint>
+        <type>Data Volume</type>
+        <requirement>Must use persistent EBS data volume at /data for PostgreSQL</requirement>
+        <rationale>Data survives EC2 instance replacement during AMI upgrades</rationale>
+      </constraint>
+      <constraint>
+        <type>Database Schema</type>
+        <requirement>Zero schema changes during migration</requirement>
+        <rationale>Preserves existing application compatibility, reduces migration risk</rationale>
+      </constraint>
+      <constraint>
+        <type>PostgreSQL Extensions</type>
+        <requirement>Must migrate PostGIS 3.4 and pg_cron extensions</requirement>
+        <rationale>Required for geographic queries and scheduled tasks</rationale>
+      </constraint>
+      <constraint>
+        <type>Downtime Window</type>
+        <requirement>Maximum 90 minutes maintenance window</requirement>
+        <rationale>Based on migration timeline T+0 to T+90 minutes</rationale>
+      </constraint>
+    </architectural>
+
+    <security>
+      <constraint>
+        <type>Connection Strings</type>
+        <requirement>NEVER commit Xata or AWS connection strings with credentials</requirement>
+        <rationale>Secrets management policy - zero tolerance for exposed credentials</rationale>
+      </constraint>
+      <constraint>
+        <type>AWS Credentials</type>
+        <requirement>Pull PostgreSQL password from SSM Parameter Store at runtime</requirement>
+        <rationale>Secrets stored in /zmanim/prod/postgres-password SecureString</rationale>
+      </constraint>
+      <constraint>
+        <type>SSH Access</type>
+        <requirement>EC2 SSH access restricted to admin IP whitelist only</requirement>
+        <rationale>Security group ingress rule on port 22</rationale>
+      </constraint>
+    </security>
+
+    <cost>
+      <constraint>
+        <type>Single EC2 Instance</type>
+        <requirement>m7g.medium in eu-west-1, no HA for initial migration</requirement>
+        <rationale>Cost optimization (~$30/month), acceptable 99.5% availability target</rationale>
+      </constraint>
+      <constraint>
+        <type>No NAT Gateway</type>
+        <requirement>All dependencies pre-baked in Packer AMI</requirement>
+        <rationale>Eliminates $32/month NAT Gateway cost</rationale>
+      </constraint>
+    </cost>
+  </constraints>
+
+  <interfaces>
+    <inputs>
+      <input>
+        <name>Xata Connection String</name>
+        <type>Environment Variable</type>
+        <format>postgresql://user:password@host.xata.sh:5432/zmanim</format>
+        <source>Xata dashboard credentials</source>
+      </input>
+      <input>
+        <name>AWS PostgreSQL Password</name>
+        <type>SSM Parameter</type>
+        <format>/zmanim/prod/postgres-password (SecureString)</format>
+        <source>SSM Parameter Store</source>
+      </input>
+      <input>
+        <name>EC2 Instance Details</name>
+        <type>CloudFormation/CDK Output</type>
+        <format>Elastic IP, instance ID, data volume ID</format>
+        <source>Story 7.4 infrastructure deployment</source>
+      </input>
+    </inputs>
+
+    <outputs>
+      <output>
+        <name>Migration Dump File</name>
+        <type>PostgreSQL Custom Format</type>
+        <location>/tmp/zmanim.dump on EC2</location>
+        <format>pg_dump -Fc format (compressed, selective restore)</format>
+      </output>
+      <output>
+        <name>Verification Report</name>
+        <type>Text Report</type>
+        <location>Console output and verification-report.txt</location>
+        <format>Table-by-table row count comparison with ✅/❌ status</format>
+      </output>
+      <output>
+        <name>Updated DNS Records</name>
+        <type>Route 53 A Record</type>
+        <target>zmanim.shtetl.io → CloudFront distribution</target>
+        <effect>All production traffic routed to AWS infrastructure</effect>
+      </output>
+    </outputs>
+
+    <integrations>
+      <integration>
+        <service>CloudWatch</service>
+        <purpose>Post-migration monitoring</purpose>
+        <metrics>EC2 CPU/memory, API Gateway 5xx rate, CloudFront cache hits</metrics>
+        <alarms>CPU &gt; 80%, 5xx &gt; 1%, disk &gt; 80%</alarms>
+      </integration>
+      <integration>
+        <service>Restic Backup</service>
+        <purpose>First backup verification</purpose>
+        <schedule>Runs daily at 3 AM UTC via systemd timer</schedule>
+        <verification>Check S3 bucket for backup snapshots within 24 hours</verification>
+      </integration>
+      <integration>
+        <service>E2E Test Suite</service>
+        <purpose>API endpoint validation</purpose>
+        <configuration>Update BASE_URL to https://api.zmanim.shtetl.io</configuration>
+        <expectation>100% test pass rate against AWS backend</expectation>
+      </integration>
+    </integrations>
+  </interfaces>
+
+  <tests>
+    <testingStandards>
+      <standard>All tests must use parallel execution mode (test.describe.configure)</standard>
+      <standard>E2E tests use shared fixtures (getSharedPublisher)</standard>
+      <standard>Wait for networkidle before assertions</standard>
+      <standard>Test locally before pushing (avoid push-and-wait cycle)</standard>
+    </testingStandards>
+
+    <testLocations>
+      <location path="tests/e2e/*.spec.ts">Full E2E test suite</location>
+      <location path="scripts/verify-migration.sh">Data integrity verification</location>
+      <location path="scripts/smoke-tests.sh">Post-migration smoke tests</location>
+    </testLocations>
+
+    <testIdeas>
+      <idea priority="critical">
+        <name>Migration Dry Run</name>
+        <description>Execute full migration on staging environment 7 days before production</description>
+        <steps>
+          1. Create staging EC2 with identical configuration
+          2. Run migrate-to-aws.sh against staging Xata instance
+          3. Run verify-migration.sh and confirm 100% match
+          4. Run E2E test suite against staging
+          5. Document any issues and refine scripts
+        </steps>
+      </idea>
+      <idea priority="critical">
+        <name>Rollback Validation</name>
+        <description>Test rollback procedure on staging to ensure &lt;15 minute recovery</description>
+        <steps>
+          1. Simulate migration failure (intentional data mismatch)
+          2. Execute rollback script (revert DNS)
+          3. Verify Xata backend responding
+          4. Measure rollback time from trigger to full restoration
+        </steps>
+      </idea>
+      <idea priority="high">
+        <name>PostGIS Geometry Validation</name>
+        <description>Verify geographic data integrity after migration</description>
+        <queries>
+          SELECT COUNT(*) FROM cities WHERE location IS NOT NULL;
+          SELECT ST_AsText(location) FROM cities WHERE id = 293397; -- Jerusalem
+          SELECT COUNT(*) FROM publisher_coverage WHERE geometry IS NOT NULL;
+        </queries>
+      </idea>
+      <idea priority="high">
+        <name>Zmanim Calculation Match</name>
+        <description>Compare zmanim calculations between Xata and AWS backends</description>
+        <testCases>
+          - Calculate zmanim for Jerusalem (city_id 293397) on 2025-01-01
+          - Calculate for New York (city_id 5128581) on 2025-01-01
+          - Verify exact match (down to second) for all zmanim
+          - Test with different publishers and coverage areas
+        </testCases>
+      </idea>
+      <idea priority="medium">
+        <name>Load Test During Migration Window</name>
+        <description>Simulate production load during smoke test phase</description>
+        <tool>k6 or Artillery</tool>
+        <scenario>
+          - 100 concurrent users
+          - Mix of zmanim queries, publisher management, city search
+          - Target response time &lt;200ms for 95th percentile
+          - Zero 5xx errors
+        </scenario>
+      </idea>
+      <idea priority="medium">
+        <name>DNS Propagation Monitoring</name>
+        <description>Track DNS propagation after cutover</description>
+        <monitoring>
+          - Use `dig zmanim.shtetl.io` from multiple locations (US, EU, Israel)
+          - Monitor CloudFront access logs for first requests
+          - Verify TTL respects cutover timing
+          - Check for split-brain scenarios (some users on old, some on new)
+        </monitoring>
+      </idea>
+      <idea priority="low">
+        <name>Redis Cache Warming</name>
+        <description>Optional: Pre-populate Redis cache with common queries</description>
+        <approach>
+          - Extract top 100 zmanim queries from old backend logs
+          - Execute against new backend to warm cache
+          - Measure cache hit rate improvement
+        </approach>
+      </idea>
+    </testIdeas>
+  </tests>
+
+  <migration>
+    <strategy>
+      <name>Big Bang with Safety Net</name>
+      <phases>
+        <phase name="T-7 days">Test migration on staging</phase>
+        <phase name="T-1 day">Announce maintenance window</phase>
+        <phase name="T-0 hour">Start maintenance window</phase>
+        <phase name="T+5 min">Enable Xata read-only (if possible)</phase>
+        <phase name="T+10 min">Run pg_dump</phase>
+        <phase name="T+20 min">Transfer to AWS</phase>
+        <phase name="T+30 min">Run pg_restore</phase>
+        <phase name="T+45 min">Verify data integrity</phase>
+        <phase name="T+60 min">Run smoke tests</phase>
+        <phase name="T+75 min">Update DNS to CloudFront</phase>
+        <phase name="T+90 min">Monitor, confirm success</phase>
+        <phase name="T+7 days">Decommission Xata</phase>
+      </phases>
+    </strategy>
+
+    <dataFlow>
+      <source>
+        <database>Xata PostgreSQL</database>
+        <tables>
+          publishers (~5 rows)
+          master_zmanim_registry (~50 rows)
+          publisher_zmanim (~100 rows)
+          cities (~163,000 rows)
+          publisher_coverage (~10 rows)
+          lookup tables (21 tables, ~500 rows total)
+        </tables>
+        <extensions>PostGIS 3.4, pg_cron</extensions>
+      </source>
+
+      <target>
+        <database>AWS EC2 PostgreSQL 16</database>
+        <location>/data/postgres on 20GB EBS volume</location>
+        <configuration>
+          - PostgreSQL 16 installed in Packer AMI
+          - PostGIS 3.4 extension pre-installed
+          - Data directory on persistent EBS volume
+          - Local socket connection for performance
+        </configuration>
+      </target>
+
+      <verification>
+        <criticalTables>
+          <table name="publishers">Must match exactly (5 rows)</table>
+          <table name="master_zmanim_registry">Must match exactly (50 rows)</table>
+          <table name="publisher_zmanim">Must match exactly (100 rows)</table>
+          <table name="cities">Must match exactly (163,000 rows)</table>
+          <table name="publisher_coverage">Must match exactly (10 rows)</table>
+        </criticalTables>
+        <geometryValidation>
+          Verify PostGIS functions work:
+          SELECT ST_AsText(location) FROM cities LIMIT 1;
+          SELECT ST_Distance(location, ST_MakePoint(35.2137, 31.7683)) FROM cities WHERE id = 293397;
+        </geometryValidation>
+      </verification>
+    </dataFlow>
+
+    <rollbackTriggers>
+      <trigger>Data verification fails (row count mismatch &gt;0)</trigger>
+      <trigger>Smoke tests fail (&gt;10% failure rate)</trigger>
+      <trigger>5xx error rate &gt;5% after DNS switch</trigger>
+      <trigger>API latency &gt;500ms sustained for 5 minutes</trigger>
+      <trigger>Team decision (any reason)</trigger>
+    </rollbackTriggers>
+
+    <rollbackProcedure>
+      <step id="1">Revert DNS to old Vercel/Fly.io endpoints</step>
+      <step id="2">Re-enable Xata writes</step>
+      <step id="3">Verify old backend responding</step>
+      <step id="4">Investigate AWS issues</step>
+      <step id="5">Plan re-migration with fixes</step>
+      <timing>Total rollback time: &lt;15 minutes</timing>
+    </rollbackProcedure>
+  </migration>
+
+  <monitoring>
+    <preGoLive>
+      <check>All E2E tests pass on AWS staging</check>
+      <check>Restic backup verified on AWS</check>
+      <check>Team notified of maintenance window</check>
+      <check>Rollback script tested in staging</check>
+      <check>CloudWatch dashboard ready</check>
+    </preGoLive>
+
+    <duringGoLive>
+      <check>Xata read-only confirmed</check>
+      <check>pg_dump completed successfully</check>
+      <check>pg_restore completed without errors</check>
+      <check>Row counts verified (100% match)</check>
+      <check>Smoke tests passed (0 failures)</check>
+      <check>DNS updated to CloudFront</check>
+      <check>SSL certificate working</check>
+    </duringGoLive>
+
+    <postGoLive>
+      <check duration="30min">All endpoints responding</check>
+      <check duration="30min">Zero 5xx errors</check>
+      <check duration="30min">CloudWatch metrics normal</check>
+      <check duration="24hr">Continuous monitoring</check>
+      <check duration="24hr">Verify backup runs successfully</check>
+      <check duration="7days">Keep Xata running as safety net</check>
+    </postGoLive>
+  </monitoring>
+
+  <references>
+    <epicDoc>docs/sprint-artifacts/epic-7-aws-migration.md#Story-7.10</epicDoc>
+    <techSpec>docs/sprint-artifacts/tech-spec-epic-7.md#Story-7.10</techSpec>
+    <testStrategy>docs/sprint-artifacts/tech-spec-epic-7.md#Test-Strategy-Summary</testStrategy>
+    <backupArchitecture>docs/sprint-artifacts/epic-7-aws-migration.md#Backup-Strategy</backupArchitecture>
+    <deploymentFlow>docs/sprint-artifacts/epic-7-aws-migration.md#Deployment-Strategy</deploymentFlow>
+  </references>
+</context>

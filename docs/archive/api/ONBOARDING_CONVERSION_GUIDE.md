@@ -450,7 +450,7 @@ import (
     "strconv"
     "time"
 
-    "github.com/yourusername/zmanim-lab/api/internal/db/sqlcgen"
+    "github.com/yourusername/zmanim/api/internal/db/sqlcgen"
 )
 ```
 

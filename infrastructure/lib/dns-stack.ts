@@ -67,7 +67,7 @@ export class DnsStack extends cdk.Stack {
       },
       healthCheckTags: [
         { key: 'Name', value: `zmanim-health-${config.environment}` },
-        { key: 'Project', value: 'zmanim-lab' },
+        { key: 'Project', value: 'zmanim' },
       ],
     });
 
@@ -88,7 +88,7 @@ export class DnsStack extends cdk.Stack {
     // - zmanim.shtetl.io → CloudFront distribution domain
     // - _acme-challenge.zmanim.shtetl.io → ACM validation CNAME
 
-    cdk.Tags.of(this).add('Project', 'zmanim-lab');
+    cdk.Tags.of(this).add('Project', 'zmanim');
     cdk.Tags.of(this).add('Environment', config.environment);
     cdk.Tags.of(this).add('ManagedBy', 'cdk');
   }

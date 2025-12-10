@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/dsl"
+	"github.com/jcom-dev/zmanim/internal/dsl"
 )
 
 // DSL API Request/Response Types

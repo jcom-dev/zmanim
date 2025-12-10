@@ -92,14 +92,14 @@ Single epic delivering complete Zmanim Lab MVP - a multi-publisher platform for 
 
 **Technical Notes:**
 - Adapt `.coder/` directory from "shtetl" project configuration
-- Rename workspace from "shtetl" to "zmanim-lab"
+- Rename workspace from "shtetl" to "zmanim"
 - Configure Terraform workspace with:
   - Go 1.21+ installation
   - Node.js 20 LTS
   - npm 10+
   - PostgreSQL client
   - Playwright browsers
-- Update `start-services.sh` for zmanim-lab ports:
+- Update `start-services.sh` for zmanim ports:
   - Web: 3000
   - API: 8080
 - Configure environment variables:

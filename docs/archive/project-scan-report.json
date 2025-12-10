@@ -6,8 +6,8 @@
   },
   "mode": "initial_scan",
   "scan_level": "exhaustive",
-  "project_root": "/home/daniel/repos/zmanim-lab",
-  "output_folder": "/home/daniel/repos/zmanim-lab/docs",
+  "project_root": "/home/daniel/repos/zmanim",
+  "output_folder": "/home/daniel/repos/zmanim/docs",
   "completed_steps": [
     "step_1_validate_workflow",
     "step_2_check_resumability",

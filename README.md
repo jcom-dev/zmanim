@@ -30,7 +30,7 @@ Authentication: Clerk
 ## Project Structure
 
 ```
-zmanim-lab/
+zmanim/
 ├── web/                 # Next.js frontend (Vercel)
 │   ├── app/            # App Router pages
 │   ├── components/     # React components
@@ -62,10 +62,10 @@ Use Coder for a fully configured cloud development environment:
 coder login http://your-coder-instance
 
 # Push template (first time only)
-coder templates push zmanim-lab --directory .coder
+coder templates push zmanim --directory .coder
 
 # Create workspace
-coder create zmanim-lab-dev --template zmanim-lab
+coder create zmanim-dev --template zmanim
 ```
 
 #### Starting/Restarting Services in Coder
@@ -130,8 +130,8 @@ See [.coder/README.md](./.coder/README.md) for detailed tmux usage.
 
 ```bash
 # Clone repository
-git clone https://github.com/jcom-dev/zmanim-lab.git
-cd zmanim-lab
+git clone https://github.com/jcom-dev/zmanim.git
+cd zmanim
 
 # Copy environment template
 cp .env.example api/.env
@@ -173,7 +173,7 @@ See `.env.example` for all required variables.
 | Component | Platform | Directory | URL |
 |-----------|----------|-----------|-----|
 | Frontend | Vercel | `web/` | TBD |
-| Backend | Fly.io | `api/` | https://zmanim-lab.fly.dev |
+| Backend | Fly.io | `api/` | https://zmanim.fly.dev |
 | Database | PostgreSQL | — | — |
 | Auth | Clerk | — | — |
 
@@ -276,7 +276,7 @@ See [docs/](./docs/) for comprehensive documentation:
 ### Business Documentation
 
 For non-technical stakeholders:
-- [What is Zmanim Lab?](./docs/business/01-what-is-zmanim-lab.md) - Vision and purpose
+- [What is Zmanim Lab?](./docs/business/01-what-is-zmanim.md) - Vision and purpose
 - [Features List](./docs/business/02-features-comprehensive-list.md) - Comprehensive feature overview
 - [Technical Overview](./docs/business/03-technical-architecture.md) - High-level architecture
 

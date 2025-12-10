@@ -53,7 +53,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jcom-dev/zmanim-lab/internal/geo"
+	"github.com/jcom-dev/zmanim/internal/geo"
 )
 
 const (

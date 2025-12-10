@@ -15,7 +15,7 @@
 #   - skipped: Optional/conditional workflow that was skipped
 
 generated: "2025-11-25"
-project: "zmanim-lab"
+project: "zmanim"
 project_type: "web-application"
 selected_track: "method"
 field_type: "brownfield"

@@ -28,7 +28,7 @@ test.describe('Publisher Lifecycle - Create, Import, Edit DSL', () => {
     testPublisher = await createTestPublisherEntity({
       name: 'TEST_E2E_Lifecycle_Publisher',
       organization: 'TEST_E2E_Lifecycle_Org',
-      email: 'lifecycle-test@test.zmanim-lab.local',
+      email: 'lifecycle-test@test.zmanim.local',
       status: 'verified',
     });
     console.log(`Created test publisher: ${testPublisher.name} (${testPublisher.id})`);

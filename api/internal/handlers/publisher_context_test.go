@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/middleware"
 )
 
 // mockDB implements a minimal interface for testing

@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
-	"github.com/jcom-dev/zmanim-lab/internal/models"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/models"
 )
 
 // GetPublisherCoverage returns the current publisher's coverage areas

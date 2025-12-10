@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 const (

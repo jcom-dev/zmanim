@@ -1,0 +1,1174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <!-- ================================================================== -->
+  <!-- Story Context: 7-9 SSM Parameter Store Configuration              -->
+  <!-- Generated: 2025-12-10                                              -->
+  <!-- Purpose: Provide AI agents comprehensive context for implementation -->
+  <!-- ================================================================== -->
+
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7-9</storyId>
+    <title>SSM Parameter Store Configuration</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <estimatedPoints>2</estimatedPoints>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-9-ssm-parameter-store-configuration.md</sourceStoryPath>
+    <contextGeneratedBy>Claude Opus 4.5 Agent</contextGeneratedBy>
+  </metadata>
+
+  <!-- ================================================================== -->
+  <!-- STORY DEFINITION                                                   -->
+  <!-- ================================================================== -->
+
+  <story>
+    <asA>developer</asA>
+    <iWant>secrets stored in SSM Parameter Store</iWant>
+    <soThat>sensitive config isn't in code or AMI, and costs $0</soThat>
+
+    <rationale>
+      SSM Parameter Store provides free, secure secrets management for AWS infrastructure.
+      Unlike AWS Secrets Manager ($0.40/secret/month), SSM's Standard tier is completely free
+      for up to 10,000 parameters. For our use case (static secrets, &lt;10 parameters), SSM
+      is sufficient and eliminates monthly costs. SecureString parameters use AWS-managed KMS
+      encryption by default. EC2 instances can retrieve parameters at boot via IAM role without
+      hardcoding credentials.
+    </rationale>
+
+    <businessValue>
+      - Zero cost for secrets management (vs $1.60+/month for Secrets Manager)
+      - Secrets never stored in code, AMI, or version control
+      - Encrypted at rest with KMS (SecureString type)
+      - Fresh secret retrieval at every boot (not baked into AMI)
+      - IAM-based access control (least privilege principle)
+      - Supports manual secret rotation when needed
+    </businessValue>
+
+    <tasks>
+      <task id="1" acceptanceCriteria="1">
+        <description>Create Clerk Secret</description>
+        <subtasks>
+          <subtask id="1.1">Define SSM parameter `/zmanim/prod/clerk-secret-key`</subtask>
+          <subtask id="1.2">Configure as SecureString with KMS encryption</subtask>
+          <subtask id="1.3">Document manual value entry (secret not in code)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="2" acceptanceCriteria="2">
+        <description>Create PostgreSQL Password</description>
+        <subtasks>
+          <subtask id="2.1">Define SSM parameter `/zmanim/prod/postgres-password`</subtask>
+          <subtask id="2.2">Configure as SecureString</subtask>
+          <subtask id="2.3">Generate strong random password</subtask>
+          <subtask id="2.4">Document password requirements</subtask>
+        </subtasks>
+      </task>
+
+      <task id="3" acceptanceCriteria="3">
+        <description>Create Restic Password</description>
+        <subtasks>
+          <subtask id="3.1">Define SSM parameter `/zmanim/prod/restic-password`</subtask>
+          <subtask id="3.2">Configure as SecureString</subtask>
+          <subtask id="3.3">Generate strong random password</subtask>
+          <subtask id="3.4">Document that this encrypts all backups</subtask>
+        </subtasks>
+      </task>
+
+      <task id="4" acceptanceCriteria="4">
+        <description>Create Config Parameter</description>
+        <subtasks>
+          <subtask id="4.1">Define SSM parameter `/zmanim/prod/config`</subtask>
+          <subtask id="4.2">Configure as String (not encrypted)</subtask>
+          <subtask id="4.3">Store non-sensitive config as JSON</subtask>
+          <subtask id="4.4">Include: database name, Redis host, log level, etc.</subtask>
+        </subtasks>
+      </task>
+
+      <task id="5" acceptanceCriteria="5">
+        <description>IAM Policy for EC2</description>
+        <subtasks>
+          <subtask id="5.1">Add SSM read policy to EC2 IAM role (Story 7.4)</subtask>
+          <subtask id="5.2">Restrict to `/zmanim/prod/*` parameters only</subtask>
+          <subtask id="5.3">Include `ssm:GetParameter` and `ssm:GetParameters`</subtask>
+          <subtask id="5.4">Include `kms:Decrypt` for SecureString access</subtask>
+        </subtasks>
+      </task>
+
+      <task id="6" acceptanceCriteria="6">
+        <description>User Data Script</description>
+        <subtasks>
+          <subtask id="6.1">Update user data script (Story 7.4) to pull parameters</subtask>
+          <subtask id="6.2">Use `aws ssm get-parameter --with-decryption`</subtask>
+          <subtask id="6.3">Export to environment variables</subtask>
+          <subtask id="6.4">Generate `/opt/zmanim/config.env`</subtask>
+          <subtask id="6.5">Generate `/etc/restic/env`</subtask>
+          <subtask id="6.6">Secure file permissions (chmod 600)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="7" acceptanceCriteria="1-6">
+        <description>Testing</description>
+        <subtasks>
+          <subtask id="7.1">Create parameters in staging account</subtask>
+          <subtask id="7.2">Test EC2 can retrieve parameters</subtask>
+          <subtask id="7.3">Verify SecureString decryption works</subtask>
+          <subtask id="7.4">Verify config.env generated correctly</subtask>
+          <subtask id="7.5">Test service startup with SSM-sourced config</subtask>
+          <subtask id="7.6">Document parameter update procedure</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <!-- ================================================================== -->
+  <!-- ACCEPTANCE CRITERIA (AUTHORITATIVE)                                -->
+  <!-- ================================================================== -->
+
+  <acceptanceCriteria>
+    <criterion id="AC1" priority="MUST">
+      <description>SSM SecureString: `/zmanim/prod/clerk-secret-key`</description>
+      <verification>
+        - Parameter exists with type SecureString
+        - KMS encryption enabled (default AWS-managed key)
+        - Value retrievable with --with-decryption flag
+        - Documentation includes manual update procedure
+      </verification>
+    </criterion>
+
+    <criterion id="AC2" priority="MUST">
+      <description>SSM SecureString: `/zmanim/prod/postgres-password`</description>
+      <verification>
+        - Parameter exists with type SecureString
+        - Contains strong random password (min 32 chars)
+        - Password used successfully for PostgreSQL authentication
+        - Documentation includes password requirements
+      </verification>
+    </criterion>
+
+    <criterion id="AC3" priority="MUST">
+      <description>SSM SecureString: `/zmanim/prod/restic-password`</description>
+      <verification>
+        - Parameter exists with type SecureString
+        - Contains strong random password (min 32 chars)
+        - Password used successfully for Restic repository encryption
+        - Documentation warns that this encrypts ALL backups
+      </verification>
+    </criterion>
+
+    <criterion id="AC4" priority="MUST">
+      <description>SSM String: `/zmanim/prod/config` (non-sensitive)</description>
+      <verification>
+        - Parameter exists with type String (not SecureString)
+        - Contains valid JSON with all required config keys
+        - Config includes: database_name, redis_host, log_level, api_port, allowed_origins
+        - JSON validated and parseable
+      </verification>
+    </criterion>
+
+    <criterion id="AC5" priority="MUST">
+      <description>EC2 pulls parameters at boot via IAM role</description>
+      <verification>
+        - IAM role attached to EC2 instance
+        - Policy grants ssm:GetParameter on /zmanim/prod/* only
+        - Policy grants kms:Decrypt with SSM service condition
+        - EC2 can retrieve all parameters without access keys
+        - IAM policy follows least privilege (no broader access)
+      </verification>
+    </criterion>
+
+    <criterion id="AC6" priority="MUST">
+      <description>User data script exports to environment</description>
+      <verification>
+        - User data script pulls all 4 parameters at boot
+        - /opt/zmanim/config.env generated with all secrets
+        - /etc/restic/env generated with Restic config
+        - Both files have 600 permissions (owner read/write only)
+        - Environment variables available to systemd services
+        - Services start successfully with SSM-sourced config
+      </verification>
+    </criterion>
+  </acceptanceCriteria>
+
+  <!-- ================================================================== -->
+  <!-- ARTIFACTS                                                          -->
+  <!-- ================================================================== -->
+
+  <artifacts>
+    <documentation>
+      <doc path="docs/sprint-artifacts/epic-7-aws-migration.md" section="Story 7.9">
+        Epic overview with SSM Parameter Store rationale and cost comparison
+      </doc>
+      <doc path="docs/sprint-artifacts/tech-spec-epic-7.md" section="Story 7.9, Security">
+        Technical specification with SSM parameter structure and IAM policies
+      </doc>
+      <doc path="docs/coding-standards.md" section="Security - Secrets Management">
+        Zero-tolerance policy for secrets in code, environment variable patterns
+      </doc>
+    </documentation>
+
+    <code>
+      <existing>
+        <!-- Infrastructure (will be created in Story 7.4) -->
+        <file path="infrastructure/cdk/lib/compute-stack.ts" purpose="EC2 instance and IAM role definition">
+          Update to add SSM parameter access policy to EC2 IAM role
+        </file>
+
+        <file path="infrastructure/packer/user-data.sh" purpose="EC2 boot script">
+          Update to pull SSM parameters and generate config files
+        </file>
+      </existing>
+
+      <toCreate>
+        <!-- CDK Resources -->
+        <file path="infrastructure/cdk/lib/secrets-stack.ts" purpose="SSM parameters definition">
+          Create SSM parameters with CDK (placeholder values)
+          Real values set manually after deployment
+        </file>
+
+        <!-- User Data Scripts -->
+        <file path="infrastructure/packer/scripts/setup-config.sh" purpose="Config generation from SSM">
+          Bash script to pull parameters, generate config.env and restic/env
+          Called from user-data.sh at boot time
+        </file>
+
+        <!-- Documentation -->
+        <file path="infrastructure/docs/ssm-setup.md" purpose="Parameter setup guide">
+          Step-by-step guide for setting parameter values after CDK deployment
+          Includes password generation commands and security considerations
+        </file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <dependency story="7.1" type="BLOCKS">
+        CDK project must exist to add SSM parameter resources
+      </dependency>
+      <dependency story="7.3" type="BLOCKS">
+        VPC and security groups must exist for EC2 IAM role
+      </dependency>
+      <dependency story="7.4" type="STRONG">
+        EC2 instance and IAM role must exist to attach SSM policies
+        User data script must exist to integrate parameter retrieval
+      </dependency>
+      <dependency story="7.5" type="RELATED">
+        Restic backup script needs /etc/restic/env with password
+      </dependency>
+      <dependency story="7.10" type="RELATED">
+        Data migration needs actual secret values (Clerk key, DB password)
+      </dependency>
+    </dependencies>
+
+    <externalDependencies>
+      <service name="AWS SSM Parameter Store" version="Standard Tier">
+        Free tier (up to 10,000 parameters)
+        SecureString uses AWS-managed KMS key by default
+      </service>
+      <service name="AWS KMS" version="Default">
+        AWS-managed key (aws/ssm) for SecureString encryption
+        No cost for AWS-managed keys
+      </service>
+      <service name="AWS CLI v2" installedIn="Packer AMI">
+        Command: aws ssm get-parameter --with-decryption
+        Required for parameter retrieval at boot
+      </service>
+    </externalDependencies>
+  </artifacts>
+
+  <!-- ================================================================== -->
+  <!-- CONSTRAINTS                                                        -->
+  <!-- ================================================================== -->
+
+  <constraints>
+    <architectural>
+      <constraint type="PARAMETER_STRUCTURE">
+        All parameters MUST use prefix /zmanim/prod/ for production
+        Future staging/dev parameters would use /zmanim/staging/, /zmanim/dev/
+      </constraint>
+
+      <constraint type="PARAMETER_TYPES">
+        Secrets (passwords, keys) MUST use SecureString type
+        Non-sensitive config MUST use String type (not SecureString)
+        Never use StringList type (not needed for this use case)
+      </constraint>
+
+      <constraint type="IAM_LEAST_PRIVILEGE">
+        EC2 IAM role MUST restrict SSM access to /zmanim/prod/* only
+        KMS decrypt MUST be conditioned on SSM service usage
+        No wildcards or broader permissions allowed
+      </constraint>
+
+      <constraint type="BOOT_TIME_RETRIEVAL">
+        Parameters MUST be retrieved fresh at every EC2 boot
+        Never bake parameter values into AMI (defeats purpose)
+        User data script retrieves and writes to local files
+      </constraint>
+
+      <constraint type="FILE_PERMISSIONS">
+        Generated config files MUST have 600 permissions (owner only)
+        /opt/zmanim/config.env: readable by zmanim-api systemd service
+        /etc/restic/env: readable by backup systemd service
+      </constraint>
+    </architectural>
+
+    <security>
+      <constraint type="ZERO_SECRETS_IN_CODE" severity="CRITICAL">
+        NEVER commit actual secret values to CDK code or version control
+        CDK creates parameters with placeholder values (e.g., "REPLACE_ME")
+        Real values set manually via AWS CLI/Console after deployment
+      </constraint>
+
+      <constraint type="NO_SECRET_LOGGING" severity="CRITICAL">
+        User data script MUST NOT log secret values (set +x before retrieval)
+        systemd services MUST NOT log environment variables containing secrets
+        CloudWatch logs MUST NOT capture secrets
+      </constraint>
+
+      <constraint type="KMS_ENCRYPTION" severity="HIGH">
+        All SecureString parameters MUST use KMS encryption
+        Use default AWS-managed key (aws/ssm) for zero cost
+        DO NOT create custom KMS keys (adds $1/month cost)
+      </constraint>
+
+      <constraint type="PARAMETER_ROTATION" severity="MEDIUM">
+        Document manual parameter update procedure
+        After updating parameter, restart services to pick up new value
+        Clerk key rotation requires coordination with Clerk dashboard
+      </constraint>
+    </security>
+
+    <cost>
+      <constraint type="FREE_TIER_ONLY" severity="HIGH">
+        MUST use SSM Standard tier (free for 10,000 parameters)
+        DO NOT use Advanced tier ($0.05/parameter/month)
+        DO NOT use Secrets Manager ($0.40/secret/month)
+      </constraint>
+
+      <constraint type="NO_CUSTOM_KMS" severity="MEDIUM">
+        MUST use AWS-managed KMS key (aws/ssm) - zero cost
+        DO NOT create custom KMS keys ($1/month)
+      </constraint>
+
+      <constraint type="NO_PARAMETER_HISTORY" severity="LOW">
+        Standard tier provides free parameter history
+        Advanced tier has additional history features (not needed)
+      </constraint>
+    </cost>
+
+    <operational>
+      <constraint type="PARAMETER_NAMING">
+        Parameter names MUST be lowercase with hyphens (kebab-case)
+        Pattern: /zmanim/{environment}/{service-or-secret-name}
+        Examples: /zmanim/prod/clerk-secret-key, /zmanim/prod/postgres-password
+      </constraint>
+
+      <constraint type="CONFIG_JSON_STRUCTURE">
+        /zmanim/prod/config MUST be valid JSON
+        MUST include: database_name, database_host, redis_host, redis_port, log_level, api_port, allowed_origins
+        JSON MUST be minified (no formatting) to reduce parameter size
+      </constraint>
+    </operational>
+  </constraints>
+
+  <!-- ================================================================== -->
+  <!-- INTERFACES                                                         -->
+  <!-- ================================================================== -->
+
+  <interfaces>
+    <inputs>
+      <input name="Manual Parameter Values" source="Administrator">
+        After CDK deployment, admin manually sets parameter values via AWS CLI:
+        ```
+        aws ssm put-parameter \
+          --name /zmanim/prod/clerk-secret-key \
+          --value "sk_live_ACTUAL_KEY_HERE" \
+          --type SecureString \
+          --overwrite
+        ```
+        Required values:
+        - clerk-secret-key: From Clerk dashboard
+        - postgres-password: Generated with `openssl rand -base64 32`
+        - restic-password: Generated with `openssl rand -base64 32`
+        - config: JSON string with all non-sensitive config
+      </input>
+
+      <input name="CDK Deployment" source="GitHub Actions">
+        CDK stack creates parameters with placeholder values
+        GitHub Actions workflow: infrastructure/cdk/bin/cdk.ts
+        Environment: prod (us-east-1 or eu-west-1)
+      </input>
+
+      <input name="EC2 Boot" source="User Data Script">
+        User data script runs on every EC2 boot
+        Triggers parameter retrieval and config file generation
+        Path: infrastructure/packer/user-data.sh
+      </input>
+    </inputs>
+
+    <outputs>
+      <output name="/opt/zmanim/config.env" consumer="zmanim-api.service">
+        Environment file for Go API systemd service
+        Format: KEY=value (one per line)
+        Contains:
+        - CLERK_SECRET_KEY (from SSM)
+        - POSTGRES_PASSWORD (from SSM)
+        - DATABASE_URL (constructed from password + config)
+        - REDIS_URL (constructed from config)
+        - All keys from config JSON (uppercased)
+        Permissions: 600 (root:root)
+      </output>
+
+      <output name="/etc/restic/env" consumer="restic-backup.service">
+        Environment file for Restic backup systemd service
+        Format: KEY=value (one per line)
+        Contains:
+        - AWS_DEFAULT_REGION=eu-west-1
+        - RESTIC_REPOSITORY=s3:s3.eu-west-1.amazonaws.com/zmanim-backups-prod
+        - RESTIC_PASSWORD (from SSM)
+        Permissions: 600 (root:root)
+      </output>
+
+      <output name="CloudWatch Logs" consumer="Monitoring">
+        User data script logs parameter retrieval (NOT values)
+        Log group: /aws/ec2/user-data
+        Log success/failure of parameter retrieval (no secret values logged)
+      </output>
+    </outputs>
+
+    <integrations>
+      <integration name="AWS SSM Parameter Store" type="READ">
+        API: ssm:GetParameter, ssm:GetParameters
+        Authentication: EC2 instance role (IMDSv2)
+        Encryption: KMS decrypt for SecureString
+        Error handling: Retry with exponential backoff (AWS CLI default)
+      </integration>
+
+      <integration name="systemd Services" type="CONSUME">
+        zmanim-api.service reads /opt/zmanim/config.env
+        restic-backup.service reads /etc/restic/env
+        EnvironmentFile= directive in service unit
+      </integration>
+
+      <integration name="PostgreSQL" type="AUTHENTICATE">
+        Database connection string uses password from SSM
+        Format: postgresql://zmanim:${POSTGRES_PASSWORD}@localhost/zmanim
+        Authentication happens at service start
+      </integration>
+
+      <integration name="Restic" type="ENCRYPT">
+        RESTIC_PASSWORD from SSM encrypts all backup snapshots
+        Password MUST remain consistent (cannot decrypt with different password)
+        Document: "NEVER lose or change Restic password without migration"
+      </integration>
+    </integrations>
+  </interfaces>
+
+  <!-- ================================================================== -->
+  <!-- IMPLEMENTATION PATTERNS                                            -->
+  <!-- ================================================================== -->
+
+  <implementationPatterns>
+    <pattern name="CDK SSM Parameter Creation">
+      <description>Create SSM parameters with CDK (placeholder values)</description>
+      <code language="typescript"><![CDATA[
+// infrastructure/cdk/lib/secrets-stack.ts
+import * as cdk from 'aws-cdk-lib';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { Construct } from 'constructs';
+
+export class SecretsStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // SecureString for secrets
+    new ssm.StringParameter(this, 'ClerkSecretKey', {
+      parameterName: '/zmanim/prod/clerk-secret-key',
+      stringValue: 'REPLACE_ME_AFTER_DEPLOYMENT',
+      type: ssm.ParameterType.SECURE_STRING,
+      description: 'Clerk API secret key for JWT validation',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'PostgresPassword', {
+      parameterName: '/zmanim/prod/postgres-password',
+      stringValue: 'REPLACE_ME_AFTER_DEPLOYMENT',
+      type: ssm.ParameterType.SECURE_STRING,
+      description: 'PostgreSQL database password',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'ResticPassword', {
+      parameterName: '/zmanim/prod/restic-password',
+      stringValue: 'REPLACE_ME_AFTER_DEPLOYMENT',
+      type: ssm.ParameterType.SECURE_STRING,
+      description: 'Restic backup encryption password (NEVER LOSE THIS)',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    // String for non-sensitive config
+    new ssm.StringParameter(this, 'AppConfig', {
+      parameterName: '/zmanim/prod/config',
+      stringValue: JSON.stringify({
+        database_name: 'zmanim',
+        database_host: 'localhost',
+        redis_host: 'localhost',
+        redis_port: 6379,
+        log_level: 'info',
+        api_port: 8080,
+        allowed_origins: 'https://zmanim.shtetl.io',
+      }),
+      type: ssm.ParameterType.STRING,
+      description: 'Non-sensitive application configuration',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+  }
+}
+      ]]></code>
+    </pattern>
+
+    <pattern name="IAM Policy for SSM Access">
+      <description>Grant EC2 instance minimal SSM parameter access</description>
+      <code language="typescript"><![CDATA[
+// infrastructure/cdk/lib/compute-stack.ts (add to EC2 instance role)
+import * as iam from 'aws-cdk-lib/aws-iam';
+
+const ssmPolicy = new iam.PolicyStatement({
+  effect: iam.Effect.ALLOW,
+  actions: [
+    'ssm:GetParameter',
+    'ssm:GetParameters',
+  ],
+  resources: [
+    `arn:aws:ssm:${this.region}:${this.account}:parameter/zmanim/prod/*`,
+  ],
+});
+
+const kmsPolicy = new iam.PolicyStatement({
+  effect: iam.Effect.ALLOW,
+  actions: ['kms:Decrypt'],
+  resources: ['*'], // Required for AWS-managed keys
+  conditions: {
+    StringEquals: {
+      'kms:ViaService': `ssm.${this.region}.amazonaws.com`,
+    },
+  },
+});
+
+instanceRole.addToPolicy(ssmPolicy);
+instanceRole.addToPolicy(kmsPolicy);
+      ]]></code>
+    </pattern>
+
+    <pattern name="User Data Parameter Retrieval">
+      <description>Pull SSM parameters at boot and generate config files</description>
+      <code language="bash"><![CDATA[
+#!/bin/bash
+# infrastructure/packer/scripts/setup-config.sh
+
+set -euo pipefail
+
+# Disable command echoing for security (don't log secrets)
+set +x
+
+echo "Retrieving SSM parameters..."
+
+# Pull secrets from SSM
+CLERK_SECRET=$(aws ssm get-parameter \
+  --name /zmanim/prod/clerk-secret-key \
+  --with-decryption \
+  --query Parameter.Value \
+  --output text \
+  --region eu-west-1)
+
+POSTGRES_PASSWORD=$(aws ssm get-parameter \
+  --name /zmanim/prod/postgres-password \
+  --with-decryption \
+  --query Parameter.Value \
+  --output text \
+  --region eu-west-1)
+
+RESTIC_PASSWORD=$(aws ssm get-parameter \
+  --name /zmanim/prod/restic-password \
+  --with-decryption \
+  --query Parameter.Value \
+  --output text \
+  --region eu-west-1)
+
+CONFIG=$(aws ssm get-parameter \
+  --name /zmanim/prod/config \
+  --query Parameter.Value \
+  --output text \
+  --region eu-west-1)
+
+echo "SSM parameters retrieved successfully"
+
+# Generate config.env for Go API
+echo "Generating /opt/zmanim/config.env..."
+cat > /opt/zmanim/config.env << EOF
+CLERK_SECRET_KEY=$CLERK_SECRET
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+DATABASE_URL=postgresql://zmanim:$POSTGRES_PASSWORD@localhost/zmanim
+REDIS_URL=redis://localhost:6379
+EOF
+
+# Parse config JSON and add to config.env
+echo "$CONFIG" | jq -r 'to_entries | .[] | "\(.key | ascii_upcase)=\(.value)"' >> /opt/zmanim/config.env
+
+chmod 600 /opt/zmanim/config.env
+chown root:root /opt/zmanim/config.env
+
+echo "Generated /opt/zmanim/config.env"
+
+# Generate restic env
+echo "Generating /etc/restic/env..."
+mkdir -p /etc/restic
+cat > /etc/restic/env << EOF
+AWS_DEFAULT_REGION=eu-west-1
+RESTIC_REPOSITORY=s3:s3.eu-west-1.amazonaws.com/zmanim-backups-prod
+RESTIC_PASSWORD=$RESTIC_PASSWORD
+EOF
+
+chmod 600 /etc/restic/env
+chown root:root /etc/restic/env
+
+echo "Generated /etc/restic/env"
+
+# Unset variables (defense in depth)
+unset CLERK_SECRET POSTGRES_PASSWORD RESTIC_PASSWORD CONFIG
+
+echo "Configuration complete"
+      ]]></code>
+    </pattern>
+
+    <pattern name="systemd Service Integration">
+      <description>Load environment from SSM-generated config files</description>
+      <code language="ini"><![CDATA[
+# /etc/systemd/system/zmanim-api.service
+[Unit]
+Description=Zmanim API
+After=postgresql.service redis.service
+Requires=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=zmanim
+WorkingDirectory=/opt/zmanim
+ExecStart=/opt/zmanim/zmanim-api
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/opt/zmanim/config.env
+
+[Install]
+WantedBy=multi-user.target
+      ]]></code>
+    </pattern>
+
+    <pattern name="Manual Parameter Update Procedure">
+      <description>Update parameter values after CDK deployment</description>
+      <code language="bash"><![CDATA[
+# Generate strong passwords
+POSTGRES_PW=$(openssl rand -base64 32)
+RESTIC_PW=$(openssl rand -base64 32)
+
+# Update Clerk secret (get from Clerk dashboard)
+aws ssm put-parameter \
+  --name /zmanim/prod/clerk-secret-key \
+  --value "sk_live_YOUR_ACTUAL_KEY" \
+  --type SecureString \
+  --overwrite \
+  --region eu-west-1
+
+# Update PostgreSQL password
+aws ssm put-parameter \
+  --name /zmanim/prod/postgres-password \
+  --value "$POSTGRES_PW" \
+  --type SecureString \
+  --overwrite \
+  --region eu-west-1
+
+# Update Restic password (SAVE THIS SOMEWHERE SECURE)
+aws ssm put-parameter \
+  --name /zmanim/prod/restic-password \
+  --value "$RESTIC_PW" \
+  --type SecureString \
+  --overwrite \
+  --region eu-west-1
+
+echo "Restic password: $RESTIC_PW"
+echo "WARNING: Save Restic password in password manager NOW"
+echo "You will NOT be able to decrypt backups without this password"
+
+# Update PostgreSQL user password
+sudo -u postgres psql -c "ALTER USER zmanim WITH PASSWORD '$POSTGRES_PW';"
+
+# Restart EC2 or re-run config script to pick up new values
+aws ssm send-command \
+  --instance-ids i-xxxxx \
+  --document-name "AWS-RunShellScript" \
+  --parameters 'commands=["/opt/zmanim/scripts/setup-config.sh", "systemctl restart zmanim-api"]' \
+  --region eu-west-1
+      ]]></code>
+    </pattern>
+  </implementationPatterns>
+
+  <!-- ================================================================== -->
+  <!-- TESTING                                                            -->
+  <!-- ================================================================== -->
+
+  <tests>
+    <standards>
+      <standard>All tests follow coding-standards.md patterns</standard>
+      <standard>Test parameter retrieval in staging account first</standard>
+      <standard>Verify file permissions (600) for security</standard>
+      <standard>Test service startup with SSM-sourced config</standard>
+      <standard>Document all test procedures for future reference</standard>
+    </standards>
+
+    <testLocations>
+      <location path="infrastructure/tests/ssm-integration.test.sh" type="integration">
+        Shell script to test SSM parameter retrieval and config generation
+        Run manually in staging EC2 instance
+      </location>
+      <location path="infrastructure/tests/service-startup.test.sh" type="integration">
+        Test systemd services start with SSM-generated config
+        Verify DATABASE_URL, REDIS_URL, CLERK_SECRET_KEY available
+      </location>
+    </testLocations>
+
+    <testIdeas>
+      <idea priority="HIGH">
+        Test Case: Parameter Retrieval Success
+        - Launch EC2 instance in staging
+        - Verify all 4 parameters retrieved without errors
+        - Check CloudWatch logs for success messages (no secret values)
+      </idea>
+
+      <idea priority="HIGH">
+        Test Case: SecureString Decryption
+        - Retrieve SecureString parameters with --with-decryption
+        - Verify decrypted values match expected format
+        - Verify retrieval WITHOUT --with-decryption fails gracefully
+      </idea>
+
+      <idea priority="HIGH">
+        Test Case: IAM Permission Restrictions
+        - Attempt to retrieve parameter outside /zmanim/prod/* (should fail)
+        - Verify EC2 cannot list all parameters (least privilege)
+        - Test KMS decrypt only works via SSM service
+      </idea>
+
+      <idea priority="HIGH">
+        Test Case: Config File Generation
+        - Verify /opt/zmanim/config.env exists with correct content
+        - Verify /etc/restic/env exists with correct content
+        - Check file permissions are 600 (not 644 or 755)
+        - Verify owner is root:root
+      </idea>
+
+      <idea priority="MEDIUM">
+        Test Case: JSON Parsing
+        - Test /zmanim/prod/config JSON is valid
+        - Verify all keys parsed and uppercased correctly
+        - Test special characters in config values
+      </idea>
+
+      <idea priority="MEDIUM">
+        Test Case: Service Integration
+        - Start zmanim-api.service and check environment variables available
+        - Verify DATABASE_URL connects to PostgreSQL successfully
+        - Test Restic backup with RESTIC_PASSWORD from SSM
+      </idea>
+
+      <idea priority="LOW">
+        Test Case: Parameter Update
+        - Update parameter value via AWS CLI
+        - Re-run setup-config.sh
+        - Verify new value picked up in config files
+        - Restart service and verify new config used
+      </idea>
+
+      <idea priority="LOW">
+        Test Case: Missing Parameter Handling
+        - Remove one parameter temporarily
+        - Verify setup-config.sh fails gracefully with clear error
+        - Verify services don't start with incomplete config
+      </idea>
+    </testIdeas>
+  </tests>
+
+  <!-- ================================================================== -->
+  <!-- TECHNICAL DETAILS                                                  -->
+  <!-- ================================================================== -->
+
+  <technicalDetails>
+    <parameterStructure>
+      <parameter name="/zmanim/prod/clerk-secret-key">
+        <type>SecureString</type>
+        <encryption>AWS-managed KMS key (aws/ssm)</encryption>
+        <valueFormat>Clerk secret key (sk_live_... or sk_test_...)</valueFormat>
+        <valueLength>~40 characters</valueLength>
+        <source>Clerk dashboard (manually copied)</source>
+        <usage>Go API Clerk JWT validation</usage>
+      </parameter>
+
+      <parameter name="/zmanim/prod/postgres-password">
+        <type>SecureString</type>
+        <encryption>AWS-managed KMS key (aws/ssm)</encryption>
+        <valueFormat>Base64 random string</valueFormat>
+        <valueLength>32+ characters</valueLength>
+        <source>Generated with: openssl rand -base64 32</source>
+        <usage>PostgreSQL authentication</usage>
+      </parameter>
+
+      <parameter name="/zmanim/prod/restic-password">
+        <type>SecureString</type>
+        <encryption>AWS-managed KMS key (aws/ssm)</encryption>
+        <valueFormat>Base64 random string</valueFormat>
+        <valueLength>32+ characters</valueLength>
+        <source>Generated with: openssl rand -base64 32</source>
+        <usage>Restic backup encryption (NEVER LOSE THIS)</usage>
+        <criticalWarning>
+          Losing this password means ALL backups become unrecoverable.
+          Store in password manager after generation.
+        </criticalWarning>
+      </parameter>
+
+      <parameter name="/zmanim/prod/config">
+        <type>String</type>
+        <encryption>None (non-sensitive)</encryption>
+        <valueFormat>Minified JSON</valueFormat>
+        <jsonSchema>
+          {
+            "database_name": "string",
+            "database_host": "string",
+            "redis_host": "string",
+            "redis_port": "number",
+            "log_level": "string (debug|info|warn|error)",
+            "api_port": "number",
+            "allowed_origins": "string (comma-separated URLs)"
+          }
+        </jsonSchema>
+        <usage>Non-sensitive application configuration</usage>
+      </parameter>
+    </parameterStructure>
+
+    <ssmPricing>
+      <tier>Standard</tier>
+      <cost>$0.00 (free for up to 10,000 parameters)</cost>
+      <parameterCount>4</parameterCount>
+      <storageSize>~500 bytes total</storageSize>
+      <throughput>Unlimited (within AWS service limits)</throughput>
+    </ssmPricing>
+
+    <kmsPricing>
+      <keyType>AWS-managed (aws/ssm)</keyType>
+      <cost>$0.00 (no charge for AWS-managed keys)</cost>
+      <decryptOperations>~1 per EC2 boot (minimal)</decryptOperations>
+      <note>Custom KMS keys cost $1/month (not needed)</note>
+    </kmsPricing>
+
+    <securityConsiderations>
+      <consideration priority="CRITICAL">
+        Never log secret values in CloudWatch Logs, systemd journal, or application logs.
+        Use set +x in bash scripts before retrieving secrets.
+      </consideration>
+
+      <consideration priority="CRITICAL">
+        Never commit actual secret values to version control.
+        CDK code should only create parameters with placeholder values.
+      </consideration>
+
+      <consideration priority="HIGH">
+        Config files (/opt/zmanim/config.env, /etc/restic/env) must have 600 permissions.
+        Prevents other users on EC2 from reading secrets.
+      </consideration>
+
+      <consideration priority="HIGH">
+        IAM policy must restrict SSM access to /zmanim/prod/* only.
+        Principle of least privilege prevents access to other applications' secrets.
+      </consideration>
+
+      <consideration priority="MEDIUM">
+        KMS decrypt policy must be conditioned on SSM service.
+        Prevents EC2 from decrypting arbitrary KMS-encrypted data.
+      </consideration>
+
+      <consideration priority="MEDIUM">
+        Document parameter update procedure for secret rotation.
+        Clerk keys may need rotation if compromised.
+        PostgreSQL password rotation requires service restart.
+      </consideration>
+    </securityConsiderations>
+
+    <operationalProcedures>
+      <procedure name="Initial Setup">
+        1. Deploy CDK stack (creates parameters with placeholder values)
+        2. Generate strong passwords: openssl rand -base64 32
+        3. Update parameters with real values via AWS CLI
+        4. Launch EC2 instance (user data retrieves parameters)
+        5. Verify config files generated correctly
+        6. Verify services start successfully
+      </procedure>
+
+      <procedure name="Clerk Secret Rotation">
+        1. Generate new key in Clerk dashboard
+        2. Update SSM parameter: aws ssm put-parameter --name /zmanim/prod/clerk-secret-key --value NEW_KEY --type SecureString --overwrite
+        3. Re-run config script: /opt/zmanim/scripts/setup-config.sh
+        4. Restart API: systemctl restart zmanim-api
+        5. Verify authentication works with new key
+      </procedure>
+
+      <procedure name="PostgreSQL Password Rotation">
+        1. Generate new password: openssl rand -base64 32
+        2. Update PostgreSQL user: sudo -u postgres psql -c "ALTER USER zmanim WITH PASSWORD 'NEW_PASSWORD';"
+        3. Update SSM parameter: aws ssm put-parameter --name /zmanim/prod/postgres-password --value NEW_PASSWORD --type SecureString --overwrite
+        4. Re-run config script: /opt/zmanim/scripts/setup-config.sh
+        5. Restart API: systemctl restart zmanim-api
+        6. Verify database connectivity
+      </procedure>
+
+      <procedure name="Restic Password Change (DANGEROUS)">
+        WARNING: Changing Restic password requires migrating all backups.
+        1. Export all snapshots with OLD password
+        2. Create new Restic repository with NEW password
+        3. Import snapshots to new repository
+        4. Update SSM parameter with NEW password
+        5. Update bucket name in config (use new repository)
+        6. Verify new backups work
+        7. Delete old repository after verification period
+      </procedure>
+    </operationalProcedures>
+  </technicalDetails>
+
+  <!-- ================================================================== -->
+  <!-- RELATED CONTEXT                                                    -->
+  <!-- ================================================================== -->
+
+  <relatedContext>
+    <epicContext>
+      <epic id="7" title="AWS Migration &amp; Infrastructure">
+        This story is part of Epic 7's secrets management strategy.
+        SSM Parameter Store provides free, secure secrets management for the entire AWS infrastructure.
+        Supports Stories 7.4 (EC2), 7.5 (Restic backup), 7.10 (data migration).
+      </epic>
+    </epicContext>
+
+    <architectureContext>
+      <decision id="ADR-SSM-vs-Secrets-Manager">
+        Decision: Use SSM Parameter Store instead of AWS Secrets Manager
+        Rationale:
+        - SSM Standard tier is free (vs $0.40/secret/month for Secrets Manager)
+        - Static secrets don't need automatic rotation
+        - Manual rotation is acceptable for our use case
+        - Less than 10 parameters (well within free tier limit)
+        Cost savings: $1.60+/month by choosing SSM
+      </decision>
+
+      <decision id="ADR-Boot-Time-Retrieval">
+        Decision: Retrieve parameters at EC2 boot (not baked into AMI)
+        Rationale:
+        - Secrets never stored in AMI (security best practice)
+        - Fresh secrets at every boot (supports rotation)
+        - AMI remains portable across environments
+        - Follows AWS Well-Architected security pillar
+      </decision>
+
+      <decision id="ADR-File-Based-Config">
+        Decision: Generate config files (/opt/zmanim/config.env) instead of environment variables
+        Rationale:
+        - systemd EnvironmentFile= directive reads from file
+        - File permissions (600) protect secrets from other users
+        - Easier to debug (cat file vs inspect process environment)
+        - Supports config reload without process restart (if needed)
+      </decision>
+    </architectureContext>
+
+    <codingStandardsContext>
+      <standard section="Security - Secrets Management - ZERO TOLERANCE">
+        FORBIDDEN: Commit passwords, API keys, tokens, or secrets to repository
+        REQUIRED: Use environment variables loaded from SSM Parameter Store
+        This story implements the authoritative secrets management pattern for Epic 7
+      </standard>
+    </codingStandardsContext>
+
+    <integrationPoints>
+      <integration story="7.1" relationship="DEPENDS_ON">
+        CDK project structure must exist to add SecretsStack
+        Deployment pipeline must support SSM parameter creation
+      </integration>
+
+      <integration story="7.4" relationship="STRONG">
+        EC2 instance IAM role receives SSM policy
+        User data script integrates setup-config.sh
+        systemd services configured with EnvironmentFile
+      </integration>
+
+      <integration story="7.5" relationship="USES">
+        Restic backup script sources /etc/restic/env
+        RESTIC_PASSWORD enables backup encryption
+        S3 bucket name stored in config
+      </integration>
+
+      <integration story="7.7" relationship="USES">
+        API Gateway JWT authorizer validates Clerk tokens
+        CLERK_SECRET_KEY from SSM used for validation
+      </integration>
+
+      <integration story="7.10" relationship="USES">
+        Data migration requires actual secret values
+        PostgreSQL connection uses POSTGRES_PASSWORD
+        Clerk integration uses CLERK_SECRET_KEY
+      </integration>
+    </integrationPoints>
+  </relatedContext>
+
+  <!-- ================================================================== -->
+  <!-- COMMON PITFALLS                                                    -->
+  <!-- ================================================================== -->
+
+  <commonPitfalls>
+    <pitfall severity="CRITICAL">
+      <problem>Committing actual secret values to CDK code</problem>
+      <consequence>Secrets exposed in version control history forever</consequence>
+      <prevention>
+        Only use placeholder values in CDK (e.g., "REPLACE_ME")
+        Set real values manually after deployment via AWS CLI
+        Review all commits for secret patterns before pushing
+      </prevention>
+    </pitfall>
+
+    <pitfall severity="CRITICAL">
+      <problem>Logging secret values in user data script</problem>
+      <consequence>Secrets visible in CloudWatch Logs</consequence>
+      <prevention>
+        Use set +x before retrieving parameters
+        Never echo or log secret values
+        Only log success/failure (not actual values)
+      </prevention>
+    </pitfall>
+
+    <pitfall severity="HIGH">
+      <problem>Insecure file permissions (644 or 755)</problem>
+      <consequence>Other users can read secrets from config files</consequence>
+      <prevention>
+        Always chmod 600 after generating config files
+        Verify permissions with ls -l in test procedure
+        Test that non-root users cannot read files
+      </prevention>
+    </pitfall>
+
+    <pitfall severity="HIGH">
+      <problem>IAM policy too broad (allows access to all parameters)</problem>
+      <consequence>EC2 can read secrets from other applications</consequence>
+      <prevention>
+        Restrict IAM resource to /zmanim/prod/* only
+        Never use Resource: "*" for SSM policies
+        Test that EC2 cannot retrieve parameters outside scope
+      </prevention>
+    </pitfall>
+
+    <pitfall severity="HIGH">
+      <problem>Forgetting --with-decryption flag</problem>
+      <consequence>SecureString values returned encrypted (unusable)</consequence>
+      <prevention>
+        Always use --with-decryption for SecureString parameters
+        Test decryption works in staging before production
+        Document flag requirement in all procedures
+      </prevention>
+    </pitfall>
+
+    <pitfall severity="MEDIUM">
+      <problem>Using custom KMS key instead of AWS-managed</problem>
+      <consequence>Additional $1/month cost for no benefit</consequence>
+      <prevention>
+        Use default AWS-managed key (aws/ssm)
+        Only create custom keys if compliance requires it
+        Document cost implications of custom keys
+      </prevention>
+    </pitfall>
+
+    <pitfall severity="MEDIUM">
+      <problem>Losing Restic password</problem>
+      <consequence>ALL backups become permanently unrecoverable</consequence>
+      <prevention>
+        Store Restic password in password manager immediately after generation
+        Document recovery procedure (there is none - backups lost)
+        Consider storing encrypted copy in separate S3 bucket
+      </prevention>
+    </pitfall>
+
+    <pitfall severity="LOW">
+      <problem>Invalid JSON in /zmanim/prod/config</problem>
+      <consequence>jq parsing fails, config.env incomplete</consequence>
+      <prevention>
+        Validate JSON with jq before setting parameter
+        Test config generation with various JSON structures
+        Add error handling to setup-config.sh
+      </prevention>
+    </pitfall>
+  </commonPitfalls>
+
+  <!-- ================================================================== -->
+  <!-- VERIFICATION CHECKLIST                                             -->
+  <!-- ================================================================== -->
+
+  <verificationChecklist>
+    <category name="Parameter Creation">
+      <item>All 4 parameters exist in SSM (clerk, postgres, restic, config)</item>
+      <item>Secrets use SecureString type (verify with aws ssm describe-parameters)</item>
+      <item>Config uses String type (not SecureString)</item>
+      <item>All parameters in /zmanim/prod/ namespace</item>
+      <item>Parameter descriptions are clear and accurate</item>
+    </category>
+
+    <category name="IAM Permissions">
+      <item>EC2 IAM role has SSM policy attached</item>
+      <item>Policy restricts to /zmanim/prod/* only</item>
+      <item>Policy includes ssm:GetParameter and ssm:GetParameters</item>
+      <item>Policy includes kms:Decrypt with SSM service condition</item>
+      <item>Test: EC2 can retrieve parameters without access keys</item>
+      <item>Test: EC2 cannot retrieve parameters outside /zmanim/prod/</item>
+    </category>
+
+    <category name="Configuration Files">
+      <item>/opt/zmanim/config.env exists</item>
+      <item>/etc/restic/env exists</item>
+      <item>Both files have 600 permissions (ls -l)</item>
+      <item>Both files owned by root:root</item>
+      <item>config.env contains all required keys</item>
+      <item>restic/env contains RESTIC_PASSWORD and S3 repository URL</item>
+    </category>
+
+    <category name="Service Integration">
+      <item>zmanim-api.service has EnvironmentFile=/opt/zmanim/config.env</item>
+      <item>restic-backup.service sources /etc/restic/env</item>
+      <item>API service starts successfully</item>
+      <item>API can connect to PostgreSQL with SSM password</item>
+      <item>Restic backup runs successfully with SSM password</item>
+    </category>
+
+    <category name="Security">
+      <item>No secrets in version control (git log search)</item>
+      <item>No secrets in CloudWatch Logs (search for "CLERK", "password")</item>
+      <item>User data script uses set +x before retrieving secrets</item>
+      <item>systemd services do not log environment variables</item>
+      <item>Config files not readable by non-root users</item>
+    </category>
+
+    <category name="Documentation">
+      <item>Parameter update procedure documented</item>
+      <item>Password generation commands documented</item>
+      <item>Service restart procedure documented</item>
+      <item>Restic password warning documented (NEVER LOSE THIS)</item>
+      <item>IAM policy rationale documented</item>
+    </category>
+
+    <category name="Testing">
+      <item>All parameters retrievable in staging</item>
+      <item>SecureString decryption works with --with-decryption</item>
+      <item>Config files generated correctly in staging</item>
+      <item>Services start in staging with SSM config</item>
+      <item>Parameter update procedure tested</item>
+    </category>
+  </verificationChecklist>
+
+</storyContext>

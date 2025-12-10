@@ -22,7 +22,7 @@
       - 1.5 Create `.coder/docker/init-extensions.sql` to auto-enable extensions
 
       Task 2: Update Coder workspace Terraform (AC: 4)
-      - 2.1 Modify `.coder/zmanim-lab-workspace.tf` to use custom image
+      - 2.1 Modify `.coder/zmanim-workspace.tf` to use custom image
       - 2.2 Update image reference to `zmanim-postgres:17-postgis-pgvector`
       - 2.3 Ensure container mounts init script
 
@@ -84,7 +84,7 @@
     </docs>
     <code>
       <artifact>
-        <path>.coder/zmanim-lab-workspace.tf</path>
+        <path>.coder/zmanim-workspace.tf</path>
         <kind>terraform-config</kind>
         <symbol>docker_container.postgres</symbol>
         <lines>127-155</lines>
@@ -156,7 +156,7 @@
           ...
         }
       </signature>
-      <path>.coder/zmanim-lab-workspace.tf</path>
+      <path>.coder/zmanim-workspace.tf</path>
     </interface>
     <interface>
       <name>API Key Environment Variables</name>
@@ -165,7 +165,7 @@
         OPENAI_API_KEY=${var.openai_api_key}
         ANTHROPIC_API_KEY=${var.anthropic_api_key}
       </signature>
-      <path>.coder/zmanim-lab-workspace.tf</path>
+      <path>.coder/zmanim-workspace.tf</path>
     </interface>
   </interfaces>
 

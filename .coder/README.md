@@ -22,10 +22,10 @@ Zmanim Lab uses a **monorepo** structure with:
 coder login http://your-coder-instance
 
 # Push template (first time only)
-coder templates push zmanim-lab --directory .coder
+coder templates push zmanim --directory .coder
 
 # Create workspace
-coder create zmanim-lab-dev --template zmanim-lab
+coder create zmanim-dev --template zmanim
 ```
 
 ### 2. Configure Environment
@@ -92,7 +92,7 @@ Note: These proxied URLs may look like `http://localhost:3000/@username/workspac
 If Coder is running remotely and ports aren't exposed:
 ```bash
 # Forward ports from remote workspace to local machine
-coder port-forward zmanim-lab-dev --tcp 3001:3001 --tcp 8080:8080
+coder port-forward zmanim-dev --tcp 3001:3001 --tcp 8080:8080
 
 # Then access via localhost
 http://localhost:3001  # Web App
@@ -171,11 +171,11 @@ tmux attach -t zmanim
 ```bash
 # Restart API only (window 0)
 tmux send-keys -t zmanim:api C-c
-tmux send-keys -t zmanim:api "cd /home/coder/workspace/zmanim-lab/api && go run cmd/api/main.go" Enter
+tmux send-keys -t zmanim:api "cd /home/coder/workspace/zmanim/api && go run cmd/api/main.go" Enter
 
 # Restart Web only (window 1)
 tmux send-keys -t zmanim:web C-c
-tmux send-keys -t zmanim:web "cd /home/coder/workspace/zmanim-lab/web && npm run dev" Enter
+tmux send-keys -t zmanim:web "cd /home/coder/workspace/zmanim/web && npm run dev" Enter
 ```
 
 ### View Service Logs
@@ -215,7 +215,7 @@ cd web && npm run test:e2e
 
 ## Files
 
-- `zmanim-lab-workspace.tf` - Terraform workspace definition
+- `zmanim-workspace.tf` - Terraform workspace definition
 - `startup.sh` - Initialization script (runs on workspace creation)
 - `start-services.sh` - Helper to start web and API in tmux
 - `../restart.sh` - Quick restart script (kills all services and restarts)
@@ -225,12 +225,12 @@ cd web && npm run test:e2e
 
 ```bash
 # Create workspace with custom branch
-coder create zmanim-lab-dev --template zmanim-lab \
+coder create zmanim-dev --template zmanim \
   --parameter zmanim_branch=feature/my-feature
 
 # Or with your fork
-coder create zmanim-lab-dev --template zmanim-lab \
-  --parameter zmanim_repo=git@github.com:your-username/zmanim-lab.git
+coder create zmanim-dev --template zmanim \
+  --parameter zmanim_repo=git@github.com:your-username/zmanim.git
 ```
 
 ## Troubleshooting
@@ -238,7 +238,7 @@ coder create zmanim-lab-dev --template zmanim-lab \
 ### Git clone fails
 Add your SSH key to GitHub:
 ```bash
-coder ssh zmanim-lab-dev -- "cat ~/.ssh/id_ed25519.pub"
+coder ssh zmanim-dev -- "cat ~/.ssh/id_ed25519.pub"
 # Add to: https://github.com/settings/ssh/new
 ```
 
@@ -252,7 +252,7 @@ cat web/.env.local
 ### Services not responding / Need clean restart
 Use the restart script:
 ```bash
-cd /home/coder/workspace/zmanim-lab
+cd /home/coder/workspace/zmanim
 ./restart.sh
 ```
 
@@ -264,8 +264,8 @@ The app shortcuts in Coder's web UI proxy through paths like:
 - `http://localhost:3000/@username/workspace/apps/api/`
 
 For direct access without proxy:
-1. Use SSH: `coder ssh zmanim-lab-dev` then access `http://localhost:3001` and `http://localhost:8080`
-2. Use port forwarding: `coder port-forward zmanim-lab-dev --tcp 3001:3001 --tcp 8080:8080`
+1. Use SSH: `coder ssh zmanim-dev` then access `http://localhost:3001` and `http://localhost:8080`
+2. Use port forwarding: `coder port-forward zmanim-dev --tcp 3001:3001 --tcp 8080:8080`
 3. If using VS Code: The ports should be automatically forwarded
 
 ### Database connection fails

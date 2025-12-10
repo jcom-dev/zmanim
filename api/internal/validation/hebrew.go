@@ -1,4 +1,4 @@
-// Package validation provides validation utilities for zmanim-lab
+// Package validation provides validation utilities for zmanim
 package validation
 
 import (

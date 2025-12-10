@@ -659,7 +659,7 @@ Git Push → GitHub Actions → Run Tests → Build → Deploy
 ### Environment Management
 - **Development** - Local (localhost:3000, localhost:8080)
 - **Staging** - Preview deploys on Vercel/Fly
-- **Production** - zmanim-lab.com
+- **Production** - zmanim.com
 
 ---
 

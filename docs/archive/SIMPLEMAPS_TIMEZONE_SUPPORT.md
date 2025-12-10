@@ -131,7 +131,7 @@ London, United Kingdom
 
 ## Documentation Updates
 
-Updated `/home/daniel/repos/zmanim-lab/docs/location-data-process.md`:
+Updated `/home/daniel/repos/zmanim/docs/location-data-process.md`:
 - Added timezone priority explanation
 - Documented SimpleMaps timezone support
 - Explained why WOF timezone has higher priority

@@ -132,7 +132,7 @@ export class CdnStack extends cdk.Stack {
       description: 'S3 bucket for API releases',
     });
 
-    cdk.Tags.of(this).add('Project', 'zmanim-lab');
+    cdk.Tags.of(this).add('Project', 'zmanim');
     cdk.Tags.of(this).add('Environment', config.environment);
     cdk.Tags.of(this).add('ManagedBy', 'cdk');
   }

@@ -66,7 +66,7 @@ This guide will help you get started with developing Zmanim Lab, a multi-publish
 ## Project Structure
 
 ```
-zmanim-lab/
+zmanim/
 ├── backend/                    # Go backend service
 │   ├── cmd/
 │   │   └── api/               # API entry point
@@ -113,8 +113,8 @@ zmanim-lab/
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/zmanim-lab.git
-cd zmanim-lab
+git clone https://github.com/your-org/zmanim.git
+cd zmanim
 ```
 
 ### Step 2: Set Up Database
@@ -364,7 +364,7 @@ package handlers
 import (
     "net/http"
     "encoding/json"
-    "github.com/your-org/zmanim-lab/internal/services"
+    "github.com/your-org/zmanim/internal/services"
 )
 
 type ZmanimHandler struct {
@@ -913,7 +913,7 @@ psql $DATABASE_URL -f script.sql
 ### Communication
 - GitHub Issues: Report bugs and request features
 - GitHub Discussions: Ask questions and share ideas
-- Slack Channel: `#zmanim-lab-dev` (if available)
+- Slack Channel: `#zmanim-dev` (if available)
 
 ### Code Review Checklist
 - [ ] Code follows style guidelines

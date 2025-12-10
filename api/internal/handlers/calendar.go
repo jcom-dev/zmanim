@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/calendar"
+	"github.com/jcom-dev/zmanim/internal/calendar"
 )
 
 // ============================================

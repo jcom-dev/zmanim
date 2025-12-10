@@ -12,7 +12,7 @@ Audit of all `geo_*` tables in the database to identify unused tables.
 
 Searched all Go, SQL, TypeScript files for references to each geo table:
 ```bash
-grep -r "table_name" /home/daniel/repos/zmanim-lab/api --include="*.go" --include="*.sql"
+grep -r "table_name" /home/daniel/repos/zmanim/api --include="*.go" --include="*.sql"
 ```
 
 Excluded schema definition lines (CREATE TABLE, comments, constraints).
@@ -152,7 +152,7 @@ This suggests the schema was designed with import tracking in mind, but `geo_dat
 
 ```bash
 # Verify no usage (should return nothing):
-grep -r "geo_data_imports" /home/daniel/repos/zmanim-lab --include="*.go" --include="*.sql" --include="*.ts" | grep -v "migrations/00000000000001_schema.sql"
+grep -r "geo_data_imports" /home/daniel/repos/zmanim --include="*.go" --include="*.sql" --include="*.ts" | grep -v "migrations/00000000000001_schema.sql"
 
 # Check database for existing data:
 psql -d zmanim_lab -c "SELECT COUNT(*) FROM geo_data_imports;"

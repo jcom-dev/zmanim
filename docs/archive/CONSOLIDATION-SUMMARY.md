@@ -69,7 +69,7 @@ docs/
 │
 ├── business/                          ← KEEP: Business docs (4 files)
 │   ├── README.md
-│   ├── 01-what-is-zmanim-lab.md
+│   ├── 01-what-is-zmanim.md
 │   ├── 02-features-comprehensive-list.md
 │   └── 03-technical-architecture.md
 │

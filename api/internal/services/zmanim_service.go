@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/algorithm"
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/models"
+	"github.com/jcom-dev/zmanim/internal/algorithm"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/models"
 )
 
 // ZmanimService handles zmanim calculation business logic

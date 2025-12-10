@@ -40,8 +40,8 @@ tmux kill-session -t zmanim 2>/dev/null || true
 # Kill any stray processes by pattern - cast a wide net
 echo "🛑 Stopping Go API processes..."
 # Any go process in our workspace
-pkill -9 -f "zmanim-lab.*go" 2>/dev/null || true
-pkill -9 -f "zmanim-lab/api" 2>/dev/null || true
+pkill -9 -f "zmanim.*go" 2>/dev/null || true
+pkill -9 -f "zmanim/api" 2>/dev/null || true
 # Go temp binaries (go run creates these in /tmp)
 pkill -9 -f "/tmp/go-build.*/exe/main" 2>/dev/null || true
 pkill -9 -f "/tmp/go-build.*/exe/api" 2>/dev/null || true
@@ -52,8 +52,8 @@ echo "🛑 Stopping Next.js processes..."
 # Any next process on our port or in our workspace
 pkill -9 -f "next.*3001" 2>/dev/null || true
 pkill -9 -f "next-server" 2>/dev/null || true
-pkill -9 -f "zmanim-lab/web.*next" 2>/dev/null || true
-pkill -9 -f "zmanim-lab/web/node_modules/.bin/next" 2>/dev/null || true
+pkill -9 -f "zmanim/web.*next" 2>/dev/null || true
+pkill -9 -f "zmanim/web/node_modules/.bin/next" 2>/dev/null || true
 
 # Wait for processes to terminate
 sleep 2

@@ -51,7 +51,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jcom-dev/zmanim-lab/internal/ai"
+	"github.com/jcom-dev/zmanim/internal/ai"
 	pgvector "github.com/pgvector/pgvector-go"
 )
 

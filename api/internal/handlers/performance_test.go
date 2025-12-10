@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jcom-dev/zmanim-lab/internal/config"
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/config"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 // setupTestDB creates a test database connection

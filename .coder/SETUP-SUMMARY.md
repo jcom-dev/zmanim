@@ -4,7 +4,7 @@
 
 ### Files Modified:
 
-1. **`.coder/zmanim-lab-workspace.tf`**
+1. **`.coder/zmanim-workspace.tf`**
    - Added PostgreSQL 16 container (localhost:5433)
    - Added Redis 7 container (localhost:6380)
    - Added test environment variables
@@ -105,7 +105,7 @@ npm run test:suite
 ## 📋 Environment File Structure
 
 ```
-zmanim-lab/
+zmanim/
 ├── .env.clerk          # Clerk keys (prod + test)
 ├── .env.mailslurp      # MailSlurp API key
 ├── .env.resend         # Email service

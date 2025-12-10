@@ -1717,7 +1717,7 @@ spec:
     spec:
       containers:
       - name: api
-        image: gcr.io/zmanim-lab/api:latest
+        image: gcr.io/zmanim/api:latest
         ports:
         - containerPort: 8080
         env:

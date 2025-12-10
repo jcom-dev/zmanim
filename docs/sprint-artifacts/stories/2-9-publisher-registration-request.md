@@ -194,7 +194,7 @@ On approval:
 emailService.SendPublisherApproved(
     request.Email,
     request.Name,
-    "https://zmanim-lab.com/publisher",
+    "https://zmanim.com/publisher",
 )
 ```
 

@@ -1,0 +1,241 @@
+<story-context id="epic-7/story-7-7" v="1.0">
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.7</storyId>
+    <title>API Gateway Configuration</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-7-api-gateway-configuration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>API Gateway routing requests to EC2</iWant>
+    <soThat>I get request logging, throttling, and Clerk JWT validation</soThat>
+    <tasks>
+      <task id="1" name="HTTP API" ac="1">
+        <subtask>1.1 Define HTTP API in `lib/cdn-stack.ts` (or separate stack)</subtask>
+        <subtask>1.2 Choose HTTP API over REST API for lower latency</subtask>
+        <subtask>1.3 Configure API name and description</subtask>
+        <subtask>1.4 Set protocol type to HTTP</subtask>
+      </task>
+      <task id="2" name="EC2 Integration" ac="2">
+        <subtask>2.1 Create HTTP proxy integration</subtask>
+        <subtask>2.2 Configure integration URI to EC2 Elastic IP:8080</subtask>
+        <subtask>2.3 Create routes for all HTTP methods (`ANY /api/{proxy+}`)</subtask>
+        <subtask>2.4 Configure timeout (30 seconds)</subtask>
+      </task>
+      <task id="3" name="Clerk JWT Authorizer" ac="3">
+        <subtask>3.1 Create JWT authorizer for Clerk</subtask>
+        <subtask>3.2 Configure issuer URL from Clerk</subtask>
+        <subtask>3.3 Configure audience (Clerk frontend API)</subtask>
+        <subtask>3.4 Attach authorizer to protected routes</subtask>
+        <subtask>3.5 Leave public routes (`/api/zmanim`, `/api/cities`) without authorizer</subtask>
+      </task>
+      <task id="4" name="Throttling" ac="4">
+        <subtask>4.1 Create default stage with throttling</subtask>
+        <subtask>4.2 Set rate limit: 500 requests per second</subtask>
+        <subtask>4.3 Set burst limit: 1000 requests</subtask>
+        <subtask>4.4 Document rate limiting behavior</subtask>
+      </task>
+      <task id="5" name="CORS" ac="5">
+        <subtask>5.1 Configure CORS for API Gateway</subtask>
+        <subtask>5.2 Set allowed origins: `https://zmanim.shtetl.io`</subtask>
+        <subtask>5.3 Set allowed methods: `GET, POST, PUT, DELETE, OPTIONS`</subtask>
+        <subtask>5.4 Set allowed headers: `Authorization, Content-Type, X-Publisher-Id`</subtask>
+        <subtask>5.5 Set expose headers for error responses</subtask>
+      </task>
+      <task id="6" name="Access Logging" ac="6">
+        <subtask>6.1 Create CloudWatch log group for API Gateway</subtask>
+        <subtask>6.2 Configure access log format (JSON)</subtask>
+        <subtask>6.3 Include request ID, method, path, status, latency</subtask>
+        <subtask>6.4 Set log retention (30 days)</subtask>
+      </task>
+      <task id="7" name="Testing" ac="1-6">
+        <subtask>7.1 Deploy API Gateway to staging</subtask>
+        <subtask>7.2 Test public endpoint access (no auth)</subtask>
+        <subtask>7.3 Test protected endpoint with valid JWT</subtask>
+        <subtask>7.4 Test protected endpoint without JWT (401)</subtask>
+        <subtask>7.5 Test throttling limits</subtask>
+        <subtask>7.6 Verify CORS headers in responses</subtask>
+        <subtask>7.7 Verify access logs appear in CloudWatch</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">HTTP API (not REST - lower latency) created</criterion>
+    <criterion id="AC2">Integration proxies to EC2 Elastic IP</criterion>
+    <criterion id="AC3">Clerk JWT authorizer configured</criterion>
+    <criterion id="AC4">Throttling limits set (500 rps, 1000 burst)</criterion>
+    <criterion id="AC5">CORS configured for frontend domain</criterion>
+    <criterion id="AC6">Access logs sent to CloudWatch</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc type="epic" path="docs/sprint-artifacts/epic-7-aws-migration.md">
+        Epic 7 AWS Migration - API Gateway as routing layer between CloudFront and EC2,
+        HTTP API choice rationale (~10ms latency vs ~30ms REST), JWT auth, throttling,
+        request flow diagram, route configuration table
+      </doc>
+      <doc type="tech-spec" path="docs/sprint-artifacts/tech-spec-epic-7.md">
+        Story 7.7 acceptance criteria (AC 7.7.1-6), API Gateway configuration details,
+        JWT validation specs, throttling targets, security requirements, observability
+      </doc>
+      <doc type="architecture" path="docs/architecture.md">
+        Current authentication flow with Clerk JWT - UNCHANGED in AWS migration,
+        existing API patterns and endpoints preserved
+      </doc>
+      <doc type="coding-standards" path="docs/coding-standards.md">
+        Security: NEVER commit secrets to repository, use SSM Parameter Store for Clerk keys
+      </doc>
+    </docs>
+
+    <code>
+      <existing>
+        <relevantFiles>
+          <file path="infrastructure/lib/cdn-stack.ts">CloudFront stack - API Gateway will be added here or in separate stack</file>
+          <file path="infrastructure/lib/compute-stack.ts">EC2 stack - exports Elastic IP for API Gateway integration</file>
+          <file path="api/internal/handlers/">Go API handlers - NO CHANGES (API Gateway transparent proxy)</file>
+        </relevantFiles>
+      </existing>
+      <toCreate>
+        <file path="infrastructure/lib/cdn-stack.ts">Add HTTP API, JWT authorizer, routes, integrations, CORS, logging</file>
+        <file path="infrastructure/lib/api-gateway-stack.ts">OPTIONAL: Separate stack if CDN stack becomes too large</file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <cdkDependencies>
+        <package name="aws-cdk-lib/aws-apigatewayv2">HTTP API constructs (NOT apigateway for REST)</package>
+        <package name="aws-cdk-lib/aws-apigatewayv2-integrations">HttpUrlIntegration for EC2 proxy</package>
+        <package name="aws-cdk-lib/aws-apigatewayv2-authorizers">HttpJwtAuthorizer for Clerk</package>
+        <package name="aws-cdk-lib/aws-logs">CloudWatch log group for access logs</package>
+      </cdkDependencies>
+      <awsServices>
+        <service name="API Gateway v2">HTTP API (NOT REST API) - lower latency, built-in JWT auth</service>
+        <service name="CloudWatch Logs">Access logging for request tracing</service>
+      </awsServices>
+      <externalServices>
+        <service name="Clerk">JWT issuer and audience configuration (no code changes)</service>
+      </externalServices>
+      <stackDependencies>
+        <dependency>Requires ComputeStack output: Elastic IP address for integration URI</dependency>
+        <dependency>CloudFront (CDNStack) will use API Gateway as origin (Story 7.6)</dependency>
+      </stackDependencies>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint priority="critical">MUST use HTTP API (apigatewayv2), NOT REST API (apigateway) - 3x lower latency</constraint>
+      <constraint priority="critical">Route ALL traffic through single proxy route `ANY /api/{proxy+}` to EC2:8080</constraint>
+      <constraint priority="critical">Public routes MUST NOT have authorizer attached (zmanim, cities, publishers)</constraint>
+      <constraint priority="high">Integration timeout: 30 seconds (matches Go API handler timeout)</constraint>
+      <constraint priority="high">Use HttpJwtAuthorizer, NOT custom Lambda authorizer</constraint>
+    </architectural>
+    <security>
+      <constraint priority="critical">JWT authorizer MUST validate Clerk issuer and audience</constraint>
+      <constraint priority="critical">Clerk configuration (issuer URL, audience) from SSM Parameter Store, NOT hardcoded</constraint>
+      <constraint priority="high">Security group on EC2 MUST restrict ingress to API Gateway (not public 8080)</constraint>
+      <constraint priority="high">CORS allowed origins MUST be exact match (no wildcards in production)</constraint>
+    </security>
+    <cost>
+      <constraint priority="medium">HTTP API pricing: ~$1/million requests vs ~$3.50/million for REST</constraint>
+      <constraint priority="medium">No caching at API Gateway level (CloudFront handles caching)</constraint>
+    </cost>
+    <performance>
+      <constraint priority="high">Rate limit: 500 requests/second (protects EC2 from overload)</constraint>
+      <constraint priority="high">Burst limit: 1000 requests (handles traffic spikes)</constraint>
+      <constraint priority="medium">Throttled requests return 429 Too Many Requests</constraint>
+    </performance>
+  </constraints>
+
+  <interfaces>
+    <routeConfiguration>
+      <route path="GET /api/zmanim/*" authorizer="None (public)">Zmanim calculations</route>
+      <route path="GET /api/cities/*" authorizer="None (public)">City search</route>
+      <route path="GET /api/publishers" authorizer="None (public)">Publisher listing</route>
+      <route path="ANY /api/publisher/*" authorizer="Clerk JWT">Publisher management</route>
+      <route path="ANY /api/admin/*" authorizer="Clerk JWT">Admin operations</route>
+    </routeConfiguration>
+    <clerkJwtStructure>
+      <field name="iss">Clerk issuer URL: https://clerk.your-domain.com</field>
+      <field name="sub">User ID: user_xxx</field>
+      <field name="aud">Frontend API identifier (Clerk-provided)</field>
+      <field name="exp">Expiration timestamp</field>
+      <field name="iat">Issued at timestamp</field>
+      <field name="metadata">Custom claims: role, publisherId</field>
+    </clerkJwtStructure>
+    <corsHeaders>
+      <header>Access-Control-Allow-Origin: https://zmanim.shtetl.io</header>
+      <header>Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS</header>
+      <header>Access-Control-Allow-Headers: Authorization, Content-Type, X-Publisher-Id</header>
+      <header>Access-Control-Max-Age: 3600</header>
+    </corsHeaders>
+    <accessLogFormat>
+      <field name="requestId">$context.requestId</field>
+      <field name="ip">$context.identity.sourceIp</field>
+      <field name="requestTime">$context.requestTime</field>
+      <field name="httpMethod">$context.httpMethod</field>
+      <field name="routeKey">$context.routeKey</field>
+      <field name="status">$context.status</field>
+      <field name="protocol">$context.protocol</field>
+      <field name="responseLength">$context.responseLength</field>
+      <field name="integrationLatency">$context.integrationLatency</field>
+      <field name="error">$context.error.message</field>
+    </accessLogFormat>
+    <stackOutputs>
+      <output name="ApiGatewayEndpoint">HTTP API invoke URL for CloudFront origin</output>
+      <output name="ApiGatewayId">API Gateway ID for monitoring</output>
+      <output name="LogGroupName">CloudWatch log group name for access logs</output>
+    </stackOutputs>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard source="coding-standards.md">
+        Security: NEVER commit secrets - Clerk issuer/audience from SSM Parameter Store
+      </standard>
+      <standard source="coding-standards.md">
+        CI/CD: Test ALL changes locally BEFORE committing (cdk synth, cdk diff)
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        JWT validation: Protected routes MUST reject requests without valid Clerk JWT
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        Throttling: Requests exceeding limits MUST return 429 Too Many Requests
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        CORS: Preflight OPTIONS requests MUST return correct headers
+      </standard>
+    </standards>
+    <locations>
+      <location path="infrastructure/lib/cdn-stack.ts">API Gateway configuration in CDK</location>
+      <location path=".github/workflows/cdk-deploy.yml">Deployment workflow</location>
+    </locations>
+    <ideas>
+      <testIdea type="unit">cdk synth produces valid CloudFormation for HTTP API</testIdea>
+      <testIdea type="unit">JWT authorizer configuration includes correct issuer and audience</testIdea>
+      <testIdea type="unit">Public routes do NOT have authorizer attached</testIdea>
+      <testIdea type="unit">Protected routes DO have JWT authorizer attached</testIdea>
+      <testIdea type="unit">CORS configuration includes all required headers and methods</testIdea>
+      <testIdea type="unit">Throttling limits configured at default stage level</testIdea>
+      <testIdea type="integration">Deploy API Gateway to staging AWS account</testIdea>
+      <testIdea type="integration">curl public endpoint returns 200 (no auth)</testIdea>
+      <testIdea type="integration">curl protected endpoint without JWT returns 401</testIdea>
+      <testIdea type="integration">curl protected endpoint with valid Clerk JWT returns 200</testIdea>
+      <testIdea type="integration">curl protected endpoint with expired JWT returns 401</testIdea>
+      <testIdea type="integration">Send 600 requests rapidly to test throttling (expect 429)</testIdea>
+      <testIdea type="integration">OPTIONS request returns CORS preflight headers</testIdea>
+      <testIdea type="integration">Cross-origin request from frontend succeeds with CORS</testIdea>
+      <testIdea type="integration">CloudWatch logs appear within 1 minute of request</testIdea>
+      <testIdea type="integration">Log entry contains requestId, method, path, status, latency</testIdea>
+      <testIdea type="security">No Clerk secrets in CloudFormation template (only SSM refs)</testIdea>
+      <testIdea type="security">EC2 security group restricts port 8080 to API Gateway only</testIdea>
+      <testIdea type="performance">API Gateway adds &lt;10ms latency to requests (measure integrationLatency)</testIdea>
+    </ideas>
+  </tests>
+</story-context>

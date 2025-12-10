@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/jcom-dev/zmanim-lab/internal/ai"
+	"github.com/jcom-dev/zmanim/internal/ai"
 )
 
 // AISearchRequest represents a semantic search request

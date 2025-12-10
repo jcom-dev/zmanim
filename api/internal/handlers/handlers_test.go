@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/middleware"
 )
 
 // TestHelper provides utilities for handler testing

@@ -35,7 +35,7 @@ Pre-installs all dependencies:
 - **Go tools**: sqlc
 - **Node tools**: Jest (global)
 - **CLI tools**: Fly.io CLI, uv (Python), Claude Code
-- **Repository**: Cloned at `/home/coder/workspace/zmanim-lab`
+- **Repository**: Cloned at `/home/coder/workspace/zmanim`
 - **Dependencies**: Go modules and npm packages pre-installed
 - **Playwright**: Chromium browser pre-installed
 
@@ -46,7 +46,7 @@ Automatically builds and pushes the image to Docker Hub:
   - Push to `main` branch
   - Changes to Dockerfile, go.mod, go.sum, package.json, or package-lock.json
   - Manual trigger via workflow_dispatch
-- **Image location**: `jcomdev/zmanim-lab:latest`
+- **Image location**: `jcomdev/zmanim:latest`
 - **Tags**: `latest`, `sha-{commit}`, and branch name
 - **Build cache**: Enabled for faster builds
 
@@ -63,11 +63,11 @@ Minimal runtime configuration:
 
 **Time savings**: ~4-9 minutes faster!
 
-### 4. Coder Template Update (`.coder/zmanim-lab-workspace.tf`)
+### 4. Coder Template Update (`.coder/zmanim-workspace.tf`)
 
 Updated to use pre-built image:
 - **Before**: `codercom/enterprise-base:ubuntu`
-- **After**: `jcomdev/zmanim-lab:latest`
+- **After**: `jcomdev/zmanim:latest`
 - **Pull policy**: Always pull latest image
 - **Startup script**: `startup-fast.sh` (instead of `startup.sh`)
 
@@ -80,8 +80,8 @@ Updated to use pre-built image:
    - Go to GitHub Actions → "Build Dev Image" → "Run workflow"
 
 2. **Wait for build** (~10-15 minutes):
-   - Check progress: https://github.com/jcom-dev/zmanim-lab/actions
-   - Image will be pushed to: https://hub.docker.com/r/jcomdev/zmanim-lab
+   - Check progress: https://github.com/jcom-dev/zmanim/actions
+   - Image will be pushed to: https://hub.docker.com/r/jcomdev/zmanim
 
 3. **Update Coder template**:
    ```bash
@@ -124,7 +124,7 @@ The template is configured with `pull_triggers = ["always"]` to ensure fresh ima
 ├── Dockerfile.dev           # Pre-built development image
 ├── startup-fast.sh          # Fast runtime configuration (NEW)
 ├── startup.sh               # Original slow startup (kept for reference)
-├── zmanim-lab-workspace.tf  # Coder template (UPDATED)
+├── zmanim-workspace.tf  # Coder template (UPDATED)
 └── DEV-IMAGE-SETUP.md       # This file
 
 .github/workflows/
@@ -139,7 +139,7 @@ The template is configured with `pull_triggers = ["always"]` to ensure fresh ima
 - Ensure Go/Node versions are available
 
 ### Workspace startup still slow
-- Verify template is updated: `cat .coder/zmanim-lab-workspace.tf | grep jcomdev`
+- Verify template is updated: `cat .coder/zmanim-workspace.tf | grep jcomdev`
 - Check if latest image is being pulled
 - Rebuild workspace to force fresh pull
 

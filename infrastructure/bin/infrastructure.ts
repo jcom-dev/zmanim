@@ -40,7 +40,7 @@ const env = getCdkEnvironment(config);
 // This replaces static AWS credentials with federated identity
 const githubOidcStack = new GitHubOidcStack(app, 'ZmanimGitHubOidc', {
   env,
-  githubRepo: 'jcom-dev/zmanim-lab',
+  githubRepo: 'jcom-dev/zmanim',
   allowedRefs: ['main'], // Only main branch and tags can deploy
   description: 'Zmanim Lab - GitHub OIDC authentication for CDK deployments',
 });
@@ -85,7 +85,7 @@ const dnsStack = new DnsStack(app, `${config.stackPrefix}DNS`, {
 dnsStack.addDependency(cdnStack);
 
 // Apply tags to all stacks
-cdk.Tags.of(app).add('Project', 'zmanim-lab');
+cdk.Tags.of(app).add('Project', 'zmanim');
 cdk.Tags.of(app).add('Environment', config.environment);
 cdk.Tags.of(app).add('ManagedBy', 'cdk');
 

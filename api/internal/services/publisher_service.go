@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/models"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/models"
 )
 
 // PublisherService handles publisher-related business logic

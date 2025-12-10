@@ -11,7 +11,7 @@ Additionally, the tables referenced (`algorithm_version_history` and `algorithm_
 ## Files Created
 
 ### 1. Migration File
-**Path:** `/home/daniel/repos/zmanim-lab/db/migrations/00000000000003_algorithm_version_history.sql`
+**Path:** `/home/daniel/repos/zmanim/db/migrations/00000000000003_algorithm_version_history.sql`
 
 Created two new tables and a helper function:
 
@@ -27,7 +27,7 @@ Created two new tables and a helper function:
 - **`get_next_algorithm_version()`** - PL/pgSQL function to get next version number for an algorithm
 
 ### 2. SQLc Queries File
-**Path:** `/home/daniel/repos/zmanim-lab/api/internal/db/queries/version_history.sql`
+**Path:** `/home/daniel/repos/zmanim/api/internal/db/queries/version_history.sql`
 
 Created 10 SQLc queries:
 
@@ -43,12 +43,12 @@ Created 10 SQLc queries:
 10. `LogRollback` - Insert audit record for rollback operations
 
 ### 3. Generated SQLc Code
-**Path:** `/home/daniel/repos/zmanim-lab/api/internal/db/sqlcgen/version_history.sql.go`
+**Path:** `/home/daniel/repos/zmanim/api/internal/db/sqlcgen/version_history.sql.go`
 
 SQLc automatically generated type-safe Go methods for all queries with proper struct types and parameter handling.
 
 ### 4. Refactored Handler File
-**Path:** `/home/daniel/repos/zmanim-lab/api/internal/handlers/version_history.go`
+**Path:** `/home/daniel/repos/zmanim/api/internal/handlers/version_history.go`
 
 Completely refactored all 4 handler functions to use SQLc queries:
 

@@ -1,5 +1,5 @@
 {
-  "name": "zmanim-lab-tests",
+  "name": "zmanim-tests",
   "version": "1.0.0",
   "description": "E2E tests for Zmanim Lab using Playwright with Clerk auth helpers",
   "scripts": {

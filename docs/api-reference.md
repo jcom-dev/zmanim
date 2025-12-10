@@ -1,6 +1,6 @@
 # API Reference
 
-Base URL: `http://localhost:8080` (development) | `https://zmanim-lab.fly.dev` (production)
+Base URL: `http://localhost:8080` (development) | `https://zmanim.fly.dev` (production)
 
 ## Overview
 

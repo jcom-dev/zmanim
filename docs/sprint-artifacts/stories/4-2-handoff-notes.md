@@ -109,6 +109,6 @@ When completing tasks, update the story file at `docs/sprint-artifacts/stories/4
 
 After implementing executor, test with:
 ```bash
-cd /home/coder/workspace/zmanim-lab/api
+cd /home/coder/workspace/zmanim/api
 go test ./internal/dsl/... -v
 ```

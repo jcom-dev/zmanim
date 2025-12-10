@@ -104,13 +104,13 @@ go build -o main cmd/api/main.go
 ### Build Image
 
 ```bash
-docker build -t zmanim-lab-backend .
+docker build -t zmanim-backend .
 ```
 
 ### Run Container
 
 ```bash
-docker run -p 8080:8080 --env-file .env zmanim-lab-backend
+docker run -p 8080:8080 --env-file .env zmanim-backend
 ```
 
 ## Deployment
@@ -133,10 +133,10 @@ fly deploy
 ### Monitoring Deployments
 ```bash
 # Check deployment status
-fly status --app zmanim-lab
+fly status --app zmanim
 
 # View logs
-fly logs --app zmanim-lab
+fly logs --app zmanim
 ```
 
 ## Testing

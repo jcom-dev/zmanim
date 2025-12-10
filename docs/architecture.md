@@ -53,7 +53,7 @@ Zmanim Lab is a multi-publisher platform enabling halachic authorities to publis
 ## Project Structure
 
 ```
-zmanim-lab/
+zmanim/
 ├── web/                          # Next.js Frontend
 │   ├── app/                      # App Router pages
 │   │   ├── layout.tsx            # Root layout with providers
@@ -617,7 +617,7 @@ CREATE INDEX idx_cities_country ON cities(country);
 ## API Contracts
 
 ### Base URL
-- **Production API:** `https://api.zmanim-lab.com` (Fly.io)
+- **Production API:** `https://api.zmanim.com` (Fly.io)
 - **Development:** `http://localhost:8080`
 
 ### Endpoints
@@ -823,14 +823,14 @@ fly deploy
 ```
 DATABASE_URL=postgresql://...
 CLERK_SECRET_KEY=sk_live_...
-ALLOWED_ORIGINS=https://zmanim-lab.vercel.app
+ALLOWED_ORIGINS=https://zmanim.vercel.app
 UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
 UPSTASH_REDIS_REST_TOKEN=AW-xxx...
 ```
 
 **Web (Vercel env vars):**
 ```
-NEXT_PUBLIC_API_URL=https://api.zmanim-lab.com
+NEXT_PUBLIC_API_URL=https://api.zmanim.com
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
 CLERK_SECRET_KEY=sk_live_...
 ```
@@ -851,8 +851,8 @@ CLERK_SECRET_KEY=sk_live_...
 
 ```bash
 # Clone repository
-git clone https://github.com/jcom-dev/zmanim-lab.git
-cd zmanim-lab
+git clone https://github.com/jcom-dev/zmanim.git
+cd zmanim
 
 # Frontend setup
 cd web
@@ -890,7 +890,7 @@ go run cmd/api/main.go
 **Status:** `.coder/` directory needs adaptation from "shtetl" project
 
 **Required Changes:**
-1. Rename workspace from "shtetl" to "zmanim-lab"
+1. Rename workspace from "shtetl" to "zmanim"
 2. Remove Redis (not needed for POC)
 3. Update to single repo (not multi-repo submodules)
 4. Configure database connection

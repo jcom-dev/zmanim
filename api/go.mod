@@ -1,4 +1,4 @@
-module github.com/jcom-dev/zmanim-lab
+module github.com/jcom-dev/zmanim
 
 go 1.24.0
 

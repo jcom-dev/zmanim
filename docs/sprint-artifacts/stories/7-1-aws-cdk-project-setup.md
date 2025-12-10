@@ -43,7 +43,7 @@ So that **I can reproducibly deploy and manage AWS resources for the production 
   - [x] 4.1 Create `.github/workflows/cdk-deploy.yml`
   - [x] 4.2 Configure trigger on tag push (`v*`)
   - [x] 4.3 Create OIDC provider construct in CDK for GitHub Actions
-  - [x] 4.4 Create IAM role with trust policy for `jcom-dev/zmanim-lab`
+  - [x] 4.4 Create IAM role with trust policy for `jcom-dev/zmanim`
   - [x] 4.5 Bootstrap OIDC infrastructure with local `cdk deploy`
   - [x] 4.6 Update workflow to use OIDC authentication (no static secrets)
   - [x] 4.7 Configure GitHub secrets via `gh` CLI (AWS_ACCOUNT_ID, role ARN)
@@ -91,7 +91,7 @@ NetworkStack (no dependencies)
 ### Project Structure
 
 ```
-zmanim-lab/
+zmanim/
 ├── infrastructure/           # NEW - CDK project
 │   ├── bin/
 │   │   └── infrastructure.ts # App entry point
@@ -160,7 +160,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 **Task 4 - OIDC Update (2025-12-10):**
 - Created `lib/github-oidc-stack.ts` with OIDC provider and IAM role
-- Trust policy restricts to `jcom-dev/zmanim-lab` repo (main branch + tags)
+- Trust policy restricts to `jcom-dev/zmanim` repo (main branch + tags)
 - Bootstrapped CDK in AWS account 768205136951/eu-west-1
 - Deployed ZmanimGitHubOidc stack locally
 - Updated workflow to use `role-to-assume` instead of static credentials

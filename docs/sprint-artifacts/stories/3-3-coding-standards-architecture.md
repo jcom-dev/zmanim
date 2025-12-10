@@ -497,7 +497,7 @@ const email = `test-user-${Date.now()}@test-zmanim.example.com`;
 **DON'T: Don't use .local domains**
 ```typescript
 // Bad - Clerk doesn't accept .local
-const email = 'test@test.zmanim-lab.local';
+const email = 'test@test.zmanim.local';
 
 // Good - Use example.com
 const email = 'test@test-zmanim.example.com';

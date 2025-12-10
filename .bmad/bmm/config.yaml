@@ -3,7 +3,7 @@
 # Version: 6.0.0-alpha.12
 # Date: 2025-11-26T17:34:28.234Z
 
-project_name: zmanim-lab
+project_name: zmanim
 user_skill_level: intermediate
 sprint_artifacts: '{project-root}/docs/sprint-artifacts'
 tea_use_mcp_enhancements: false

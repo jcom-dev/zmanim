@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/middleware"
 )
 
 // AdminListAllUsers returns all users with admin status or publisher access

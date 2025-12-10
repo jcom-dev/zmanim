@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/services"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // ExportPublisherSnapshot exports the current publisher state as JSON

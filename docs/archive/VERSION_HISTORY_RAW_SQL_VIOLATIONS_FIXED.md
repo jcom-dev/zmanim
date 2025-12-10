@@ -54,13 +54,13 @@ All queries replaced with SQLc-generated methods:
 10. `h.db.Queries.LogRollback(ctx, params)` - replaces 1 instance
 
 ### New Files Created
-- `/home/daniel/repos/zmanim-lab/db/migrations/00000000000003_algorithm_version_history.sql` - Tables and function
-- `/home/daniel/repos/zmanim-lab/api/internal/db/queries/version_history.sql` - SQLc queries
-- `/home/daniel/repos/zmanim-lab/api/internal/db/sqlcgen/version_history.sql.go` - Generated code (auto)
+- `/home/daniel/repos/zmanim/db/migrations/00000000000003_algorithm_version_history.sql` - Tables and function
+- `/home/daniel/repos/zmanim/api/internal/db/queries/version_history.sql` - SQLc queries
+- `/home/daniel/repos/zmanim/api/internal/db/sqlcgen/version_history.sql.go` - Generated code (auto)
 
 ### Files Modified
-- `/home/daniel/repos/zmanim-lab/api/internal/handlers/version_history.go` - Refactored all handlers
-- `/home/daniel/repos/zmanim-lab/api/internal/db/queries/publishers.sql` - Fixed cities→geo_cities
+- `/home/daniel/repos/zmanim/api/internal/handlers/version_history.go` - Refactored all handlers
+- `/home/daniel/repos/zmanim/api/internal/db/queries/publishers.sql` - Fixed cities→geo_cities
 
 ## Verification
 

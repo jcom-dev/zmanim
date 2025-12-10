@@ -19,7 +19,7 @@ echo "=== Geographic Data Seed ==="
 echo ""
 
 # Default S3 source (update with your actual S3 URL)
-DEFAULT_SOURCE="${GEO_SEED_SOURCE:-s3://zmanim-lab/geo-seed/geodata.dump.zst}"
+DEFAULT_SOURCE="${GEO_SEED_SOURCE:-s3://zmanim/geo-seed/geodata.dump.zst}"
 
 # Use provided source or default
 SOURCE="${1:-$DEFAULT_SOURCE}"

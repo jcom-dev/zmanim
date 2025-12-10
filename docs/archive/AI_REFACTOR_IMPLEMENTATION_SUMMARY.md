@@ -68,7 +68,7 @@ Explains the **why** behind patterns:
 ## File Structure Created
 
 ```
-zmanim-lab/
+zmanim/
 ├── docs/
 │   ├── compliance/
 │   │   └── status.yaml                    # ✅ Machine-readable metrics

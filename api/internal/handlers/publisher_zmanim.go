@@ -21,9 +21,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/calendar"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
-	"github.com/jcom-dev/zmanim-lab/internal/dsl"
+	"github.com/jcom-dev/zmanim/internal/calendar"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/dsl"
 )
 
 // PublisherZman represents a single zman formula for a publisher

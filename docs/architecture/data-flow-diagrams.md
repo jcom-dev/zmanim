@@ -190,7 +190,7 @@
 │  ┌─────────────────────────────────────────────────────┐│
 │  │ Service: EmailService.SendAdminNotification()        ││
 │  │ - Template: "New publisher request"                  ││
-│  │ - Recipient: admin@zmanim-lab.com                    ││
+│  │ - Recipient: admin@zmanim.com                    ││
 │  └─────────────────────────────────────────────────────┘│
 └──────────────────────────────────────────────────────────┘
        │

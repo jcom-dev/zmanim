@@ -25,7 +25,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Check if we're in the right place
 if [ ! -d "$PROJECT_ROOT/web" ] || [ ! -d "$PROJECT_ROOT/api" ]; then
     echo "❌ Error: Could not find web/ and api/ directories"
-    echo "   Please run this script from the zmanim-lab repository"
+    echo "   Please run this script from the zmanim repository"
     exit 1
 fi
 

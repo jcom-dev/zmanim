@@ -220,7 +220,7 @@ clerkClient.Users.UpdateUserMetadata(userId, &clerk.UpdateUserMetadataParams{
 ### Email Integration
 
 ```go
-acceptURL := fmt.Sprintf("https://zmanim-lab.com/accept-publisher-invite?token=%s", token)
+acceptURL := fmt.Sprintf("https://zmanim.com/accept-publisher-invite?token=%s", token)
 emailService.SendInvitation(
     invitation.Email,
     inviterName,

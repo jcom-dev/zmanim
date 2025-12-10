@@ -44,10 +44,10 @@ test.describe('Email Testing Infrastructure', () => {
       Welcome to Zmanim Lab!
 
       Click here to accept your invitation:
-      https://zmanim-lab.com/accept-invite?token=abc123
+      https://zmanim.com/accept-invite?token=abc123
 
       Or visit your dashboard:
-      https://zmanim-lab.com/publisher/dashboard
+      https://zmanim.com/publisher/dashboard
 
       Thanks,
       The Zmanim Lab Team
@@ -56,8 +56,8 @@ test.describe('Email Testing Infrastructure', () => {
     const links = extractLinksFromEmail(emailBody);
 
     expect(links).toHaveLength(2);
-    expect(links).toContain('https://zmanim-lab.com/accept-invite?token=abc123');
-    expect(links).toContain('https://zmanim-lab.com/publisher/dashboard');
+    expect(links).toContain('https://zmanim.com/accept-invite?token=abc123');
+    expect(links).toContain('https://zmanim.com/publisher/dashboard');
   });
 });
 

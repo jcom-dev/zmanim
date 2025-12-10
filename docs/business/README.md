@@ -6,7 +6,7 @@ This folder contains comprehensive, easily readable business documentation for t
 
 ## Documents in This Folder
 
-### 1. [What is Zmanim Lab?](01-what-is-zmanim-lab.md)
+### 1. [What is Zmanim Lab?](01-what-is-zmanim.md)
 **Purpose:** High-level overview of the platform  
 **Contents:**
 - What Zmanim Lab is (the big picture)

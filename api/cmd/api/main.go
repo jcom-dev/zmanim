@@ -7,10 +7,10 @@
 //	@title			Zmanim Lab API
 //	@version		1.0
 //	@description	API for Jewish prayer times calculation and publisher management
-//	@termsOfService	https://zmanim-lab.com/terms
+//	@termsOfService	https://zmanim.com/terms
 //
 //	@contact.name	Zmanim Lab Support
-//	@contact.email	support@zmanim-lab.com
+//	@contact.email	support@zmanim.com
 //
 //	@license.name	MIT
 //	@license.url	https://opensource.org/licenses/MIT
@@ -58,15 +58,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/jcom-dev/zmanim-lab/internal/ai"
-	"github.com/jcom-dev/zmanim-lab/internal/cache"
-	"github.com/jcom-dev/zmanim-lab/internal/config"
-	"github.com/jcom-dev/zmanim-lab/internal/db"
-	"github.com/jcom-dev/zmanim-lab/internal/handlers"
-	custommw "github.com/jcom-dev/zmanim-lab/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/ai"
+	"github.com/jcom-dev/zmanim/internal/cache"
+	"github.com/jcom-dev/zmanim/internal/config"
+	"github.com/jcom-dev/zmanim/internal/db"
+	"github.com/jcom-dev/zmanim/internal/handlers"
+	custommw "github.com/jcom-dev/zmanim/internal/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	_ "github.com/jcom-dev/zmanim-lab/docs" // Swagger generated docs
+	_ "github.com/jcom-dev/zmanim/docs" // Swagger generated docs
 )
 
 func main() {

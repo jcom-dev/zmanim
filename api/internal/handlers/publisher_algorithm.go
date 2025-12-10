@@ -16,8 +16,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
-	"github.com/jcom-dev/zmanim-lab/internal/algorithm"
-	"github.com/jcom-dev/zmanim-lab/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/algorithm"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 )
 
 // Helper function to convert string publisher ID to int32

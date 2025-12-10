@@ -27,7 +27,7 @@ test.describe('Publisher Profile', () => {
     testPublisher = await createTestPublisherEntity({
       name: 'TEST_E2E_Profile_Publisher',
       organization: 'TEST_E2E_Profile_Org',
-      email: 'test-profile@test.zmanim-lab.local',
+      email: 'test-profile@test.zmanim.local',
       status: 'verified',
     });
   });
@@ -169,7 +169,7 @@ test.describe('Publisher Profile Editing', () => {
   test('validation error on empty email', async ({ page }) => {
     const publisher = await createTestPublisherEntity({
       name: 'TEST_E2E_Validate_Email',
-      email: 'test@test.zmanim-lab.local',
+      email: 'test@test.zmanim.local',
       status: 'verified',
     });
 

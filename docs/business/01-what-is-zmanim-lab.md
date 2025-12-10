@@ -220,7 +220,7 @@ Zmanim Lab solves this through **two-sided transparency**:
 ```
 
 **Step 1: Homepage**
-- User lands on zmanim-lab.com
+- User lands on zmanim.com
 - Sees location selector with options:
   - **Search**: Type city name
   - **Browse**: Navigate continent → country → region → city
