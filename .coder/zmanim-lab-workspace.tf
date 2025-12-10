@@ -207,9 +207,15 @@ resource "docker_container" "redis" {
   }
 }
 
+# Pre-built development image with all dependencies
+resource "docker_image" "workspace" {
+  name         = "jcomdev/zmanim-lab:latest"
+  pull_triggers = ["always"]
+}
+
 # Main development container
 resource "docker_container" "workspace" {
-  image = "codercom/enterprise-base:ubuntu"
+  image = docker_image.workspace.image_id
   name  = "coder-${data.coder_workspace.me.id}"
 
   # Run as the coder user
@@ -292,7 +298,7 @@ resource "docker_container" "workspace" {
 resource "coder_agent" "main" {
   arch           = "amd64"
   os             = "linux"
-  startup_script = file("${path.module}/startup.sh")
+  startup_script = file("${path.module}/startup-fast.sh")
 
   # Display apps
   display_apps {
