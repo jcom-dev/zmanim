@@ -100,6 +100,7 @@ jobs:
           cat infrastructure/packer/manifest.json
 
       - name: Cleanup old AMIs
+        if: success()
         run: |
           echo "Cleaning up old AMIs (keeping latest 2)..."
 
