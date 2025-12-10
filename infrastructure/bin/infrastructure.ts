@@ -3,22 +3,24 @@ import * as cdk from 'aws-cdk-lib';
 import { NetworkStack } from '../lib/network-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { CdnStack } from '../lib/cdn-stack';
-import { DnsStack } from '../lib/dns-stack';
+import { DnsZoneStack, DnsStack } from '../lib/dns-stack';
 import { GitHubOidcStack } from '../lib/github-oidc-stack';
 import { getConfig, getCdkEnvironment } from '../lib/config';
 
 /**
  * Zmanim Lab AWS Infrastructure
  *
- * Stack Dependency Graph (from Epic 7 Architecture):
+ * Stack Dependency Graph:
  *
- *   DNSStack
- *       ↓
- *   CDNStack → (depends on Compute for API Gateway origin)
- *       ↓
- *   ComputeStack → (depends on Network for VPC/subnets)
- *       ↓
  *   NetworkStack (no dependencies)
+ *       ↓
+ *   ComputeStack (depends on Network for VPC/subnets)
+ *       ↓
+ *   DnsZoneStack (depends on Compute for Elastic IP → creates hosted zone + origin A record)
+ *       ↓
+ *   CDNStack (depends on DnsZone for origin domain)
+ *       ↓
+ *   DnsStack (depends on CDN for distribution + DnsZone for hosted zone)
  *
  * Deployment order is handled automatically by CDK based on cross-stack references.
  */
@@ -62,27 +64,37 @@ const computeStack = new ComputeStack(app, `${config.stackPrefix}Compute`, {
 });
 computeStack.addDependency(networkStack);
 
-// CDNStack - CloudFront, S3, API Gateway (depends on ComputeStack for API origin)
+// DnsZoneStack - Route53 hosted zone + API origin A record (depends on Compute for Elastic IP)
+const dnsZoneStack = new DnsZoneStack(app, `${config.stackPrefix}DnsZone`, {
+  config,
+  env,
+  elasticIp: computeStack.elasticIp,
+  description: 'Zmanim Lab - Route53 hosted zone for shtetl.io',
+});
+dnsZoneStack.addDependency(computeStack);
+
+// CDNStack - CloudFront, S3 (depends on DnsZone for origin domain)
 const cdnStack = new CdnStack(app, `${config.stackPrefix}CDN`, {
   config,
   env,
-  apiEndpoint: computeStack.elasticIp.ref,
-  description: 'Zmanim Lab - CDN infrastructure (CloudFront, S3, API Gateway)',
+  apiOriginDomain: dnsZoneStack.apiOriginDomain,
+  description: 'Zmanim Lab - CDN infrastructure (CloudFront, S3)',
 });
-cdnStack.addDependency(computeStack);
+cdnStack.addDependency(dnsZoneStack);
 
-// DNSStack - Route53, ACM (depends on CDNStack for distribution)
+// DNSStack - ACM certificate, CloudFront alias (depends on CDN + DnsZone)
 // NOTE: For CloudFront, certificate must be in us-east-1
-// Story 7.8 will handle the cross-region certificate requirement using
-// DnsValidatedCertificate or separate us-east-1 certificate stack
+// Story 7.8 will handle the cross-region certificate requirement
 const dnsStack = new DnsStack(app, `${config.stackPrefix}DNS`, {
   config,
   env,
   crossRegionReferences: true, // Enable for future us-east-1 cert references
   distribution: cdnStack.distribution,
-  description: 'Zmanim Lab - DNS infrastructure (Route53, ACM certificate)',
+  hostedZone: dnsZoneStack.hostedZone,
+  description: 'Zmanim Lab - DNS infrastructure (ACM certificate, CloudFront alias)',
 });
 dnsStack.addDependency(cdnStack);
+dnsStack.addDependency(dnsZoneStack);
 
 // Apply tags to all stacks
 cdk.Tags.of(app).add('Project', 'zmanim');

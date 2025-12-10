@@ -8,7 +8,7 @@ import { EnvironmentConfig } from './config';
 
 export interface CdnStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
-  apiEndpoint: string; // EC2 Elastic IP or API Gateway URL
+  apiOriginDomain: string; // Domain name pointing to EC2 (e.g., origin-api.zmanim.shtetl.io)
   certificate?: acm.ICertificate;
 }
 
@@ -33,7 +33,7 @@ export class CdnStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CdnStackProps) {
     super(scope, id, props);
 
-    const { config, apiEndpoint } = props;
+    const { config, apiOriginDomain } = props;
 
     // S3 bucket for static assets (Next.js export)
     this.staticBucket = new s3.Bucket(this, 'StaticBucket', {
@@ -84,7 +84,7 @@ export class CdnStack extends cdk.Stack {
       },
       additionalBehaviors: {
         '/api/*': {
-          origin: new origins.HttpOrigin(apiEndpoint, {
+          origin: new origins.HttpOrigin(apiOriginDomain, {
             protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
             httpPort: 8080,
           }),
