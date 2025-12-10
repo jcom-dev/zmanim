@@ -42,6 +42,12 @@ variable "zmanim_repo" {
   description = "Zmanim Lab repository URL"
 }
 
+variable "docker_username" {
+  type        = string
+  default     = "jcomdev"
+  description = "Docker Hub username for pre-built dev image"
+}
+
 # Authentication (Clerk)
 variable "clerk_publishable_key" {
   type        = string
@@ -209,7 +215,7 @@ resource "docker_container" "redis" {
 
 # Pre-built development image with all dependencies
 resource "docker_image" "workspace" {
-  name         = "jcomdev/zmanim-lab:latest"
+  name          = "${var.docker_username}/zmanim-lab:latest"
   pull_triggers = ["always"]
 }
 
