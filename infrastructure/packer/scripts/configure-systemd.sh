@@ -56,6 +56,12 @@ sudo mv /tmp/restic-backup.service /etc/systemd/system/
 sudo mv /tmp/restic-backup.timer /etc/systemd/system/
 sudo mv /tmp/backup-notify@.service /etc/systemd/system/
 
+# Install PostgreSQL override to wait for firstboot
+echo "Installing PostgreSQL service override..."
+sudo mkdir -p /etc/systemd/system/postgresql.service.d
+sudo mv /tmp/postgresql-override.conf /etc/systemd/system/postgresql.service.d/override.conf
+sudo chmod 644 /etc/systemd/system/postgresql.service.d/override.conf
+
 # Set proper permissions
 sudo chmod 644 /etc/systemd/system/zmanim-*.service
 sudo chmod 644 /etc/systemd/system/restic-backup.service

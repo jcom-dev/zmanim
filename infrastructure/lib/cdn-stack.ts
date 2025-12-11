@@ -63,9 +63,11 @@ export class CdnStack extends cdk.Stack {
 
     // API origin pointing to EC2 via origin-api subdomain
     // Story 7.6: AC2 - API Gateway origin (actually EC2 via Route53)
+    // Note: EC2 API runs on HTTP:8080, not HTTPS:443
+    // CloudFront handles HTTPS termination; origin connection is HTTP
     const apiOrigin = new origins.HttpOrigin(apiOriginDomain, {
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY, // AC2.2: HTTPS only to origin
-      httpsPort: 443,
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY, // HTTP to origin (EC2:8080)
+      httpPort: 8080,
       originShieldEnabled: true,
       originShieldRegion: 'eu-west-1', // Origin Shield for API requests too
     });
@@ -272,10 +274,10 @@ function handler(event) {
       // Enable distribution
       enabled: true,
 
-      // Enable logging for cache hit ratio analysis
-      enableLogging: true,
-      logBucket: this.staticBucket, // Reuse static bucket for logs
-      logFilePrefix: 'cloudfront-logs/',
+      // Note: CloudFront logging requires ACL access on the bucket, but we use
+      // BlockPublicAccess.BLOCK_ALL for security. Logging disabled for now.
+      // TODO: Add separate logging bucket with ACL access if needed.
+      enableLogging: false,
     });
 
     // Outputs

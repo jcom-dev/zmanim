@@ -87,10 +87,11 @@ export class CertificateStack extends cdk.Stack {
 }
 
 /**
- * DnsZoneStack - Route 53 hosted zone (must be created first)
+ * DnsZoneStack - Route 53 hosted zone (imports existing zone)
  *
- * Creates the hosted zone that other stacks depend on.
- * User must update their domain registrar's nameservers to point to this zone.
+ * IMPORTANT: This stack imports an EXISTING hosted zone rather than creating one.
+ * The shtetl.io zone was created manually and has MX, DKIM, SPF records.
+ * Creating a new zone would require updating nameservers at the registrar.
  */
 export interface DnsZoneStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
@@ -98,7 +99,7 @@ export interface DnsZoneStackProps extends cdk.StackProps {
 }
 
 export class DnsZoneStack extends cdk.Stack {
-  public readonly hostedZone: route53.PublicHostedZone;
+  public readonly hostedZone: route53.IHostedZone;
   public readonly apiOriginDomain: string;
 
   constructor(scope: Construct, id: string, props: DnsZoneStackProps) {
@@ -110,10 +111,12 @@ export class DnsZoneStack extends cdk.Stack {
     const domainParts = config.domain.split('.');
     const baseDomain = domainParts.slice(-2).join('.'); // shtetl.io
 
-    // Create hosted zone for shtetl.io
-    this.hostedZone = new route53.PublicHostedZone(this, 'HostedZone', {
+    // Import EXISTING hosted zone for shtetl.io
+    // This zone was created manually and has MX, DKIM, SPF records configured
+    // Zone ID: Z079919527B3JRWEWJVH6 (the one with correct NS delegation)
+    this.hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId: 'Z079919527B3JRWEWJVH6',
       zoneName: baseDomain,
-      comment: `Hosted zone for ${baseDomain} - managed by CDK`,
     });
 
     // Create origin-api.zmanim.shtetl.io A record pointing to Elastic IP
@@ -132,12 +135,7 @@ export class DnsZoneStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HostedZoneId', {
       value: this.hostedZone.hostedZoneId,
       exportName: `${config.stackPrefix}-HostedZoneId`,
-      description: 'Route 53 hosted zone ID',
-    });
-
-    new cdk.CfnOutput(this, 'NameServers', {
-      value: cdk.Fn.join(', ', this.hostedZone.hostedZoneNameServers || []),
-      description: 'Nameservers - update your domain registrar to use these',
+      description: 'Route 53 hosted zone ID (imported)',
     });
 
     new cdk.CfnOutput(this, 'ApiOriginDomain', {

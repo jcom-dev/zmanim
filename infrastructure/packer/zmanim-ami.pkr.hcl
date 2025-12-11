@@ -111,6 +111,11 @@ build {
   }
 
   provisioner "file" {
+    source      = "${path.root}/files/postgresql-override.conf"
+    destination = "/tmp/postgresql-override.conf"
+  }
+
+  provisioner "file" {
     source      = "${path.root}/files/firstboot.sh"
     destination = "/tmp/firstboot.sh"
   }
