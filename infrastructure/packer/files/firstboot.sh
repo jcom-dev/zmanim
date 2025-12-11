@@ -65,6 +65,7 @@ OPENAI_API_KEY=$(get_ssm_param "/zmanim/prod/openai-api-key")
 RESEND_API_KEY=$(get_ssm_param "/zmanim/prod/resend-api-key")
 RESEND_FROM=$(get_ssm_param "/zmanim/prod/resend-from")
 RESEND_DOMAIN=$(get_ssm_param "/zmanim/prod/resend-domain")
+JWT_SECRET=$(get_ssm_param "/zmanim/prod/jwt-secret")
 
 if [ -z "$POSTGRES_PASSWORD" ]; then
     echo "ERROR: postgres-password not found in SSM"
@@ -220,6 +221,9 @@ REDIS_URL=redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}localhost:6379/0
 # Clerk Authentication
 ${CLERK_SECRET_KEY:+CLERK_SECRET_KEY=${CLERK_SECRET_KEY}}
 ${CLERK_PUBLISHABLE_KEY:+CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}}
+
+# JWT Secret (required for production)
+${JWT_SECRET:+JWT_SECRET=${JWT_SECRET}}
 
 # AI Services
 ${ANTHROPIC_API_KEY:+ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}}
