@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from './config';
 
@@ -149,16 +150,18 @@ export class ComputeStack extends cdk.Stack {
     // - Placed in public subnet from NetworkStack
     // - Attached security group from NetworkStack
 
-    // Task 1.3: Lookup Packer AMI by name filter
-    // Uses ec2.LookupMachineImage to find latest AMI matching 'zmanim-*'
-    // This automatically picks up new AMIs on deployment without manual SSM updates
-    const zmanimAmi = ec2.MachineImage.lookup({
-      name: 'zmanim-*',
-      owners: ['self'], // Only look at our own AMIs
-      filters: {
-        'architecture': ['arm64'], // Graviton3 ARM64
-        'state': ['available'],
-      },
+    // Task 1.3: Get AMI ID from SSM Parameter Store
+    // The AMI ID is stored in SSM by the Packer build pipeline (build-ami.yml)
+    // This avoids CDK context caching issues when AMIs are rebuilt
+    // SSM Parameter: /zmanim/{env}/ami-id
+    const amiId = ssm.StringParameter.valueForStringParameter(
+      this,
+      `/zmanim/${config.environment}/ami-id`
+    );
+
+    // Create machine image from SSM-sourced AMI ID
+    const zmanimAmi = ec2.MachineImage.genericLinux({
+      [config.region]: amiId,
     });
 
     // Task 6: User Data Script (AC6)
@@ -353,8 +356,8 @@ export class ComputeStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'AmiId', {
-      value: zmanimAmi.getImage(this).imageId,
-      description: 'AMI ID resolved by name lookup (zmanim-*)',
+      value: amiId,
+      description: 'AMI ID from SSM Parameter Store (/zmanim/{env}/ami-id)',
     });
 
     // =========================================================================

@@ -173,6 +173,21 @@ jobs:
 
           echo "Final AMI ready: $NEW_AMI (${FINAL_NAME})"
 
+      - name: Store AMI ID in SSM Parameter Store
+        run: |
+          AMI_ID="${{ steps.rename.outputs.final_ami_id }}"
+
+          echo "Storing AMI ID in SSM Parameter Store..."
+          aws ssm put-parameter \
+            --name "/zmanim/prod/ami-id" \
+            --value "$AMI_ID" \
+            --type "String" \
+            --overwrite \
+            --description "Latest Zmanim AMI ID (version ${{ steps.version.outputs.version }})" \
+            --region eu-west-1
+
+          echo "SSM Parameter /zmanim/prod/ami-id set to: $AMI_ID"
+
       - name: Output AMI information
         run: |
           echo "AMI Build Complete!"
@@ -181,9 +196,9 @@ jobs:
           echo "Region: eu-west-1"
           echo "AMI ID: ${{ steps.rename.outputs.final_ami_id }}"
           echo "AMI Name: zmanim-${{ steps.version.outputs.version }}"
+          echo "SSM Parameter: /zmanim/prod/ami-id"
           echo ""
-          echo "CDK will automatically find this AMI using:"
-          echo "  ec2.MachineImage.lookup({ name: 'zmanim-*', owners: ['self'] })"
+          echo "CDK will read AMI ID from SSM at deploy time (no caching)"
 
       - name: Upload Packer manifest
         uses: actions/upload-artifact@v4
