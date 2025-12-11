@@ -129,7 +129,7 @@ for migration in $(ls -1 ${MIGRATIONS_DIR}/*.sql 2>/dev/null | sort); do
         PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
             "INSERT INTO schema_migrations (version) VALUES ('$MIGRATION_NAME') ON CONFLICT DO NOTHING;" 2>/dev/null
         echo "    Done"
-        ((MIGRATION_COUNT++))
+        MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
     else
         echo "    WARNING: Migration may have partially failed, continuing..."
     fi
