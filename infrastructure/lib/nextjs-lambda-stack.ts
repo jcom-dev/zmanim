@@ -2,7 +2,6 @@ import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Nextjs } from 'cdk-nextjs-standalone';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from './config';
@@ -34,24 +33,16 @@ export class NextjsLambdaStack extends cdk.Stack {
 
     const { config, certificate, hostedZone } = props;
 
-    // Fetch runtime secrets from SSM Parameter Store
-    // Note: NEXT_PUBLIC_* vars must be set as shell env vars at build time
-    // because they're baked into the client bundle during static generation
-    const ssmPrefix = `/zmanim/${config.environment}`;
-    const clerkSecretKey = ssm.StringParameter.valueForStringParameter(
-      this,
-      `${ssmPrefix}/clerk-secret-key`
-    );
-
     // Deploy Next.js with Lambda + CloudFront
-    // NEXT_PUBLIC_* env vars are set in GitHub Actions workflow at build time
+    // All env vars are passed via shell environment at build time
+    // because SSM SecureString parameters can't be resolved by CloudFormation
     const nextjs = new Nextjs(this, 'NextjsSite', {
       nextjsPath: '../web', // Path to Next.js app relative to infrastructure/
 
-      // Runtime environment variables for the Lambda functions
-      // NEXT_PUBLIC_* are already baked in at build time
+      // Environment variables passed via shell env during CDK synth
+      // See .github/workflows/deploy-prod.yml for the actual values
       environment: {
-        CLERK_SECRET_KEY: clerkSecretKey,
+        CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || '',
       },
 
       // Custom domain configuration

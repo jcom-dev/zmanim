@@ -61,6 +61,8 @@ jobs:
           # NEXT_PUBLIC_* vars are needed at build time for static generation
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
+          # Runtime secrets for Lambda (can't use SSM SecureString in CloudFormation)
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
         run: |
           cd infrastructure
           npx cdk synth ZmanimProdNextjs
