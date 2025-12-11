@@ -42,7 +42,12 @@ import { usePublisherContextOptional } from '@/providers/PublisherContext';
 // =============================================================================
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const API_PREFIX = '/api/v1';
+
+// In production (AWS), CloudFront routes /backend/* to API Gateway -> Go backend
+// cdk-nextjs-standalone claims /api/* for Next.js SSR, so we use /backend/* in prod.
+// In local dev, the Go backend serves directly on /api/v1/*.
+const isProduction = API_BASE.includes('shtetl.io') || API_BASE.includes('cloudfront.net');
+const API_PREFIX = isProduction ? '/backend' : '/api/v1';
 
 // =============================================================================
 // Types
@@ -394,49 +399,76 @@ export function useAdminApi() {
 
 /**
  * Normalizes an endpoint to ensure consistent formatting.
- * - Adds /api/v1 prefix if not present
+ * - Adds API_PREFIX (/backend in prod, /api/v1 in dev) if not present
  * - Removes double slashes
  */
 function normalizeEndpoint(endpoint: string): string {
   // Remove leading slash for consistency
   let normalized = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-  // Add /api/v1 prefix if not present
-  if (!normalized.startsWith('/api/v1') && !normalized.startsWith('/api/')) {
-    // Check if it starts with a known route prefix
-    const routePrefixes = [
-      '/publisher',
-      '/admin',
-      '/user',
-      '/dsl',
-      '/zmanim',
-      '/registry',
-      '/cities',
-      '/continents',
-      '/countries',
-      '/regions',
-      '/coverage',
-      '/algorithms',
-      '/calendar',
-      '/ai',
-      '/health',
-      '/categories',
-      '/tag-types',
-      '/geo',
-    ];
-
-    const needsPrefix = routePrefixes.some(
-      (prefix) => normalized.startsWith(prefix) || normalized === prefix
-    );
-
-    if (needsPrefix) {
-      normalized = `${API_PREFIX}${normalized}`;
-    }
+  // Already has the correct prefix - return as-is
+  if (normalized.startsWith(API_PREFIX)) {
+    return normalized;
   }
 
-  // Ensure /api/v1 prefix for standard endpoints
-  if (normalized.startsWith('/api/') && !normalized.startsWith('/api/v1')) {
-    normalized = normalized.replace('/api/', '/api/v1/');
+  // Handle /api/v1 or /api/ prefixed endpoints (convert to API_PREFIX in prod)
+  if (normalized.startsWith('/api/v1')) {
+    if (isProduction) {
+      // In prod, convert /api/v1/foo to /backend/foo
+      normalized = normalized.replace('/api/v1', '/backend');
+    }
+    return normalized;
+  }
+
+  if (normalized.startsWith('/api/')) {
+    if (isProduction) {
+      // In prod, convert /api/foo to /backend/foo
+      normalized = normalized.replace('/api/', '/backend/');
+    } else {
+      // In dev, convert /api/foo to /api/v1/foo
+      normalized = normalized.replace('/api/', '/api/v1/');
+    }
+    return normalized;
+  }
+
+  // Handle /backend/ prefixed endpoints (convert to /api/v1 in dev)
+  if (normalized.startsWith('/backend')) {
+    if (!isProduction) {
+      // In dev, convert /backend/foo to /api/v1/foo
+      normalized = normalized.replace('/backend', '/api/v1');
+    }
+    return normalized;
+  }
+
+  // Check if it starts with a known route prefix that needs API_PREFIX
+  const routePrefixes = [
+    '/publisher',
+    '/admin',
+    '/user',
+    '/dsl',
+    '/zmanim',
+    '/registry',
+    '/cities',
+    '/continents',
+    '/countries',
+    '/regions',
+    '/coverage',
+    '/algorithms',
+    '/calendar',
+    '/ai',
+    '/health',
+    '/categories',
+    '/tag-types',
+    '/geo',
+    '/publishers',
+  ];
+
+  const needsPrefix = routePrefixes.some(
+    (prefix) => normalized.startsWith(prefix) || normalized === prefix
+  );
+
+  if (needsPrefix) {
+    normalized = `${API_PREFIX}${normalized}`;
   }
 
   return normalized;
