@@ -131,7 +131,8 @@ for migration in $(ls -1 ${MIGRATIONS_DIR}/*.sql 2>/dev/null | sort); do
         echo "    Done"
         MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
     else
-        echo "    WARNING: Migration may have partially failed, continuing..."
+        echo "    ERROR: Migration $MIGRATION_NAME failed"
+        exit 1
     fi
 done
 
