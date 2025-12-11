@@ -1,9 +1,9 @@
 name: CI
 
+# CI runs on pull requests only (not on main push)
+# Production (main) uses cdk-deploy.yml for infrastructure only
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main]
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
       run:
         working-directory: web
     env:
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.DEV_CLERK_PUBLISHABLE_KEY }}
 
     steps:
       - name: Checkout
@@ -51,8 +51,8 @@ jobs:
       run:
         working-directory: api
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+      OPENAI_API_KEY: ${{ secrets.DEV_OPENAI_API_KEY }}
 
     steps:
       - name: Checkout

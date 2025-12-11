@@ -1,5 +1,7 @@
-name: Deploy API to Fly.io
+name: Deploy API to Fly.io (Dev)
 
+# Deploy to Fly.io development environment
+# Production uses AWS (cdk-deploy.yml)
 on:
   push:
     branches: [main]
@@ -32,7 +34,7 @@ jobs:
       - name: Deploy to Fly.io
         run: flyctl deploy --remote-only
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.DEV_FLY_API_TOKEN }}
 
       # Note: Post-deployment steps (geo data seeding, RAG indexer) are skipped
       # because they have already been completed manually in production.
@@ -60,7 +62,7 @@ jobs:
       #       echo "Geographic data already exists ($CITY_COUNT cities). Skipping seed."
       #     fi
       #   env:
-      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      #     DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
 
       # # Post-deploy: Run RAG indexer if embeddings table is empty
       # - name: Run RAG Indexer (if needed)
@@ -75,5 +77,5 @@ jobs:
       #       echo "RAG embeddings already exist ($EMBEDDING_COUNT embeddings). Skipping indexer."
       #     fi
       #   env:
-      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #     DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+      #     OPENAI_API_KEY: ${{ secrets.DEV_OPENAI_API_KEY }}
