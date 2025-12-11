@@ -57,6 +57,10 @@ jobs:
         run: aws sts get-caller-identity
 
       - name: CDK Synth
+        env:
+          # NEXT_PUBLIC_* vars are needed at build time for static generation
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
         run: |
           cd infrastructure
           npx cdk synth ZmanimProdNextjs

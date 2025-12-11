@@ -34,25 +34,23 @@ export class NextjsLambdaStack extends cdk.Stack {
 
     const { config, certificate, hostedZone } = props;
 
-    // Fetch secrets from SSM Parameter Store
+    // Fetch runtime secrets from SSM Parameter Store
+    // Note: NEXT_PUBLIC_* vars must be set as shell env vars at build time
+    // because they're baked into the client bundle during static generation
     const ssmPrefix = `/zmanim/${config.environment}`;
-    const clerkPublishableKey = ssm.StringParameter.valueForStringParameter(
-      this,
-      `${ssmPrefix}/clerk-publishable-key`
-    );
     const clerkSecretKey = ssm.StringParameter.valueForStringParameter(
       this,
       `${ssmPrefix}/clerk-secret-key`
     );
 
     // Deploy Next.js with Lambda + CloudFront
+    // NEXT_PUBLIC_* env vars are set in GitHub Actions workflow at build time
     const nextjs = new Nextjs(this, 'NextjsSite', {
       nextjsPath: '../web', // Path to Next.js app relative to infrastructure/
 
-      // Environment variables for the Next.js app
+      // Runtime environment variables for the Lambda functions
+      // NEXT_PUBLIC_* are already baked in at build time
       environment: {
-        NEXT_PUBLIC_API_URL: `https://${config.domain}`,
-        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: clerkPublishableKey,
         CLERK_SECRET_KEY: clerkSecretKey,
       },
 
