@@ -164,46 +164,20 @@ export class NextjsLambdaStack extends cdk.Stack {
     });
 
     // =========================================================================
-    // CRITICAL: Add API behaviors AFTER Nextjs construct
+    // Route Go API via /backend/* path prefix
     // =========================================================================
     // cdk-nextjs-standalone automatically adds an 'api/*' behavior pointing to
-    // Next.js Lambda. We need to override it by adding our behaviors AFTER.
-    // CloudFront uses "last write wins" for behaviors with the same path pattern,
-    // and more specific patterns (like 'api/zmanim/*') take precedence.
+    // Next.js Lambda. Since CloudFront requires unique path patterns and we can't
+    // override the library's behavior, we use '/backend/*' for the Go API instead.
     //
-    // Order matters: add most specific patterns first, then general patterns.
-    // The 'api/*' pattern will override the one added by cdk-nextjs-standalone.
+    // Frontend API client should be updated to use /backend/ prefix.
+    // API Gateway maps: /backend/* -> /api/v1/* on the Go backend.
 
     const distribution = nextjs.distribution.distribution;
 
-    // Add specific API behaviors (more specific patterns first)
-    distribution.addBehavior('api/zmanim/*', apiOrigin, apiZmanimBehaviorOptions);
-    distribution.addBehavior('api/health', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/continents', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/countries', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/countries/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/regions', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/regions/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/cities/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/publishers', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/publishers/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/coverage/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/geo/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/registry/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/categories/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/calendar/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/dsl/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/ai/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/algorithms/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/tag-types', apiOrigin, apiBehaviorOptions);
-
-    // Protected routes (still go to API Gateway which handles JWT auth)
-    distribution.addBehavior('api/publisher/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/admin/*', apiOrigin, apiBehaviorOptions);
-    distribution.addBehavior('api/user/*', apiOrigin, apiBehaviorOptions);
-
-    // General catch-all for any other API routes (overrides cdk-nextjs-standalone's api/*)
-    distribution.addBehavior('api/*', apiOrigin, apiBehaviorOptions);
+    // Add backend API behaviors (using /backend/* to avoid conflict with api/*)
+    distribution.addBehavior('backend/zmanim/*', apiOrigin, apiZmanimBehaviorOptions);
+    distribution.addBehavior('backend/*', apiOrigin, apiBehaviorOptions);
 
     this.distribution = nextjs.distribution.distribution;
     this.url = `https://${config.domain}`;

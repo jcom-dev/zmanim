@@ -374,6 +374,133 @@ export class ApiGatewayStack extends cdk.Stack {
     });
 
     // =========================================================================
+    // /backend/* routes - Alternative path for CloudFront routing
+    // =========================================================================
+    // cdk-nextjs-standalone claims the 'api/*' CloudFront behavior for Next.js.
+    // We use '/backend/*' as an alternative path that CloudFront routes to API Gateway.
+    // These mirror the /api/* routes above.
+
+    // Integration for /backend/{proxy+} -> /api/v1/{proxy}
+    const ec2BackendProxyIntegration = new integrations.HttpUrlIntegration('EC2BackendProxyIntegration', `http://${elasticIp}:8080/api/v1/{proxy}`, {
+      method: apigatewayv2.HttpMethod.ANY,
+      timeout: cdk.Duration.seconds(29),
+      parameterMapping: originVerifyMapping,
+    });
+
+    // Health check: /backend/health -> /health
+    this.httpApi.addRoutes({
+      path: '/backend/health',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2HealthIntegration,
+    });
+
+    // Public routes via /backend/*
+    this.httpApi.addRoutes({
+      path: '/backend/zmanim/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
+      integration: ec2BackendProxyIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/cities/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2BackendProxyIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/publishers',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new integrations.HttpUrlIntegration('EC2BackendPublishersIntegration', `http://${elasticIp}:8080/api/v1/publishers`, {
+        method: apigatewayv2.HttpMethod.GET,
+        timeout: cdk.Duration.seconds(29),
+        parameterMapping: originVerifyMapping,
+      }),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/publishers/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2BackendProxyIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/countries',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new integrations.HttpUrlIntegration('EC2BackendCountriesIntegration', `http://${elasticIp}:8080/api/v1/countries`, {
+        method: apigatewayv2.HttpMethod.GET,
+        timeout: cdk.Duration.seconds(29),
+        parameterMapping: originVerifyMapping,
+      }),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/countries/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2BackendProxyIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/continents',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new integrations.HttpUrlIntegration('EC2BackendContinentsIntegration', `http://${elasticIp}:8080/api/v1/continents`, {
+        method: apigatewayv2.HttpMethod.GET,
+        timeout: cdk.Duration.seconds(29),
+        parameterMapping: originVerifyMapping,
+      }),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/regions',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new integrations.HttpUrlIntegration('EC2BackendRegionsIntegration', `http://${elasticIp}:8080/api/v1/regions`, {
+        method: apigatewayv2.HttpMethod.GET,
+        timeout: cdk.Duration.seconds(29),
+        parameterMapping: originVerifyMapping,
+      }),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/regions/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2BackendProxyIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/coverage/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2BackendProxyIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/geo/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2BackendProxyIntegration,
+    });
+
+    // Protected routes via /backend/*
+    this.httpApi.addRoutes({
+      path: '/backend/publisher/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.ANY],
+      integration: ec2BackendProxyIntegration,
+      authorizer: clerkAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/backend/admin/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.ANY],
+      integration: ec2BackendProxyIntegration,
+      authorizer: clerkAuthorizer,
+    });
+
+    // Catch-all for /backend/* routes
+    this.httpApi.addRoutes({
+      path: '/backend/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.ANY],
+      integration: ec2BackendProxyIntegration,
+      authorizer: clerkAuthorizer, // Default to authenticated for safety
+    });
+
+    // =========================================================================
     // CloudFormation Outputs
     // =========================================================================
     new cdk.CfnOutput(this, 'ApiGatewayEndpoint', {
