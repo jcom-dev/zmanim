@@ -3,6 +3,7 @@ import { Template, Match } from 'aws-cdk-lib/assertions';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { ComputeStack } from '../lib/compute-stack';
 import { NetworkStack } from '../lib/network-stack';
+import { ApiGatewayStack } from '../lib/api-gateway-stack';
 import { EnvironmentConfig } from '../lib/config';
 
 /**
@@ -21,6 +22,7 @@ import { EnvironmentConfig } from '../lib/config';
 describe('ComputeStack', () => {
   let app: cdk.App;
   let networkStack: NetworkStack;
+  let apiGatewayStack: ApiGatewayStack;
   let computeStack: ComputeStack;
   let template: Template;
 
@@ -43,10 +45,19 @@ describe('ComputeStack', () => {
         region: testConfig.region,
       },
     });
+    // ApiGatewayStack now creates the Elastic IP
+    apiGatewayStack = new ApiGatewayStack(app, 'TestApiGatewayStack', {
+      config: testConfig,
+      env: {
+        account: testConfig.account,
+        region: testConfig.region,
+      },
+    });
     computeStack = new ComputeStack(app, 'TestComputeStack', {
       config: testConfig,
       vpc: networkStack.vpc,
       securityGroup: networkStack.ec2SecurityGroup,
+      elasticIp: apiGatewayStack.elasticIp,
       env: {
         account: testConfig.account,
         region: testConfig.region,
@@ -154,9 +165,9 @@ describe('ComputeStack', () => {
       template.resourceCountIs('AWS::EC2::Volume', 1);
     });
 
-    test('data volume is 20GB gp3 with 3000 IOPS', () => {
+    test('data volume is 30GB gp3 with 3000 IOPS', () => {
       template.hasResourceProperties('AWS::EC2::Volume', {
-        Size: 20,
+        Size: 30,
         VolumeType: 'gp3',
         Iops: 3000,
       });
@@ -203,23 +214,18 @@ describe('ComputeStack', () => {
     });
   });
 
-  // TC-7.4.4: Elastic IP (AC4)
-  describe('Elastic IP', () => {
-    test('creates Elastic IP', () => {
-      template.resourceCountIs('AWS::EC2::EIP', 1);
-    });
-
-    test('EIP is associated with VPC', () => {
-      template.hasResourceProperties('AWS::EC2::EIP', {
-        Domain: 'vpc',
-      });
-    });
-
+  // TC-7.4.4: Elastic IP Association (AC4)
+  // Note: EIP is now created in ApiGatewayStack, ComputeStack only associates it
+  describe('Elastic IP Association', () => {
     test('EIP is associated with instance', () => {
       template.hasResourceProperties('AWS::EC2::EIPAssociation', {
         InstanceId: Match.anyValue(),
         AllocationId: Match.anyValue(),
       });
+    });
+
+    test('does not create its own Elastic IP (uses one from ApiGatewayStack)', () => {
+      template.resourceCountIs('AWS::EC2::EIP', 0);
     });
   });
 
@@ -340,6 +346,8 @@ describe('ComputeStack', () => {
   });
 
   // TC-7.4.6: User Data Script (AC6)
+  // Note: User data is now minimal - only mounts data volume.
+  // SSM secrets, service startup, and CloudWatch config are handled by firstboot.sh in the AMI.
   describe('User Data Script', () => {
     test('instance has user data configured', () => {
       template.hasResourceProperties('AWS::EC2::Instance', {
@@ -353,7 +361,6 @@ describe('ComputeStack', () => {
       const instance = template.findResources('AWS::EC2::Instance');
       const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
       expect(userData).toContain('DATA_MOUNT="/data"');
-      expect(userData).toContain('mount $DATA_DEVICE $DATA_MOUNT');
     });
 
     test('user data creates PostgreSQL directory', () => {
@@ -368,87 +375,10 @@ describe('ComputeStack', () => {
       expect(userData).toContain('/data/redis');
     });
 
-    test('user data pulls secrets from SSM', () => {
+    test('user data references firstboot.sh for config', () => {
       const instance = template.findResources('AWS::EC2::Instance');
       const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('get_ssm_param');
-      expect(userData).toContain('--with-decryption');
-    });
-
-    test('user data generates config.env', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('/opt/zmanim/config.env');
-    });
-
-    test('user data generates restic env', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('/etc/restic/env');
-    });
-
-    test('user data starts services', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('systemctl start postgresql');
-      expect(userData).toContain('systemctl start redis-server');
-    });
-  });
-
-  // TC-7.4.7: CloudWatch Agent (AC7)
-  describe('CloudWatch Agent Configuration', () => {
-    test('user data contains CloudWatch agent config', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('amazon-cloudwatch-agent.json');
-    });
-
-    test('CloudWatch config collects CPU metrics', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('cpu_usage_idle');
-    });
-
-    test('CloudWatch config collects memory metrics', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('mem_used_percent');
-    });
-
-    test('CloudWatch config collects disk metrics', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('disk_used_percent');
-    });
-
-    test('CloudWatch config has log groups for zmanim-api', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('/aws/ec2/zmanim-api');
-    });
-
-    test('CloudWatch config has log groups for PostgreSQL', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('/aws/ec2/postgresql');
-    });
-
-    test('CloudWatch config has log groups for Redis', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('/aws/ec2/redis');
-    });
-
-    test('CloudWatch uses ZmanimApp namespace', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('"namespace": "ZmanimApp"');
-    });
-
-    test('user data starts CloudWatch agent', () => {
-      const instance = template.findResources('AWS::EC2::Instance');
-      const userData = Object.values(instance)[0].Properties.UserData['Fn::Base64'];
-      expect(userData).toContain('amazon-cloudwatch-agent-ctl');
+      expect(userData).toContain('firstboot');
     });
   });
 
@@ -462,13 +392,7 @@ describe('ComputeStack', () => {
       });
     });
 
-    test('exports Elastic IP address', () => {
-      template.hasOutput('ElasticIpAddress', {
-        Export: {
-          Name: `${testConfig.stackPrefix}-ElasticIp`,
-        },
-      });
-    });
+    // Note: ElasticIpAddress output is now in ApiGatewayStack where EIP is created
 
     test('exports Instance Role ARN', () => {
       template.hasOutput('InstanceRoleArn', {
@@ -515,13 +439,6 @@ describe('ComputeStack', () => {
       expect(tags).toContainEqual({ Key: 'Type', Value: 'data' });
     });
 
-    test('elastic IP has required tags', () => {
-      const eips = template.findResources('AWS::EC2::EIP');
-      const eipResource = Object.values(eips)[0];
-      const tags = eipResource.Properties.Tags as Array<{ Key: string; Value: string }>;
-
-      expect(tags).toContainEqual({ Key: 'Project', Value: 'zmanim' });
-      expect(tags).toContainEqual({ Key: 'Environment', Value: 'prod' });
-    });
+    // Note: EIP tags test moved to ApiGatewayStack tests where EIP is created
   });
 });

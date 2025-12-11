@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
@@ -9,7 +10,6 @@ import { EnvironmentConfig } from './config';
 
 export interface ApiGatewayStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
-  elasticIp: string; // EC2 Elastic IP from ComputeStack
 }
 
 /**
@@ -54,11 +54,29 @@ export interface ApiGatewayStackProps extends cdk.StackProps {
 export class ApiGatewayStack extends cdk.Stack {
   public readonly httpApi: apigatewayv2.HttpApi;
   public readonly logGroup: logs.LogGroup;
+  public readonly elasticIp: ec2.CfnEIP;
 
   constructor(scope: Construct, id: string, props: ApiGatewayStackProps) {
     super(scope, id, props);
 
-    const { config, elasticIp } = props;
+    const { config } = props;
+
+    // =========================================================================
+    // Elastic IP - Created here so ApiGateway doesn't depend on ComputeStack
+    // =========================================================================
+    // The EIP is created in ApiGatewayStack and passed to ComputeStack for
+    // association with the EC2 instance. This allows API Gateway to be deployed
+    // before or independently of EC2.
+    this.elasticIp = new ec2.CfnEIP(this, 'ElasticIp', {
+      domain: 'vpc',
+      tags: [
+        { key: 'Name', value: `zmanim-eip-${config.environment}` },
+        { key: 'Project', value: 'zmanim' },
+        { key: 'Environment', value: config.environment },
+      ],
+    });
+
+    const elasticIp = this.elasticIp.ref;
 
     // =========================================================================
     // Task 6: CloudWatch Log Group for Access Logging (AC6)
@@ -536,6 +554,12 @@ export class ApiGatewayStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'LogGroupArn', {
       value: this.logGroup.logGroupArn,
       description: 'CloudWatch log group ARN',
+    });
+
+    new cdk.CfnOutput(this, 'ElasticIpAddress', {
+      value: this.elasticIp.ref,
+      exportName: `${config.stackPrefix}-ElasticIp`,
+      description: 'Elastic IP address for EC2 instance',
     });
 
     // =========================================================================

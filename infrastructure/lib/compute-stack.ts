@@ -9,6 +9,7 @@ export interface ComputeStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
   vpc: ec2.Vpc;
   securityGroup: ec2.SecurityGroup;
+  elasticIp: ec2.CfnEIP; // Elastic IP from ApiGatewayStack
 }
 
 /**
@@ -50,7 +51,10 @@ export class ComputeStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
 
-    const { config, vpc, securityGroup } = props;
+    const { config, vpc, securityGroup, elasticIp } = props;
+
+    // Store the Elastic IP reference (created in ApiGatewayStack)
+    this.elasticIp = elasticIp;
 
     // =========================================================================
     // Task 5: IAM Role (AC5)
@@ -322,17 +326,10 @@ export class ComputeStack extends cdk.Stack {
     });
 
     // =========================================================================
-    // Task 4: Elastic IP (AC4)
+    // Task 4: Elastic IP Association (AC4)
     // =========================================================================
-    // Task 4.1: Create Elastic IP resource
-    this.elasticIp = new ec2.CfnEIP(this, 'ElasticIp', {
-      domain: 'vpc',
-      tags: [
-        { key: 'Name', value: `zmanim-eip-${config.environment}` },
-        { key: 'Project', value: 'zmanim' },
-        { key: 'Environment', value: config.environment },
-      ],
-    });
+    // Note: The Elastic IP is created in ApiGatewayStack to avoid circular dependency.
+    // ComputeStack now depends on ApiGatewayStack instead of the other way around.
 
     // Task 4.2: Associate Elastic IP with EC2 instance
     new ec2.CfnEIPAssociation(this, 'EipAssociation', {
@@ -349,12 +346,7 @@ export class ComputeStack extends cdk.Stack {
       description: 'EC2 instance ID',
     });
 
-    // Task 4.3: Export EIP address for API Gateway integration
-    new cdk.CfnOutput(this, 'ElasticIpAddress', {
-      value: this.elasticIp.ref,
-      exportName: `${config.stackPrefix}-ElasticIp`,
-      description: 'Elastic IP address for API Gateway integration',
-    });
+    // Note: EIP output is in ApiGatewayStack where it's created
 
     new cdk.CfnOutput(this, 'InstanceRoleArn', {
       value: this.instanceRole.roleArn,

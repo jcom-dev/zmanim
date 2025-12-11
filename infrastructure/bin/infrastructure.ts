@@ -20,12 +20,12 @@ import { getConfig, getCdkEnvironment } from '../lib/config';
  *   SecretsStack (no dependencies) [Story 7.9]
  *       │
  *   NetworkStack (no dependencies)
+ *       │
+ *   ApiGatewayStack (no dependencies, creates Elastic IP) [Story 7.7]
  *       ↓
- *   ComputeStack (depends on Network, Secrets for VPC/SSM)
- *       ↓
- *   ApiGatewayStack (depends on Compute for Elastic IP) [Story 7.7]
- *       ↓
- *   DnsZoneStack (depends on Compute for Elastic IP)
+ *   ComputeStack (depends on Network, Secrets, ApiGateway for VPC/SSM/EIP)
+ *       │
+ *   DnsZoneStack (depends on ApiGateway for Elastic IP)
  *       ↓
  *   CertificateStack (in us-east-1! depends on DnsZone) [Story 7.8]
  *       ↓
@@ -97,36 +97,37 @@ const networkStack = new NetworkStack(app, `${config.stackPrefix}Network`, {
   description: 'Zmanim Lab - Network infrastructure (VPC, subnets, security groups)',
 });
 
-// ComputeStack - EC2, EBS, IAM (depends on NetworkStack, SecretsStack)
-// Depends on SecretsStack because it reads AMI ID from SSM parameter
+// ApiGatewayStack - HTTP API, JWT authorizer, throttling, Elastic IP
+// Story 7.7: Routes requests to EC2 with Clerk JWT validation
+// Creates the Elastic IP so it doesn't depend on ComputeStack
+const apiGatewayStack = new ApiGatewayStack(app, `${config.stackPrefix}ApiGateway`, {
+  config,
+  env,
+  description: 'Zmanim Lab - API Gateway (HTTP API, JWT auth, throttling)',
+});
+
+// ComputeStack - EC2, EBS, IAM (depends on NetworkStack, SecretsStack, ApiGatewayStack)
+// Depends on ApiGatewayStack for the Elastic IP to associate with EC2
 const computeStack = new ComputeStack(app, `${config.stackPrefix}Compute`, {
   config,
   env,
   vpc: networkStack.vpc,
   securityGroup: networkStack.ec2SecurityGroup,
+  elasticIp: apiGatewayStack.elasticIp,
   description: 'Zmanim Lab - Compute infrastructure (EC2, EBS, IAM)',
 });
 computeStack.addDependency(networkStack);
 computeStack.addDependency(secretsStack); // SecretsStack imports existing SSM parameters
+computeStack.addDependency(apiGatewayStack); // ApiGatewayStack creates the Elastic IP
 
-// ApiGatewayStack - HTTP API, JWT authorizer, throttling (depends on ComputeStack for Elastic IP)
-// Story 7.7: Routes requests to EC2 with Clerk JWT validation
-const apiGatewayStack = new ApiGatewayStack(app, `${config.stackPrefix}ApiGateway`, {
-  config,
-  env,
-  elasticIp: computeStack.elasticIp.ref,
-  description: 'Zmanim Lab - API Gateway (HTTP API, JWT auth, throttling)',
-});
-apiGatewayStack.addDependency(computeStack);
-
-// DnsZoneStack - Route53 hosted zone + API origin A record (depends on Compute for Elastic IP)
+// DnsZoneStack - Route53 hosted zone + API origin A record (depends on ApiGateway for Elastic IP)
 const dnsZoneStack = new DnsZoneStack(app, `${config.stackPrefix}DnsZone`, {
   config,
   env,
-  elasticIp: computeStack.elasticIp,
+  elasticIp: apiGatewayStack.elasticIp,
   description: 'Zmanim Lab - Route53 hosted zone for shtetl.io',
 });
-dnsZoneStack.addDependency(computeStack);
+dnsZoneStack.addDependency(apiGatewayStack);
 
 // ==========================================================================
 // Story 7.8: CertificateStack - ACM certificate in us-east-1

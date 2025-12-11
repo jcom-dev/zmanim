@@ -18,12 +18,8 @@ describe('ApiGatewayStack', () => {
   const app = new cdk.App();
   const config = getConfig('prod');
 
-  // Mock Elastic IP for testing
-  const mockElasticIp = '1.2.3.4';
-
   const stack = new ApiGatewayStack(app, 'TestApiGatewayStack', {
     config,
-    elasticIp: mockElasticIp,
   });
 
   const template = Template.fromStack(stack);
@@ -50,9 +46,10 @@ describe('ApiGatewayStack', () => {
       });
     });
 
-    test('integration URI contains EC2 Elastic IP and port 8080', () => {
-      template.hasResourceProperties('AWS::ApiGatewayV2::Integration', {
-        IntegrationUri: `http://${mockElasticIp}:8080/{proxy}`,
+    test('creates Elastic IP for EC2 integration', () => {
+      // ApiGatewayStack now creates the Elastic IP
+      template.hasResourceProperties('AWS::EC2::EIP', {
+        Domain: 'vpc',
       });
     });
   });

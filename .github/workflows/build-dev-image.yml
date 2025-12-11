@@ -3,7 +3,7 @@ name: Build Dev Image
 on:
   push:
     branches:
-      - main
+      - dev
     paths:
       - '.coder/Dockerfile.dev'
       - 'api/go.mod'
