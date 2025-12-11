@@ -3,13 +3,12 @@ Description=Zmanim First Boot Configuration
 Documentation=https://github.com/jcom-dev/zmanim
 After=network-online.target
 Wants=network-online.target
-Before=postgresql.service redis-server.service zmanim-api.service
-ConditionPathExists=!/var/lib/zmanim/.firstboot-complete
+Before=postgresql.service redis-server.service
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=/opt/zmanim/firstboot.sh
-ExecStartPost=/usr/bin/touch /var/lib/zmanim/.firstboot-complete
 
 # Allow network access for SSM
 PrivateNetwork=no

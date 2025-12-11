@@ -121,6 +121,7 @@ cat > /opt/zmanim/init-db.sql <<EOSQL
 -- Idempotent database initialization
 -- Run with: sudo -u postgres psql -f /opt/zmanim/init-db.sql
 
+-- Create user if not exists, always update password
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'zmanim') THEN
@@ -133,12 +134,40 @@ BEGIN
 END
 \$\$;
 
-SELECT 'CREATE DATABASE zmanim OWNER zmanim'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'zmanim')\gexec
+-- Create database if not exists
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'zmanim') THEN
+        PERFORM dblink_exec('dbname=postgres', 'CREATE DATABASE zmanim OWNER zmanim');
+        RAISE NOTICE 'Created database zmanim';
+    ELSE
+        RAISE NOTICE 'Database zmanim already exists';
+    END IF;
+EXCEPTION
+    WHEN undefined_function THEN
+        -- dblink not available, try direct creation (will fail if exists, that's ok)
+        RAISE NOTICE 'dblink not available, skipping database creation check';
+END
+\$\$;
 
+-- Grant privileges (idempotent)
 GRANT ALL PRIVILEGES ON DATABASE zmanim TO zmanim;
 EOSQL
 chmod 600 /opt/zmanim/init-db.sql
+
+# Write a separate script for database creation (runs outside transaction)
+cat > /opt/zmanim/create-db.sh <<'EOSH'
+#!/bin/bash
+# Idempotent database creation
+set -e
+if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw zmanim; then
+    echo "Creating database zmanim..."
+    sudo -u postgres createdb -O zmanim zmanim
+else
+    echo "Database zmanim already exists"
+fi
+EOSH
+chmod 755 /opt/zmanim/create-db.sh
 
 echo "  PostgreSQL prepared"
 

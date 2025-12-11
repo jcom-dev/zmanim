@@ -8,15 +8,18 @@ Requires=postgresql.service zmanim-firstboot.service
 Type=oneshot
 RemainAfterExit=yes
 
-# Run as postgres user to create database and user
-User=postgres
-Group=postgres
+# Run as root (scripts use sudo -u postgres internally)
+User=root
+Group=root
 
-# Initialize database (idempotent - safe to run multiple times)
-ExecStart=/usr/bin/psql -f /opt/zmanim/init-db.sql
+# Step 1: Create user (idempotent SQL)
+ExecStart=/usr/bin/sudo -u postgres /usr/bin/psql -f /opt/zmanim/init-db.sql
 
-# Enable PostGIS extension
-ExecStartPost=/usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+# Step 2: Create database if not exists (shell script, idempotent)
+ExecStartPost=/opt/zmanim/create-db.sh
+
+# Step 3: Enable PostGIS extension (idempotent)
+ExecStartPost=/usr/bin/sudo -u postgres /usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 
 [Install]
 WantedBy=multi-user.target
