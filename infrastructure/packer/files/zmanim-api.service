@@ -11,8 +11,9 @@ User=zmanim
 Group=zmanim
 WorkingDirectory=/opt/zmanim
 
-# Download latest binary before starting
-ExecStartPre=/opt/zmanim/download-latest.sh
+# Download latest binary, pull repo, and run migrations before starting
+# Runs as root to allow git clone and psql access
+ExecStartPre=+/opt/zmanim/download-latest.sh
 
 # Start the API service
 ExecStart=/opt/zmanim/zmanim-api
