@@ -153,7 +153,9 @@ END
 -- Grant privileges (idempotent)
 GRANT ALL PRIVILEGES ON DATABASE zmanim TO zmanim;
 EOSQL
-chmod 600 /opt/zmanim/init-db.sql
+# postgres user needs to read this file
+chown postgres:postgres /opt/zmanim/init-db.sql
+chmod 400 /opt/zmanim/init-db.sql
 
 # Write a separate script for database creation (runs outside transaction)
 cat > /opt/zmanim/create-db.sh <<'EOSH'
@@ -207,14 +209,13 @@ cat > /opt/zmanim/config.env <<EOF
 # Regenerate: sudo /opt/zmanim/firstboot.sh
 
 PORT=8080
-GO_ENV=production
+ENVIRONMENT=production
 
 # Database
 DATABASE_URL=postgresql://zmanim:${POSTGRES_PASSWORD}@localhost:5432/zmanim?sslmode=disable
 
-# Redis
-REDIS_URL=redis://localhost:6379/0
-${REDIS_PASSWORD:+REDIS_PASSWORD=${REDIS_PASSWORD}}
+# Redis (password in URL if set)
+REDIS_URL=redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}localhost:6379/0
 
 # Clerk Authentication
 ${CLERK_SECRET_KEY:+CLERK_SECRET_KEY=${CLERK_SECRET_KEY}}
