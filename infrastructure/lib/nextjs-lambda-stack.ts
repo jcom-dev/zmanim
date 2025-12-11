@@ -161,7 +161,7 @@ export class NextjsLambdaStack extends cdk.Stack {
         nextjsDistribution: {
           distributionProps: {
             additionalBehaviors: apiBehaviors,
-            priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US, EU, Israel edges
+            priceClass: cloudfront.PriceClass.PRICE_CLASS_200, // North America, Europe, Asia, Middle East, Africa
             minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
           },
         },
