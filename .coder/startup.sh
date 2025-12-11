@@ -345,7 +345,7 @@ fi
 
 # Step 11b: Configure npm global path
 print_status "Configuring npm global directory..."
-mkdir -p "$HOME/.npm-global"
+mkdir -p "$HOME/.npm-global"na
 npm config set prefix "$HOME/.npm-global"
 print_success "npm global directory set to $HOME/.npm-global"
 

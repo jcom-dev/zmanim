@@ -113,3 +113,75 @@ await api.admin.get('/admin/stats');  // Auth only (no X-Publisher-Id)
 | API | http://localhost:8080 |
 | Swagger UI | http://localhost:8080/swagger/index.html |
 | OpenAPI JSON | http://localhost:8080/swagger/doc.json |
+
+## AWS Production Deployment
+
+**Environment Strategy:**
+- **Production:** AWS (eu-west-1) - CDK infrastructure
+- **Development:** Fly.io (API) + Vercel (Frontend) + Xata (DB) + Upstash (Redis)
+
+**Production URL:** https://zmanim.shtetl.io
+
+### Architecture Overview
+
+```
+CloudFront (CDN)
+    ├── /* → Next.js Lambda (SSR)
+    └── /backend/* → API Gateway → EC2:8080
+                         │
+                    JWT Auth (Clerk)
+
+EC2 (m7g.medium ARM64)
+    ├── Go API binary
+    ├── PostgreSQL 17 + PostGIS (/data/postgres)
+    └── Redis 7 (/data/redis)
+
+Persistent EBS Volume (/data) - survives instance replacement
+```
+
+### CDK Stacks (infrastructure/)
+
+| Stack | Purpose |
+|-------|---------|
+| GitHubOidcStack | OIDC auth for GitHub Actions (deploy FIRST) |
+| NetworkStack | VPC, subnets, security groups |
+| ComputeStack | EC2, EBS volumes, Elastic IP, IAM |
+| ApiGatewayStack | HTTP API, JWT authorizer, routing |
+| DnsZoneStack | Route 53 hosted zone |
+| CertificateStack | ACM cert (us-east-1 for CloudFront) |
+| NextjsLambdaStack | Next.js Lambda + CloudFront |
+| StorageStack | S3 buckets (backups, releases) |
+
+### Deployment Commands
+
+```bash
+# Infrastructure (from infrastructure/)
+cd infrastructure
+npx cdk deploy --all              # Deploy all stacks
+npx cdk deploy ZmanimProdCompute  # Deploy specific stack
+npx cdk diff                      # Preview changes
+
+# Build new AMI (triggers GitHub Action)
+git tag v1.0.0-ami && git push origin v1.0.0-ami
+
+# Deploy Next.js frontend
+git push origin main  # Auto-deploys via GitHub Actions
+```
+
+### SSM Parameters (secrets)
+
+All secrets stored in SSM Parameter Store (`/zmanim/prod/*`):
+- `postgres-password`, `redis-password`, `clerk-secret-key`
+- `clerk-publishable-key`, `restic-password`, `jwt-secret`
+- `origin-verify-key` (API Gateway header validation)
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `infrastructure/bin/infrastructure.ts` | CDK app entry + stack graph |
+| `infrastructure/lib/*-stack.ts` | Individual CDK stacks |
+| `infrastructure/packer/` | AMI build (Packer) |
+| `.github/workflows/build-ami.yml` | AMI build pipeline |
+| `.github/workflows/cdk-deploy.yml` | Infrastructure deployment |
+| `.github/workflows/deploy-prod.yml` | Next.js deployment |
