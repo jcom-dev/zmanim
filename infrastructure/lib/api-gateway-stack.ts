@@ -401,6 +401,18 @@ export class ApiGatewayStack extends cdk.Stack {
       integration: ec2BackendProxyIntegration,
     });
 
+    // Cities base path: /backend/cities -> /api/v1/cities
+    this.httpApi.addRoutes({
+      path: '/backend/cities',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new integrations.HttpUrlIntegration('EC2BackendCitiesIntegration', `http://${elasticIp}:8080/api/v1/cities`, {
+        method: apigatewayv2.HttpMethod.GET,
+        timeout: cdk.Duration.seconds(29),
+        parameterMapping: originVerifyMapping,
+      }),
+    });
+
+    // Cities with path params: /backend/cities/{proxy+} -> /api/v1/cities/{proxy}
     this.httpApi.addRoutes({
       path: '/backend/cities/{proxy+}',
       methods: [apigatewayv2.HttpMethod.GET],
