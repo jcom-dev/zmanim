@@ -108,28 +108,24 @@ export class NextjsLambdaStack extends cdk.Stack {
       },
     });
 
-    // API behaviors to add to CloudFront distribution
-    const apiBehaviors: Record<string, cloudfront.BehaviorOptions> = {
-      // Cacheable zmanim calculations (1 hour cache)
-      '/api/zmanim/*': {
-        origin: apiOrigin,
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        cachePolicy: apiZmanimCachePolicy,
-        originRequestPolicy: apiOriginRequestPolicy,
-        responseHeadersPolicy: securityHeadersPolicy,
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-        compress: true,
-      },
-      // All other API routes (no cache for auth, mutations)
-      '/api/*': {
-        origin: apiOrigin,
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy: apiOriginRequestPolicy,
-        responseHeadersPolicy: securityHeadersPolicy,
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-        compress: true,
-      },
+    // Common API behavior options (reused for multiple patterns)
+    const apiBehaviorOptions: cloudfront.AddBehaviorOptions = {
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: apiOriginRequestPolicy,
+      responseHeadersPolicy: securityHeadersPolicy,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      compress: true,
+    };
+
+    // Zmanim-specific behavior with caching
+    const apiZmanimBehaviorOptions: cloudfront.AddBehaviorOptions = {
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: apiZmanimCachePolicy,
+      originRequestPolicy: apiOriginRequestPolicy,
+      responseHeadersPolicy: securityHeadersPolicy,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      compress: true,
     };
 
     // =========================================================================
@@ -156,17 +152,58 @@ export class NextjsLambdaStack extends cdk.Stack {
         hostedZone: hostedZone,
       },
 
-      // Override distribution to add API behaviors
+      // Override distribution settings (but NOT additionalBehaviors - see below)
       overrides: {
         nextjsDistribution: {
           distributionProps: {
-            additionalBehaviors: apiBehaviors,
             priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // USA, Canada, Europe, Israel
             minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
           },
         },
       },
     });
+
+    // =========================================================================
+    // CRITICAL: Add API behaviors AFTER Nextjs construct
+    // =========================================================================
+    // cdk-nextjs-standalone automatically adds an 'api/*' behavior pointing to
+    // Next.js Lambda. We need to override it by adding our behaviors AFTER.
+    // CloudFront uses "last write wins" for behaviors with the same path pattern,
+    // and more specific patterns (like 'api/zmanim/*') take precedence.
+    //
+    // Order matters: add most specific patterns first, then general patterns.
+    // The 'api/*' pattern will override the one added by cdk-nextjs-standalone.
+
+    const distribution = nextjs.distribution.distribution;
+
+    // Add specific API behaviors (more specific patterns first)
+    distribution.addBehavior('api/zmanim/*', apiOrigin, apiZmanimBehaviorOptions);
+    distribution.addBehavior('api/health', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/continents', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/countries', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/countries/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/regions', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/regions/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/cities/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/publishers', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/publishers/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/coverage/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/geo/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/registry/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/categories/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/calendar/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/dsl/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/ai/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/algorithms/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/tag-types', apiOrigin, apiBehaviorOptions);
+
+    // Protected routes (still go to API Gateway which handles JWT auth)
+    distribution.addBehavior('api/publisher/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/admin/*', apiOrigin, apiBehaviorOptions);
+    distribution.addBehavior('api/user/*', apiOrigin, apiBehaviorOptions);
+
+    // General catch-all for any other API routes (overrides cdk-nextjs-standalone's api/*)
+    distribution.addBehavior('api/*', apiOrigin, apiBehaviorOptions);
 
     this.distribution = nextjs.distribution.distribution;
     this.url = `https://${config.domain}`;
