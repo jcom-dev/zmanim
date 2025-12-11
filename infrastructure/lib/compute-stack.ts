@@ -251,9 +251,7 @@ export class ComputeStack extends cdk.Stack {
     );
 
     // Task 1.1 & 1.2: Define EC2 instance with m7g.medium Graviton3
-    // Note: Changed logical ID to 'ZmanimInstanceV2' to force new instance creation
-    // after old instance was terminated outside of CloudFormation
-    this.instance = new ec2.Instance(this, 'ZmanimInstanceV2', {
+    this.instance = new ec2.Instance(this, 'ZmanimInstance', {
       instanceName: `zmanim-api-${config.environment}`,
       // Task 1.2: m7g.medium Graviton3 (2 vCPU, 4GB RAM, ARM64)
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.M7G, ec2.InstanceSize.MEDIUM),
@@ -317,9 +315,7 @@ export class ComputeStack extends cdk.Stack {
     // Task 3.3: deleteOnTermination: false is default for CfnVolume (not attached via blockDevices)
 
     // Task 3.4: Attach data volume to instance as /dev/sdf
-    // Note: Changed logical ID to 'DataVolumeAttachmentV2' to force new attachment
-    // after old attachment was deleted outside of CloudFormation
-    new ec2.CfnVolumeAttachment(this, 'DataVolumeAttachmentV2', {
+    new ec2.CfnVolumeAttachment(this, 'PersistentDataVolumeAttachment', {
       device: '/dev/sdf', // Will appear as /dev/nvme1n1 on Nitro instances
       instanceId: this.instance.instanceId,
       volumeId: this.dataVolume.ref,
