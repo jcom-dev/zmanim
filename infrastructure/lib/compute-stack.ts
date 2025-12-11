@@ -251,7 +251,9 @@ export class ComputeStack extends cdk.Stack {
     );
 
     // Task 1.1 & 1.2: Define EC2 instance with m7g.medium Graviton3
-    this.instance = new ec2.Instance(this, 'ZmanimInstance', {
+    // Note: Changed logical ID to 'ZmanimInstanceV2' to force new instance creation
+    // after old instance was terminated outside of CloudFormation
+    this.instance = new ec2.Instance(this, 'ZmanimInstanceV2', {
       instanceName: `zmanim-api-${config.environment}`,
       // Task 1.2: m7g.medium Graviton3 (2 vCPU, 4GB RAM, ARM64)
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.M7G, ec2.InstanceSize.MEDIUM),
