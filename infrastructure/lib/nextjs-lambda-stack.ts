@@ -35,13 +35,14 @@ export class NextjsLambdaStack extends cdk.Stack {
     const { config, certificate, hostedZone } = props;
 
     // Fetch secrets from SSM Parameter Store
+    const ssmPrefix = `/zmanim/${config.environment}`;
     const clerkPublishableKey = ssm.StringParameter.valueForStringParameter(
       this,
-      `/${config.ssmPrefix}/clerk-publishable-key`
+      `${ssmPrefix}/clerk-publishable-key`
     );
     const clerkSecretKey = ssm.StringParameter.valueForStringParameter(
       this,
-      `/${config.ssmPrefix}/clerk-secret-key`
+      `${ssmPrefix}/clerk-secret-key`
     );
 
     // Deploy Next.js with Lambda + CloudFront
