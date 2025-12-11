@@ -41,7 +41,10 @@ export class NextjsLambdaStack extends cdk.Stack {
 
       // Environment variables passed via shell env during CDK synth
       // See .github/workflows/deploy-prod.yml for the actual values
+      // NEXT_PUBLIC_* vars are inlined at build time by Next.js
       environment: {
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://zmanim.shtetl.io',
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '',
         CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || '',
       },
 
