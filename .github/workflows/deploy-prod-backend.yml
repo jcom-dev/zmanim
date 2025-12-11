@@ -1,0 +1,155 @@
+name: Deploy Prod Backend
+
+# Deploys Go API binary to AWS production
+# - Builds ARM64 binary for EC2 (m7g.medium)
+# - Uploads to S3 releases bucket
+# - Triggers service restart via SSM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'db/migrations/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-1
+  GO_VERSION: '1.24'
+  S3_BUCKET: zmanim-releases-prod
+  S3_KEY: releases/latest/zmanim-api
+  INSTANCE_NAME: zmanim-api-prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy API
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: api/go.sum
+
+      - name: Build API binary (ARM64)
+        run: |
+          cd api
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o zmanim-api ./cmd/api
+          ls -lh zmanim-api
+          file zmanim-api
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-deploy-api
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload binary to S3
+        run: |
+          aws s3 cp api/zmanim-api "s3://${S3_BUCKET}/${S3_KEY}" \
+            --metadata "commit=${GITHUB_SHA},timestamp=$(date -u +%Y%m%d%H%M%S)"
+          echo "Uploaded to s3://${S3_BUCKET}/${S3_KEY}"
+
+      - name: Get EC2 instance ID
+        id: get-instance
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+
+          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "ERROR: No running instance found with name ${INSTANCE_NAME}"
+            exit 1
+          fi
+
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "Found instance: $INSTANCE_ID"
+
+      - name: Restart zmanim-api service via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["systemctl restart zmanim-api"]' \
+            --comment "Deploy API - commit ${GITHUB_SHA::7}" \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          # Wait for command to complete
+          echo "Waiting for command to complete..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            || true
+
+          # Get command result
+          RESULT=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query '[Status, StatusDetails]' \
+            --output text)
+
+          echo "Command result: $RESULT"
+
+          if [[ "$RESULT" != *"Success"* ]]; then
+            echo "ERROR: Service restart failed"
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+            exit 1
+          fi
+
+      - name: Verify API health
+        run: |
+          echo "Waiting for API to start..."
+          sleep 10
+
+          # Check health endpoint via SSM
+          HEALTH_CMD=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["curl -sf http://localhost:8080/health || exit 1"]' \
+            --query 'Command.CommandId' \
+            --output text)
+
+          aws ssm wait command-executed \
+            --command-id "$HEALTH_CMD" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            || true
+
+          HEALTH_STATUS=$(aws ssm get-command-invocation \
+            --command-id "$HEALTH_CMD" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query 'Status' \
+            --output text)
+
+          if [ "$HEALTH_STATUS" == "Success" ]; then
+            echo "API is healthy!"
+          else
+            echo "WARNING: Health check did not return success (status: $HEALTH_STATUS)"
+            echo "API may still be starting up..."
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "## API Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Instance:** ${{ steps.get-instance.outputs.instance_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Binary:** s3://${S3_BUCKET}/${S3_KEY}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- API Health: https://zmanim.shtetl.io/api/health" >> $GITHUB_STEP_SUMMARY

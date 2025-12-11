@@ -1,11 +1,13 @@
-name: Deploy to Production
+name: Deploy Prod Frontend
 
 # Deploys Next.js frontend via CDK (Lambda + CloudFront)
-# Story 7.11: Production Deployment GitHub Workflow
+# Only triggers on web/ changes - infrastructure changes are handled by deploy-prod-infrastructure.yml
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'web/**'
   workflow_dispatch:
 
 env:

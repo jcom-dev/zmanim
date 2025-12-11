@@ -1,10 +1,12 @@
-name: E2E Tests
+name: PR E2E Tests
 
-# E2E tests run on pull requests only (not on main push)
-# Production (main) uses cdk-deploy.yml for infrastructure only
+# Playwright end-to-end tests on pull requests to dev
+# Runs against local dev server, not production
 on:
+  push:
+    branches: [dev]
   pull_request:
-    branches: [main]
+    branches: [dev]
   workflow_dispatch:  # Allow manual triggering
 
 # Cancel in-progress runs for the same branch

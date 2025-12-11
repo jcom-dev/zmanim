@@ -1,27 +1,20 @@
-name: CDK Deploy
+name: Deploy Prod Infrastructure
 
-# Deploys AWS infrastructure on tag push matching v* pattern
+# Deploys ALL AWS infrastructure (Network, Compute, DNS, CDN, Next.js)
+# Triggers on infrastructure/ changes to main branch
 # Uses OIDC authentication - no static AWS credentials required
 # Region: eu-west-1 (Ireland)
 
 on:
   push:
-    tags:
-      - 'v*'
-  # Allow manual trigger for testing
+    branches: [main]
+    paths:
+      - 'infrastructure/**'
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy (prod only)'
-        required: true
-        default: 'prod'
-        type: choice
-        options:
-          - prod
 
 env:
   AWS_REGION: eu-west-1
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 # Required for OIDC authentication
 permissions:
@@ -59,6 +52,8 @@ jobs:
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
+          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
 
       - name: Upload synthesized templates
         uses: actions/upload-artifact@v4
@@ -111,13 +106,35 @@ jobs:
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
+          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
         continue-on-error: true
 
-      - name: Deploy all stacks
-        run: npx cdk deploy --all --require-approval never
+      - name: CDK Synth
+        run: npx cdk synth
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
+          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
+
+      - name: Fix OpenNext symlinks
+        run: |
+          # OpenNext creates absolute symlinks to /tmp/ that break CDK publish
+          for link in $(find cdk.out -type l 2>/dev/null); do
+            target=$(readlink "$link")
+            if [[ "$target" == /tmp/* ]]; then
+              rm "$link"
+            fi
+          done
+
+      - name: Deploy all stacks
+        run: npx cdk deploy --all --require-approval never --app cdk.out
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
+          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
 
       - name: Output deployment status
         run: |
@@ -135,19 +152,11 @@ jobs:
           echo "- ZmanimProdDNS" >> $GITHUB_STEP_SUMMARY
 
 # GitHub Secrets Required:
-# - AWS_ACCOUNT_ID: AWS account ID (12 digits) - e.g., 768205136951
-# - AWS_DEPLOY_ROLE_ARN: IAM role ARN for OIDC - e.g., arn:aws:iam::768205136951:role/github-actions-cdk-deploy
+# - AWS_ACCOUNT_ID: AWS account ID (12 digits)
+# - AWS_DEPLOY_ROLE_ARN: IAM role ARN for OIDC
+# - PROD_CLERK_PUBLISHABLE_KEY: Clerk publishable key
+# - PROD_CLERK_SECRET_KEY: Clerk secret key
 #
-# OIDC Setup:
-# The ZmanimGitHubOidc stack creates the OIDC provider and IAM role.
-# Bootstrap by running `cdk deploy ZmanimGitHubOidc` locally with AWS credentials.
-# After bootstrap, GitHub Actions uses OIDC - no static AWS_ACCESS_KEY_ID/SECRET needed.
-#
-# IAM Role Trust Policy:
-# - Only allows: repo:jcom-dev/zmanim:ref:refs/heads/main
-# - Only allows: repo:jcom-dev/zmanim:ref:refs/tags/*
-# - Other branches/repos cannot assume the role
-#
-# IAM Role Permissions:
-# - AdministratorAccess (for CDK deployments)
-# - Consider scoping down for production security
+# Trigger: Changes to infrastructure/ folder on main branch
+# This workflow deploys ALL stacks including Next.js, so deploy-prod.yml
+# should NOT run when infrastructure changes.

@@ -1,10 +1,12 @@
-name: CI
+name: PR Checks
 
-# CI runs on pull requests only (not on main push)
-# Production (main) uses cdk-deploy.yml for infrastructure only
+# Runs lint, typecheck, and tests on pull requests to dev
+# Production deployments are handled by deploy-prod-*.yml workflows
 on:
+  push:
+    branches: [dev]
   pull_request:
-    branches: [main]
+    branches: [dev]
 
 jobs:
   # Frontend checks

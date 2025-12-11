@@ -1,13 +1,13 @@
-name: Deploy API to Fly.io (Dev)
+name: Deploy Dev Backend
 
-# Deploy to Fly.io development environment
-# Production uses AWS (cdk-deploy.yml)
+# Deploy Go API to Fly.io development environment
+# Production uses AWS (deploy-prod-backend.yml)
 on:
   push:
     branches: [main]
     paths:
       - 'api/**'
-      - '.github/workflows/deploy-api.yml'
+      - '.github/workflows/deploy-dev-backend.yml'
   workflow_dispatch:
 
 jobs:
