@@ -1,0 +1,89 @@
+name: Deploy to Production
+
+# Deploys Next.js frontend via CDK (Lambda + CloudFront)
+# Story 7.11: Production Deployment GitHub Workflow
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-1
+  NODE_VERSION: '22'
+
+# Required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-nextjs:
+    name: Deploy Next.js
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+            infrastructure/package-lock.json
+
+      - name: Install web dependencies
+        run: |
+          cd web
+          npm ci
+
+      - name: Install infrastructure dependencies
+        run: |
+          cd infrastructure
+          npm ci
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-deploy-prod
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: CDK Synth
+        run: |
+          cd infrastructure
+          npx cdk synth ZmanimProdNextjs
+
+      - name: Fix OpenNext symlinks
+        run: |
+          # OpenNext creates absolute symlinks to /tmp/ that break CDK publish
+          cd infrastructure
+          for link in $(find cdk.out -type l 2>/dev/null); do
+            target=$(readlink "$link")
+            if [[ "$target" == /tmp/* ]]; then
+              rm "$link"
+            fi
+          done
+
+      - name: CDK Deploy
+        run: |
+          cd infrastructure
+          npx cdk deploy ZmanimProdNextjs --require-approval never --app cdk.out
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- Site: https://zmanim.shtetl.io" >> $GITHUB_STEP_SUMMARY
+          echo "- API Health: https://zmanim.shtetl.io/api/health" >> $GITHUB_STEP_SUMMARY
