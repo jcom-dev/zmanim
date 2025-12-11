@@ -8,7 +8,6 @@ ConditionPathExists=!/var/lib/zmanim/.firstboot-complete
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
 ExecStart=/opt/zmanim/firstboot.sh
 ExecStartPost=/usr/bin/touch /var/lib/zmanim/.firstboot-complete
 

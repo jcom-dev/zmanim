@@ -1,9 +1,9 @@
 [Unit]
 Description=Zmanim API Service
 Documentation=https://github.com/jcom-dev/zmanim
-After=network-online.target postgresql.service redis-server.service zmanim-firstboot.service
+After=network-online.target postgresql.service redis-server.service zmanim-firstboot.service zmanim-db-init.service
 Wants=network-online.target
-Requires=postgresql.service redis-server.service zmanim-firstboot.service
+Requires=postgresql.service redis-server.service zmanim-firstboot.service zmanim-db-init.service
 
 [Service]
 Type=simple

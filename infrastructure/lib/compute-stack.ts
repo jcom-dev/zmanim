@@ -277,7 +277,9 @@ export class ComputeStack extends cdk.Stack {
     const availabilityZone = vpc.publicSubnets[0].availabilityZone;
 
     // Task 3.1 & 3.2: Create standalone EBS volume 20GB gp3 with 3000 IOPS
-    this.dataVolume = new ec2.CfnVolume(this, 'DataVolume', {
+    // Note: Changed logical ID to 'PersistentDataVolume' to force new volume creation
+    // after old volume was deleted outside of CloudFormation
+    this.dataVolume = new ec2.CfnVolume(this, 'PersistentDataVolume', {
       availabilityZone,
       size: 20, // Task 3.1: 20GB
       volumeType: 'gp3', // gp3 for baseline performance
@@ -297,7 +299,7 @@ export class ComputeStack extends cdk.Stack {
     // Task 3.3: deleteOnTermination: false is default for CfnVolume (not attached via blockDevices)
 
     // Task 3.4: Attach data volume to instance as /dev/sdf
-    new ec2.CfnVolumeAttachment(this, 'DataVolumeAttachment', {
+    new ec2.CfnVolumeAttachment(this, 'PersistentDataVolumeAttachment', {
       device: '/dev/sdf', // Will appear as /dev/nvme1n1 on Nitro instances
       instanceId: this.instance.instanceId,
       volumeId: this.dataVolume.ref,

@@ -5,9 +5,9 @@ echo "============================================"
 echo "Configuring systemd services"
 echo "============================================"
 
-# Create state directory for firstboot tracking
-sudo mkdir -p /var/lib/zmanim
-sudo chown zmanim:zmanim /var/lib/zmanim
+# Create directories
+sudo mkdir -p /var/lib/zmanim /opt/zmanim
+sudo chown zmanim:zmanim /var/lib/zmanim /opt/zmanim
 
 # Install Go API binary
 echo "Installing Go API binary..."
@@ -35,13 +35,13 @@ sudo mv /tmp/download-latest.sh /opt/zmanim/download-latest.sh
 sudo chmod +x /opt/zmanim/download-latest.sh
 sudo chown zmanim:zmanim /opt/zmanim/download-latest.sh
 
-# Install config template (will be replaced by firstboot.sh)
+# Install config template
 echo "Installing config template..."
 sudo mv /tmp/config.env.template /opt/zmanim/config.env.template
 sudo chmod 644 /opt/zmanim/config.env.template
 sudo chown zmanim:zmanim /opt/zmanim/config.env.template
 
-# Create placeholder config.env (will be populated by firstboot.sh from SSM)
+# Create placeholder config.env (will be populated by firstboot.sh)
 echo "Creating placeholder config.env..."
 sudo cp /opt/zmanim/config.env.template /opt/zmanim/config.env
 sudo chown zmanim:zmanim /opt/zmanim/config.env
@@ -49,44 +49,42 @@ sudo chmod 600 /opt/zmanim/config.env
 
 # Install systemd service files
 echo "Installing systemd service files..."
-sudo mv /tmp/zmanim-firstboot.service /etc/systemd/system/zmanim-firstboot.service
-sudo mv /tmp/zmanim-api.service /etc/systemd/system/zmanim-api.service
-sudo mv /tmp/restic-backup.service /etc/systemd/system/restic-backup.service
-sudo mv /tmp/restic-backup.timer /etc/systemd/system/restic-backup.timer
-sudo mv /tmp/backup-notify@.service /etc/systemd/system/backup-notify@.service
+sudo mv /tmp/zmanim-firstboot.service /etc/systemd/system/
+sudo mv /tmp/zmanim-db-init.service /etc/systemd/system/
+sudo mv /tmp/zmanim-api.service /etc/systemd/system/
+sudo mv /tmp/restic-backup.service /etc/systemd/system/
+sudo mv /tmp/restic-backup.timer /etc/systemd/system/
+sudo mv /tmp/backup-notify@.service /etc/systemd/system/
 
-# Set proper permissions on systemd files
-sudo chmod 644 /etc/systemd/system/zmanim-firstboot.service
-sudo chmod 644 /etc/systemd/system/zmanim-api.service
+# Set proper permissions
+sudo chmod 644 /etc/systemd/system/zmanim-*.service
 sudo chmod 644 /etc/systemd/system/restic-backup.service
 sudo chmod 644 /etc/systemd/system/restic-backup.timer
 sudo chmod 644 /etc/systemd/system/backup-notify@.service
 
-# Reload systemd daemon
+# Reload systemd
 echo "Reloading systemd daemon..."
 sudo systemctl daemon-reload
 
-# Enable services (they will start on first boot in correct order)
-# Order: firstboot -> postgresql -> redis -> zmanim-api
+# Enable services
+# Boot order:
+#   1. zmanim-firstboot.service (prepares config files from SSM)
+#   2. postgresql.service (starts database)
+#   3. zmanim-db-init.service (creates user/database - idempotent)
+#   4. redis-server.service (starts cache)
+#   5. zmanim-api.service (starts API)
 echo "Enabling services..."
-sudo systemctl enable zmanim-firstboot.service  # Runs once, configures everything
+sudo systemctl enable zmanim-firstboot.service
 sudo systemctl enable postgresql
+sudo systemctl enable zmanim-db-init.service
 sudo systemctl enable redis-server
 sudo systemctl enable zmanim-api.service
 sudo systemctl enable restic-backup.timer
 
-# Note: Services are NOT started during AMI build
-# On first boot:
-# 1. zmanim-firstboot.service runs (pulls SSM params, creates DB user, generates config.env)
-# 2. postgresql.service starts (after firstboot)
-# 3. redis-server.service starts (after firstboot)
-# 4. zmanim-api.service starts (after postgresql, redis, and firstboot)
-
 echo "============================================"
-echo "systemd services configured successfully"
+echo "systemd services configured"
 echo "============================================"
 
-# Display enabled services
 echo ""
 echo "Enabled services:"
 systemctl list-unit-files | grep -E "(postgresql|redis|zmanim|restic)" || true

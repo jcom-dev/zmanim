@@ -1,0 +1,22 @@
+[Unit]
+Description=Zmanim Database Initialization
+Documentation=https://github.com/jcom-dev/zmanim
+After=postgresql.service zmanim-firstboot.service
+Requires=postgresql.service zmanim-firstboot.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Run as postgres user to create database and user
+User=postgres
+Group=postgres
+
+# Initialize database (idempotent - safe to run multiple times)
+ExecStart=/usr/bin/psql -f /opt/zmanim/init-db.sql
+
+# Enable PostGIS extension
+ExecStartPost=/usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+[Install]
+WantedBy=multi-user.target

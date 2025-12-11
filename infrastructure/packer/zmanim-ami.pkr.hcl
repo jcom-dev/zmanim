@@ -106,6 +106,11 @@ build {
   }
 
   provisioner "file" {
+    source      = "${path.root}/files/zmanim-db-init.service"
+    destination = "/tmp/zmanim-db-init.service"
+  }
+
+  provisioner "file" {
     source      = "${path.root}/files/firstboot.sh"
     destination = "/tmp/firstboot.sh"
   }
