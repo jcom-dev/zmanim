@@ -47,8 +47,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: infrastructure/package-lock.json
 
-      - name: Install dependencies
+      - name: Install infrastructure dependencies
         run: npm ci
+
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: web
 
       - name: Synthesize CloudFormation templates
         run: npx cdk synth
@@ -84,8 +88,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: infrastructure/package-lock.json
 
-      - name: Install dependencies
+      - name: Install infrastructure dependencies
         run: npm ci
+
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: web
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
