@@ -4,10 +4,9 @@ name: Deploy Dev Backend
 # Production uses AWS (deploy-prod-backend.yml)
 on:
   push:
-    branches: [main]
+    branches: [dev]
     paths:
       - 'api/**'
-      - '.github/workflows/deploy-dev-backend.yml'
   workflow_dispatch:
 
 jobs:
