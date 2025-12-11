@@ -317,7 +317,9 @@ export class ComputeStack extends cdk.Stack {
     // Task 3.3: deleteOnTermination: false is default for CfnVolume (not attached via blockDevices)
 
     // Task 3.4: Attach data volume to instance as /dev/sdf
-    new ec2.CfnVolumeAttachment(this, 'PersistentDataVolumeAttachment', {
+    // Note: Changed logical ID to 'DataVolumeAttachmentV2' to force new attachment
+    // after old attachment was deleted outside of CloudFormation
+    new ec2.CfnVolumeAttachment(this, 'DataVolumeAttachmentV2', {
       device: '/dev/sdf', // Will appear as /dev/nvme1n1 on Nitro instances
       instanceId: this.instance.instanceId,
       volumeId: this.dataVolume.ref,
