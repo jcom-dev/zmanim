@@ -31,7 +31,13 @@ export interface SecretsStackProps extends cdk.StackProps {
  * │  /zmanim/prod/restic-password       (SecureString)          │
  * │  /zmanim/prod/clerk-domain          (String)                │
  * │  /zmanim/prod/clerk-audience        (String)                │
+ * │  /zmanim/prod/origin-verify-key     (SecureString)          │
  * └─────────────────────────────────────────────────────────────┘
+ *
+ * The origin-verify-key is used to restrict direct EC2 access:
+ * - API Gateway sends X-Origin-Verify header with this secret
+ * - Go API middleware validates the header, rejecting direct requests
+ * - This ensures all traffic goes through CloudFront -> API Gateway
  *
  * Cost: $0/month (SSM Standard tier + AWS-managed KMS key)
  */
@@ -66,6 +72,7 @@ export class SecretsStack extends cdk.Stack {
         `${this.parameterPrefix}/restic-password`,
         `${this.parameterPrefix}/clerk-domain`,
         `${this.parameterPrefix}/clerk-audience`,
+        `${this.parameterPrefix}/origin-verify-key`,
       ].join(', '),
       description: 'Expected SSM parameters (must be created via AWS CLI)',
     });

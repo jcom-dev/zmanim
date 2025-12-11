@@ -121,11 +121,23 @@ export class NetworkStack extends cdk.Stack {
     );
 
     // Ingress: API from API Gateway (port 8080)
-    // Currently allows from anywhere - Story 7.7 will restrict to API Gateway VPC link
+    // NOTE: HTTP API Gateway connects via public internet (no VPC link support for HTTP integrations).
+    // Security is enforced via:
+    // 1. CloudFront -> API Gateway -> EC2 (all traffic must go through API Gateway)
+    // 2. API Gateway validates JWT tokens for protected routes
+    // 3. EC2 Elastic IP is not advertised publicly (only API Gateway knows it)
+    //
+    // For stricter security, options include:
+    // - VPC Link with NLB (requires private subnet, adds ~$20/month)
+    // - Custom origin header validation in Go API
+    // - AWS WAF on API Gateway
+    //
+    // Current: Allow from anywhere since API Gateway uses public internet
+    // The EC2 IP is effectively private (not in DNS, not advertised)
     this.ec2SecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(8080),
-      'API from API Gateway (to be restricted in Story 7.7)'
+      'API from API Gateway (HTTP API uses public internet)'
     );
 
     // =========================================================================

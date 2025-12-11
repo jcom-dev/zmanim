@@ -66,6 +66,7 @@ RESEND_API_KEY=$(get_ssm_param "/zmanim/prod/resend-api-key")
 RESEND_FROM=$(get_ssm_param "/zmanim/prod/resend-from")
 RESEND_DOMAIN=$(get_ssm_param "/zmanim/prod/resend-domain")
 JWT_SECRET=$(get_ssm_param "/zmanim/prod/jwt-secret")
+ORIGIN_VERIFY_KEY=$(get_ssm_param "/zmanim/prod/origin-verify-key")
 
 if [ -z "$POSTGRES_PASSWORD" ]; then
     echo "ERROR: postgres-password not found in SSM"
@@ -83,6 +84,7 @@ echo "  openai-api-key: ${OPENAI_API_KEY:+found}${OPENAI_API_KEY:-NOT SET}"
 echo "  resend-api-key: ${RESEND_API_KEY:+found}${RESEND_API_KEY:-NOT SET}"
 echo "  resend-from: ${RESEND_FROM_EMAIL:+found}${RESEND_FROM:-NOT SET}"
 echo "  resend-domain: ${RESEND_REPLY_TO:+found}${RESEND_DOMAIN:-NOT SET}"
+echo "  origin-verify-key: ${ORIGIN_VERIFY_KEY:+found}${ORIGIN_VERIFY_KEY:-NOT SET (direct EC2 access allowed)}"
 
 # ============================================
 # Step 2: Prepare PostgreSQL data directory
@@ -245,6 +247,9 @@ AWS_REGION=${REGION}
 
 # CORS
 ALLOWED_ORIGINS=https://zmanim.shtetl.io,https://shtetl.io
+
+# Origin Verification (blocks direct EC2 access - API Gateway injects this header)
+${ORIGIN_VERIFY_KEY:+ORIGIN_VERIFY_KEY=${ORIGIN_VERIFY_KEY}}
 EOF
 
 chown zmanim:zmanim /opt/zmanim/config.env

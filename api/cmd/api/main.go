@@ -129,7 +129,8 @@ func main() {
 	// Apply middleware
 	r.Use(middleware.RequestID)
 	r.Use(custommw.RealIP)
-	r.Use(custommw.LogFailedRequestBodies) // Log request bodies for failed requests (debug)
+	r.Use(custommw.OriginVerify)                // Verify requests come through API Gateway (blocks direct EC2 access)
+	r.Use(custommw.LogFailedRequestBodies)      // Log request bodies for failed requests (debug)
 	r.Use(custommw.Logger)
 	r.Use(custommw.Recoverer)
 	r.Use(custommw.Timeout(30 * time.Second))

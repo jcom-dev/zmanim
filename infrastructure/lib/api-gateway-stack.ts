@@ -30,7 +30,12 @@ export interface ApiGatewayStackProps extends cdk.StackProps {
  *                  ↓
  *             JWT Authorizer (for /api/publisher/*, /api/admin/*)
  *                  ↓
- *             HTTP Proxy → EC2:8080
+ *             HTTP Proxy → EC2:8080 (with X-Origin-Verify header)
+ *
+ * Origin Verification:
+ * - API Gateway injects X-Origin-Verify header from SSM parameter
+ * - Go API middleware validates this header, rejecting direct access
+ * - This ensures EC2 can only be accessed through API Gateway
  *
  * Route Configuration:
  * | Route                | Authorizer    | Purpose              |
@@ -135,31 +140,56 @@ export class ApiGatewayStack extends cdk.Stack {
     // - HTTP proxy integration to EC2 Elastic IP:8080
     // - Timeout: 29 seconds (max allowed by API Gateway, close to Go API 30s timeout)
     //
-    // NOTE: We need TWO integrations:
-    // 1. Proxy integration for routes with {proxy+} path parameter
-    // 2. Direct integration for routes without path parameters (e.g., /api/health)
+    // IMPORTANT: Go API route structure:
+    // - /health (health check endpoint, NO /api prefix)
+    // - /api/v1/* (all API endpoints with v1 version prefix)
+    //
+    // API Gateway maps:
+    // - /api/health -> /health (direct)
+    // - /api/* -> /api/v1/* (proxy with path rewrite)
+    //
+    // Origin Verification:
+    // All integrations inject X-Origin-Verify header from SSM parameter.
+    // Go API middleware validates this header to reject direct EC2 access.
+
+    // Get origin verify key from SSM Parameter Store
+    const originVerifyKey = ssm.StringParameter.valueForStringParameter(
+      this,
+      `/zmanim/${config.environment}/origin-verify-key`
+    );
+
+    // Common parameter mapping: inject X-Origin-Verify header
+    const originVerifyMapping = new apigatewayv2.ParameterMapping()
+      .appendHeader('X-Origin-Verify', apigatewayv2.MappingValue.custom(originVerifyKey));
+
+    // Integration for /api/health -> /health (Go API health endpoint has no /api prefix)
+    const ec2HealthIntegration = new integrations.HttpUrlIntegration('EC2HealthIntegration', `http://${elasticIp}:8080/health`, {
+      method: apigatewayv2.HttpMethod.GET,
+      timeout: cdk.Duration.seconds(29),
+      parameterMapping: originVerifyMapping,
+    });
 
     // Integration for routes WITH {proxy+} path parameter
-    const ec2ProxyIntegration = new integrations.HttpUrlIntegration('EC2ProxyIntegration', `http://${elasticIp}:8080/{proxy}`, {
+    // Maps /api/X/{proxy+} -> /api/v1/X/{proxy}
+    const ec2ApiV1ProxyIntegration = new integrations.HttpUrlIntegration('EC2ApiV1ProxyIntegration', `http://${elasticIp}:8080/api/v1/{proxy}`, {
       method: apigatewayv2.HttpMethod.ANY,
       timeout: cdk.Duration.seconds(29), // AC2.4: 29 seconds (max allowed by API Gateway)
+      parameterMapping: originVerifyMapping,
     });
 
-    // Integration for routes WITHOUT path parameters (direct path mapping)
-    // Uses parameterMapping to forward the exact path
-    const ec2DirectIntegration = new integrations.HttpUrlIntegration('EC2DirectIntegration', `http://${elasticIp}:8080/api/health`, {
+    // Integration for exact path routes (no proxy)
+    // /api/publishers -> /api/v1/publishers
+    const ec2PublishersIntegration = new integrations.HttpUrlIntegration('EC2PublishersIntegration', `http://${elasticIp}:8080/api/v1/publishers`, {
       method: apigatewayv2.HttpMethod.GET,
       timeout: cdk.Duration.seconds(29),
+      parameterMapping: originVerifyMapping,
     });
 
-    const ec2PublishersIntegration = new integrations.HttpUrlIntegration('EC2PublishersIntegration', `http://${elasticIp}:8080/api/publishers`, {
+    // /api/countries -> /api/v1/countries
+    const ec2CountriesIntegration = new integrations.HttpUrlIntegration('EC2CountriesIntegration', `http://${elasticIp}:8080/api/v1/countries`, {
       method: apigatewayv2.HttpMethod.GET,
       timeout: cdk.Duration.seconds(29),
-    });
-
-    const ec2CountriesIntegration = new integrations.HttpUrlIntegration('EC2CountriesIntegration', `http://${elasticIp}:8080/api/countries`, {
-      method: apigatewayv2.HttpMethod.GET,
-      timeout: cdk.Duration.seconds(29),
+      parameterMapping: originVerifyMapping,
     });
 
     // =========================================================================
@@ -202,29 +232,31 @@ export class ApiGatewayStack extends cdk.Stack {
     // - ANY /api/admin/* - Admin operations
 
     // Public routes - no authorizer (AC3.5)
-    // Routes WITH {proxy+} use ec2ProxyIntegration
+    // Health check: /api/health -> /health
+    this.httpApi.addRoutes({
+      path: '/api/health',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2HealthIntegration,
+      // No authorizer - health check endpoint
+    });
+
+    // Zmanim calculations: /api/zmanim/{proxy+} -> /api/v1/zmanim/{proxy}
     this.httpApi.addRoutes({
       path: '/api/zmanim/{proxy+}',
-      methods: [apigatewayv2.HttpMethod.GET],
-      integration: ec2ProxyIntegration,
+      methods: [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST],
+      integration: ec2ApiV1ProxyIntegration,
       // No authorizer - public endpoint
     });
 
+    // Cities: /api/cities/{proxy+} -> /api/v1/cities/{proxy}
     this.httpApi.addRoutes({
       path: '/api/cities/{proxy+}',
       methods: [apigatewayv2.HttpMethod.GET],
-      integration: ec2ProxyIntegration,
+      integration: ec2ApiV1ProxyIntegration,
       // No authorizer - public endpoint
     });
 
-    this.httpApi.addRoutes({
-      path: '/api/publishers/{proxy+}',
-      methods: [apigatewayv2.HttpMethod.GET],
-      integration: ec2ProxyIntegration,
-      // No authorizer - public endpoint (read-only)
-    });
-
-    // Routes WITHOUT path params use direct integrations
+    // Publishers list: /api/publishers -> /api/v1/publishers
     this.httpApi.addRoutes({
       path: '/api/publishers',
       methods: [apigatewayv2.HttpMethod.GET],
@@ -232,13 +264,15 @@ export class ApiGatewayStack extends cdk.Stack {
       // No authorizer - public endpoint
     });
 
+    // Publishers detail: /api/publishers/{proxy+} -> /api/v1/publishers/{proxy}
     this.httpApi.addRoutes({
-      path: '/api/countries/{proxy+}',
+      path: '/api/publishers/{proxy+}',
       methods: [apigatewayv2.HttpMethod.GET],
-      integration: ec2ProxyIntegration,
-      // No authorizer - public endpoint
+      integration: ec2ApiV1ProxyIntegration,
+      // No authorizer - public endpoint (read-only)
     });
 
+    // Countries list: /api/countries -> /api/v1/countries
     this.httpApi.addRoutes({
       path: '/api/countries',
       methods: [apigatewayv2.HttpMethod.GET],
@@ -246,35 +280,39 @@ export class ApiGatewayStack extends cdk.Stack {
       // No authorizer - public endpoint
     });
 
+    // Countries detail: /api/countries/{proxy+} -> /api/v1/countries/{proxy}
     this.httpApi.addRoutes({
-      path: '/api/health',
+      path: '/api/countries/{proxy+}',
       methods: [apigatewayv2.HttpMethod.GET],
-      integration: ec2DirectIntegration,
-      // No authorizer - health check endpoint
+      integration: ec2ApiV1ProxyIntegration,
+      // No authorizer - public endpoint
     });
 
     // Protected routes - with JWT authorizer (AC3.4)
+    // Publisher management: /api/publisher/{proxy+} -> /api/v1/publisher/{proxy}
     this.httpApi.addRoutes({
       path: '/api/publisher/{proxy+}',
       methods: [apigatewayv2.HttpMethod.ANY],
-      integration: ec2ProxyIntegration,
+      integration: ec2ApiV1ProxyIntegration,
       authorizer: clerkAuthorizer, // JWT required
     });
 
+    // Admin operations: /api/admin/{proxy+} -> /api/v1/admin/{proxy}
     this.httpApi.addRoutes({
       path: '/api/admin/{proxy+}',
       methods: [apigatewayv2.HttpMethod.ANY],
-      integration: ec2ProxyIntegration,
+      integration: ec2ApiV1ProxyIntegration,
       authorizer: clerkAuthorizer, // JWT required
     });
 
-    // Catch-all for other authenticated API routes
-    // This ensures any new protected endpoints are authenticated by default
+    // Catch-all for other API routes (registry, dsl, ai, calendar, etc.)
+    // /api/{proxy+} -> /api/v1/{proxy}
+    // This ensures any new endpoints work without explicit route definitions
     this.httpApi.addRoutes({
       path: '/api/{proxy+}',
       methods: [apigatewayv2.HttpMethod.ANY],
-      integration: ec2ProxyIntegration,
-      authorizer: clerkAuthorizer, // Default to authenticated
+      integration: ec2ApiV1ProxyIntegration,
+      authorizer: clerkAuthorizer, // Default to authenticated for safety
     });
 
     // =========================================================================

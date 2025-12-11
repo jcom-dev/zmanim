@@ -2,14 +2,15 @@ import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+// ACM import removed - certificate now used by NextjsLambdaStack
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from './config';
 
 export interface CdnStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
-  apiOriginDomain: string; // Domain name pointing to EC2 (e.g., origin-api.zmanim.shtetl.io)
-  certificate?: acm.ICertificate;
+  apiOriginDomain: string; // Domain name pointing to EC2 (e.g., origin-api.zmanim.shtetl.io) - DEPRECATED, use apiGatewayDomain
+  apiGatewayDomain?: string; // API Gateway domain (e.g., xyz.execute-api.eu-west-1.amazonaws.com)
+  // certificate prop removed - Story 7.11: Custom domain now handled by NextjsLambdaStack
 }
 
 /**
@@ -35,7 +36,7 @@ export class CdnStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CdnStackProps) {
     super(scope, id, props);
 
-    const { config, apiOriginDomain, certificate } = props;
+    const { config, apiOriginDomain, apiGatewayDomain } = props;
 
     // S3 bucket for static assets (Next.js export)
     // Story 7.5: AC3 - zmanim-static-prod bucket for Next.js assets
@@ -61,16 +62,27 @@ export class CdnStack extends cdk.Stack {
       originShieldRegion: 'eu-west-1', // AC1: Origin Shield in eu-west-1 (same as origin)
     });
 
-    // API origin pointing to EC2 via origin-api subdomain
-    // Story 7.6: AC2 - API Gateway origin (actually EC2 via Route53)
-    // Note: EC2 API runs on HTTP:8080, not HTTPS:443
-    // CloudFront handles HTTPS termination; origin connection is HTTP
-    const apiOrigin = new origins.HttpOrigin(apiOriginDomain, {
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY, // HTTP to origin (EC2:8080)
-      httpPort: 8080,
-      originShieldEnabled: true,
-      originShieldRegion: 'eu-west-1', // Origin Shield for API requests too
-    });
+    // API origin - prefer API Gateway over direct EC2 access
+    // API Gateway handles path rewriting (/api/* -> /api/v1/* and /api/health -> /health)
+    // Story 7.6: AC2 - API Gateway origin with path rewriting
+    //
+    // If apiGatewayDomain is provided (e.g., xyz.execute-api.eu-west-1.amazonaws.com):
+    //   - Use HTTPS on port 443
+    //   - API Gateway handles path rewriting to Go API's /api/v1/* routes
+    //
+    // Otherwise fall back to direct EC2 (apiOriginDomain on HTTP:8080)
+    const apiOrigin = apiGatewayDomain
+      ? new origins.HttpOrigin(apiGatewayDomain, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY, // HTTPS to API Gateway
+          originShieldEnabled: true,
+          originShieldRegion: 'eu-west-1',
+        })
+      : new origins.HttpOrigin(apiOriginDomain, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY, // HTTP to EC2:8080
+          httpPort: 8080,
+          originShieldEnabled: true,
+          originShieldRegion: 'eu-west-1',
+        });
 
     // Cache Policy: API Zmanim - 1 hour TTL (AC2.3)
     // For /api/zmanim/* endpoints - cacheable calculation results
@@ -257,13 +269,10 @@ function handler(event) {
         },
       },
 
-      // AC6: Custom domain with certificate
-      // Certificate must be in us-east-1 for CloudFront
-      // Story 7.8 will create the us-east-1 certificate; for now, use optional prop
-      ...(certificate && {
-        domainNames: [config.domain], // zmanim.shtetl.io
-        certificate: certificate,
-      }),
+      // AC6: Custom domain - DISABLED for CDN stack
+      // Story 7.11: Domain is now owned by NextjsLambdaStack for frontend SSR
+      // The CDN stack now only serves API routes and static assets via CloudFront default domain
+      // domainNames and certificate removed to avoid CNAME conflict with Next.js CloudFront
 
       // AC1.3: Price class for US, EU, Israel edges
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,

@@ -49,6 +49,10 @@ ls -lh "${BINARY_PATH}"
 echo ""
 echo "Updating repository for migrations..."
 
+# Fix git safe.directory for systemd service context (no $HOME set)
+export HOME=/root
+git config --global --add safe.directory "${REPO_DIR}" 2>/dev/null || true
+
 if [ -d "${REPO_DIR}/.git" ]; then
     echo "Pulling latest changes..."
     cd "${REPO_DIR}"
