@@ -756,7 +756,7 @@ export default function AlgorithmEditorPage() {
         )}
 
         {/* Two-column layout: Controls on left, Live Preview on right */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,320px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
           {/* Left Column: All controls and zmanim list */}
           <div className="space-y-6">
             {/* Location & Date Header - Single Line on Desktop, Stacked on Mobile */}
@@ -840,7 +840,7 @@ export default function AlgorithmEditorPage() {
                     </DropdownMenu>
                     {/* Today Button - Mobile only in this row */}
                     <Button
-                      variant={isToday ? "default" : "outline"}
+                      variant={isToday ? "default" : "outline-solid"}
                       size="sm"
                       onClick={goToToday}
                       className="sm:hidden shrink-0 h-7 px-2 text-xs"
@@ -1006,7 +1006,7 @@ export default function AlgorithmEditorPage() {
 
                     {/* Today Button - Desktop only (mobile version is in row 1) */}
                     <Button
-                      variant={isToday ? "default" : "outline"}
+                      variant={isToday ? "default" : "outline-solid"}
                       size="sm"
                       onClick={goToToday}
                       className="hidden sm:inline-flex shrink-0 h-7 px-2 text-xs"

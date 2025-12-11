@@ -242,7 +242,7 @@ export function PendingRequests({ onApprove }: PendingRequestsProps) {
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Enter a reason for rejection..."
               rows={3}
-              className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
           <DialogFooter>

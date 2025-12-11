@@ -68,7 +68,7 @@ export function ProportionalHoursForm({
         {[3, 4, 9, 9.5, 10, 10.75].map((h) => (
           <Button
             key={h}
-            variant={hours === h ? 'default' : 'outline'}
+            variant={hours === h ? 'default' : 'outline-solid'}
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
@@ -85,7 +85,7 @@ export function ProportionalHoursForm({
         <label className="text-sm font-medium">Calculation System</label>
         <div className="flex gap-2">
           <Button
-            variant={base === 'gra' ? 'default' : 'outline'}
+            variant={base === 'gra' ? 'default' : 'outline-solid'}
             size="sm"
             className="flex-1"
             onClick={(e) => {
@@ -96,7 +96,7 @@ export function ProportionalHoursForm({
             GRA
           </Button>
           <Button
-            variant={base === 'mga' ? 'default' : 'outline'}
+            variant={base === 'mga' ? 'default' : 'outline-solid'}
             size="sm"
             className="flex-1"
             onClick={(e) => {
@@ -107,7 +107,7 @@ export function ProportionalHoursForm({
             MGA
           </Button>
           <Button
-            variant={base === 'custom' ? 'default' : 'outline'}
+            variant={base === 'custom' ? 'default' : 'outline-solid'}
             size="sm"
             className="flex-1"
             onClick={(e) => {

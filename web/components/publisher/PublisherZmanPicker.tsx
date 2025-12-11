@@ -310,7 +310,7 @@ export function PublisherZmanPicker({
                             {zman.formula_dsl}
                           </code>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       </div>
                     </button>
                   ))}

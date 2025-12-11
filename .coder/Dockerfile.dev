@@ -128,7 +128,7 @@ RUN npm ci
 RUN npx playwright install --with-deps chromium
 
 # Configure Claude MCP for Playwright
-RUN claude mcp add --scope user playwright npx '@playwright/mcp@latest' || true
+RUN claude mcp add --scope user playwright npx '@playwright/mcp@latest --isolated' || true
 
 # Set up bash configuration
 WORKDIR /home/coder

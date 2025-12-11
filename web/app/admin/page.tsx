@@ -32,23 +32,24 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div>
+    <div className="flex flex-col gap-6">
+      {/* Page Header */}
+      <header>
         <h1 className="text-3xl font-bold">Welcome to Admin Portal</h1>
         <p className="text-muted-foreground mt-1">
           Manage publishers, view statistics, and configure platform settings.
         </p>
-      </div>
+      </header>
 
-      {/* Info Banner - WCAG AA compliant colors */}
+      {/* Info Banner */}
       <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-        <CardHeader className="pb-3">
+        <CardHeader className="p-4 pb-2">
           <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
             <FileCheck className="w-5 h-5" />
             Publisher Requests
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 pt-0">
           <p className="text-blue-600 dark:text-blue-400">
             Visit{' '}
             <Link href="/admin/publishers" className="font-medium underline hover:no-underline">
@@ -60,15 +61,15 @@ export default function AdminPage() {
       </Card>
 
       {/* Admin Sections Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {adminSections.map((section) => {
           const Icon = section.icon;
           return (
-            <Link key={section.href} href={section.href}>
+            <Link key={section.href} href={section.href} className="block">
               <Card className={`h-full transition-colors hover:bg-accent/50 cursor-pointer ${
                 section.highlight ? 'border-primary/50' : ''
               }`}>
-                <CardHeader>
+                <CardHeader className="p-4">
                   <CardTitle className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${section.highlight ? 'bg-primary/20' : 'bg-muted'}`}>
                       <Icon className={`w-5 h-5 ${section.highlight ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -85,13 +86,13 @@ export default function AdminPage() {
 
       {/* Help Section */}
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 pb-2">
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-muted-foreground" />
             Quick Help
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
+        <CardContent className="p-4 pt-0 space-y-3 text-sm text-muted-foreground">
           <p>
             <strong>Approving Publishers:</strong> When a user submits a publisher request via &quot;Become a Publisher&quot;,
             it appears in the Publisher Management page. Click to review details and approve or reject.

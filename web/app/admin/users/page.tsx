@@ -22,6 +22,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useApi } from '@/lib/api-client';
 import {
   UserPlus,
@@ -348,16 +355,17 @@ export default function AdminUsersPage() {
               />
             </div>
             <div>
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="h-10 px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin Only</option>
-                <option value="publisher">Publisher Only</option>
-                <option value="dual">Both Roles</option>
-              </select>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="admin">Admin Only</SelectItem>
+                  <SelectItem value="publisher">Publisher Only</SelectItem>
+                  <SelectItem value="dual">Both Roles</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -647,22 +655,21 @@ export default function AdminUsersPage() {
               Grant {selectedUser?.name} access to a publisher team.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-2">
             <Label htmlFor="publisher">Select Publisher</Label>
-            <select
-              id="publisher"
-              value={selectedPublisherId}
-              onChange={(e) => setSelectedPublisherId(e.target.value)}
-              className="w-full mt-2 h-10 px-4 py-2 border border-border rounded-md bg-background text-foreground"
-            >
-              <option value="">Select a publisher...</option>
-              {selectedUser &&
-                getAvailablePublishers(selectedUser).map((pub) => (
-                  <option key={pub.id} value={pub.id}>
-                    {pub.name}
-                  </option>
-                ))}
-            </select>
+            <Select value={selectedPublisherId} onValueChange={setSelectedPublisherId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a publisher..." />
+              </SelectTrigger>
+              <SelectContent>
+                {selectedUser &&
+                  getAvailablePublishers(selectedUser).map((pub) => (
+                    <SelectItem key={pub.id} value={pub.id}>
+                      {pub.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddPublisherDialogOpen(false)}>

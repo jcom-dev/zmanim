@@ -77,7 +77,7 @@ export default function DatePicker({ onDateChange }: DatePickerProps) {
               w-full px-4 py-2.5 rounded-xl
               border border-border
               focus:border-apple-blue focus:ring-2 focus:ring-apple-blue/20
-              transition-all duration-200 outline-none
+              transition-all duration-200 outline-hidden
               text-foreground font-normal text-[15px]
               bg-card
             "
@@ -100,7 +100,7 @@ export default function DatePicker({ onDateChange }: DatePickerProps) {
             w-full bg-apple-blue hover:bg-apple-blue/90
             text-white font-medium py-2.5 px-5 rounded-xl
             transition-all duration-200
-            shadow-sm hover:shadow-md
+            shadow-xs hover:shadow-md
             flex items-center justify-center
           "
         >

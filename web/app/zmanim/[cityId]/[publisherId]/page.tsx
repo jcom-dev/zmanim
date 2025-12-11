@@ -289,13 +289,13 @@ export default function ZmanimPage() {
           {/* Header Card */}
           <div className="bg-card/80 backdrop-blur-xl rounded-2xl shadow-lg border border-border/50 transition-all hover:shadow-xl overflow-visible">
             {/* Publisher Info Bar */}
-            <div className="bg-gradient-to-r from-primary via-primary to-blue-600 dark:from-primary dark:via-primary dark:to-blue-700 text-primary-foreground px-4 py-3.5 md:px-5 md:py-4 rounded-t-2xl">
+            <div className="bg-linear-to-r from-primary via-primary to-blue-600 dark:from-primary dark:via-primary dark:to-blue-700 text-primary-foreground px-4 py-3.5 md:px-5 md:py-4 rounded-t-2xl">
               <div className="flex items-center justify-between gap-2 md:gap-3">
                 {/* Back button + Publisher */}
                 <div className="flex items-center gap-2.5 md:gap-3 min-w-0 flex-1">
                   <Link
                     href={`/zmanim/${cityId}`}
-                    className="p-1.5 md:p-2 hover:bg-white/20 rounded-lg transition-all hover:scale-105 active:scale-95 flex-shrink-0 -ml-1"
+                    className="p-1.5 md:p-2 hover:bg-white/20 rounded-lg transition-all hover:scale-105 active:scale-95 shrink-0 -ml-1"
                     aria-label="Back to publisher selection"
                   >
                     <ArrowLeft className="w-5 h-5" />
@@ -303,7 +303,7 @@ export default function ZmanimPage() {
 
                   {/* Publisher Logo or Fallback */}
                   {!isDefault && (
-                    <div className="relative w-9 h-9 md:w-10 md:h-10 rounded-lg overflow-hidden bg-white/15 backdrop-blur-sm border border-white/25 flex-shrink-0 flex items-center justify-center">
+                    <div className="relative w-9 h-9 md:w-10 md:h-10 rounded-lg overflow-hidden bg-white/15 backdrop-blur-sm border border-white/25 shrink-0 flex items-center justify-center">
                       {publisher?.logo ? (
                         <Image
                           src={publisher.logo}
@@ -328,12 +328,12 @@ export default function ZmanimPage() {
                       {/* Certified/Community Badge */}
                       {!isDefault && publisher && (
                         publisher.is_certified ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/30 text-emerald-100 rounded border border-emerald-400/40 flex-shrink-0">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/30 text-emerald-100 rounded border border-emerald-400/40 shrink-0">
                             <ShieldCheck className="w-3 h-3" />
                             <span className="hidden sm:inline">Certified</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-amber-500/30 text-amber-100 rounded border border-amber-400/40 flex-shrink-0">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-amber-500/30 text-amber-100 rounded border border-amber-400/40 shrink-0">
                             <ShieldAlert className="w-3 h-3" />
                             <span className="hidden sm:inline">Community</span>
                           </span>
@@ -345,11 +345,11 @@ export default function ZmanimPage() {
                         onClick={() => setLocationSearchOpen(true)}
                         className="flex items-center gap-1 md:gap-1.5 text-primary-foreground/90 text-xs hover:text-white transition-all group"
                       >
-                        <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 flex-shrink-0" />
+                        <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
                         <span className="group-hover:underline underline-offset-2 truncate">
                           {city?.name}, {city?.region ? `${city.region}, ` : ''}{city?.country}
                         </span>
-                        <Search className="w-2.5 h-2.5 md:w-3 md:h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        <Search className="w-2.5 h-2.5 md:w-3 md:h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                       </button>
                       {city?.latitude && city?.longitude && (
                         <button
@@ -367,7 +367,7 @@ export default function ZmanimPage() {
                 </div>
 
                 {/* Language toggle + Theme toggle */}
-                <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
                   <button
                     onClick={() => setShowHebrew(!showHebrew)}
                     className="px-2.5 md:px-4 py-1.5 md:py-2 text-xs font-medium bg-white/20 hover:bg-white/30 rounded-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm border border-white/20"
@@ -457,7 +457,7 @@ export default function ZmanimPage() {
             {!isDefault && publisher && !publisher.is_certified && (
               <div className="px-5 py-3 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-800/50 rounded-b-2xl">
                 <div className="flex items-center justify-center gap-2 text-amber-800 dark:text-amber-200">
-                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
                   <p className="text-xs md:text-sm text-center">
                     This is a community-contributed source. These times have not been verified by the publisher organization.
                   </p>
@@ -522,7 +522,7 @@ export default function ZmanimPage() {
                                   {displayName}
                                 </span>
                                 {zman.is_beta && (
-                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded flex-shrink-0">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded shrink-0">
                                     Beta
                                   </span>
                                 )}
@@ -531,14 +531,14 @@ export default function ZmanimPage() {
                                     setSelectedZman(zmanWithName);
                                     setFormulaPanelOpen(true);
                                   }}
-                                  className="p-1 text-muted-foreground/50 hover:text-primary hover:bg-primary/10 rounded-md transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 flex-shrink-0"
+                                  className="p-1 text-muted-foreground/50 hover:text-primary hover:bg-primary/10 rounded-md transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 shrink-0"
                                   aria-label={`Show formula details for ${englishName}`}
                                 >
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                               <div
-                                className="text-xl md:text-2xl font-bold bg-gradient-to-br from-primary via-primary to-blue-600 dark:from-primary dark:via-primary dark:to-blue-400 bg-clip-text text-transparent tabular-nums tracking-tight flex-shrink-0"
+                                className="text-xl md:text-2xl font-bold bg-linear-to-br from-primary via-primary to-blue-600 dark:from-primary dark:via-primary dark:to-blue-400 bg-clip-text text-transparent tabular-nums tracking-tight shrink-0"
                                 dir="ltr"
                               >
                                 {formatTimeShort(zman.time)}
@@ -591,13 +591,13 @@ export default function ZmanimPage() {
             {/* Search Header */}
             <div className="p-5 border-b border-border">
               <div className="flex items-center gap-3">
-                <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                <Search className="w-5 h-5 text-muted-foreground shrink-0" />
                 <input
                   type="text"
                   placeholder="Search for a city..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base"
+                  className="flex-1 bg-transparent text-foreground placeholder-muted-foreground outline-hidden text-base"
                   autoFocus
                 />
                 <button
@@ -606,7 +606,7 @@ export default function ZmanimPage() {
                     setSearchQuery('');
                     setSearchResults([]);
                   }}
-                  className="p-2 hover:bg-accent rounded-lg transition-all hover:scale-110 active:scale-95 flex-shrink-0"
+                  className="p-2 hover:bg-accent rounded-lg transition-all hover:scale-110 active:scale-95 shrink-0"
                 >
                   <X className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -643,7 +643,7 @@ export default function ZmanimPage() {
                     animation: `fadeSlideIn 0.2s ease-out ${idx * 0.03}s both`
                   }}
                 >
-                  <div className="p-2 bg-primary/10 text-primary rounded-lg group-hover:scale-110 transition-transform flex-shrink-0">
+                  <div className="p-2 bg-primary/10 text-primary rounded-lg group-hover:scale-110 transition-transform shrink-0">
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">

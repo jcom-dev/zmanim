@@ -153,7 +153,7 @@ export function MonthPreview({ configuration, location }: MonthPreviewProps) {
           <select
             value={currentMonth.month}
             onChange={(e) => setCurrentMonth(prev => ({ ...prev, month: parseInt(e.target.value) }))}
-            className="bg-background border border-input rounded-md px-3 py-1.5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="bg-background border border-input rounded-md px-3 py-1.5 text-sm font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring"
           >
             {months.map((month, index) => (
               <option key={month} value={index}>{month}</option>
@@ -164,7 +164,7 @@ export function MonthPreview({ configuration, location }: MonthPreviewProps) {
           <select
             value={currentMonth.year}
             onChange={(e) => setCurrentMonth(prev => ({ ...prev, year: parseInt(e.target.value) }))}
-            className="bg-background border border-input rounded-md px-3 py-1.5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="bg-background border border-input rounded-md px-3 py-1.5 text-sm font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring"
           >
             {years.map((year) => (
               <option key={year} value={year}>{year}</option>

@@ -57,10 +57,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      {/* Header - Fixed height, no shrink */}
+      <header className="flex-none bg-card border-b border-border">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Left: Logo & Breadcrumb */}
             <div className="flex items-center gap-4">
@@ -92,10 +92,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="bg-card/50 border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1 overflow-x-auto">
+      {/* Navigation - Fixed height, hidden scrollbar, horizontal scroll on overflow */}
+      <nav className="flex-none bg-card/50 border-b border-border">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex gap-1 overflow-x-auto scrollbar-hide">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href, item.exact);
@@ -113,7 +113,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <Icon className="w-4 h-4" />
                   {item.label}
                   {badge > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-destructive-foreground bg-destructive rounded-full min-w-[1.25rem]">
+                    <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-destructive-foreground bg-destructive rounded-full min-w-5">
                       {badge > 99 ? '99+' : badge}
                     </span>
                   )}
@@ -124,9 +124,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
+      {/* Main Content - Fills remaining space */}
+      <main className="flex-1">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {children}
+        </div>
       </main>
     </div>
   );

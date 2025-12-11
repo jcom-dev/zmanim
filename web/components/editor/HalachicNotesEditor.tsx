@@ -124,7 +124,7 @@ export function HalachicNotesEditor({
         <div className="flex gap-1">
           <Button
             type="button"
-            variant={!isPreview ? 'default' : 'outline'}
+            variant={!isPreview ? 'default' : 'outline-solid'}
             size="sm"
             onClick={() => setIsPreview(false)}
             disabled={disabled}
@@ -134,7 +134,7 @@ export function HalachicNotesEditor({
           </Button>
           <Button
             type="button"
-            variant={isPreview ? 'default' : 'outline'}
+            variant={isPreview ? 'default' : 'outline-solid'}
             size="sm"
             onClick={() => setIsPreview(true)}
             disabled={disabled}

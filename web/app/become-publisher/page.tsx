@@ -95,7 +95,7 @@ export default function BecomePublisherPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-background py-12 px-4">
+      <div className="min-h-screen bg-linear-to-b from-background to-background py-12 px-4">
         <div className="container mx-auto max-w-lg">
           <Card className="border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-950">
             <CardHeader className="text-center">
@@ -137,7 +137,7 @@ export default function BecomePublisherPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-background py-12 px-4">
+    <div className="min-h-screen bg-linear-to-b from-background to-background py-12 px-4">
       <div className="container mx-auto max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -177,7 +177,7 @@ export default function BecomePublisherPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+                  className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary ${
                     errors.name ? 'border-red-500' : 'border-border'
                   }`}
                   placeholder="Congregation Beth Israel"
@@ -199,7 +199,7 @@ export default function BecomePublisherPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+                  className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary ${
                     errors.email ? 'border-red-500' : 'border-border'
                   }`}
                   placeholder="rabbi@congregation.org"
@@ -218,7 +218,7 @@ export default function BecomePublisherPage() {
                   name="website"
                   value={formData.website}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                   placeholder="https://congregation.org"
                 />
               </div>
@@ -234,7 +234,7 @@ export default function BecomePublisherPage() {
                   value={formData.description}
                   onChange={handleChange}
                   rows={5}
-                  className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+                  className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary ${
                     errors.description ? 'border-red-500' : 'border-border'
                   }`}
                   placeholder="Tell us about your community, the areas you serve, and your approach to zmanim calculations..."

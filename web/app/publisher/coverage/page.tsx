@@ -500,7 +500,7 @@ export default function PublisherCoveragePage() {
                   } ${selectedCoverageForMap?.id === item.id ? 'ring-2 ring-primary' : ''}`}
                 >
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className={`p-2 rounded-lg flex-shrink-0 ${getLevelBadgeColor(item.coverage_level_key)}`}>
+                    <div className={`p-2 rounded-lg shrink-0 ${getLevelBadgeColor(item.coverage_level_key)}`}>
                       {getLevelIcon(item.coverage_level_key)}
                     </div>
                     <div className="min-w-0 flex-1">

@@ -96,7 +96,7 @@ function Category({
               >
                 <div
                   className={cn(
-                    'w-2 h-2 rounded-full mt-1.5 flex-shrink-0',
+                    'w-2 h-2 rounded-full mt-1.5 shrink-0',
                     item.category === 'primitive' && 'bg-green-500',
                     item.category === 'function' && 'bg-blue-500',
                     item.category === 'operator' && 'bg-purple-500',

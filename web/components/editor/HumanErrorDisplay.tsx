@@ -54,7 +54,7 @@ export function HumanErrorDisplay({
       )}
     >
       <div className="flex items-start gap-3">
-        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
           {/* Headline */}
           <h4 className="font-medium text-amber-900 dark:text-amber-100 text-sm leading-snug">
@@ -70,7 +70,7 @@ export function HumanErrorDisplay({
 
           {/* Suggestion */}
           <div className="flex items-start gap-2 mt-3 text-sm text-amber-800 dark:text-amber-200">
-            <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
             <span>{error.suggestion}</span>
           </div>
 

@@ -235,7 +235,7 @@ export default function PublisherTeamPage() {
                     onChange={(e) => handleFieldChange('name', e.target.value, setAddName)}
                     onBlur={(e) => handleFieldBlur('name', e.target.value)}
                     placeholder="John Doe"
-                    className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+                    className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary ${
                       fieldErrors.name ? 'border-red-500 focus:ring-red-500' : 'border-border'
                     }`}
                   />
@@ -257,7 +257,7 @@ export default function PublisherTeamPage() {
                     onChange={(e) => handleFieldChange('email', e.target.value, setAddEmail)}
                     onBlur={(e) => handleFieldBlur('email', e.target.value)}
                     placeholder="colleague@example.com"
-                    className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+                    className={`w-full px-4 py-2 border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary ${
                       fieldErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-border'
                     }`}
                   />
@@ -274,7 +274,7 @@ export default function PublisherTeamPage() {
               <div className="space-y-3">
                 {addError && (
                   <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-200">
-                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
                     <span className="text-sm">{addError}</span>
                   </div>
                 )}

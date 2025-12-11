@@ -64,16 +64,14 @@ export default function RootLayout({
         <body className={`${inter.className} ${notoSansHebrew.variable}`}>
           <ThemeProvider
             attribute="class"
-            defaultTheme="dark"
+            defaultTheme="system"
             enableSystem
             disableTransitionOnChange
           >
             <QueryProvider>
               <TooltipProvider delayDuration={300}>
                 <DevModeBanner />
-                <div className="min-h-screen bg-background text-foreground">
-                  {children}
-                </div>
+                {children}
                 <Toaster richColors position="bottom-right" />
               </TooltipProvider>
             </QueryProvider>

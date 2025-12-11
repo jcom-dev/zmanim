@@ -644,7 +644,7 @@ export function CustomizeZmanimStep({ state, onUpdate, onNext, onBack }: Customi
                             {/* Checkbox */}
                             <div
                               className={cn(
-                                'mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0',
+                                'mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shrink-0',
                                 selected
                                   ? 'bg-primary border-primary text-primary-foreground'
                                   : 'border-muted-foreground/30'

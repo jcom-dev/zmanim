@@ -127,7 +127,7 @@ export default function NewPublisherPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${
+                className={`w-full px-4 py-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 ${
                   validationErrors.email
                     ? 'border-red-500 focus:ring-red-500'
                     : 'border-border focus:ring-primary'
@@ -150,7 +150,7 @@ export default function NewPublisherPage() {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${
+                className={`w-full px-4 py-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 ${
                   validationErrors.name
                     ? 'border-red-500 focus:ring-red-500'
                     : 'border-border focus:ring-primary'
@@ -176,7 +176,7 @@ export default function NewPublisherPage() {
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${
+                className={`w-full px-4 py-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 ${
                   validationErrors.website
                     ? 'border-red-500 focus:ring-red-500'
                     : 'border-border focus:ring-primary'
@@ -199,7 +199,7 @@ export default function NewPublisherPage() {
                 value={formData.bio}
                 onChange={handleChange}
                 rows={4}
-                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                 placeholder="Brief biography or description..."
               />
             </div>

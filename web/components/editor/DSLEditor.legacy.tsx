@@ -283,7 +283,7 @@ export const DSLEditor = forwardRef<DSLEditorRef, DSLEditorProps>(function DSLEd
       <div className="relative font-mono text-sm">
         {/* Syntax highlighted overlay */}
         <div
-          className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words overflow-hidden"
+          className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap wrap-break-word overflow-hidden"
           aria-hidden="true"
         >
           {highlightedCode}
@@ -300,7 +300,7 @@ export const DSLEditor = forwardRef<DSLEditorRef, DSLEditorProps>(function DSLEd
           spellCheck={false}
           className={cn(
             'w-full min-h-[200px] max-h-[500px] p-3 rounded-md border bg-transparent text-transparent caret-foreground resize-y',
-            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-50'
           )}
           placeholder="// Enter DSL formula
@@ -355,7 +355,7 @@ sunrise - 72min"
           <ul className="space-y-1">
             {validation.errors.map((error, i) => (
               <li key={i} className="text-sm text-destructive flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 {error.message}
               </li>
             ))}

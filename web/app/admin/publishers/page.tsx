@@ -16,6 +16,16 @@ import {
 import { PendingRequests } from '@/components/admin/PendingRequests';
 import Link from 'next/link';
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useApi } from '@/lib/api-client';
 import { useAuth } from '@clerk/nextjs';
 import { getStatusBadgeClasses } from '@/lib/badge-colors';
@@ -253,45 +263,46 @@ export default function AdminPublishersPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
-              <input
+              <Input
                 type="text"
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div className="flex gap-4 items-center">
-              <select
+              <Select
                 value={statusFilter}
-                onChange={(e) => {
-                  const newFilter = e.target.value;
-                  setStatusFilter(newFilter);
+                onValueChange={(value) => {
+                  setStatusFilter(value);
                   // Automatically enable showDeleted when "Deleted" is selected
-                  if (newFilter === 'deleted') {
+                  if (value === 'deleted') {
                     setShowDeleted(true);
                   }
                 }}
-                className="px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="verified">Verified</option>
-                <option value="suspended">Suspended</option>
-                <option value="deleted">Deleted</option>
-              </select>
-              <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap">
-                <input
-                  type="checkbox"
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="deleted">Deleted</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-deleted"
                   checked={showDeleted}
-                  onChange={(e) => setShowDeleted(e.target.checked)}
-                  className="w-4 h-4 rounded border-border"
+                  onCheckedChange={setShowDeleted}
                 />
-                <span className="flex items-center gap-1">
+                <Label htmlFor="show-deleted" className="flex items-center gap-1 text-sm cursor-pointer whitespace-nowrap">
                   <Trash2 className="w-4 h-4 text-muted-foreground" />
                   Show deleted
-                </span>
-              </label>
+                </Label>
+              </div>
             </div>
           </div>
         </CardContent>

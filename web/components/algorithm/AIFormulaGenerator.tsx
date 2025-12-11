@@ -218,7 +218,7 @@ export function AIFormulaGenerator({
                           ? 'default'
                           : result.confidence === 'medium'
                           ? 'secondary'
-                          : 'outline'
+                          : 'outline-solid'
                       }
                     >
                       {result.confidence} confidence

@@ -175,7 +175,7 @@ export default function CitySelector({ onSelect, onCancel }: CitySelectorProps) 
         <div className="flex gap-2">
           <Button
             type="button"
-            variant={level === 'country' ? 'default' : 'outline'}
+            variant={level === 'country' ? 'default' : 'outline-solid'}
             size="sm"
             onClick={() => setLevel('country')}
             className="flex items-center gap-2"
@@ -185,7 +185,7 @@ export default function CitySelector({ onSelect, onCancel }: CitySelectorProps) 
           </Button>
           <Button
             type="button"
-            variant={level === 'region' ? 'default' : 'outline'}
+            variant={level === 'region' ? 'default' : 'outline-solid'}
             size="sm"
             onClick={() => setLevel('region')}
             className="flex items-center gap-2"
@@ -195,7 +195,7 @@ export default function CitySelector({ onSelect, onCancel }: CitySelectorProps) 
           </Button>
           <Button
             type="button"
-            variant={level === 'city' ? 'default' : 'outline'}
+            variant={level === 'city' ? 'default' : 'outline-solid'}
             size="sm"
             onClick={() => setLevel('city')}
             className="flex items-center gap-2"
@@ -218,7 +218,7 @@ export default function CitySelector({ onSelect, onCancel }: CitySelectorProps) 
             value={countrySearch}
             onChange={(e) => setCountrySearch(e.target.value)}
             placeholder="Search countries..."
-            className="w-full pl-9 pr-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
+            className="w-full pl-9 pr-4 py-2 border border-border rounded-md focus:outline-hidden focus:ring-2 focus:ring-primary bg-card text-foreground"
           />
         </div>
         {isLoadingCountries ? (
@@ -273,7 +273,7 @@ export default function CitySelector({ onSelect, onCancel }: CitySelectorProps) 
               value={regionSearch}
               onChange={(e) => setRegionSearch(e.target.value)}
               placeholder="Search regions..."
-              className="w-full pl-9 pr-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
+              className="w-full pl-9 pr-4 py-2 border border-border rounded-md focus:outline-hidden focus:ring-2 focus:ring-primary bg-card text-foreground"
             />
           </div>
           {isLoadingRegions ? (
@@ -327,7 +327,7 @@ export default function CitySelector({ onSelect, onCancel }: CitySelectorProps) 
               value={citySearch}
               onChange={(e) => setCitySearch(e.target.value)}
               placeholder="Search for a city..."
-              className="w-full pl-9 pr-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
+              className="w-full pl-9 pr-4 py-2 border border-border rounded-md focus:outline-hidden focus:ring-2 focus:ring-primary bg-card text-foreground"
             />
           </div>
           {isLoadingCities ? (
@@ -341,7 +341,7 @@ export default function CitySelector({ onSelect, onCancel }: CitySelectorProps) 
                   onClick={() => handleCitySelect(city)}
                   className="w-full text-left px-3 py-2 hover:bg-muted flex items-center gap-2"
                 >
-                  <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
                   <div>
                     <span className="font-medium">{city.name}</span>
                     <span className="text-muted-foreground text-sm ml-2">

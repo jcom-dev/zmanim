@@ -413,7 +413,7 @@ export default function Home() {
                     onFocus={() => setShowSearchResults(true)}
                     onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
                     placeholder="Search for a city..."
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-foreground bg-card"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-hidden text-foreground bg-card"
                   />
                   {isSearching && (
                     <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground animate-spin" />
@@ -430,7 +430,7 @@ export default function Home() {
                             onMouseDown={() => handleSearchResultSelect(city)}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left"
                           >
-                            <MapPin className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                            <MapPin className="w-5 h-5 text-muted-foreground shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-foreground truncate">{city.name}</div>
                               <div className="text-sm text-muted-foreground truncate">

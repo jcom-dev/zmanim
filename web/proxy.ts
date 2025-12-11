@@ -1,7 +1,7 @@
 /**
- * @file middleware.ts
- * @purpose Next.js middleware - auth routing, public/protected route logic
- * @pattern next-middleware
+ * @file proxy.ts
+ * @purpose Next.js proxy (formerly middleware) - auth routing, public/protected route logic
+ * @pattern next-proxy
  * @dependencies Clerk auth(), publicRoutes matcher
  * @frequency critical - authentication flow
  * @compliance Check docs/adr/ for pattern rationale

@@ -233,7 +233,7 @@ export function CoverageSearchPanel({
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all",
               activeLevel === key
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
             )}
           >

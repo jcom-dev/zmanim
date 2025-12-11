@@ -189,7 +189,7 @@ export function FormulaBuilder({
         {/* Error State */}
         <div className="rounded-lg border-2 border-amber-500/50 bg-amber-500/10 p-6">
           <div className="flex items-start gap-3">
-            <AlertCircle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-6 w-6 text-amber-500 shrink-0 mt-0.5" />
             <div className="space-y-2">
               <h3 className="font-semibold text-amber-600 dark:text-amber-400">Advanced Formula Detected</h3>
               <p className="text-sm text-muted-foreground">

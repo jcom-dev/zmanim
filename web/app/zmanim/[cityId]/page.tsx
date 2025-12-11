@@ -180,7 +180,7 @@ export default function CityPublishersPage() {
         {!hasCoverage && (
           <div className="mb-8 alert-warning p-6">
             <div className="flex items-start gap-4">
-              <AlertCircle className="w-6 h-6 alert-warning-icon flex-shrink-0 mt-1" />
+              <AlertCircle className="w-6 h-6 alert-warning-icon shrink-0 mt-1" />
               <div>
                 <h3 className="text-lg alert-warning-title mb-2">
                   No Local Authority Covers This Area
@@ -212,7 +212,7 @@ export default function CityPublishersPage() {
                 className="w-full flex items-center gap-4 p-6 bg-card border border-border rounded-lg hover:bg-muted hover:border-border transition-colors text-left"
               >
                 {/* Logo */}
-                <div className="relative w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="relative w-16 h-16 bg-muted rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
                   {publisher.logo ? (
                     <Image
                       src={publisher.logo}
@@ -222,7 +222,7 @@ export default function CityPublishersPage() {
                       unoptimized
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center rounded-lg">
+                    <div className="w-full h-full bg-linear-to-br from-primary to-primary/80 flex items-center justify-center rounded-lg">
                       <span className="text-lg font-bold text-primary-foreground tracking-tight">
                         {(publisher.name || 'P').split(/\s+/).slice(0, 3).map(w => w.charAt(0).toUpperCase()).join('')}
                       </span>
@@ -258,7 +258,7 @@ export default function CityPublishersPage() {
                 </div>
 
                 {/* Arrow */}
-                <ChevronRight className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+                <ChevronRight className="w-6 h-6 text-muted-foreground shrink-0" />
               </button>
             ))}
           </div>

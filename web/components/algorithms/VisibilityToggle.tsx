@@ -48,7 +48,7 @@ export function VisibilityToggle({ isPublic: initialPublic, onChange }: Visibili
         )}
       </div>
       <Button
-        variant={isPublic ? 'default' : 'outline'}
+        variant={isPublic ? 'default' : 'outline-solid'}
         onClick={toggleVisibility}
         disabled={loading}
         className="min-w-[100px]"

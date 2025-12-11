@@ -227,7 +227,7 @@ export function FormulaEditorPage({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />
+              <AlertTriangle className="h-6 w-6 text-amber-500 shrink-0" />
               <div>
                 <h3 className="font-semibold text-lg">Switch to Guided Mode?</h3>
                 <p className="text-sm text-muted-foreground mt-1">

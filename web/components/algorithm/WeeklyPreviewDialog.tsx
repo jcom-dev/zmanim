@@ -166,7 +166,7 @@ export function WeeklyPreviewDialog({
                   if (date.getDate() > maxDay) date.setDate(maxDay);
                   setStartDate(date.toISOString().split('T')[0]);
                 }}
-                className="bg-background border border-input rounded-md px-2 py-1.5 text-sm min-w-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
+                className="bg-background border border-input rounded-md px-2 py-1.5 text-sm min-w-[80px] focus:outline-hidden focus:ring-2 focus:ring-ring"
               >
                 {years.map((year) => (
                   <option key={year} value={year}>{year}</option>
@@ -188,7 +188,7 @@ export function WeeklyPreviewDialog({
                   date.setMonth(newMonth);
                   setStartDate(date.toISOString().split('T')[0]);
                 }}
-                className="bg-background border border-input rounded-md px-2 py-1.5 text-sm min-w-[110px] focus:outline-none focus:ring-2 focus:ring-ring"
+                className="bg-background border border-input rounded-md px-2 py-1.5 text-sm min-w-[110px] focus:outline-hidden focus:ring-2 focus:ring-ring"
               >
                 {months.map((month, index) => (
                   <option key={month} value={index}>{month}</option>
@@ -206,7 +206,7 @@ export function WeeklyPreviewDialog({
                   date.setDate(parseInt(e.target.value));
                   setStartDate(date.toISOString().split('T')[0]);
                 }}
-                className="bg-background border border-input rounded-md px-2 py-1.5 text-sm min-w-[60px] focus:outline-none focus:ring-2 focus:ring-ring"
+                className="bg-background border border-input rounded-md px-2 py-1.5 text-sm min-w-[60px] focus:outline-hidden focus:ring-2 focus:ring-ring"
               >
                 {Array.from(
                   { length: getDaysInMonth(new Date(startDate).getFullYear(), new Date(startDate).getMonth()) },

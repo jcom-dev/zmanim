@@ -136,7 +136,7 @@ export default function AdminSettingsPage() {
                 value={rateLimitAnonymous}
                 onChange={(e) => setRateLimitAnonymous(parseInt(e.target.value))}
                 min="0"
-                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
               <p className="mt-1 text-sm text-muted-foreground">
                 Current: {config?.rate_limit_anonymous?.value.requests_per_hour || 'N/A'}
@@ -153,7 +153,7 @@ export default function AdminSettingsPage() {
                 value={rateLimitAuthenticated}
                 onChange={(e) => setRateLimitAuthenticated(parseInt(e.target.value))}
                 min="0"
-                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
               <p className="mt-1 text-sm text-muted-foreground">
                 Current: {config?.rate_limit_authenticated?.value.requests_per_hour || 'N/A'}
@@ -180,7 +180,7 @@ export default function AdminSettingsPage() {
                 onChange={(e) => setCacheTTL(parseInt(e.target.value))}
                 min="1"
                 max="168"
-                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
               <p className="mt-1 text-sm text-muted-foreground">
                 Current: {config?.cache_ttl_hours?.value.hours || 'N/A'} hours

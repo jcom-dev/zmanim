@@ -403,7 +403,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                           size="sm"
                           onClick={handleRevertNames}
                           disabled={updateZman.isPending}
-                          className="h-7 px-2 gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-900/50 flex-shrink-0"
+                          className="h-7 px-2 gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-900/50 shrink-0"
                         >
                           <Edit2 className="h-3 w-3" />
                           <span className="text-xs font-medium">Modified</span>
@@ -464,7 +464,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
 
                 {/* Core/Optional Flag - clickable badge */}
                 <Badge
-                  variant={isEssential ? 'default' : 'outline'}
+                  variant={isEssential ? 'default' : 'outline-solid'}
                   className={`cursor-pointer transition-colors select-none ${
                     isEssential
                       ? 'bg-primary hover:bg-primary/80'
@@ -550,7 +550,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
             </div>
 
             {/* Right: Quick Actions - top row centered on mobile, right side on desktop */}
-            <div className="flex justify-center sm:justify-end gap-0.5 sm:gap-1 flex-shrink-0 w-full sm:w-auto">
+            <div className="flex justify-center sm:justify-end gap-0.5 sm:gap-1 shrink-0 w-full sm:w-auto">
               {/* Edit Button */}
               <Button
                 variant="ghost"
@@ -626,7 +626,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
             {formulaModified && sourceName && (
               <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-amber-100/80 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Code2 className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <Code2 className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
                   <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Modified</span>
                   <span className="text-xs text-amber-600/80 dark:text-amber-400/80 truncate">
                     Original: <code className="font-mono">{zman.source_formula_dsl}</code>
@@ -640,7 +640,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                         size="sm"
                         onClick={handleRevertFormula}
                         disabled={updateZman.isPending}
-                        className="h-7 px-2 gap-1 text-amber-700 hover:text-amber-800 hover:bg-amber-200 dark:text-amber-300 dark:hover:text-amber-200 dark:hover:bg-amber-800/50 flex-shrink-0"
+                        className="h-7 px-2 gap-1 text-amber-700 hover:text-amber-800 hover:bg-amber-200 dark:text-amber-300 dark:hover:text-amber-200 dark:hover:bg-amber-800/50 shrink-0"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         <span className="text-xs font-medium">Revert</span>
@@ -660,7 +660,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
               </div>
               {/* Inline Modified badge next to formula */}
               {formulaModified && (
-                <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700 flex-shrink-0">
+                <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700 shrink-0">
                   <Code2 className="h-3 w-3 mr-1" />
                   Modified
                 </Badge>
@@ -672,7 +672,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
           {tagModifications.hasModified && sourceName && (
             <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-amber-100/80 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 mt-3">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <Tags className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <Tags className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
                     Tags Modified from Registry
@@ -690,7 +690,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                       size="sm"
                       onClick={handleRevertTags}
                       disabled={revertTags.isPending}
-                      className="h-7 px-2 gap-1 text-amber-700 hover:text-amber-800 hover:bg-amber-200 dark:text-amber-300 dark:hover:text-amber-200 dark:hover:bg-amber-800/50 flex-shrink-0"
+                      className="h-7 px-2 gap-1 text-amber-700 hover:text-amber-800 hover:bg-amber-200 dark:text-amber-300 dark:hover:text-amber-200 dark:hover:bg-amber-800/50 shrink-0"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       <span className="text-xs font-medium">Revert</span>
@@ -894,7 +894,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Badge
-                          variant={version.version_number === versionHistory.current_version ? 'default' : 'outline'}
+                          variant={version.version_number === versionHistory.current_version ? 'default' : 'outline-solid'}
                         >
                           v{version.version_number}
                         </Badge>

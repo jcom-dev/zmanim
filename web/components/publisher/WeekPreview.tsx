@@ -392,7 +392,7 @@ export function WeekPreview({ location }: WeekPreviewProps) {
             <select
               value={selectedDate.getFullYear()}
               onChange={(e) => handleYearChange(parseInt(e.target.value))}
-              className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
+              className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium focus:outline-hidden focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
               disabled={loading}
             >
               {GREGORIAN_YEARS.map(year => <option key={year} value={year}>{year}</option>)}
@@ -400,7 +400,7 @@ export function WeekPreview({ location }: WeekPreviewProps) {
             <select
               value={selectedDate.getMonth()}
               onChange={(e) => handleMonthChange(parseInt(e.target.value))}
-              className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
+              className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium focus:outline-hidden focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
               disabled={loading}
             >
               {MONTH_NAMES.map((month, i) => <option key={month} value={i}>{month}</option>)}
@@ -424,7 +424,7 @@ export function WeekPreview({ location }: WeekPreviewProps) {
                 <select
                   value={getHebrewMonthNum(weekData[0].hebrewDate.month)}
                   onChange={(e) => handleHebrewDateChange(weekData[0].hebrewDate!.year, parseInt(e.target.value), 1)}
-                  className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium font-hebrew focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
+                  className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium font-hebrew focus:outline-hidden focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
                   disabled={loading}
                 >
                   {HEBREW_MONTHS.map(m => <option key={m.num} value={m.num}>{m.heb}</option>)}
@@ -432,7 +432,7 @@ export function WeekPreview({ location }: WeekPreviewProps) {
                 <select
                   value={weekData[0].hebrewDate.year}
                   onChange={(e) => handleHebrewDateChange(parseInt(e.target.value), getHebrewMonthNum(weekData[0].hebrewDate!.month), 1)}
-                  className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium font-hebrew focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
+                  className="bg-background border border-input rounded-md px-3 py-2 text-base font-medium font-hebrew focus:outline-hidden focus:ring-2 focus:ring-ring cursor-pointer hover:bg-muted/50"
                   disabled={loading}
                 >
                   {HEBREW_YEARS.map(year => <option key={year} value={year}>{toHebrewYear(year)}</option>)}
@@ -602,7 +602,7 @@ export function WeekPreview({ location }: WeekPreviewProps) {
           ))}
 
           {/* Scroll Navigation */}
-          <div className="sticky bottom-0 left-0 right-0 flex justify-center gap-2 py-3 bg-gradient-to-t from-background via-background to-transparent">
+          <div className="sticky bottom-0 left-0 right-0 flex justify-center gap-2 py-3 bg-linear-to-t from-background via-background to-transparent">
             <Button variant="outline" size="sm" onClick={() => scrollToDay(0)} disabled={currentDayIndex === 0} className="shadow-md">
               <ChevronUp className="h-4 w-4 mr-1" />Top
             </Button>

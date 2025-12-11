@@ -623,7 +623,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                   {/* Key Error Message */}
                   {keyError ? (
                     <p className="text-xs text-destructive mt-1 flex items-start gap-1">
-                      <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
                       {keyError}
                     </p>
                   ) : (
@@ -721,7 +721,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                             {tags.map(tag => (
                               <Badge
                                 key={tag.id}
-                                variant={selectedTagIds.includes(tag.id) ? 'default' : 'outline'}
+                                variant={selectedTagIds.includes(tag.id) ? 'default' : 'outline-solid'}
                                 className="cursor-pointer hover:bg-primary/80 transition-colors"
                                 onClick={() => toggleTag(tag.id)}
                                 title={tag.description || tag.display_name_english}
@@ -856,7 +856,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                   {/* DSL Error Message */}
                   {dslError && (
                     <p className="text-xs text-destructive mt-1 flex items-start gap-1">
-                      <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
                       {dslError}
                     </p>
                   )}
@@ -917,7 +917,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
             {/* Form Error Display */}
             {formError && (
               <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive">
-                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span className="text-sm">{formError}</span>
               </div>
             )}

@@ -45,7 +45,7 @@ export function MethodCard({
         <div className="flex items-center gap-4">
           <div
             className={cn(
-              'p-3 rounded-xl transition-all flex-shrink-0',
+              'p-3 rounded-xl transition-all shrink-0',
               selected
                 ? 'bg-primary text-primary-foreground shadow-md'
                 : 'bg-muted text-muted-foreground'

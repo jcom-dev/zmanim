@@ -24,7 +24,7 @@ export function QuickInsertChip({
       type="button"
       className={cn(
         'inline-flex items-center rounded font-medium transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         size === 'sm' && 'px-2 py-0.5 text-xs',
         size === 'md' && 'px-2.5 py-1 text-sm',
         variant === 'default' && 'bg-primary/10 text-primary hover:bg-primary/20',

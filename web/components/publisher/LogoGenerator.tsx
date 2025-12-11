@@ -134,7 +134,7 @@ export function LogoGenerator({ publisherName, onGenerate, currentLogo }: LogoGe
             <img
               src={previewUrl}
               alt="Generated logo preview"
-              className="w-20 h-20 rounded-full border-2 border-border shadow-sm"
+              className="w-20 h-20 rounded-full border-2 border-border shadow-xs"
             />
           </div>
         )}

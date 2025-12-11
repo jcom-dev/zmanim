@@ -615,7 +615,7 @@ export default function AdminPublisherDetailPage() {
                           <div className="py-4">
                             <label className="text-sm font-medium">Reason for suspension</label>
                             <textarea
-                              className="w-full px-3 py-2 mt-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px]"
+                              className="w-full px-3 py-2 mt-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[80px]"
                               value={suspendReason}
                               onChange={(e) => setSuspendReason(e.target.value)}
                               placeholder="e.g., Violation of terms, Inaccurate data, User request..."
@@ -780,7 +780,7 @@ export default function AdminPublisherDetailPage() {
                           <div>
                             <label className="text-sm font-medium">Bio</label>
                             <textarea
-                              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px]"
+                              className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[80px]"
                               value={editForm.bio}
                               onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                               placeholder="About this publisher..."

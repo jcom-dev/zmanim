@@ -124,7 +124,7 @@ export function FormulaPanel({ zman, open, onClose }: FormulaPanelProps) {
           {zman.is_beta && (
             <section className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <div className="p-1.5 bg-amber-100 dark:bg-amber-800/30 rounded-lg flex-shrink-0 mt-0.5">
+                <div className="p-1.5 bg-amber-100 dark:bg-amber-800/30 rounded-lg shrink-0 mt-0.5">
                   <FlaskConical className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>

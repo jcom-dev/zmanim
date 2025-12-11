@@ -284,7 +284,7 @@ export class ComputeStack extends cdk.Stack {
     // after old volume was deleted outside of CloudFormation
     this.dataVolume = new ec2.CfnVolume(this, 'PersistentDataVolume', {
       availabilityZone,
-      size: 20, // Task 3.1: 20GB
+      size: 30, // Task 3.1: 20GB
       volumeType: 'gp3', // gp3 for baseline performance
       iops: 3000, // Task 3.2: 3000 IOPS baseline
       throughput: 125, // 125 MiB/s throughput (gp3 default)

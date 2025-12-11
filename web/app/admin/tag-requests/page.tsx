@@ -262,7 +262,7 @@ export default function AdminTagRequestsPage() {
             <Card>
                 <CardContent className="pt-6">
                     <div className="flex items-center gap-2">
-                        <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <Search className="w-4 h-4 text-muted-foreground shrink-0" />
                         <Input
                             placeholder="Search tags, zmanim, publishers..."
                             value={searchTerm}

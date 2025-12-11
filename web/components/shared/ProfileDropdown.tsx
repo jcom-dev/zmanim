@@ -89,14 +89,14 @@ export function ProfileDropdown() {
       ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
       : user.primaryEmailAddress?.emailAddress?.[0]?.toUpperCase() || '?';
 
-  const getRoleBadgeVariant = (role: string): 'default' | 'secondary' | 'outline' => {
+  const getRoleBadgeVariant = (role: string): 'default' | 'secondary' | 'outline-solid' => {
     switch (role) {
       case 'admin':
         return 'default';
       case 'publisher':
         return 'secondary';
       default:
-        return 'outline';
+        return 'outline-solid';
     }
   };
 

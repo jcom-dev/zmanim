@@ -26,5 +26,6 @@ ExecStartPost=/opt/zmanim/create-db.sh
 ExecStartPost=/usr/bin/sudo -u postgres /usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 ExecStartPost=/usr/bin/sudo -u postgres /usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
+
 [Install]
 WantedBy=multi-user.target

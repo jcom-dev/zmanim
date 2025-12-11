@@ -39,7 +39,7 @@ export function PublisherCard({
       <CardHeader>
         <div className="flex items-start gap-4">
           {/* Logo */}
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             {logoUrl ? (
               <div className="relative w-16 h-16">
                 <Image
@@ -62,7 +62,7 @@ export function PublisherCard({
             <div className="flex items-center gap-2">
               <CardTitle className="text-xl truncate">{name}</CardTitle>
               {isVerified && (
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" aria-label="Verified Publisher" />
+                <CheckCircle className="w-5 h-5 text-green-600 shrink-0" aria-label="Verified Publisher" />
               )}
             </div>
           </div>
@@ -81,7 +81,7 @@ export function PublisherCard({
         <div className="space-y-2">
           {website && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Globe className="w-4 h-4 flex-shrink-0" />
+              <Globe className="w-4 h-4 shrink-0" />
               <a
                 href={website}
                 target="_blank"
@@ -95,7 +95,7 @@ export function PublisherCard({
           )}
           {email && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Mail className="w-4 h-4 flex-shrink-0" />
+              <Mail className="w-4 h-4 shrink-0" />
               <a
                 href={`mailto:${email}`}
                 className="hover:text-primary hover:underline truncate"

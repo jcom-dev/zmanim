@@ -45,7 +45,7 @@ export function SolarAngleForm({
           {solarAnglePresets.map((preset) => (
             <Button
               key={preset.value}
-              variant={degrees === preset.value ? 'default' : 'outline'}
+              variant={degrees === preset.value ? 'default' : 'outline-solid'}
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
@@ -64,7 +64,7 @@ export function SolarAngleForm({
         <label className="text-sm font-medium">Direction</label>
         <div className="grid grid-cols-2 gap-2">
           <Button
-            variant={direction === 'before_sunrise' ? 'default' : 'outline'}
+            variant={direction === 'before_sunrise' ? 'default' : 'outline-solid'}
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
@@ -74,7 +74,7 @@ export function SolarAngleForm({
             Before Sunrise
           </Button>
           <Button
-            variant={direction === 'after_sunset' ? 'default' : 'outline'}
+            variant={direction === 'after_sunset' ? 'default' : 'outline-solid'}
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
@@ -84,7 +84,7 @@ export function SolarAngleForm({
             After Sunset
           </Button>
           <Button
-            variant={direction === 'before_noon' ? 'default' : 'outline'}
+            variant={direction === 'before_noon' ? 'default' : 'outline-solid'}
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
@@ -94,7 +94,7 @@ export function SolarAngleForm({
             Before Noon
           </Button>
           <Button
-            variant={direction === 'after_noon' ? 'default' : 'outline'}
+            variant={direction === 'after_noon' ? 'default' : 'outline-solid'}
             size="sm"
             onClick={(e) => {
               e.stopPropagation();

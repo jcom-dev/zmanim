@@ -514,7 +514,7 @@ export function ZmanRegistryForm({
       {/* Changes Warning (Review Mode) */}
       {mode === 'review' && hasChanges && (
         <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-700 dark:text-amber-300">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="text-sm">
             You modified the request. These changes will be saved when you approve.
           </span>
@@ -567,7 +567,7 @@ export function ZmanRegistryForm({
             {/* Key Error Message */}
             {mode === 'create' && keyValidation.reason ? (
               <p className="text-xs text-destructive flex items-start gap-1">
-                <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
                 {keyValidation.reason}
               </p>
             ) : formData.zman_key ? (
@@ -756,7 +756,7 @@ export function ZmanRegistryForm({
       {/* Error Alert (shown near buttons for visibility) */}
       {error && (
         <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="text-sm">{error}</span>
         </div>
       )}

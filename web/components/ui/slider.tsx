@@ -57,7 +57,7 @@ export function Slider({
         {/* Thumb */}
         <div
           className={cn(
-            'absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-primary border-2 border-background shadow-sm pointer-events-none transition-transform',
+            'absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-primary border-2 border-background shadow-xs pointer-events-none transition-transform',
             disabled && 'opacity-50'
           )}
           style={{ left: `calc(${percentage}% - 10px)` }}

@@ -123,7 +123,7 @@ className="text-primary hover:text-primary/80"
 className="text-muted-foreground"
 
 // ✗ FORBIDDEN
-className="text-[#111827]"
+className="text-apple-gray-900"
 style={{ color: '#ff0000' }}
 ```
 
@@ -279,6 +279,71 @@ const {
 - Form state: react-hook-form
 - UI state: useState
 - Server state: React Query (usePublisherQuery)
+
+## Layout Patterns (REQUIRED)
+
+### Portal Layout Pattern (Admin/Publisher)
+Use flexbox for reliable, predictable layouts across all desktop resolutions:
+
+```tsx
+// Layout structure - REQUIRED for all portal layouts
+<div className="min-h-screen flex flex-col bg-background text-foreground">
+  {/* Header - Fixed height, no shrink */}
+  <header className="flex-none bg-card border-b border-border">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex justify-between items-center h-16">
+        {/* Header content */}
+      </div>
+    </div>
+  </header>
+
+  {/* Navigation - Fixed height, hidden scrollbar for overflow */}
+  <nav className="flex-none bg-card/50 border-b border-border">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+        {/* Nav items with whitespace-nowrap */}
+      </div>
+    </div>
+  </nav>
+
+  {/* Main Content - Fills remaining space */}
+  <main className="flex-1">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {children}
+    </div>
+  </main>
+</div>
+```
+
+### Key Layout Principles
+
+1. **Use `flex flex-col` on root container** - Prevents stacking issues
+2. **Use `flex-none` on header/nav** - Prevents shrinking at small viewports
+3. **Use `flex-1` on main content** - Fills remaining vertical space
+4. **Use `scrollbar-hide` on nav overflow** - Hides scrollbar while allowing scroll
+5. **Use `w-full max-w-7xl mx-auto`** - Consistent container pattern
+6. **Use `gap-*` not `space-x-*`** - More predictable with Tailwind 4
+
+### Page Content Pattern
+```tsx
+// Page content - REQUIRED for all portal pages
+<div className="flex flex-col gap-6">
+  {/* Page Header */}
+  <header>
+    <h1 className="text-3xl font-bold">Page Title</h1>
+    <p className="text-muted-foreground mt-1">Description</p>
+  </header>
+
+  {/* Content sections */}
+  <Card>...</Card>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">...</div>
+</div>
+```
+
+### Tailwind 4 Compatibility Notes
+- Border color defaults to `currentcolor` - use `border-border` explicitly
+- Prefer `gap-*` over `space-x-*` for flex children
+- Use `scrollbar-hide` utility (defined in globals.css) for hidden scrollbars
 
 ## Styling
 

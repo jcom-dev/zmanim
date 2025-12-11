@@ -346,7 +346,7 @@ export default function AdminZmanRequestsPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex items-center gap-2 flex-1">
-              <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
               <Input
                 placeholder="Search requests, publishers..."
                 value={searchTerm}

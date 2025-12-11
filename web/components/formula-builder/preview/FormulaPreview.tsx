@@ -115,7 +115,7 @@ export function FormulaPreview({
         <ul className="text-sm text-destructive space-y-1">
           {errors.map((error, i) => (
             <li key={i} className="flex items-start gap-2">
-              <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
               {error}
             </li>
           ))}

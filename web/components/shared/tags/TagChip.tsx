@@ -52,14 +52,14 @@ export function TagChip({
       </span>
       {showNegatedIndicator && isNegated && (
         <span
-          className="h-2 w-2 rounded-full bg-red-500 flex-shrink-0"
+          className="h-2 w-2 rounded-full bg-red-500 shrink-0"
           title="Negated - this tag is excluded"
           aria-label="Excluded"
         />
       )}
       {showModifiedIndicator && isModified && (
         <span
-          className="h-2 w-2 rounded-full bg-amber-500 flex-shrink-0"
+          className="h-2 w-2 rounded-full bg-amber-500 shrink-0"
           title="Modified from registry"
           aria-label="Modified"
         />

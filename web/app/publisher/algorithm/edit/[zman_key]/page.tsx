@@ -461,7 +461,7 @@ export default function ZmanEditorPage() {
               <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <Code2 className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                    <Code2 className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                         Formula modified from {zman.is_linked ? zman.linked_source_publisher_name || 'Linked Publisher' : 'Registry'}
@@ -478,7 +478,7 @@ export default function ZmanEditorPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setFormula(zman.source_formula_dsl!)}
-                    className="h-8 px-3 text-amber-700 border-amber-400 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50 dark:hover:text-amber-200 flex-shrink-0"
+                    className="h-8 px-3 text-amber-700 border-amber-400 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50 dark:hover:text-amber-200 shrink-0"
                   >
                     <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                     Revert to Original
@@ -506,7 +506,7 @@ export default function ZmanEditorPage() {
                 {!guidedModeAvailable && formulaParseResult?.complexityDetails && (
                   <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-2 mb-4">
                     <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <AlertCircle className="h-4 w-4 shrink-0" />
                       <span>
                         <strong>Guided Builder unavailable:</strong> {formulaParseResult.complexityDetails}
                       </span>
@@ -522,7 +522,7 @@ export default function ZmanEditorPage() {
                 />
 
                 {/* Compact Result Card - in left panel for advanced mode */}
-                <Card className="border-2 border-primary/30 bg-gradient-to-br from-card to-primary/5">
+                <Card className="border-2 border-primary/30 bg-linear-to-br from-card to-primary/5">
                   <CardContent className="py-5">
                     {previewResult ? (
                       <div className="animate-in fade-in-0 duration-200 text-center">
@@ -695,7 +695,7 @@ export default function ZmanEditorPage() {
           aria-label="Resize panels"
           tabIndex={0}
           className={cn(
-            'w-2 bg-border hover:bg-primary/50 cursor-col-resize flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+            'w-2 bg-border hover:bg-primary/50 cursor-col-resize flex items-center justify-center transition-colors focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2',
             isResizing && 'bg-primary'
           )}
           onMouseDown={handleMouseDown}
@@ -769,7 +769,7 @@ export default function ZmanEditorPage() {
               </Card>
 
               {/* Calculated Result - Hero Card */}
-              <Card className="border-2 border-primary/30 bg-gradient-to-br from-card to-primary/5">
+              <Card className="border-2 border-primary/30 bg-linear-to-br from-card to-primary/5">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg font-semibold">Calculated Result</CardTitle>

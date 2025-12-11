@@ -326,7 +326,7 @@ export function LogoUpload({ currentLogoUrl, publisherName, onUploadComplete, on
 
       <div className="flex items-start gap-4">
         {/* Preview */}
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           {preview ? (
             <div className="relative group w-24 h-24">
               <NextImage
@@ -429,7 +429,7 @@ export function LogoUpload({ currentLogoUrl, publisherName, onUploadComplete, on
           <div className="flex items-center gap-4">
             {/* Generated logo preview */}
             {generatedLogo && (
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <img
                   src={generatedLogo}
                   alt="Generated logo"

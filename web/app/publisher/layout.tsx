@@ -35,13 +35,13 @@ export default function PublisherLayout({ children }: PublisherLayoutProps) {
 
   return (
     <PublisherProvider>
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
         {/* Impersonation Banner */}
         <ImpersonationBanner />
 
-        {/* Header */}
-        <header className="bg-card border-b border-border sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header - Fixed height, no shrink */}
+        <header className="flex-none bg-card border-b border-border sticky top-0 z-50">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Desktop Header */}
             <div className="hidden sm:flex justify-between items-center h-16">
               {/* Left: Logo & Publisher Switcher */}
@@ -98,10 +98,10 @@ export default function PublisherLayout({ children }: PublisherLayoutProps) {
           </div>
         </header>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden sm:block bg-card/50 border-b border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex space-x-2 sm:space-x-4 lg:space-x-8 overflow-x-auto scrollbar-hide">
+        {/* Desktop Navigation - Fixed height, hidden scrollbar */}
+        <nav className="flex-none hidden sm:block bg-card/50 border-b border-border">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex gap-2 sm:gap-4 lg:gap-8 overflow-x-auto scrollbar-hide">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -160,8 +160,8 @@ export default function PublisherLayout({ children }: PublisherLayoutProps) {
           </nav>
         )}
 
-        {/* Main Content */}
-        <main>{children}</main>
+        {/* Main Content - Fills remaining space */}
+        <main className="flex-1">{children}</main>
       </div>
     </PublisherProvider>
   );

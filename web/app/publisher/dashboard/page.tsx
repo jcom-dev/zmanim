@@ -137,7 +137,7 @@ export default function PublisherDashboardPage() {
         <div className="max-w-6xl mx-auto">
           <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-6">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-semibold text-destructive mb-2">Unable to Load Dashboard</p>
                 <p className="text-destructive/90 text-sm mb-4">{errorMessage}</p>

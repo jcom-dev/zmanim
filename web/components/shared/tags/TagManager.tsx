@@ -274,7 +274,7 @@ export function TagManager({
       {/* Modification banner */}
       {showModificationIndicators && hasModifications && onRevert && (
         <div className="flex items-center gap-2 p-3 rounded-lg border border-amber-500 bg-amber-50 dark:bg-amber-950/30">
-          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <div className="flex items-center justify-between flex-1 gap-2">
             <span className="text-sm text-amber-900 dark:text-amber-100">
               Some tags have been modified from the master registry
@@ -284,7 +284,7 @@ export function TagManager({
               variant="outline"
               onClick={handleRevert}
               disabled={disabled || isReverting}
-              className="flex-shrink-0"
+              className="shrink-0"
             >
               <RotateCcw className="h-3 w-3 mr-1" />
               {isReverting ? 'Reverting...' : 'Revert All'}
@@ -296,7 +296,7 @@ export function TagManager({
       {/* Error display */}
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive bg-destructive/10">
-          <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+          <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
           <span className="text-sm text-destructive">{error}</span>
         </div>
       )}

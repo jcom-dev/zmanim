@@ -207,7 +207,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
     return (
       <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
         <div className="flex">
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <svg
               className="h-5 w-5 text-red-400"
               viewBox="0 0 20 20"
@@ -416,7 +416,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header Section */}
-      <div className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl shadow-apple-xl border border-white/20 overflow-hidden max-w-7xl mx-auto">
+      <div className="bg-linear-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl shadow-apple-xl border border-white/20 overflow-hidden max-w-7xl mx-auto">
         <div className="bg-card/95 backdrop-blur-sm p-8 md:p-10">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-apple-gray-900 mb-2">
@@ -434,7 +434,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
               <select
                 value={sunriseMethod}
                 onChange={(e) => setSunriseMethod(e.target.value as SunriseMethod)}
-                className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
               >
                 <option value="elevation">Elevation-Adjusted</option>
                 <option value="sealevel">Sea-Level</option>
@@ -445,7 +445,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
               <select
                 value={sunsetMethod}
                 onChange={(e) => setSunsetMethod(e.target.value as SunsetMethod)}
-                className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
               >
                 <option value="elevation">Elevation-Adjusted</option>
                 <option value="sealevel">Sea-Level</option>
@@ -456,7 +456,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
               <select
                 value={shaahZmanisMethod}
                 onChange={(e) => setShaahZmanisMethod(e.target.value as ShaahZmanisMethod)}
-                className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
               >
                 <option value="gra">GRA (Sunrise to Sunset)</option>
                 <option value="mga">MGA (72-min Alos to Tzeis)</option>
@@ -471,7 +471,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
           </div>
 
           {/* Zmanim Table */}
-          <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-xs border border-border overflow-hidden">
             <table className="w-full">
               <thead className="bg-muted border-b-2 border-border">
                 <tr>
@@ -527,7 +527,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
                       {/* Time */}
                       <td className="px-6 py-4">
                         <div
-                          className={`inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r ${zman.color} text-white font-bold text-lg shadow-md`}
+                          className={`inline-flex items-center px-4 py-2 rounded-xl bg-linear-to-r ${zman.color} text-white font-bold text-lg shadow-md`}
                         >
                           {zman.id === 'dayLength' && sunrise && sunset
                             ? formatDuration(sunset.diff(sunrise, 'minutes').minutes)
@@ -560,7 +560,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
                       <td className="px-6 py-4 text-center">
                         <button
                           onClick={() => toggleFormula(zman.id)}
-                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                          className="inline-flex items-center px-4 py-2 bg-linear-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
                         >
                           {expandedFormulas.has(zman.id) ? (
                             <>
@@ -587,8 +587,8 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
                         <td colSpan={5} className="px-6 py-6">
                           <div className="bg-card rounded-xl p-6 shadow-inner border border-blue-300 dark:border-blue-700">
                             <div className="flex items-start">
-                              <div className="flex-shrink-0">
-                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                              <div className="shrink-0">
+                                <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                                   </svg>
@@ -617,7 +617,7 @@ export default function ZmanimDisplay({ geoLocation, date }: ZmanimDisplayProps)
 
       {/* Location Info Footer */}
       {sunrise && (
-        <div className="bg-gradient-to-br from-secondary to-muted rounded-2xl shadow-apple p-6 text-foreground max-w-7xl mx-auto border border-border">
+        <div className="bg-linear-to-br from-secondary to-muted rounded-2xl shadow-apple p-6 text-foreground max-w-7xl mx-auto border border-border">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center">
               <svg

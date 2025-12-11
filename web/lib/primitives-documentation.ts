@@ -538,7 +538,7 @@ export const PRIMITIVES_DOCUMENTATION: Record<string, PrimitiveDocumentation> = 
     hebrewName: '',
     hebrewText: '',
 
-    scientificExplanation: 'Solar noon (transit) is the moment when the sun crosses the local meridian and reaches its highest point in the sky for that day. At this exact moment, shadows point exactly north (in the northern hemisphere) or south (in the southern hemisphere), and the shadow is at its shortest length.',
+    scientificExplanation: 'Solar noon (transit) is the moment when the sun crosses the local meridian and reaches its highest point in the sky for that day. At this exact moment, shadows point exactly north (in the northern hemisphere) or south (in the southern hemisphere), and the shadow-sm is at its shortest length.',
 
     astronomicalDefinition: 'The moment when the sun\'s hour angle equals zero - i.e., when the sun is on the observer\'s meridian. This is independent of zenith angle.',
 

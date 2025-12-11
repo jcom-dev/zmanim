@@ -104,7 +104,7 @@ function DeletedZmanItem({
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-2 flex-shrink-0">
+        <div className="flex flex-col gap-2 shrink-0">
           <Button
             size="sm"
             variant="outline"
@@ -173,7 +173,7 @@ function PurgeConfirmDialog({
               </p>
               <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-destructive text-sm">
                 <div className="flex items-start gap-2">
-                  <Skull className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <Skull className="h-4 w-4 mt-0.5 shrink-0" />
                   <div>
                     <strong>This action is irreversible.</strong>
                     <p className="mt-1 text-destructive/80">
@@ -253,7 +253,7 @@ export function DeletedZmanimDialog() {
             {count > 0 && (
               <Badge
                 variant="secondary"
-                className="ml-1 h-5 px-1.5 min-w-[1.25rem]"
+                className="ml-1 h-5 px-1.5 min-w-5"
               >
                 {count}
               </Badge>

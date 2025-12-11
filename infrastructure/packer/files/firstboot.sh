@@ -134,12 +134,13 @@ cat > /opt/zmanim/init-db.sql <<EOSQL
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'zmanim') THEN
-        CREATE USER zmanim WITH PASSWORD '${POSTGRES_PASSWORD}' CREATEDB;
+        CREATE USER zmanim WITH PASSWORD '${POSTGRES_PASSWORD}' SUPERUSER;
         RAISE NOTICE 'Created user zmanim';
     ELSE
         ALTER USER zmanim WITH PASSWORD '${POSTGRES_PASSWORD}';
         RAISE NOTICE 'Updated password for user zmanim';
     END IF;
+
 END
 \$\$;
 

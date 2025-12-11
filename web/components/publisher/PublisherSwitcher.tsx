@@ -46,7 +46,7 @@ export function PublisherSwitcher() {
       <select
         value={selectedPublisherId || ''}
         onChange={(e) => setSelectedPublisherId(e.target.value)}
-        className="bg-background border border-input rounded-md px-3 py-1.5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent min-w-[200px]"
+        className="bg-background border border-input rounded-md px-3 py-1.5 text-sm font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring focus:border-transparent min-w-[200px]"
       >
         {publishers.map((publisher) => (
           <option key={publisher.id} value={publisher.id}>
