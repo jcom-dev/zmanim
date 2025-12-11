@@ -22,8 +22,9 @@ ExecStart=/usr/bin/sudo -u postgres /usr/bin/psql -f /opt/zmanim/init-db.sql
 # Step 2: Create database if not exists (shell script, idempotent)
 ExecStartPost=/opt/zmanim/create-db.sh
 
-# Step 3: Enable PostGIS extension (idempotent)
+# Step 3: Enable extensions (idempotent)
 ExecStartPost=/usr/bin/sudo -u postgres /usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+ExecStartPost=/usr/bin/sudo -u postgres /usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
 [Install]
 WantedBy=multi-user.target
