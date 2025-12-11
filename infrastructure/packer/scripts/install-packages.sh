@@ -27,6 +27,10 @@ sudo apt-get install -y postgresql-17 postgresql-contrib-17
 echo "Installing PostGIS 3.5..."
 sudo apt-get install -y postgresql-17-postgis-3
 
+# Install pgvector extension for embeddings/RAG
+echo "Installing pgvector..."
+sudo apt-get install -y postgresql-17-pgvector
+
 # Install Redis
 echo "Installing Redis..."
 sudo apt-get install -y redis-server
