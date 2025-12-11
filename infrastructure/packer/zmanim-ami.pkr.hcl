@@ -8,7 +8,7 @@ packer {
 }
 
 source "amazon-ebs" "zmanim" {
-  ami_name      = "zmanim-${var.version}"
+  ami_name      = "zmanim-${var.version}-${var.build_timestamp}"
   instance_type = var.instance_type
   region        = var.region
 

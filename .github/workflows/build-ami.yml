@@ -75,16 +75,103 @@ jobs:
             # Extract version from tag (e.g., v1.0.0-ami -> v1.0.0)
             VERSION="${GITHUB_REF_NAME%-ami}"
           fi
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building AMI version: ${VERSION}"
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+          echo "Building AMI version: ${VERSION} (build: ${TIMESTAMP})"
 
       - name: Build AMI with Packer
         run: |
           cd infrastructure/packer
           packer build \
             -var "version=${{ steps.version.outputs.version }}" \
+            -var "build_timestamp=${{ steps.version.outputs.timestamp }}" \
             -var "api_binary_path=../../bin/zmanim-api" \
             .
+
+      - name: Rename AMI to final version
+        id: rename
+        run: |
+          # Extract AMI ID from manifest
+          AMI_ID=$(jq -r '.builds[-1].artifact_id | split(":")[1]' infrastructure/packer/manifest.json)
+          echo "Built AMI: $AMI_ID"
+
+          FINAL_NAME="zmanim-${{ steps.version.outputs.version }}"
+
+          # Check if an AMI with the final name already exists
+          OLD_AMI=$(aws ec2 describe-images \
+            --owners self \
+            --filters "Name=name,Values=${FINAL_NAME}" \
+            --query 'Images[0].ImageId' \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "None")
+
+          if [ -n "$OLD_AMI" ] && [ "$OLD_AMI" != "None" ]; then
+            echo "Found existing AMI with name ${FINAL_NAME}: ${OLD_AMI}"
+            echo "Deregistering old AMI..."
+
+            # Get snapshots before deregistering
+            OLD_SNAPSHOTS=$(aws ec2 describe-images \
+              --image-ids "$OLD_AMI" \
+              --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
+              --output text \
+              --region eu-west-1 2>/dev/null || echo "")
+
+            aws ec2 deregister-image --image-id "$OLD_AMI" --region eu-west-1
+
+            # Delete old snapshots
+            for SNAP_ID in $OLD_SNAPSHOTS; do
+              if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
+                echo "  Deleting old snapshot: $SNAP_ID"
+                aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region eu-west-1 || true
+              fi
+            done
+          fi
+
+          # Rename the new AMI by copying with the final name
+          echo "Copying AMI to final name: ${FINAL_NAME}"
+          NEW_AMI=$(aws ec2 copy-image \
+            --source-image-id "$AMI_ID" \
+            --source-region eu-west-1 \
+            --region eu-west-1 \
+            --name "${FINAL_NAME}" \
+            --description "Zmanim ${{ steps.version.outputs.version }} - Built $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --query 'ImageId' \
+            --output text)
+
+          echo "New AMI created: $NEW_AMI"
+          echo "final_ami_id=${NEW_AMI}" >> $GITHUB_OUTPUT
+
+          # Wait for the copy to complete
+          echo "Waiting for AMI copy to complete..."
+          aws ec2 wait image-available --image-ids "$NEW_AMI" --region eu-west-1
+
+          # Copy tags from original to new AMI
+          aws ec2 create-tags --resources "$NEW_AMI" --region eu-west-1 --tags \
+            Key=Name,Value="${FINAL_NAME}" \
+            Key=Version,Value="${{ steps.version.outputs.version }}" \
+            Key=BuildDate,Value="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            Key=Environment,Value=production \
+            Key=ManagedBy,Value=Packer
+
+          # Deregister the temporary build AMI
+          echo "Cleaning up temporary AMI: $AMI_ID"
+          TEMP_SNAPSHOTS=$(aws ec2 describe-images \
+            --image-ids "$AMI_ID" \
+            --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          aws ec2 deregister-image --image-id "$AMI_ID" --region eu-west-1
+
+          for SNAP_ID in $TEMP_SNAPSHOTS; do
+            if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
+              echo "  Deleting temp snapshot: $SNAP_ID"
+              aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region eu-west-1 || true
+            fi
+          done
+
+          echo "Final AMI ready: $NEW_AMI (${FINAL_NAME})"
 
       - name: Output AMI information
         run: |
@@ -92,65 +179,11 @@ jobs:
           echo "===================="
           echo "Version: ${{ steps.version.outputs.version }}"
           echo "Region: eu-west-1"
+          echo "AMI ID: ${{ steps.rename.outputs.final_ami_id }}"
           echo "AMI Name: zmanim-${{ steps.version.outputs.version }}"
           echo ""
           echo "CDK will automatically find this AMI using:"
           echo "  ec2.MachineImage.lookup({ name: 'zmanim-*', owners: ['self'] })"
-          echo ""
-          cat infrastructure/packer/manifest.json
-
-      - name: Cleanup old AMIs
-        if: success()
-        run: |
-          echo "Cleaning up old AMIs (keeping latest 2)..."
-
-          # Get all zmanim AMIs sorted by creation date (oldest first)
-          AMIS=$(aws ec2 describe-images \
-            --owners self \
-            --filters "Name=name,Values=zmanim-*" \
-            --query 'Images | sort_by(@, &CreationDate) | [*].[ImageId,Name,CreationDate]' \
-            --output text \
-            --region eu-west-1)
-
-          # Count total AMIs
-          TOTAL=$(echo "$AMIS" | wc -l)
-          echo "Found $TOTAL zmanim AMIs"
-
-          # Keep latest 2, delete the rest
-          KEEP=2
-          if [ "$TOTAL" -gt "$KEEP" ]; then
-            DELETE_COUNT=$((TOTAL - KEEP))
-            echo "Deleting $DELETE_COUNT old AMIs..."
-
-            # Get AMI IDs to delete (oldest ones)
-            OLD_AMIS=$(echo "$AMIS" | head -n $DELETE_COUNT | awk '{print $1}')
-
-            for AMI_ID in $OLD_AMIS; do
-              echo "Deregistering AMI: $AMI_ID"
-
-              # Get associated snapshots before deregistering
-              SNAPSHOTS=$(aws ec2 describe-images \
-                --image-ids "$AMI_ID" \
-                --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
-                --output text \
-                --region eu-west-1 2>/dev/null || echo "")
-
-              # Deregister the AMI
-              aws ec2 deregister-image --image-id "$AMI_ID" --region eu-west-1 || true
-
-              # Delete associated snapshots
-              for SNAP_ID in $SNAPSHOTS; do
-                if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
-                  echo "  Deleting snapshot: $SNAP_ID"
-                  aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region eu-west-1 || true
-                fi
-              done
-            done
-
-            echo "Cleanup complete!"
-          else
-            echo "Only $TOTAL AMIs exist, nothing to clean up (keeping $KEEP)"
-          fi
 
       - name: Upload Packer manifest
         uses: actions/upload-artifact@v4

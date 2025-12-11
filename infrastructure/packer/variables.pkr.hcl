@@ -21,3 +21,9 @@ variable "api_binary_path" {
   description = "Path to pre-built Go API binary (linux/arm64)"
   default     = "../../bin/zmanim-api"
 }
+
+variable "build_timestamp" {
+  type        = string
+  description = "Build timestamp for unique AMI names (format: YYYYMMDD-HHMMSS)"
+  default     = ""
+}
