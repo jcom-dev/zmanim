@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from './config';
@@ -335,6 +336,27 @@ export class ComputeStack extends cdk.Stack {
     new ec2.CfnEIPAssociation(this, 'EipAssociation', {
       allocationId: this.elasticIp.attrAllocationId,
       instanceId: this.instance.instanceId,
+    });
+
+    // =========================================================================
+    // API Origin DNS Record
+    // =========================================================================
+    // Create origin-api.zmanim.shtetl.io A record pointing to Elastic IP
+    // This is created here (not in DnsZoneStack) to keep DnsZoneStack independent
+    const domainParts = config.domain.split('.');
+    const baseDomain = domainParts.slice(-2).join('.'); // shtetl.io
+
+    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId: 'Z079919527B3JRWEWJVH6',
+      zoneName: baseDomain,
+    });
+
+    new route53.ARecord(this, 'ApiOriginRecord', {
+      zone: hostedZone,
+      recordName: `origin-api.zmanim`, // origin-api.zmanim.shtetl.io
+      target: route53.RecordTarget.fromIpAddresses(this.elasticIp.ref),
+      ttl: cdk.Duration.minutes(5),
+      comment: 'API origin for CloudFront (internal)',
     });
 
     // =========================================================================

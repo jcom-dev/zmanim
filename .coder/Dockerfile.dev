@@ -34,7 +34,8 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     file \
     sudo \
     redis-tools \
-    unzip
+    unzip \
+    zip
 
 # Install PostgreSQL 17 client from official PGDG repository
 RUN install -d /usr/share/postgresql-common/pgdg && \

@@ -95,7 +95,6 @@ export class CertificateStack extends cdk.Stack {
  */
 export interface DnsZoneStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
-  elasticIp: ec2.CfnEIP;
 }
 
 export class DnsZoneStack extends cdk.Stack {
@@ -105,7 +104,7 @@ export class DnsZoneStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: DnsZoneStackProps) {
     super(scope, id, props);
 
-    const { config, elasticIp } = props;
+    const { config } = props;
 
     // Extract base domain from config.domain (e.g., shtetl.io from zmanim.shtetl.io)
     const domainParts = config.domain.split('.');
@@ -119,17 +118,8 @@ export class DnsZoneStack extends cdk.Stack {
       zoneName: baseDomain,
     });
 
-    // Create origin-api.zmanim.shtetl.io A record pointing to Elastic IP
-    // This is the internal origin domain that CloudFront uses
+    // Note: The origin-api A record is created in ComputeStack to avoid dependencies
     this.apiOriginDomain = `origin-api.${config.domain}`;
-
-    new route53.ARecord(this, 'ApiOriginRecord', {
-      zone: this.hostedZone,
-      recordName: `origin-api.zmanim`, // origin-api.zmanim.shtetl.io
-      target: route53.RecordTarget.fromIpAddresses(elasticIp.ref),
-      ttl: cdk.Duration.minutes(5),
-      comment: 'API origin for CloudFront (internal)',
-    });
 
     // Outputs
     new cdk.CfnOutput(this, 'HostedZoneId', {

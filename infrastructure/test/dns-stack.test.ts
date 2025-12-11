@@ -91,20 +91,12 @@ describe('DnsZoneStack (Story 7.8)', () => {
   let app: cdk.App;
   let stack: DnsZoneStack;
   let template: Template;
-  let computeStack: cdk.Stack;
-  let elasticIp: ec2.CfnEIP;
 
   beforeEach(() => {
     app = new cdk.App();
-    computeStack = new cdk.Stack(app, 'ComputeStack', {
-      env: { account: testConfig.account, region: testConfig.region },
-    });
-    elasticIp = new ec2.CfnEIP(computeStack, 'ElasticIP', {
-      domain: 'vpc',
-    });
+    // DnsZoneStack no longer requires elasticIp - it's now independent
     stack = new DnsZoneStack(app, 'TestDnsZoneStack', {
       config: testConfig,
-      elasticIp: elasticIp,
       env: {
         account: testConfig.account,
         region: testConfig.region,
@@ -114,18 +106,8 @@ describe('DnsZoneStack (Story 7.8)', () => {
   });
 
   describe('Hosted Zone', () => {
-    test('creates hosted zone for shtetl.io', () => {
-      template.hasResourceProperties('AWS::Route53::HostedZone', {
-        Name: 'shtetl.io.',
-      });
-    });
-
-    test('creates API origin A record for CloudFront', () => {
-      template.hasResourceProperties('AWS::Route53::RecordSet', {
-        Name: 'origin-api.zmanim.shtetl.io.',
-        Type: 'A',
-      });
-    });
+    // Note: DnsZoneStack imports an existing hosted zone, doesn't create one
+    // The A record for origin-api is now created in ComputeStack
 
     test('exports hosted zone ID', () => {
       template.hasOutput('HostedZoneId', {
@@ -135,8 +117,8 @@ describe('DnsZoneStack (Story 7.8)', () => {
       });
     });
 
-    test('outputs nameservers for domain delegation', () => {
-      template.hasOutput('NameServers', {});
+    test('outputs API origin domain', () => {
+      template.hasOutput('ApiOriginDomain', {});
     });
   });
 });

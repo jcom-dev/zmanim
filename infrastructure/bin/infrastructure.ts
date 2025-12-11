@@ -16,17 +16,14 @@ import { getConfig, getCdkEnvironment } from '../lib/config';
  * Stack Dependency Graph (Simplified - CdnStack merged into NextjsLambdaStack):
  *
  *   StorageStack (no dependencies)
- *       │
  *   SecretsStack (no dependencies) [Story 7.9]
- *       │
  *   NetworkStack (no dependencies)
- *       │
+ *   DnsZoneStack (no dependencies - critical infrastructure)
  *   ApiGatewayStack (no dependencies, creates Elastic IP) [Story 7.7]
  *       ↓
  *   ComputeStack (depends on Network, Secrets, ApiGateway for VPC/SSM/EIP)
- *       │
- *   DnsZoneStack (depends on ApiGateway for Elastic IP)
- *       ↓
+ *             └── Creates origin-api A record
+ *
  *   CertificateStack (in us-east-1! depends on DnsZone) [Story 7.8]
  *       ↓
  *   NextjsLambdaStack (depends on Certificate, DnsZone, ApiGateway)
@@ -120,14 +117,13 @@ computeStack.addDependency(networkStack);
 computeStack.addDependency(secretsStack); // SecretsStack imports existing SSM parameters
 computeStack.addDependency(apiGatewayStack); // ApiGatewayStack creates the Elastic IP
 
-// DnsZoneStack - Route53 hosted zone + API origin A record (depends on ApiGateway for Elastic IP)
+// DnsZoneStack - Route53 hosted zone (no dependencies - critical infrastructure)
+// Note: The origin-api A record is now created in ComputeStack to keep this independent
 const dnsZoneStack = new DnsZoneStack(app, `${config.stackPrefix}DnsZone`, {
   config,
   env,
-  elasticIp: apiGatewayStack.elasticIp,
   description: 'Zmanim Lab - Route53 hosted zone for shtetl.io',
 });
-dnsZoneStack.addDependency(apiGatewayStack);
 
 // ==========================================================================
 // Story 7.8: CertificateStack - ACM certificate in us-east-1
