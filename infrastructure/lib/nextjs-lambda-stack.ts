@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Nextjs } from 'cdk-nextjs-standalone';
@@ -9,12 +10,13 @@ import { EnvironmentConfig } from './config';
 /**
  * NextjsLambdaStack - Deploy Next.js SSR via Lambda + CloudFront
  *
- * Story 7.11: Production Deployment
+ * Story 7.11: Production Deployment (Updated to merge CDN + API routing)
  *
  * Uses OpenNext + cdk-nextjs-standalone to deploy Next.js as:
  * - Lambda functions for SSR/API routes
  * - S3 for static assets
  * - CloudFront for CDN
+ * - API Gateway origin for /api/* routes (merged from CdnStack)
  *
  * Cost estimate: ~$1-5/month for low traffic (pay per request)
  */
@@ -22,6 +24,7 @@ export interface NextjsLambdaStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
   certificate: acm.ICertificate;
   hostedZone: route53.IHostedZone;
+  apiGatewayDomain: string; // API Gateway domain (e.g., xyz.execute-api.eu-west-1.amazonaws.com)
 }
 
 export class NextjsLambdaStack extends cdk.Stack {
@@ -31,9 +34,107 @@ export class NextjsLambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: NextjsLambdaStackProps) {
     super(scope, id, props);
 
-    const { config, certificate, hostedZone } = props;
+    const { config, certificate, hostedZone, apiGatewayDomain } = props;
 
+    // =========================================================================
+    // API Gateway Origin and Behaviors (merged from CdnStack)
+    // =========================================================================
+    // Route /api/* requests to API Gateway instead of Next.js Lambda
+    // API Gateway handles JWT auth, throttling, and proxies to EC2 backend
+
+    const apiOrigin = new origins.HttpOrigin(apiGatewayDomain, {
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+      originShieldEnabled: true,
+      originShieldRegion: 'eu-west-1', // Same as primary region
+    });
+
+    // Cache Policy: API Zmanim - 1 hour TTL for cacheable zmanim calculations
+    const apiZmanimCachePolicy = new cloudfront.CachePolicy(this, 'ApiZmanimCachePolicy', {
+      cachePolicyName: `${config.stackPrefix}-ApiZmanimCache`,
+      comment: 'Cache policy for zmanim API endpoints - 1 hour TTL',
+      defaultTtl: cdk.Duration.hours(1),
+      maxTtl: cdk.Duration.hours(24),
+      minTtl: cdk.Duration.minutes(1),
+      queryStringBehavior: cloudfront.CacheQueryStringBehavior.all(),
+      headerBehavior: cloudfront.CacheHeaderBehavior.allowList('Accept-Language'),
+      enableAcceptEncodingGzip: true,
+      enableAcceptEncodingBrotli: true,
+    });
+
+    // Origin Request Policy: Forward necessary headers for API
+    const apiOriginRequestPolicy = new cloudfront.OriginRequestPolicy(this, 'ApiOriginRequestPolicy', {
+      originRequestPolicyName: `${config.stackPrefix}-ApiOriginRequest`,
+      comment: 'Forward headers for API requests',
+      headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
+        'Accept',
+        'Accept-Language',
+        'Content-Type',
+        'X-Publisher-Id',
+        'X-Request-Id',
+        'Origin',
+        'Referer'
+      ),
+      queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
+      cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
+    });
+
+    // Response Headers Policy: Security Headers
+    const securityHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+      responseHeadersPolicyName: `${config.stackPrefix}-SecurityHeaders`,
+      comment: 'Security headers for API responses',
+      securityHeadersBehavior: {
+        strictTransportSecurity: {
+          accessControlMaxAge: cdk.Duration.days(365),
+          includeSubdomains: true,
+          override: true,
+          preload: true,
+        },
+        frameOptions: {
+          frameOption: cloudfront.HeadersFrameOption.DENY,
+          override: true,
+        },
+        contentTypeOptions: {
+          override: true,
+        },
+        xssProtection: {
+          protection: true,
+          modeBlock: true,
+          override: true,
+        },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+      },
+    });
+
+    // API behaviors to add to CloudFront distribution
+    const apiBehaviors: Record<string, cloudfront.BehaviorOptions> = {
+      // Cacheable zmanim calculations (1 hour cache)
+      '/api/zmanim/*': {
+        origin: apiOrigin,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: apiZmanimCachePolicy,
+        originRequestPolicy: apiOriginRequestPolicy,
+        responseHeadersPolicy: securityHeadersPolicy,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        compress: true,
+      },
+      // All other API routes (no cache for auth, mutations)
+      '/api/*': {
+        origin: apiOrigin,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: apiOriginRequestPolicy,
+        responseHeadersPolicy: securityHeadersPolicy,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        compress: true,
+      },
+    };
+
+    // =========================================================================
     // Deploy Next.js with Lambda + CloudFront
+    // =========================================================================
     // All env vars are passed via shell environment at build time
     // because SSM SecureString parameters can't be resolved by CloudFormation
     const nextjs = new Nextjs(this, 'NextjsSite', {
@@ -53,6 +154,17 @@ export class NextjsLambdaStack extends cdk.Stack {
         domainName: config.domain,
         certificate: certificate,
         hostedZone: hostedZone,
+      },
+
+      // Override distribution to add API behaviors
+      overrides: {
+        nextjsDistribution: {
+          distributionProps: {
+            additionalBehaviors: apiBehaviors,
+            priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US, EU, Israel edges
+            minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+          },
+        },
       },
     });
 

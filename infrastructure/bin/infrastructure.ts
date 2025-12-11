@@ -3,7 +3,6 @@ import * as cdk from 'aws-cdk-lib';
 import { NetworkStack } from '../lib/network-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { ApiGatewayStack } from '../lib/api-gateway-stack';
-import { CdnStack } from '../lib/cdn-stack';
 import { StorageStack } from '../lib/storage-stack';
 import { SecretsStack } from '../lib/secrets-stack';
 import { CertificateStack, DnsZoneStack, DnsStack, HealthCheckAlarmStack } from '../lib/dns-stack';
@@ -14,32 +13,34 @@ import { getConfig, getCdkEnvironment } from '../lib/config';
 /**
  * Zmanim Lab AWS Infrastructure
  *
- * Stack Dependency Graph:
+ * Stack Dependency Graph (Simplified - CdnStack merged into NextjsLambdaStack):
  *
- *   StorageStack (no dependencies) ─────────────────────────────────────┐
- *       │                                                               │
- *   SecretsStack (no dependencies) [Story 7.9]                          │
- *       │                                                               │
- *   NetworkStack (no dependencies)                                      │
- *       ↓                                                               │
- *   ComputeStack (depends on Network, Secrets for VPC/SSM)              │
- *       ↓                                                               │
- *   ApiGatewayStack (depends on Compute for Elastic IP) [Story 7.7]     │
- *       ↓                                                               │
- *   DnsZoneStack (depends on Compute for Elastic IP)                    │
- *       ↓                                                               │
- *   CertificateStack (in us-east-1! depends on DnsZone) [Story 7.8]     │
- *       ↓                                                               │
- *   CDNStack (depends on DnsZone, Certificate for SSL) ←────────────────┘
- *       ↓                                                     (parallel)
- *   DnsStack (depends on CDN, DnsZone → A record alias, health check)
+ *   StorageStack (no dependencies)
+ *       │
+ *   SecretsStack (no dependencies) [Story 7.9]
+ *       │
+ *   NetworkStack (no dependencies)
+ *       ↓
+ *   ComputeStack (depends on Network, Secrets for VPC/SSM)
+ *       ↓
+ *   ApiGatewayStack (depends on Compute for Elastic IP) [Story 7.7]
+ *       ↓
+ *   DnsZoneStack (depends on Compute for Elastic IP)
+ *       ↓
+ *   CertificateStack (in us-east-1! depends on DnsZone) [Story 7.8]
+ *       ↓
+ *   NextjsLambdaStack (depends on Certificate, DnsZone, ApiGateway)
+ *       ↓                 - Merged CloudFront distribution for Next.js + API
+ *       ↓                 - Routes /api/* to API Gateway
+ *       ↓                 - Routes all other requests to Next.js Lambda
+ *   DnsStack (depends on Nextjs, DnsZone → A record alias, health check)
  *       ↓
  *   HealthCheckAlarmStack (in us-east-1! depends on DnsStack) [Story 7.8]
  *
  * Stack Separation:
  * - StorageStack: S3 buckets for backups and releases (infrastructure storage)
  * - SecretsStack: SSM Parameter Store secrets (Story 7.9)
- * - CdnStack: CloudFront + static bucket only (public content delivery)
+ * - NextjsLambdaStack: Merged CloudFront for Next.js SSR + API routing
  *
  * IMPORTANT: Two stacks MUST be in us-east-1:
  * - CertificateStack: CloudFront requires ACM certificates in us-east-1
@@ -148,32 +149,48 @@ const certificateStack = new CertificateStack(app, `${config.stackPrefix}Certifi
 });
 certificateStack.addDependency(dnsZoneStack);
 
-// CDNStack - CloudFront + static assets bucket only (depends on DnsZone, ApiGateway)
-// Note: Backups and releases buckets are in StorageStack (cleaner separation)
-// API routes go through API Gateway (handles path rewriting /api/* -> /api/v1/*)
-// Story 7.11: Custom domain moved to NextjsLambdaStack - CDN uses CloudFront default domain
-const cdnStack = new CdnStack(app, `${config.stackPrefix}CDN`, {
+// ==========================================================================
+// Story 7.11: NextjsLambdaStack - Lambda + CloudFront for Next.js SSR + API
+// ==========================================================================
+// MERGED: Previously CdnStack and NextjsLambdaStack were separate. Now merged
+// into a single CloudFront distribution that handles both:
+// - Next.js SSR via Lambda (default behavior)
+// - API routes via API Gateway origin (/api/*)
+//
+// Uses OpenNext + cdk-nextjs-standalone to deploy Next.js as:
+// - Lambda functions for SSR
+// - S3 for static assets
+// - CloudFront for CDN with custom API behaviors
+// Cost: ~$1-5/month for low traffic (pay per request)
+
+// Extract API Gateway domain from endpoint URL (https://xyz.execute-api.../  -> xyz.execute-api...)
+const apiGatewayDomain = cdk.Fn.select(2, cdk.Fn.split('/', apiGatewayStack.httpApi.apiEndpoint));
+
+const nextjsStack = new NextjsLambdaStack(app, `${config.stackPrefix}Nextjs`, {
   config,
   env,
-  apiOriginDomain: dnsZoneStack.apiOriginDomain, // Fallback direct EC2 access
-  apiGatewayDomain: cdk.Fn.select(2, cdk.Fn.split('/', apiGatewayStack.httpApi.apiEndpoint)), // Extract domain from https://xyz.execute-api.../
-  description: 'Zmanim Lab - CDN infrastructure (CloudFront, static assets)',
+  crossRegionReferences: true, // Certificate is in us-east-1
+  certificate: certificateStack.certificate,
+  hostedZone: dnsZoneStack.hostedZone,
+  apiGatewayDomain: apiGatewayDomain, // For /api/* routing to API Gateway
+  description: 'Zmanim Lab - Next.js SSR + API via Lambda + CloudFront',
 });
-cdnStack.addDependency(dnsZoneStack);
-cdnStack.addDependency(apiGatewayStack);
+nextjsStack.addDependency(certificateStack);
+nextjsStack.addDependency(dnsZoneStack);
+nextjsStack.addDependency(apiGatewayStack); // Needs API Gateway for /api/* routing
 
-// DNSStack - A record alias, health check (depends on CDN + DnsZone)
-// Story 7.8: Moved ACM certificate to separate CertificateStack in us-east-1
+// DNSStack - A record alias, health check (depends on Nextjs + DnsZone)
+// Story 7.8: Uses NextjsLambdaStack's CloudFront distribution (merged from CdnStack)
 const dnsStack = new DnsStack(app, `${config.stackPrefix}DNS`, {
   config,
   env,
   crossRegionReferences: true, // Required for cross-region health check ID export
-  distribution: cdnStack.distribution,
+  distribution: nextjsStack.distribution, // Now using merged NextJS distribution
   hostedZone: dnsZoneStack.hostedZone,
   certificateArn: certificateStack.certificate.certificateArn,
   description: 'Zmanim Lab - DNS infrastructure (A record alias, health check)',
 });
-dnsStack.addDependency(cdnStack);
+dnsStack.addDependency(nextjsStack); // Changed from cdnStack
 dnsStack.addDependency(dnsZoneStack);
 
 // ==========================================================================
@@ -193,25 +210,6 @@ const healthCheckAlarmStack = new HealthCheckAlarmStack(app, `${config.stackPref
   description: 'Zmanim Lab - CloudWatch alarm for health check in us-east-1',
 });
 healthCheckAlarmStack.addDependency(dnsStack);
-
-// ==========================================================================
-// Story 7.11: NextjsLambdaStack - Lambda + CloudFront for Next.js SSR
-// ==========================================================================
-// Uses OpenNext + cdk-nextjs-standalone to deploy Next.js as:
-// - Lambda functions for SSR/API routes
-// - S3 for static assets
-// - CloudFront for CDN
-// Cost: ~$1-5/month for low traffic (pay per request)
-const nextjsStack = new NextjsLambdaStack(app, `${config.stackPrefix}Nextjs`, {
-  config,
-  env,
-  crossRegionReferences: true, // Certificate is in us-east-1
-  certificate: certificateStack.certificate,
-  hostedZone: dnsZoneStack.hostedZone,
-  description: 'Zmanim Lab - Next.js SSR via Lambda + CloudFront',
-});
-nextjsStack.addDependency(certificateStack);
-nextjsStack.addDependency(dnsZoneStack);
 
 // Apply tags to all stacks
 cdk.Tags.of(app).add('Project', 'zmanim');
