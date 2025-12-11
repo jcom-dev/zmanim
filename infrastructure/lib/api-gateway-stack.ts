@@ -43,6 +43,11 @@ export interface ApiGatewayStackProps extends cdk.StackProps {
  * | GET /api/zmanim/*    | None (public) | Zmanim calculations  |
  * | GET /api/cities/*    | None (public) | City search          |
  * | GET /api/publishers  | None (public) | Publisher listing    |
+ * | GET /api/countries/* | None (public) | Country data         |
+ * | GET /api/continents  | None (public) | Continent listing    |
+ * | GET /api/regions/*   | None (public) | Region data          |
+ * | GET /api/coverage/*  | None (public) | Coverage search      |
+ * | GET /api/geo/*       | None (public) | Map boundaries       |
  * | ANY /api/publisher/* | Clerk JWT     | Publisher management |
  * | ANY /api/admin/*     | Clerk JWT     | Admin operations     |
  */
@@ -286,6 +291,59 @@ export class ApiGatewayStack extends cdk.Stack {
       methods: [apigatewayv2.HttpMethod.GET],
       integration: ec2ApiV1ProxyIntegration,
       // No authorizer - public endpoint
+    });
+
+    // Continents: /api/continents -> /api/v1/continents
+    // Integration for exact path (no proxy)
+    const ec2ContinentsIntegration = new integrations.HttpUrlIntegration('EC2ContinentsIntegration', `http://${elasticIp}:8080/api/v1/continents`, {
+      method: apigatewayv2.HttpMethod.GET,
+      timeout: cdk.Duration.seconds(29),
+      parameterMapping: originVerifyMapping,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/api/continents',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2ContinentsIntegration,
+      // No authorizer - public endpoint
+    });
+
+    // Regions: /api/regions -> /api/v1/regions
+    const ec2RegionsIntegration = new integrations.HttpUrlIntegration('EC2RegionsIntegration', `http://${elasticIp}:8080/api/v1/regions`, {
+      method: apigatewayv2.HttpMethod.GET,
+      timeout: cdk.Duration.seconds(29),
+      parameterMapping: originVerifyMapping,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/api/regions',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2RegionsIntegration,
+      // No authorizer - public endpoint
+    });
+
+    // Regions detail: /api/regions/{proxy+} -> /api/v1/regions/{proxy}
+    this.httpApi.addRoutes({
+      path: '/api/regions/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2ApiV1ProxyIntegration,
+      // No authorizer - public endpoint
+    });
+
+    // Coverage search: /api/coverage/{proxy+} -> /api/v1/coverage/{proxy}
+    this.httpApi.addRoutes({
+      path: '/api/coverage/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2ApiV1ProxyIntegration,
+      // No authorizer - public endpoint (read-only coverage search)
+    });
+
+    // Geographic boundaries: /api/geo/{proxy+} -> /api/v1/geo/{proxy}
+    this.httpApi.addRoutes({
+      path: '/api/geo/{proxy+}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: ec2ApiV1ProxyIntegration,
+      // No authorizer - public endpoint (map boundaries)
     });
 
     // Protected routes - with JWT authorizer (AC3.4)
