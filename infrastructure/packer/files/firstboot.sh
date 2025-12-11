@@ -94,6 +94,12 @@ mkdir -p /data/postgres
 chown postgres:postgres /data/postgres
 chmod 700 /data/postgres
 
+# Clean up stale PID file from previous instance (EBS volume reattach)
+if [ -f /data/postgres/postmaster.pid ]; then
+    echo "  Removing stale postmaster.pid from previous instance..."
+    rm -f /data/postgres/postmaster.pid
+fi
+
 # Initialize cluster if needed (idempotent)
 if [ ! -f /data/postgres/PG_VERSION ]; then
     echo "  Initializing PostgreSQL cluster..."
