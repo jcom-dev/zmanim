@@ -261,7 +261,9 @@ chmod 600 /etc/restic/env
 
 # Initialize restic repo (idempotent - will fail silently if exists)
 if [ -n "$RESTIC_PASSWORD" ]; then
+    set -a
     source /etc/restic/env
+    set +a
     restic init 2>/dev/null || true
 fi
 

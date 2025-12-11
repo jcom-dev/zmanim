@@ -16,7 +16,10 @@ if [ ! -f /etc/restic/env ]; then
     exit 1
 fi
 
+# Export all variables from the env file
+set -a
 source /etc/restic/env
+set +a
 
 # Verify Restic repository is accessible
 echo "$LOG_PREFIX Verifying Restic repository..."
@@ -36,7 +39,15 @@ fi
 
 # Backup Redis (streaming RDB directly to S3)
 echo "$LOG_PREFIX Backing up Redis database..."
-if redis-cli --rdb - | restic backup --stdin --stdin-filename "redis.rdb" --tag redis --tag daily; then
+# Get Redis password from config.env if set
+REDIS_AUTH=""
+if grep -q "^REDIS_URL=.*:.*@" /opt/zmanim/config.env 2>/dev/null; then
+    REDIS_PASS=$(grep "^REDIS_URL=" /opt/zmanim/config.env | sed -n 's/.*:\/\/:\([^@]*\)@.*/\1/p')
+    if [ -n "$REDIS_PASS" ]; then
+        REDIS_AUTH="-a $REDIS_PASS --no-auth-warning"
+    fi
+fi
+if redis-cli $REDIS_AUTH --rdb - | restic backup --stdin --stdin-filename "redis.rdb" --tag redis --tag daily; then
     echo "$LOG_PREFIX Redis backup completed successfully"
 else
     echo "$LOG_PREFIX ERROR: Redis backup failed"
