@@ -13,7 +13,7 @@ on:
 
 env:
   AWS_REGION: eu-west-1
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
   STATIC_BUCKET: zmanim-static-prod
   LAMBDA_BUCKET: zmanim-releases-prod
   CLOUDFRONT_DISTRIBUTION_ID: E2DUJGW9G9NUQC

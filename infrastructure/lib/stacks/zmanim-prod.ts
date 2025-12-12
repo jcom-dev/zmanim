@@ -149,6 +149,15 @@ export class ZmanimProdStack extends TerraformStack {
       withDecryption: true,
     });
 
+    const ssmClerkSecretKey = new DataAwsSsmParameter(this, "ssm-clerk-secret-key", {
+      name: ssmPaths.clerkSecretKey,
+      withDecryption: true,
+    });
+
+    const ssmClerkPublishableKey = new DataAwsSsmParameter(this, "ssm-clerk-publishable-key", {
+      name: ssmPaths.clerkPublishableKey,
+    });
+
     // ==========================================================================
     // 2.2 S3 Storage Buckets
     // ==========================================================================
@@ -791,7 +800,7 @@ echo "User data script completed at $(date)"
       functionName: `zmanim-server-${config.environment}`,
       role: lambdaRole.arn,
       handler: "index.handler",
-      runtime: "nodejs20.x",
+      runtime: "nodejs24.x",
       memorySize: 1024,
       timeout: 30,
       architectures: ["arm64"],
@@ -801,7 +810,8 @@ echo "User data script completed at $(date)"
       environment: {
         variables: {
           NEXT_PUBLIC_API_URL: `https://${config.domain}`,
-          AWS_LAMBDA_EXEC_WRAPPER: "/opt/bootstrap",
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ssmClerkPublishableKey.value,
+          CLERK_SECRET_KEY: ssmClerkSecretKey.value,
           OPEN_NEXT_ORIGIN: `https://${config.domain}`,
         },
       },
@@ -830,7 +840,7 @@ echo "User data script completed at $(date)"
       functionName: `zmanim-image-${config.environment}`,
       role: lambdaRole.arn,
       handler: "index.handler",
-      runtime: "nodejs20.x",
+      runtime: "nodejs24.x",
       memorySize: 1024,
       timeout: 30,
       architectures: ["arm64"],

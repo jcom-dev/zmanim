@@ -26,7 +26,7 @@ on:
 env:
   AWS_REGION: eu-west-1
   TF_VERSION: '1.10'
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
 
 # Required for OIDC authentication
 permissions:
