@@ -8,6 +8,12 @@ set -euo pipefail
 # It configures services from SSM Parameter Store and
 # prepares the system for the API to start.
 #
+# CRITICAL SAFETY FEATURES:
+# - Waits for /data EBS volume to be mounted (up to 120s)
+# - Verifies mount is a real block device (not root filesystem)
+# - NEVER initializes PostgreSQL if existing data detected
+# - Creates marker file to track initialization state
+#
 # Run order (via systemd):
 #   1. This script (zmanim-firstboot.service)
 #   2. PostgreSQL (postgresql.service)
@@ -22,6 +28,54 @@ echo "============================================"
 echo "Zmanim First Boot Configuration"
 echo "Started at: $(date)"
 echo "============================================"
+
+# ============================================
+# CRITICAL: Wait for /data volume to be mounted
+# ============================================
+echo ""
+echo "Step 0: Waiting for /data EBS volume..."
+
+DATA_MOUNT="/data"
+MAX_WAIT=120
+WAITED=0
+
+while [ $WAITED -lt $MAX_WAIT ]; do
+    if mountpoint -q "$DATA_MOUNT"; then
+        # Verify it's a real block device mount, not tmpfs or overlay
+        MOUNT_DEV=$(findmnt -n -o SOURCE "$DATA_MOUNT" 2>/dev/null || echo "")
+        if [[ "$MOUNT_DEV" == /dev/* ]]; then
+            echo "  /data mounted on $MOUNT_DEV after ${WAITED}s"
+            break
+        else
+            echo "  /data exists but not on block device (source: $MOUNT_DEV), waiting..."
+        fi
+    fi
+    sleep 1
+    WAITED=$((WAITED + 1))
+    if [ $((WAITED % 10)) -eq 0 ]; then
+        echo "  Waiting for /data mount... (${WAITED}s/${MAX_WAIT}s)"
+    fi
+done
+
+if ! mountpoint -q "$DATA_MOUNT"; then
+    echo "ERROR: /data not mounted after ${MAX_WAIT}s!"
+    echo "ERROR: Cannot proceed without persistent storage."
+    echo "ERROR: Check user-data script and EBS volume attachment."
+    exit 1
+fi
+
+# Double-check: verify /data is NOT on the root filesystem
+ROOT_DEV=$(findmnt -n -o SOURCE / 2>/dev/null || echo "")
+DATA_DEV=$(findmnt -n -o SOURCE "$DATA_MOUNT" 2>/dev/null || echo "")
+
+if [ "$ROOT_DEV" = "$DATA_DEV" ]; then
+    echo "ERROR: /data is on the same device as root filesystem!"
+    echo "ERROR: This indicates EBS volume is not properly mounted."
+    echo "ERROR: Root device: $ROOT_DEV, Data device: $DATA_DEV"
+    exit 1
+fi
+
+echo "  Verified: /data ($DATA_DEV) is separate from root ($ROOT_DEV)"
 
 # ============================================
 # Get AWS metadata (IMDSv2)
@@ -96,27 +150,61 @@ echo "  origin-verify-key: ${ORIGIN_VERIFY_KEY:+found}${ORIGIN_VERIFY_KEY:-NOT S
 echo ""
 echo "Step 2: Preparing PostgreSQL..."
 
-mkdir -p /data/postgres
-chown postgres:postgres /data/postgres
-chmod 700 /data/postgres
+# SAFETY CHECK: Detect if this looks like an existing data directory
+# Look for multiple indicators, not just PG_VERSION
+PG_DATA="/data/postgres"
+EXISTING_DATA=false
 
-# Clean up stale PID file from previous instance (EBS volume reattach)
-if [ -f /data/postgres/postmaster.pid ]; then
-    echo "  Removing stale postmaster.pid from previous instance..."
-    rm -f /data/postgres/postmaster.pid
+if [ -d "$PG_DATA" ]; then
+    # Check for any PostgreSQL data files
+    if [ -f "$PG_DATA/PG_VERSION" ] || \
+       [ -f "$PG_DATA/postgresql.conf" ] || \
+       [ -d "$PG_DATA/base" ] || \
+       [ -d "$PG_DATA/pg_wal" ]; then
+        EXISTING_DATA=true
+        echo "  Found existing PostgreSQL data directory"
+        echo "    PG_VERSION: $([ -f "$PG_DATA/PG_VERSION" ] && echo "exists ($(cat "$PG_DATA/PG_VERSION"))" || echo "missing")"
+        echo "    postgresql.conf: $([ -f "$PG_DATA/postgresql.conf" ] && echo "exists" || echo "missing")"
+        echo "    base/: $([ -d "$PG_DATA/base" ] && echo "exists" || echo "missing")"
+        echo "    pg_wal/: $([ -d "$PG_DATA/pg_wal" ] && echo "exists" || echo "missing")"
+    fi
 fi
 
-# Initialize cluster if needed (idempotent)
-if [ ! -f /data/postgres/PG_VERSION ]; then
-    echo "  Initializing PostgreSQL cluster..."
-    sudo -u postgres /usr/lib/postgresql/17/bin/initdb -D /data/postgres
+mkdir -p "$PG_DATA"
+chown postgres:postgres "$PG_DATA"
+chmod 700 "$PG_DATA"
+
+# Clean up stale PID file from previous instance (EBS volume reattach)
+if [ -f "$PG_DATA/postmaster.pid" ]; then
+    echo "  Removing stale postmaster.pid from previous instance..."
+    rm -f "$PG_DATA/postmaster.pid"
+fi
+
+# Initialize cluster ONLY if truly empty
+if [ "$EXISTING_DATA" = true ]; then
+    echo "  PostgreSQL cluster already initialized - preserving existing data"
+elif [ -f "$PG_DATA/PG_VERSION" ]; then
+    echo "  PostgreSQL cluster already initialized (PG_VERSION exists)"
 else
-    echo "  PostgreSQL cluster already initialized"
+    # Final safety check: directory should be empty or only have lost+found
+    FILE_COUNT=$(find "$PG_DATA" -mindepth 1 -maxdepth 1 ! -name 'lost+found' | wc -l)
+    if [ "$FILE_COUNT" -gt 0 ]; then
+        echo "  WARNING: $PG_DATA contains $FILE_COUNT files but no PG_VERSION"
+        echo "  Contents:"
+        ls -la "$PG_DATA"
+        echo "  REFUSING to initialize - manual intervention required"
+        echo "  To force init: rm -rf $PG_DATA/* && systemctl restart zmanim-firstboot"
+    else
+        echo "  Initializing PostgreSQL cluster (directory is empty)..."
+        sudo -u postgres /usr/lib/postgresql/17/bin/initdb -D "$PG_DATA"
+        # Create marker file with timestamp
+        echo "Initialized by firstboot.sh at $(date) on instance $INSTANCE_ID" > "$PG_DATA/.zmanim-init-marker"
+    fi
 fi
 
 # Write pg_hba.conf (idempotent - always overwrite)
 echo "  Writing pg_hba.conf..."
-cat > /data/postgres/pg_hba.conf <<'EOHBA'
+cat > "$PG_DATA/pg_hba.conf" <<'EOHBA'
 # PostgreSQL Client Authentication Configuration
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
 local   all             postgres                                peer
@@ -124,8 +212,8 @@ local   all             all                                     scram-sha-256
 host    all             all             127.0.0.1/32            scram-sha-256
 host    all             all             ::1/128                 scram-sha-256
 EOHBA
-chown postgres:postgres /data/postgres/pg_hba.conf
-chmod 640 /data/postgres/pg_hba.conf
+chown postgres:postgres "$PG_DATA/pg_hba.conf"
+chmod 640 "$PG_DATA/pg_hba.conf"
 
 # Write SQL init script for PostgreSQL to run on startup
 echo "  Writing database init script..."
