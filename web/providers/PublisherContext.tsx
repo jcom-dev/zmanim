@@ -15,6 +15,8 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { createApiClient, ApiError } from '@/lib/api-client';
 import type { ClerkPublicMetadata } from '@/types/clerk';
 
+const JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE || 'zmanim-api';
+
 interface Publisher {
   id: string;
   name: string;
@@ -94,7 +96,9 @@ function PublisherProviderInner({ children }: { children: ReactNode }) {
       setError(null);
 
       // Create API client without publisher context (we're bootstrapping it)
-      const api = createApiClient(getToken, null);
+      // Use JWT template for API Gateway auth
+      const getApiToken = () => getToken({ template: JWT_TEMPLATE });
+      const api = createApiClient(getApiToken, null);
 
       const data = await api.get<{ publishers: Publisher[] }>('/publisher/accessible', {
         skipPublisherId: true,

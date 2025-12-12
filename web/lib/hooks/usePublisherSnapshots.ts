@@ -166,12 +166,14 @@ export const useDeleteSnapshot = () =>
 /**
  * Hook: Export current state as JSON file download
  */
+const JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE || 'zmanim-api';
+
 export function useExportSnapshot() {
   const { getToken } = useAuth();
   const { selectedPublisher } = usePublisherContext();
 
   const exportSnapshot = async (): Promise<void> => {
-    const token = await getToken();
+    const token = await getToken({ template: JWT_TEMPLATE });
     if (!token) {
       throw new Error('Not authenticated');
     }

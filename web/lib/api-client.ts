@@ -46,6 +46,10 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:808
 // API prefix - always /api/v1
 const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '/api/v1';
 
+// JWT Template name for API Gateway auth (created in Clerk Dashboard)
+// This template should have audience set to match API Gateway's expected audience
+const JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE || 'zmanim-api';
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -336,9 +340,15 @@ export function usePublisherApi() {
   const { getToken } = useAuth();
   const publisherContext = usePublisherContextOptional();
 
+  // Wrap getToken to use JWT template for API Gateway auth
+  const getApiToken = useCallback(
+    () => getToken({ template: JWT_TEMPLATE }),
+    [getToken]
+  );
+
   const api = useMemo(
-    () => createApiClient(getToken, publisherContext?.selectedPublisher ?? null),
-    [getToken, publisherContext?.selectedPublisher]
+    () => createApiClient(getApiToken, publisherContext?.selectedPublisher ?? null),
+    [getApiToken, publisherContext?.selectedPublisher]
   );
 
   return api;
@@ -353,13 +363,19 @@ export const useApi = usePublisherApi;
 export function useApiFactory() {
   const { getToken } = useAuth();
 
-  const createClient = useCallback(
-    (selectedPublisher: Publisher | null) =>
-      createApiClient(getToken, selectedPublisher),
+  // Wrap getToken to use JWT template for API Gateway auth
+  const getApiToken = useCallback(
+    () => getToken({ template: JWT_TEMPLATE }),
     [getToken]
   );
 
-  return { createClient, getToken };
+  const createClient = useCallback(
+    (selectedPublisher: Publisher | null) =>
+      createApiClient(getApiToken, selectedPublisher),
+    [getApiToken]
+  );
+
+  return { createClient, getToken: getApiToken };
 }
 
 /**
@@ -381,9 +397,15 @@ export function useApiFactory() {
 export function useAdminApi() {
   const { getToken } = useAuth();
 
-  const api = useMemo(
-    () => createApiClient(getToken, null),
+  // Wrap getToken to use JWT template for API Gateway auth
+  const getApiToken = useCallback(
+    () => getToken({ template: JWT_TEMPLATE }),
     [getToken]
+  );
+
+  const api = useMemo(
+    () => createApiClient(getApiToken, null),
+    [getApiToken]
   );
 
   // Return admin API methods that skip publisher ID

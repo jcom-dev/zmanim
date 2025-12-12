@@ -35,6 +35,8 @@ import {
 import Link from 'next/link';
 import { useApi } from '@/lib/api-client';
 import { useAuth } from '@clerk/nextjs';
+
+const JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE || 'zmanim-api';
 import {
   Shield, ShieldAlert, ShieldCheck,
   Ban, CheckCircle2,
@@ -280,7 +282,7 @@ export default function AdminPublisherDetailPage() {
   const handleExport = async () => {
     try {
       setExportLoading(true);
-      const token = await getToken();
+      const token = await getToken({ template: JWT_TEMPLATE });
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
       const response = await fetch(`${API_BASE}/api/v1/admin/publishers/${id}/export`, {
@@ -333,7 +335,7 @@ export default function AdminPublisherDetailPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const token = await getToken();
+      const token = await getToken({ template: JWT_TEMPLATE });
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
       // Build URL with optional create_new query param

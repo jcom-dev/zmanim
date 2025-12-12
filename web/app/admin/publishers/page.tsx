@@ -28,6 +28,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useApi } from '@/lib/api-client';
 import { useAuth } from '@clerk/nextjs';
+
+const JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE || 'zmanim-api';
 import { getStatusBadgeClasses } from '@/lib/badge-colors';
 import { StatusTooltip } from '@/components/shared/InfoTooltip';
 import { STATUS_TOOLTIPS, ADMIN_TOOLTIPS } from '@/lib/tooltip-content';
@@ -114,7 +116,7 @@ export default function AdminPublishersPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const token = await getToken();
+      const token = await getToken({ template: JWT_TEMPLATE });
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
       // Use a dummy ID since we're creating new - the backend ignores it when create_new=true
