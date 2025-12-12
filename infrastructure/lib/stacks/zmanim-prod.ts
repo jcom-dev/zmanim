@@ -520,9 +520,7 @@ echo "User data script completed at $(date)"
       },
     });
 
-    // EC2 Integration that forwards full path with v1 prefix
-    // Maps /api/{proxy+} -> /api/v1/{proxy}
-    // e.g., /api/countries -> /api/v1/countries, /api/countries/US -> /api/v1/countries/US
+    // EC2 Integration that forwards /api/v1/{proxy} directly to backend
     const ec2Integration = new Apigatewayv2Integration(this, "ec2-integration", {
       apiId: httpApi.id,
       integrationType: "HTTP_PROXY",
@@ -549,7 +547,7 @@ echo "User data script completed at $(date)"
     // Health endpoint (no auth, special path)
     new Apigatewayv2Route(this, "route-health", {
       apiId: httpApi.id,
-      routeKey: "GET /api/health",
+      routeKey: "GET /api/v1/health",
       target: `integrations/${healthIntegration.id}`,
     });
 
@@ -557,17 +555,17 @@ echo "User data script completed at $(date)"
     // Need both base paths and {proxy+} patterns since {proxy+} requires at least one segment
     const publicPrefixes = ["zmanim", "cities", "publishers", "countries", "continents", "regions", "coverage", "geo"];
     publicPrefixes.forEach((prefix) => {
-      // Route with subpaths: /api/countries/US, /api/cities/123, etc.
+      // Route with subpaths: /api/v1/countries/US, /api/v1/cities/123, etc.
       new Apigatewayv2Route(this, `route-public-${prefix}`, {
         apiId: httpApi.id,
-        routeKey: `GET /api/${prefix}/{proxy+}`,
+        routeKey: `GET /api/v1/${prefix}/{proxy+}`,
         target: `integrations/${ec2Integration.id}`,
       });
     });
 
-    // Base routes for list endpoints (no subpath): /api/countries, /api/publishers, etc.
+    // Base routes for list endpoints (no subpath): /api/v1/countries, /api/v1/publishers, etc.
     // These need separate integrations since they map differently
-    const baseEndpoints = ["publishers", "countries", "continents", "regions"];
+    const baseEndpoints = ["publishers", "countries", "continents", "regions", "cities"];
     baseEndpoints.forEach((endpoint) => {
       const baseIntegration = new Apigatewayv2Integration(this, `ec2-${endpoint}-integration`, {
         apiId: httpApi.id,
@@ -581,7 +579,7 @@ echo "User data script completed at $(date)"
       });
       new Apigatewayv2Route(this, `route-public-${endpoint}-base`, {
         apiId: httpApi.id,
-        routeKey: `GET /api/${endpoint}`,
+        routeKey: `GET /api/v1/${endpoint}`,
         target: `integrations/${baseIntegration.id}`,
       });
     });
@@ -589,14 +587,14 @@ echo "User data script completed at $(date)"
     // POST for zmanim (public)
     new Apigatewayv2Route(this, "route-public-zmanim-post", {
       apiId: httpApi.id,
-      routeKey: "POST /api/zmanim/{proxy+}",
+      routeKey: "POST /api/v1/zmanim/{proxy+}",
       target: `integrations/${ec2Integration.id}`,
     });
 
     // Protected routes (require JWT auth)
     new Apigatewayv2Route(this, "route-protected-publisher", {
       apiId: httpApi.id,
-      routeKey: "ANY /api/publisher/{proxy+}",
+      routeKey: "ANY /api/v1/publisher/{proxy+}",
       target: `integrations/${ec2Integration.id}`,
       authorizationType: "JWT",
       authorizerId: clerkAuthorizer.id,
@@ -604,7 +602,7 @@ echo "User data script completed at $(date)"
 
     new Apigatewayv2Route(this, "route-protected-admin", {
       apiId: httpApi.id,
-      routeKey: "ANY /api/admin/{proxy+}",
+      routeKey: "ANY /api/v1/admin/{proxy+}",
       target: `integrations/${ec2Integration.id}`,
       authorizationType: "JWT",
       authorizerId: clerkAuthorizer.id,
@@ -613,7 +611,7 @@ echo "User data script completed at $(date)"
     // Catch-all for any other API routes (protected by default)
     new Apigatewayv2Route(this, "route-api-catchall", {
       apiId: httpApi.id,
-      routeKey: "ANY /api/{proxy+}",
+      routeKey: "ANY /api/v1/{proxy+}",
       target: `integrations/${ec2Integration.id}`,
       authorizationType: "JWT",
       authorizerId: clerkAuthorizer.id,
@@ -1103,9 +1101,9 @@ function handler(event) {
           originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac",
           responseHeadersPolicyId: securityHeadersPolicy.id,
         },
-        // /api/zmanim/* - Cacheable zmanim calculations (1 hour cache) -> Go API
+        // /api/v1/zmanim/* - Cacheable zmanim calculations (1 hour cache) -> Go API
         {
-          pathPattern: "/api/zmanim/*",
+          pathPattern: "/api/v1/zmanim/*",
           targetOriginId: "ApiGateway",
           viewerProtocolPolicy: "redirect-to-https",
           allowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"],
@@ -1115,9 +1113,9 @@ function handler(event) {
           originRequestPolicyId: apiOriginRequestPolicy.id,
           responseHeadersPolicyId: securityHeadersPolicy.id,
         },
-        // /api/* - No cache for auth, mutations -> Go API
+        // /api/v1/* - No cache for auth, mutations -> Go API
         {
-          pathPattern: "/api/*",
+          pathPattern: "/api/v1/*",
           targetOriginId: "ApiGateway",
           viewerProtocolPolicy: "redirect-to-https",
           allowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"],

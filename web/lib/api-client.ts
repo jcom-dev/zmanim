@@ -43,11 +43,8 @@ import { usePublisherContextOptional } from '@/providers/PublisherContext';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-// API prefix - configurable, defaults to /api
-// In production: CloudFront routes /api/* to API Gateway which maps to /api/v1/* on backend
-// In dev: Go backend serves on /api/v1/* directly, so use /api/v1
-const isLocalDev = API_BASE.includes('localhost');
-const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || (isLocalDev ? '/api/v1' : '/api');
+// API prefix - always /api/v1
+const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '/api/v1';
 
 // =============================================================================
 // Types
@@ -399,36 +396,23 @@ export function useAdminApi() {
 
 /**
  * Normalizes an endpoint to ensure consistent formatting.
- * - Adds API_PREFIX (/api in prod, /api/v1 in dev) if not present
+ * - Adds /api/v1 prefix if not present
  */
 function normalizeEndpoint(endpoint: string): string {
   // Remove leading slash for consistency
   let normalized = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-  // Already has the correct prefix - return as-is
-  if (normalized.startsWith(API_PREFIX)) {
-    return normalized;
-  }
-
-  // Handle /api/v1 prefix - convert to API_PREFIX in prod
+  // Already has /api/v1 prefix - return as-is
   if (normalized.startsWith('/api/v1')) {
-    if (!isLocalDev) {
-      // In prod, convert /api/v1/foo to /api/foo
-      return normalized.replace('/api/v1', '/api');
-    }
     return normalized;
   }
 
-  // Handle /api/ prefix
+  // Convert /api/foo to /api/v1/foo
   if (normalized.startsWith('/api/')) {
-    if (isLocalDev) {
-      // In dev, convert /api/foo to /api/v1/foo
-      return normalized.replace('/api/', '/api/v1/');
-    }
-    return normalized;
+    return normalized.replace('/api/', '/api/v1/');
   }
 
-  // Check if it starts with a known route prefix that needs API_PREFIX
+  // Check if it starts with a known route prefix that needs /api/v1
   const routePrefixes = [
     '/publisher',
     '/admin',
