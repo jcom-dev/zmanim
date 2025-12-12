@@ -971,6 +971,7 @@ echo "User data script completed at $(date)"
           items: [
             "Accept",
             "Accept-Language",
+            "Authorization",
             "Content-Type",
             "X-Publisher-Id",
             "X-Request-Id",
