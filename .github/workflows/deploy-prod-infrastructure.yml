@@ -182,6 +182,72 @@ jobs:
         working-directory: cdktf.out/stacks/zmanim-prod
         run: terraform init
 
+      - name: Check and terminate outdated EC2 instance
+        run: |
+          echo "Checking if EC2 instance needs replacement..."
+
+          # Get desired AMI version from SSM
+          DESIRED_VERSION=$(aws ssm get-parameter \
+            --name "/zmanim/prod/ami-version" \
+            --query "Parameter.Value" \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          if [ -z "$DESIRED_VERSION" ]; then
+            echo "No AMI version in SSM, skipping check"
+            exit 0
+          fi
+          echo "Desired AMI version: $DESIRED_VERSION"
+
+          # Find the desired AMI ID by version tag
+          DESIRED_AMI=$(aws ec2 describe-images \
+            --owners self \
+            --filters "Name=tag:Version,Values=${DESIRED_VERSION}" "Name=tag:ManagedBy,Values=Packer" "Name=state,Values=available" \
+            --query "Images | sort_by(@, &CreationDate) | [-1].ImageId" \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          if [ -z "$DESIRED_AMI" ] || [ "$DESIRED_AMI" = "None" ]; then
+            echo "No AMI found with version $DESIRED_VERSION"
+            exit 0
+          fi
+          echo "Desired AMI ID: $DESIRED_AMI"
+
+          # Find existing zmanim EC2 instance
+          INSTANCE_INFO=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=zmanim-api-prod" "Name=instance-state-name,Values=running,pending,stopping,stopped" \
+            --query "Reservations[0].Instances[0].[InstanceId,ImageId]" \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          if [ -z "$INSTANCE_INFO" ] || [ "$INSTANCE_INFO" = "None" ]; then
+            echo "No existing instance found, Terraform will create one"
+            exit 0
+          fi
+
+          INSTANCE_ID=$(echo "$INSTANCE_INFO" | awk '{print $1}')
+          CURRENT_AMI=$(echo "$INSTANCE_INFO" | awk '{print $2}')
+
+          echo "Found instance: $INSTANCE_ID running AMI: $CURRENT_AMI"
+
+          if [ "$CURRENT_AMI" = "$DESIRED_AMI" ]; then
+            echo "Instance is already running the correct AMI, no action needed"
+            exit 0
+          fi
+
+          echo "Instance is running outdated AMI!"
+          echo "  Current: $CURRENT_AMI"
+          echo "  Desired: $DESIRED_AMI"
+          echo ""
+          echo "Terminating instance $INSTANCE_ID so Terraform can create a new one..."
+
+          aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" --region eu-west-1
+
+          echo "Waiting for instance to terminate..."
+          aws ec2 wait instance-terminated --instance-ids "$INSTANCE_ID" --region eu-west-1
+
+          echo "Instance terminated. Terraform will create a new instance with the correct AMI."
+
       - name: Terraform Plan
         working-directory: cdktf.out/stacks/zmanim-prod
         run: terraform plan -out=tfplan
