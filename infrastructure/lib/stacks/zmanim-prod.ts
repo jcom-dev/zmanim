@@ -620,72 +620,6 @@ echo "User data script completed at $(date)"
     });
 
     // ==========================================================================
-    // /backend/* Routes (frontend uses /backend/* in production)
-    // These mirror /api/* routes but for the production frontend path
-    // ==========================================================================
-
-    // Public GET routes for /backend/*
-    publicPrefixes.forEach((prefix) => {
-      new Apigatewayv2Route(this, `route-backend-${prefix}`, {
-        apiId: httpApi.id,
-        routeKey: `GET /backend/${prefix}/{proxy+}`,
-        target: `integrations/${ec2Integration.id}`,
-      });
-    });
-
-    // Base routes for /backend/* list endpoints
-    baseEndpoints.forEach((endpoint) => {
-      const backendBaseIntegration = new Apigatewayv2Integration(this, `ec2-backend-${endpoint}-integration`, {
-        apiId: httpApi.id,
-        integrationType: "HTTP_PROXY",
-        integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/${endpoint}`,
-        integrationMethod: "GET",
-        timeoutMilliseconds: 29000,
-        requestParameters: {
-          "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
-        },
-      });
-      new Apigatewayv2Route(this, `route-backend-${endpoint}-base`, {
-        apiId: httpApi.id,
-        routeKey: `GET /backend/${endpoint}`,
-        target: `integrations/${backendBaseIntegration.id}`,
-      });
-    });
-
-    // POST for zmanim via /backend/
-    new Apigatewayv2Route(this, "route-backend-zmanim-post", {
-      apiId: httpApi.id,
-      routeKey: "POST /backend/zmanim/{proxy+}",
-      target: `integrations/${ec2Integration.id}`,
-    });
-
-    // Protected routes via /backend/
-    new Apigatewayv2Route(this, "route-backend-publisher", {
-      apiId: httpApi.id,
-      routeKey: "ANY /backend/publisher/{proxy+}",
-      target: `integrations/${ec2Integration.id}`,
-      authorizationType: "JWT",
-      authorizerId: clerkAuthorizer.id,
-    });
-
-    new Apigatewayv2Route(this, "route-backend-admin", {
-      apiId: httpApi.id,
-      routeKey: "ANY /backend/admin/{proxy+}",
-      target: `integrations/${ec2Integration.id}`,
-      authorizationType: "JWT",
-      authorizerId: clerkAuthorizer.id,
-    });
-
-    // Catch-all for /backend/* (protected by default)
-    new Apigatewayv2Route(this, "route-backend-catchall", {
-      apiId: httpApi.id,
-      routeKey: "ANY /backend/{proxy+}",
-      target: `integrations/${ec2Integration.id}`,
-      authorizationType: "JWT",
-      authorizerId: clerkAuthorizer.id,
-    });
-
-    // ==========================================================================
     // 2.7 Route53 Record (origin-api)
     // ==========================================================================
     new Route53Record(this, "origin-api-record", {
@@ -1184,20 +1118,6 @@ function handler(event) {
         // /api/* - No cache for auth, mutations -> Go API
         {
           pathPattern: "/api/*",
-          targetOriginId: "ApiGateway",
-          viewerProtocolPolicy: "redirect-to-https",
-          allowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"],
-          cachedMethods: ["GET", "HEAD"],
-          compress: true,
-          // Use AWS managed CachingDisabled policy
-          cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
-          originRequestPolicyId: apiOriginRequestPolicy.id,
-          responseHeadersPolicyId: securityHeadersPolicy.id,
-        },
-        // /backend/* - Frontend uses this path in production to reach Go API
-        // Maps to API Gateway which routes to EC2 Go backend
-        {
-          pathPattern: "/backend/*",
           targetOriginId: "ApiGateway",
           viewerProtocolPolicy: "redirect-to-https",
           allowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"],
