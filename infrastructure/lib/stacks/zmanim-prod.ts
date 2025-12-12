@@ -467,6 +467,7 @@ echo "Step 3: Enabling and starting services..."
 echo "  Enabling all services..."
 systemctl enable zmanim-firstboot.service
 systemctl enable postgresql
+systemctl enable postgresql@17-main.service
 systemctl enable zmanim-db-init.service
 systemctl enable redis-server
 systemctl enable zmanim-api.service
@@ -475,12 +476,23 @@ systemctl enable restic-backup.timer
 echo ""
 echo "  [1/5] Starting zmanim-firstboot (fetches config from SSM)..."
 systemctl start zmanim-firstboot.service
-# Wait for oneshot to complete
-while systemctl is-active --quiet zmanim-firstboot.service 2>/dev/null; do sleep 1; done
-echo "        firstboot completed"
+# Wait for oneshot service to finish (RemainAfterExit=yes means it stays "active" after completion)
+# So we wait for the service to become active (meaning it finished successfully)
+for i in {1..60}; do
+    if systemctl is-active --quiet zmanim-firstboot.service; then
+        echo "        firstboot completed"
+        break
+    fi
+    if systemctl is-failed --quiet zmanim-firstboot.service; then
+        echo "        ERROR: firstboot failed!"
+        systemctl status zmanim-firstboot.service --no-pager -l || true
+        exit 1
+    fi
+    sleep 1
+done
 
 echo "  [2/5] Starting PostgreSQL..."
-systemctl start postgresql
+systemctl start postgresql@17-main.service
 # Wait for PostgreSQL to be ready (socket available)
 for i in {1..30}; do
     if [ -S /var/run/postgresql/.s.PGSQL.5432 ]; then
@@ -492,9 +504,19 @@ done
 
 echo "  [3/5] Starting zmanim-db-init (creates database if needed)..."
 systemctl start zmanim-db-init.service
-# Wait for oneshot to complete
-while systemctl is-active --quiet zmanim-db-init.service 2>/dev/null; do sleep 1; done
-echo "        db-init completed"
+# Wait for oneshot service to finish (RemainAfterExit=yes)
+for i in {1..60}; do
+    if systemctl is-active --quiet zmanim-db-init.service; then
+        echo "        db-init completed"
+        break
+    fi
+    if systemctl is-failed --quiet zmanim-db-init.service; then
+        echo "        ERROR: db-init failed!"
+        systemctl status zmanim-db-init.service --no-pager -l || true
+        exit 1
+    fi
+    sleep 1
+done
 
 echo "  [4/5] Starting Redis..."
 systemctl start redis-server

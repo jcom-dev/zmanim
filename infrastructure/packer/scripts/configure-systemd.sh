@@ -84,6 +84,7 @@ sudo systemctl daemon-reload
 echo "Disabling services (will be enabled by user data after /data mount)..."
 sudo systemctl disable zmanim-firstboot.service || true
 sudo systemctl disable postgresql || true
+sudo systemctl disable postgresql@17-main.service || true
 sudo systemctl disable zmanim-db-init.service || true
 sudo systemctl disable redis-server || true
 sudo systemctl disable zmanim-api.service || true
