@@ -729,29 +729,8 @@ echo "User data script completed at $(date)"
       signingProtocol: "sigv4",
     });
 
-    // S3 bucket policy for CloudFront OAC
-    new S3BucketPolicy(this, "static-bucket-policy", {
-      bucket: staticBucket.id,
-      policy: JSON.stringify({
-        Version: "2012-10-17",
-        Statement: [
-          {
-            Sid: "AllowCloudFrontServicePrincipal",
-            Effect: "Allow",
-            Principal: {
-              Service: "cloudfront.amazonaws.com",
-            },
-            Action: "s3:GetObject",
-            Resource: `${staticBucket.arn}/*`,
-            Condition: {
-              StringEquals: {
-                "AWS:SourceArn": `arn:aws:cloudfront::${callerIdentity.accountId}:distribution/*`,
-              },
-            },
-          },
-        ],
-      }),
-    });
+    // S3 bucket policy for CloudFront OAC - defined later after CloudFront distribution
+    // (moved to after distribution so we can reference distribution.arn)
 
     // ==========================================================================
     // 3.1 Lambda Functions for Next.js SSR (OpenNext)
@@ -1172,6 +1151,30 @@ function handler(event) {
         zoneId: distribution.hostedZoneId,
         evaluateTargetHealth: false,
       },
+    });
+
+    // S3 bucket policy for CloudFront OAC (must be after distribution for ARN reference)
+    new S3BucketPolicy(this, "static-bucket-policy", {
+      bucket: staticBucket.id,
+      policy: Fn.jsonencode({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Sid: "AllowCloudFrontServicePrincipal",
+            Effect: "Allow",
+            Principal: {
+              Service: "cloudfront.amazonaws.com",
+            },
+            Action: "s3:GetObject",
+            Resource: `${staticBucket.arn}/*`,
+            Condition: {
+              StringEquals: {
+                "AWS:SourceArn": distribution.arn,
+              },
+            },
+          },
+        ],
+      }),
     });
 
     // ==========================================================================
