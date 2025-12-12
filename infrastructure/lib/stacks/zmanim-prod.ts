@@ -488,7 +488,7 @@ systemctl start zmanim-firstboot.service
 for i in {1..60}; do
     if systemctl is-active --quiet zmanim-firstboot.service; then
         ELAPSED=$(($(date +%s) - START_TIME))
-        log_ok "firstboot completed in \${ELAPSED}s"
+        log_ok "firstboot completed in \$ELAPSED seconds"
         break
     fi
     if systemctl is-failed --quiet zmanim-firstboot.service; then
@@ -507,7 +507,7 @@ systemctl start postgresql@17-main.service
 for i in {1..30}; do
     if [ -S /var/run/postgresql/.s.PGSQL.5432 ]; then
         ELAPSED=$(($(date +%s) - START_TIME))
-        log_ok "PostgreSQL ready in \${ELAPSED}s (socket available)"
+        log_ok "PostgreSQL ready in \$ELAPSED seconds (socket available)"
         break
     fi
     if systemctl is-failed --quiet postgresql@17-main.service; then
@@ -526,7 +526,7 @@ systemctl start zmanim-db-init.service
 for i in {1..60}; do
     if systemctl is-active --quiet zmanim-db-init.service; then
         ELAPSED=$(($(date +%s) - START_TIME))
-        log_ok "db-init completed in \${ELAPSED}s"
+        log_ok "db-init completed in \$ELAPSED seconds"
         break
     fi
     if systemctl is-failed --quiet zmanim-db-init.service; then
@@ -545,7 +545,7 @@ systemctl start redis-server
 for i in {1..15}; do
     if redis-cli ping 2>/dev/null | grep -q PONG; then
         ELAPSED=$(($(date +%s) - START_TIME))
-        log_ok "Redis ready in \${ELAPSED}s (responding to PING)"
+        log_ok "Redis ready in \$ELAPSED seconds (responding to PING)"
         break
     fi
     if systemctl is-failed --quiet redis-server; then
@@ -564,7 +564,7 @@ systemctl start zmanim-api.service
 sleep 3
 if systemctl is-active --quiet zmanim-api.service; then
     ELAPSED=$(($(date +%s) - START_TIME))
-    log_ok "Zmanim API started in \${ELAPSED}s"
+    log_ok "Zmanim API started in \$ELAPSED seconds"
 else
     log_warn "Zmanim API may have failed to start"
     journalctl -u zmanim-api.service --no-pager -n 30
@@ -583,9 +583,9 @@ log_step "Step 4/4: Final verification"
 
 log "Service status summary:"
 for svc in zmanim-firstboot postgresql@17-main zmanim-db-init redis-server zmanim-api restic-backup.timer; do
-    if systemctl is-active --quiet "\$svc" 2>/dev/null; then
+    if systemctl is-active --quiet \$svc 2>/dev/null; then
         log_ok "\$svc: active"
-    elif systemctl is-failed --quiet "\$svc" 2>/dev/null; then
+    elif systemctl is-failed --quiet \$svc 2>/dev/null; then
         log_err "\$svc: failed"
     else
         log_warn "\$svc: inactive"
