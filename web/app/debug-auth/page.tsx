@@ -23,11 +23,11 @@ export default async function DebugAuth() {
       </div>
 
       <div className="mb-4">
-        <strong>Public Metadata Role:</strong> {(sessionClaims as any)?.publicMetadata?.role || 'Not set'}
+        <strong>Is Admin:</strong> {(sessionClaims as any)?.metadata?.is_admin ? 'Yes' : 'No'}
       </div>
 
       <div className="mb-4">
-        <strong>Metadata Role:</strong> {(sessionClaims as any)?.metadata?.role || 'Not set'}
+        <strong>Publisher Access List:</strong> {JSON.stringify((sessionClaims as any)?.metadata?.publisher_access_list || [])}
       </div>
     </div>
   );

@@ -31,8 +31,9 @@ export function ProfileDropdown() {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const metadata = user?.publicMetadata as ClerkPublicMetadata;
-  const role = metadata?.role || 'user';
+  const isAdmin = metadata?.is_admin === true;
   const publisherAccessList = metadata?.publisher_access_list || [];
+  const hasPublisherAccess = publisherAccessList.length > 0;
 
   const fetchPublisherNames = useCallback(async (ids: string[]) => {
     if (ids.length === 0) {
@@ -89,16 +90,13 @@ export function ProfileDropdown() {
       ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
       : user.primaryEmailAddress?.emailAddress?.[0]?.toUpperCase() || '?';
 
-  const getRoleBadgeVariant = (role: string): 'default' | 'secondary' | 'outline-solid' => {
-    switch (role) {
-      case 'admin':
-        return 'default';
-      case 'publisher':
-        return 'secondary';
-      default:
-        return 'outline-solid';
-    }
+  const getRoleBadge = (): { label: string; variant: 'default' | 'secondary' | 'outline-solid' } => {
+    if (isAdmin) return { label: 'Admin', variant: 'default' };
+    if (hasPublisherAccess) return { label: 'Publisher', variant: 'secondary' };
+    return { label: 'User', variant: 'outline-solid' };
   };
+
+  const roleBadge = getRoleBadge();
 
   return (
     <DropdownMenu>
@@ -115,8 +113,8 @@ export function ProfileDropdown() {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user.fullName || 'User'}</p>
             <p className="text-xs leading-none text-muted-foreground">{user.primaryEmailAddress?.emailAddress}</p>
-            <Badge variant={getRoleBadgeVariant(role)} className="mt-2 w-fit">
-              {role.charAt(0).toUpperCase() + role.slice(1)}
+            <Badge variant={roleBadge.variant} className="mt-2 w-fit">
+              {roleBadge.label}
             </Badge>
           </div>
         </DropdownMenuLabel>

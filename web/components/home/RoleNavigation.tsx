@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { Settings, Building2, UserPlus } from 'lucide-react';
 import type { ClerkPublicMetadata } from '@/types/clerk';
-import { isAdmin as checkIsAdmin, isPublisher as checkIsPublisher, hasPublisherAccess as checkHasPublisherAccess } from '@/types/clerk';
+import { isAdmin as checkIsAdmin, hasPublisherAccess as checkHasPublisherAccess } from '@/types/clerk';
 
 export function RoleNavigation() {
   const { user, isLoaded } = useUser();
@@ -13,11 +13,10 @@ export function RoleNavigation() {
 
   const metadata = user.publicMetadata as ClerkPublicMetadata;
   const isAdmin = checkIsAdmin(metadata);
-  const isPublisher = checkIsPublisher(metadata);
   const hasPublisherAccess = checkHasPublisherAccess(metadata);
 
   // Show "Become a Publisher" for signed-in users without publisher access
-  const showBecomePublisher = !isAdmin && !isPublisher && !hasPublisherAccess;
+  const showBecomePublisher = !isAdmin && !hasPublisherAccess;
 
   return (
     <div className="flex gap-3">
@@ -30,7 +29,7 @@ export function RoleNavigation() {
           Become a Publisher
         </Link>
       )}
-      {(hasPublisherAccess || isPublisher) && (
+      {hasPublisherAccess && (
         <Link
           href="/publisher/dashboard"
           className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"

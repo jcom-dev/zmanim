@@ -6,20 +6,15 @@
  *
  * @example
  * const metadata = user.publicMetadata as ClerkPublicMetadata;
- * if (metadata.role === 'admin') { ... }
+ * if (metadata.is_admin) { ... }
  */
-
-/**
- * User roles in the system
- */
-export type UserRole = 'admin' | 'publisher' | 'user';
 
 /**
  * Public metadata structure stored in Clerk user profiles
  */
 export interface ClerkPublicMetadata {
-  /** User's role in the system */
-  role?: UserRole;
+  /** Whether user has admin privileges */
+  is_admin?: boolean;
   /** List of publisher IDs this user has access to */
   publisher_access_list?: string[];
   /** Primary publisher ID for users with multiple publishers */
@@ -30,14 +25,7 @@ export interface ClerkPublicMetadata {
  * Type guard to check if user has admin role
  */
 export function isAdmin(metadata: ClerkPublicMetadata): boolean {
-  return metadata.role === 'admin';
-}
-
-/**
- * Type guard to check if user has publisher role
- */
-export function isPublisher(metadata: ClerkPublicMetadata): boolean {
-  return metadata.role === 'publisher';
+  return metadata.is_admin === true;
 }
 
 /**

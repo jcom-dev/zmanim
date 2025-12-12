@@ -70,9 +70,9 @@ function AcceptInvitationContent() {
       return;
     }
 
-    const metadata = user.publicMetadata as { role?: string; publisher_access_list?: string[] };
+    const metadata = user.publicMetadata as { is_admin?: boolean; publisher_access_list?: string[] };
 
-    if (metadata?.role === 'publisher' && metadata?.publisher_access_list?.length) {
+    if (metadata?.publisher_access_list?.length) {
       router.push('/publisher/dashboard');
     } else {
       router.push('/');

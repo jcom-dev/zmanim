@@ -26,11 +26,9 @@ interface UserRoles {
 function getRolesFromClaims(sessionClaims: any): UserRoles {
   const metadata = sessionClaims?.metadata || {};
 
-  // Support both old format (role: 'admin'/'publisher') and new format (is_admin, publisher_access_list)
-  const isAdmin = metadata.is_admin === true || metadata.role === 'admin';
+  const isAdmin = metadata.is_admin === true;
   const publisherAccessList: string[] = metadata.publisher_access_list || [];
-  // Old format compatibility: if role is 'publisher' but no publisher_access_list, still grant access
-  const hasPublisherAccess = publisherAccessList.length > 0 || metadata.role === 'publisher';
+  const hasPublisherAccess = publisherAccessList.length > 0;
 
   return {
     isAdmin,
