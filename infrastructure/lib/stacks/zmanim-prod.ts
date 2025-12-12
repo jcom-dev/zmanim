@@ -811,6 +811,7 @@ echo "User data script completed at $(date)"
       environment: {
         variables: {
           NEXT_PUBLIC_API_URL: `https://${config.domain}`,
+          NEXT_PUBLIC_ENV_MODE: "prod",
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ssmClerkPublishableKey.value,
           CLERK_SECRET_KEY: ssmClerkSecretKey.value,
           CLERK_DOMAIN: ssmClerkDomain.value,
