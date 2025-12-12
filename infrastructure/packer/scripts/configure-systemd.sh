@@ -72,25 +72,27 @@ sudo chmod 644 /etc/systemd/system/backup-notify@.service
 echo "Reloading systemd daemon..."
 sudo systemctl daemon-reload
 
-# Enable services
-# Boot order:
-#   1. zmanim-firstboot.service (prepares config files from SSM)
-#   2. postgresql.service (starts database)
-#   3. zmanim-db-init.service (creates user/database - idempotent)
-#   4. redis-server.service (starts cache)
-#   5. zmanim-api.service (starts API)
-echo "Enabling services..."
-sudo systemctl enable zmanim-firstboot.service
-sudo systemctl enable postgresql
-sudo systemctl enable zmanim-db-init.service
-sudo systemctl enable redis-server
-sudo systemctl enable zmanim-api.service
-sudo systemctl enable restic-backup.timer
+# DISABLE all services initially - user data script will enable them after mounting /data
+# This prevents services from starting before the EBS data volume is attached and mounted
+# Boot order (handled by user data script):
+#   1. Mount /data volume
+#   2. zmanim-firstboot.service (prepares config files from SSM)
+#   3. postgresql.service (starts database)
+#   4. zmanim-db-init.service (creates user/database - idempotent)
+#   5. redis-server.service (starts cache)
+#   6. zmanim-api.service (starts API)
+echo "Disabling services (will be enabled by user data after /data mount)..."
+sudo systemctl disable zmanim-firstboot.service || true
+sudo systemctl disable postgresql || true
+sudo systemctl disable zmanim-db-init.service || true
+sudo systemctl disable redis-server || true
+sudo systemctl disable zmanim-api.service || true
+sudo systemctl disable restic-backup.timer || true
 
 echo "============================================"
-echo "systemd services configured"
+echo "systemd services configured (disabled)"
 echo "============================================"
 
 echo ""
-echo "Enabled services:"
+echo "Services (all disabled - user data will enable after /data mount):"
 systemctl list-unit-files | grep -E "(postgresql|redis|zmanim|restic)" || true

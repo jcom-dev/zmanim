@@ -399,8 +399,14 @@ echo "Starting user data script at $(date)"
 DATA_LABEL="zmanim-data"
 DATA_MOUNT="/data"
 
+# =============================================================================
+# Step 1: Mount the EBS data volume
+# =============================================================================
+echo "Step 1: Mounting data volume..."
+
 if ! mountpoint -q $DATA_MOUNT; then
     echo "Data volume not mounted, looking for labeled volume..."
+    DATA_DEVICE=""
     for i in {1..60}; do
         DATA_DEVICE=$(blkid -L "$DATA_LABEL" 2>/dev/null || true)
         if [ -n "$DATA_DEVICE" ] && [ -b "$DATA_DEVICE" ]; then
@@ -419,7 +425,7 @@ if ! mountpoint -q $DATA_MOUNT; then
         sleep 1
     done
     if [ -z "$DATA_DEVICE" ] || [ ! -b "$DATA_DEVICE" ]; then
-        echo "ERROR: Data volume not found"
+        echo "ERROR: Data volume not found after 60 seconds"
         exit 1
     fi
     mkdir -p $DATA_MOUNT
@@ -433,12 +439,70 @@ else
     echo "Data volume already mounted"
 fi
 
+# =============================================================================
+# Step 2: Create data directories with correct ownership
+# =============================================================================
+echo "Step 2: Creating data directories..."
+
 mkdir -p /data/postgres /data/redis
 chown postgres:postgres /data/postgres 2>/dev/null || true
 chmod 700 /data/postgres
 chown redis:redis /data/redis 2>/dev/null || true
 chmod 750 /data/redis
 
+# =============================================================================
+# Step 3: Enable and start services (in correct order)
+# =============================================================================
+echo "Step 3: Enabling and starting services..."
+
+# Services were disabled in AMI to prevent startup before /data is mounted
+# Now that /data is mounted, enable and start them in the correct order
+
+echo "  Enabling services..."
+systemctl enable zmanim-firstboot.service
+systemctl enable postgresql
+systemctl enable zmanim-db-init.service
+systemctl enable redis-server
+systemctl enable zmanim-api.service
+systemctl enable restic-backup.timer
+
+echo "  Starting zmanim-firstboot (fetches config from SSM)..."
+systemctl start zmanim-firstboot.service
+systemctl is-active --quiet zmanim-firstboot.service || echo "    firstboot completed (oneshot)"
+
+echo "  Starting PostgreSQL..."
+systemctl start postgresql
+systemctl is-active --quiet postgresql && echo "    PostgreSQL started"
+
+echo "  Starting zmanim-db-init (creates database if needed)..."
+systemctl start zmanim-db-init.service
+systemctl is-active --quiet zmanim-db-init.service || echo "    db-init completed (oneshot)"
+
+echo "  Starting Redis..."
+systemctl start redis-server
+systemctl is-active --quiet redis-server && echo "    Redis started"
+
+echo "  Starting Zmanim API..."
+systemctl start zmanim-api.service
+sleep 2
+systemctl is-active --quiet zmanim-api.service && echo "    Zmanim API started"
+
+echo "  Starting backup timer..."
+systemctl start restic-backup.timer
+systemctl is-active --quiet restic-backup.timer && echo "    Backup timer started"
+
+# =============================================================================
+# Step 4: Verify all services
+# =============================================================================
+echo "Step 4: Verifying services..."
+echo ""
+systemctl status postgresql --no-pager -l || true
+echo ""
+systemctl status redis-server --no-pager -l || true
+echo ""
+systemctl status zmanim-api.service --no-pager -l || true
+
+echo ""
 echo "User data script completed at $(date)"
 `;
 
