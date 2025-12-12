@@ -49,7 +49,7 @@ export const zmanimConfig: ZmanimConfig = {
  * SSM Parameter paths for Zmanim secrets
  */
 export const ssmPaths = {
-  amiId: "/zmanim/prod/ami-id",
+  amiVersion: "/zmanim/prod/ami-version", // Version tag for AMI lookup (e.g., "v1.0.0")
   clerkDomain: "/zmanim/prod/clerk-domain",
   clerkAudience: "/zmanim/prod/clerk-audience",
   originVerifyKey: "/zmanim/prod/origin-verify-key",

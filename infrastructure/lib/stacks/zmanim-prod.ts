@@ -44,6 +44,9 @@ import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy
 // SSM
 import { DataAwsSsmParameter } from "@cdktf/provider-aws/lib/data-aws-ssm-parameter";
 
+// AMI
+import { DataAwsAmi } from "@cdktf/provider-aws/lib/data-aws-ami";
+
 // API Gateway
 import { Apigatewayv2Api } from "@cdktf/provider-aws/lib/apigatewayv2-api";
 import { Apigatewayv2Stage } from "@cdktf/provider-aws/lib/apigatewayv2-stage";
@@ -134,8 +137,30 @@ export class ZmanimProdStack extends TerraformStack {
     // ==========================================================================
     // SSM Parameter Data Sources
     // ==========================================================================
-    const ssmAmiId = new DataAwsSsmParameter(this, "ssm-ami-id", {
-      name: ssmPaths.amiId,
+    const ssmAmiVersion = new DataAwsSsmParameter(this, "ssm-ami-version", {
+      name: ssmPaths.amiVersion,
+    });
+
+    // ==========================================================================
+    // AMI Lookup by Version Tag (from SSM parameter)
+    // ==========================================================================
+    const zmanimAmi = new DataAwsAmi(this, "zmanim-ami", {
+      mostRecent: true,
+      owners: ["self"],
+      filter: [
+        {
+          name: "tag:Version",
+          values: [ssmAmiVersion.value],
+        },
+        {
+          name: "tag:ManagedBy",
+          values: ["Packer"],
+        },
+        {
+          name: "state",
+          values: ["available"],
+        },
+      ],
     });
 
     const ssmClerkDomain = new DataAwsSsmParameter(this, "ssm-clerk-domain", {
@@ -418,7 +443,7 @@ echo "User data script completed at $(date)"
 `;
 
     const ec2Instance = new Instance(this, "ec2", {
-      ami: ssmAmiId.value,
+      ami: zmanimAmi.id,
       instanceType: config.instanceType,
       subnetId: publicSubnetId,
       vpcSecurityGroupIds: [ec2SecurityGroup.id],

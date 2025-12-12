@@ -91,104 +91,63 @@ jobs:
             -var "api_binary_path=../../bin/zmanim-api" \
             .
 
-      - name: Rename AMI to final version
-        id: rename
+      - name: Cleanup old AMIs with same version tag
+        id: cleanup
         run: |
           # Extract AMI ID from manifest
           AMI_ID=$(jq -r '.builds[-1].artifact_id | split(":")[1]' infrastructure/packer/manifest.json)
-          echo "Built AMI: $AMI_ID"
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "New AMI: $AMI_ID (version: $VERSION)"
+          echo "ami_id=${AMI_ID}" >> $GITHUB_OUTPUT
 
-          FINAL_NAME="zmanim-${{ steps.version.outputs.version }}"
-
-          # Check if an AMI with the final name already exists
-          OLD_AMI=$(aws ec2 describe-images \
+          # Find all AMIs with the same Version tag (excluding the one we just built)
+          OLD_AMIS=$(aws ec2 describe-images \
             --owners self \
-            --filters "Name=name,Values=${FINAL_NAME}" \
-            --query 'Images[0].ImageId' \
-            --output text \
-            --region eu-west-1 2>/dev/null || echo "None")
-
-          if [ -n "$OLD_AMI" ] && [ "$OLD_AMI" != "None" ]; then
-            echo "Found existing AMI with name ${FINAL_NAME}: ${OLD_AMI}"
-            echo "Deregistering old AMI..."
-
-            # Get snapshots before deregistering
-            OLD_SNAPSHOTS=$(aws ec2 describe-images \
-              --image-ids "$OLD_AMI" \
-              --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
-              --output text \
-              --region eu-west-1 2>/dev/null || echo "")
-
-            aws ec2 deregister-image --image-id "$OLD_AMI" --region eu-west-1
-
-            # Delete old snapshots
-            for SNAP_ID in $OLD_SNAPSHOTS; do
-              if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
-                echo "  Deleting old snapshot: $SNAP_ID"
-                aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region eu-west-1 || true
-              fi
-            done
-          fi
-
-          # Rename the new AMI by copying with the final name
-          echo "Copying AMI to final name: ${FINAL_NAME}"
-          NEW_AMI=$(aws ec2 copy-image \
-            --source-image-id "$AMI_ID" \
-            --source-region eu-west-1 \
-            --region eu-west-1 \
-            --name "${FINAL_NAME}" \
-            --description "Zmanim ${{ steps.version.outputs.version }} - Built $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --query 'ImageId' \
-            --output text)
-
-          echo "New AMI created: $NEW_AMI"
-          echo "final_ami_id=${NEW_AMI}" >> $GITHUB_OUTPUT
-
-          # Wait for the copy to complete
-          echo "Waiting for AMI copy to complete..."
-          aws ec2 wait image-available --image-ids "$NEW_AMI" --region eu-west-1
-
-          # Copy tags from original to new AMI
-          aws ec2 create-tags --resources "$NEW_AMI" --region eu-west-1 --tags \
-            Key=Name,Value="${FINAL_NAME}" \
-            Key=Version,Value="${{ steps.version.outputs.version }}" \
-            Key=BuildDate,Value="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            Key=Environment,Value=production \
-            Key=ManagedBy,Value=Packer
-
-          # Deregister the temporary build AMI
-          echo "Cleaning up temporary AMI: $AMI_ID"
-          TEMP_SNAPSHOTS=$(aws ec2 describe-images \
-            --image-ids "$AMI_ID" \
-            --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
+            --filters "Name=tag:Version,Values=${VERSION}" "Name=tag:ManagedBy,Values=Packer" \
+            --query "Images[?ImageId!='${AMI_ID}'].ImageId" \
             --output text \
             --region eu-west-1 2>/dev/null || echo "")
 
-          aws ec2 deregister-image --image-id "$AMI_ID" --region eu-west-1
+          if [ -n "$OLD_AMIS" ] && [ "$OLD_AMIS" != "None" ]; then
+            echo "Found old AMIs with version ${VERSION} to clean up:"
+            for OLD_AMI in $OLD_AMIS; do
+              echo "  Deregistering: $OLD_AMI"
 
-          for SNAP_ID in $TEMP_SNAPSHOTS; do
-            if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
-              echo "  Deleting temp snapshot: $SNAP_ID"
-              aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region eu-west-1 || true
-            fi
-          done
+              # Get snapshots before deregistering
+              OLD_SNAPSHOTS=$(aws ec2 describe-images \
+                --image-ids "$OLD_AMI" \
+                --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
+                --output text \
+                --region eu-west-1 2>/dev/null || echo "")
 
-          echo "Final AMI ready: $NEW_AMI (${FINAL_NAME})"
+              aws ec2 deregister-image --image-id "$OLD_AMI" --region eu-west-1 || true
 
-      - name: Store AMI ID in SSM Parameter Store
+              # Delete old snapshots
+              for SNAP_ID in $OLD_SNAPSHOTS; do
+                if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
+                  echo "    Deleting snapshot: $SNAP_ID"
+                  aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region eu-west-1 || true
+                fi
+              done
+            done
+          else
+            echo "No old AMIs found with version ${VERSION}"
+          fi
+
+          echo "Current AMI ready: $AMI_ID"
+
+      - name: Update SSM parameter with new version
         run: |
-          AMI_ID="${{ steps.rename.outputs.final_ami_id }}"
-
-          echo "Storing AMI ID in SSM Parameter Store..."
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Updating SSM parameter /zmanim/prod/ami-version to: $VERSION"
           aws ssm put-parameter \
-            --name "/zmanim/prod/ami-id" \
-            --value "$AMI_ID" \
+            --name "/zmanim/prod/ami-version" \
+            --value "$VERSION" \
             --type "String" \
             --overwrite \
-            --description "Latest Zmanim AMI ID (version ${{ steps.version.outputs.version }})" \
+            --description "AMI version tag for Zmanim (updated $(date -u +%Y-%m-%dT%H:%M:%SZ))" \
             --region eu-west-1
-
-          echo "SSM Parameter /zmanim/prod/ami-id set to: $AMI_ID"
+          echo "SSM parameter updated successfully"
 
       - name: Output AMI information
         run: |
@@ -196,11 +155,11 @@ jobs:
           echo "===================="
           echo "Version: ${{ steps.version.outputs.version }}"
           echo "Region: eu-west-1"
-          echo "AMI ID: ${{ steps.rename.outputs.final_ami_id }}"
-          echo "AMI Name: zmanim-${{ steps.version.outputs.version }}"
-          echo "SSM Parameter: /zmanim/prod/ami-id"
+          echo "AMI ID: ${{ steps.cleanup.outputs.ami_id }}"
+          echo "AMI Name: zmanim-${{ steps.version.outputs.version }}-${{ steps.version.outputs.timestamp }}"
+          echo "SSM Parameter: /zmanim/prod/ami-version = ${{ steps.version.outputs.version }}"
           echo ""
-          echo "Terraform will read AMI ID from SSM at deploy time (no caching)"
+          echo "CDK will find this AMI by Version tag from SSM parameter"
 
       - name: Upload Packer manifest
         uses: actions/upload-artifact@v4
