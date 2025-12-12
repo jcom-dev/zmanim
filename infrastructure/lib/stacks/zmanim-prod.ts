@@ -553,13 +553,25 @@ echo "User data script completed at $(date)"
 
     // Public GET routes (no auth required)
     // Need both base paths and {proxy+} patterns since {proxy+} requires at least one segment
+    // Each prefix needs its own integration to preserve the prefix in the forwarded path
     const publicPrefixes = ["zmanim", "cities", "publishers", "countries", "continents", "regions", "coverage", "geo"];
     publicPrefixes.forEach((prefix) => {
-      // Route with subpaths: /api/v1/countries/US, /api/v1/cities/123, etc.
+      // Create integration that includes the prefix in the URI
+      const prefixIntegration = new Apigatewayv2Integration(this, `ec2-${prefix}-proxy-integration`, {
+        apiId: httpApi.id,
+        integrationType: "HTTP_PROXY",
+        integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/${prefix}/{proxy}`,
+        integrationMethod: "GET",
+        timeoutMilliseconds: 29000,
+        requestParameters: {
+          "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+        },
+      });
+      // Route with subpaths: /api/v1/countries/US, /api/v1/cities/123/publishers, etc.
       new Apigatewayv2Route(this, `route-public-${prefix}`, {
         apiId: httpApi.id,
         routeKey: `GET /api/v1/${prefix}/{proxy+}`,
-        target: `integrations/${ec2Integration.id}`,
+        target: `integrations/${prefixIntegration.id}`,
       });
     });
 
@@ -584,31 +596,64 @@ echo "User data script completed at $(date)"
       });
     });
 
-    // POST for zmanim (public)
+    // POST for zmanim (public) - needs its own integration to preserve /zmanim/ prefix
+    const zmanimPostIntegration = new Apigatewayv2Integration(this, "ec2-zmanim-post-integration", {
+      apiId: httpApi.id,
+      integrationType: "HTTP_PROXY",
+      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/zmanim/{proxy}`,
+      integrationMethod: "POST",
+      timeoutMilliseconds: 29000,
+      requestParameters: {
+        "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+      },
+    });
     new Apigatewayv2Route(this, "route-public-zmanim-post", {
       apiId: httpApi.id,
       routeKey: "POST /api/v1/zmanim/{proxy+}",
-      target: `integrations/${ec2Integration.id}`,
+      target: `integrations/${zmanimPostIntegration.id}`,
     });
 
     // Protected routes (require JWT auth)
+    // Publisher routes - needs its own integration to preserve /publisher/ prefix
+    const publisherIntegration = new Apigatewayv2Integration(this, "ec2-publisher-integration", {
+      apiId: httpApi.id,
+      integrationType: "HTTP_PROXY",
+      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/publisher/{proxy}`,
+      integrationMethod: "ANY",
+      timeoutMilliseconds: 29000,
+      requestParameters: {
+        "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+      },
+    });
     new Apigatewayv2Route(this, "route-protected-publisher", {
       apiId: httpApi.id,
       routeKey: "ANY /api/v1/publisher/{proxy+}",
-      target: `integrations/${ec2Integration.id}`,
+      target: `integrations/${publisherIntegration.id}`,
       authorizationType: "JWT",
       authorizerId: clerkAuthorizer.id,
     });
 
+    // Admin routes - needs its own integration to preserve /admin/ prefix
+    const adminIntegration = new Apigatewayv2Integration(this, "ec2-admin-integration", {
+      apiId: httpApi.id,
+      integrationType: "HTTP_PROXY",
+      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/admin/{proxy}`,
+      integrationMethod: "ANY",
+      timeoutMilliseconds: 29000,
+      requestParameters: {
+        "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+      },
+    });
     new Apigatewayv2Route(this, "route-protected-admin", {
       apiId: httpApi.id,
       routeKey: "ANY /api/v1/admin/{proxy+}",
-      target: `integrations/${ec2Integration.id}`,
+      target: `integrations/${adminIntegration.id}`,
       authorizationType: "JWT",
       authorizerId: clerkAuthorizer.id,
     });
 
     // Catch-all for any other API routes (protected by default)
+    // This one uses the generic ec2Integration which forwards to /api/v1/{proxy}
     new Apigatewayv2Route(this, "route-api-catchall", {
       apiId: httpApi.id,
       routeKey: "ANY /api/v1/{proxy+}",
