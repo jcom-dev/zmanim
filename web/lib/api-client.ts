@@ -43,8 +43,8 @@ import { usePublisherContextOptional } from '@/providers/PublisherContext';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-// API prefix is always /api/v1 - CloudFront routes /api/* to API Gateway
-const API_PREFIX = '/api/v1';
+// API prefix - configurable for dev, defaults to /api/v1 for prod
+const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '/api/v1';
 
 // =============================================================================
 // Types
