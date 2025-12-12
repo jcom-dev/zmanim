@@ -68,7 +68,8 @@ import { SnsTopic } from "@cdktf/provider-aws/lib/sns-topic";
 import { CloudfrontDistribution } from "@cdktf/provider-aws/lib/cloudfront-distribution";
 import { CloudfrontOriginAccessControl } from "@cdktf/provider-aws/lib/cloudfront-origin-access-control";
 import { CloudfrontCachePolicy } from "@cdktf/provider-aws/lib/cloudfront-cache-policy";
-import { CloudfrontOriginRequestPolicy } from "@cdktf/provider-aws/lib/cloudfront-origin-request-policy";
+// CloudfrontOriginRequestPolicy not used - using AWS managed AllViewerExceptHostHeader policy
+// which forwards Authorization header (custom policies cannot forward Authorization)
 import { CloudfrontResponseHeadersPolicy } from "@cdktf/provider-aws/lib/cloudfront-response-headers-policy";
 import { CloudfrontFunction } from "@cdktf/provider-aws/lib/cloudfront-function";
 import { S3BucketPolicy } from "@cdktf/provider-aws/lib/s3-bucket-policy";
@@ -961,27 +962,10 @@ echo "User data script completed at $(date)"
     });
 
     // Origin Request Policy: Forward headers for API
-    const apiOriginRequestPolicy = new CloudfrontOriginRequestPolicy(this, "api-origin-request-policy", {
-      name: `zmanim-api-origin-request-${config.environment}`,
-      comment: "Forward headers for API requests",
-      cookiesConfig: { cookieBehavior: "all" },
-      headersConfig: {
-        headerBehavior: "whitelist",
-        headers: {
-          items: [
-            "Accept",
-            "Accept-Language",
-            "Authorization",
-            "Content-Type",
-            "X-Publisher-Id",
-            "X-Request-Id",
-            "Origin",
-            "Referer",
-          ],
-        },
-      },
-      queryStringsConfig: { queryStringBehavior: "all" },
-    });
+    // Note: Authorization header cannot be forwarded via custom origin request policy
+    // Using AWS managed "AllViewerExceptHostHeader" policy (b689b0a8-53d0-40ab-baf2-68738e2966ac)
+    // which forwards all headers including Authorization except Host
+    const allViewerExceptHostPolicyId = "b689b0a8-53d0-40ab-baf2-68738e2966ac";
 
     // Response Headers Policy: Security Headers
     const securityHeadersPolicy = new CloudfrontResponseHeadersPolicy(this, "security-headers-policy", {
@@ -1156,7 +1140,7 @@ function handler(event) {
           cachedMethods: ["GET", "HEAD"],
           compress: true,
           cachePolicyId: apiZmanimCachePolicy.id,
-          originRequestPolicyId: apiOriginRequestPolicy.id,
+          originRequestPolicyId: allViewerExceptHostPolicyId,
           responseHeadersPolicyId: securityHeadersPolicy.id,
         },
         // /api/v1/* - No cache for auth, mutations -> Go API
@@ -1169,7 +1153,7 @@ function handler(event) {
           compress: true,
           // Use AWS managed CachingDisabled policy
           cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
-          originRequestPolicyId: apiOriginRequestPolicy.id,
+          originRequestPolicyId: allViewerExceptHostPolicyId,
           responseHeadersPolicyId: securityHeadersPolicy.id,
         },
       ],
