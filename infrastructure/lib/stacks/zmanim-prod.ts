@@ -70,6 +70,7 @@ import { CloudfrontOriginAccessControl } from "@cdktf/provider-aws/lib/cloudfron
 import { CloudfrontCachePolicy } from "@cdktf/provider-aws/lib/cloudfront-cache-policy";
 import { CloudfrontOriginRequestPolicy } from "@cdktf/provider-aws/lib/cloudfront-origin-request-policy";
 import { CloudfrontResponseHeadersPolicy } from "@cdktf/provider-aws/lib/cloudfront-response-headers-policy";
+import { CloudfrontFunction } from "@cdktf/provider-aws/lib/cloudfront-function";
 import { S3BucketPolicy } from "@cdktf/provider-aws/lib/s3-bucket-policy";
 import { DataAwsCallerIdentity } from "@cdktf/provider-aws/lib/data-aws-caller-identity";
 
@@ -812,6 +813,7 @@ echo "User data script completed at $(date)"
           NEXT_PUBLIC_API_URL: `https://${config.domain}`,
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ssmClerkPublishableKey.value,
           CLERK_SECRET_KEY: ssmClerkSecretKey.value,
+          CLERK_DOMAIN: ssmClerkDomain.value,
           OPEN_NEXT_ORIGIN: `https://${config.domain}`,
         },
       },
@@ -994,6 +996,21 @@ echo "User data script completed at $(date)"
       ""
     );
 
+    // CloudFront Function to forward host header as x-forwarded-host
+    // Required for OpenNext/Next.js middleware to know the frontend domain
+    const hostHeaderFunction = new CloudfrontFunction(this, "host-header-function", {
+      name: `zmanim-host-header-${config.environment}`,
+      runtime: "cloudfront-js-2.0",
+      comment: "Forward host header as x-forwarded-host for OpenNext",
+      code: `
+function handler(event) {
+  var request = event.request;
+  request.headers["x-forwarded-host"] = request.headers.host;
+  return request;
+}
+`,
+    });
+
     // CloudFront Distribution
     const distribution = new CloudfrontDistribution(this, "cloudfront", {
       enabled: true,
@@ -1071,6 +1088,13 @@ echo "User data script completed at $(date)"
         // Use AWS managed AllViewerExceptHostHeader policy
         originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac",
         responseHeadersPolicyId: securityHeadersPolicy.id,
+        // Forward host header for OpenNext/Clerk
+        functionAssociation: [
+          {
+            eventType: "viewer-request",
+            functionArn: hostHeaderFunction.arn,
+          },
+        ],
       },
 
       // Ordered cache behaviors (evaluated in order, first match wins)
