@@ -499,6 +499,12 @@ for i in {1..30}; do
         echo "        PostgreSQL ready (socket available)"
         break
     fi
+    if systemctl is-failed --quiet postgresql@17-main.service; then
+        echo "        ERROR: PostgreSQL failed to start!"
+        systemctl status postgresql@17-main.service --no-pager -l || true
+        journalctl -u postgresql@17-main.service --no-pager -n 50 || true
+        exit 1
+    fi
     sleep 1
 done
 
