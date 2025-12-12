@@ -7,11 +7,19 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim/internal/models"
 	"github.com/jcom-dev/zmanim/internal/services"
+)
+
+// Continents are static geographic data - cache them in memory
+var (
+	continentsCache       []sqlcgen.GetContinentsRow
+	continentsCacheMu     sync.RWMutex
+	continentsCacheLoaded bool
 )
 
 // SearchCities handles city search with autocomplete and filtering
@@ -356,12 +364,31 @@ func (h *Handlers) GetCountryByCode(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetContinents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// Check cache first (read lock)
+	continentsCacheMu.RLock()
+	if continentsCacheLoaded {
+		result := continentsCache
+		continentsCacheMu.RUnlock()
+		RespondJSON(w, r, http.StatusOK, result)
+		return
+	}
+	continentsCacheMu.RUnlock()
+
+	// Cache miss - load from database
 	rows, err := h.db.Queries.GetContinents(ctx)
 	if err != nil {
 		slog.Error("failed to get continents", "error", err)
 		RespondInternalError(w, r, "Failed to get continents")
 		return
 	}
+
+	// Store in cache
+	continentsCacheMu.Lock()
+	continentsCache = rows
+	continentsCacheLoaded = true
+	continentsCacheMu.Unlock()
+
+	slog.Info("loaded continents into cache", "count", len(rows))
 	RespondJSON(w, r, http.StatusOK, rows)
 }
 

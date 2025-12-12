@@ -59,6 +59,8 @@ POSTGRES_PASSWORD=$(get_ssm_param "/zmanim/prod/postgres-password")
 REDIS_PASSWORD=$(get_ssm_param "/zmanim/prod/redis-password")
 CLERK_SECRET_KEY=$(get_ssm_param "/zmanim/prod/clerk-secret-key")
 CLERK_PUBLISHABLE_KEY=$(get_ssm_param "/zmanim/prod/clerk-publishable-key")
+CLERK_JWKS_URL=$(get_ssm_param "/zmanim/prod/clerk-jwks-url")
+CLERK_ISSUER=$(get_ssm_param "/zmanim/prod/clerk-issuer")
 RESTIC_PASSWORD=$(get_ssm_param "/zmanim/prod/restic-password")
 ANTHROPIC_API_KEY=$(get_ssm_param "/zmanim/prod/anthropic-api-key")
 OPENAI_API_KEY=$(get_ssm_param "/zmanim/prod/openai-api-key")
@@ -78,6 +80,8 @@ echo "  postgres-password: found"
 echo "  redis-password: ${REDIS_PASSWORD:+found}${REDIS_PASSWORD:-NOT SET}"
 echo "  clerk-secret-key: ${CLERK_SECRET_KEY:+found}${CLERK_SECRET_KEY:-NOT SET}"
 echo "  clerk-publishable-key: ${CLERK_PUBLISHABLE_KEY:+found}${CLERK_PUBLISHABLE_KEY:-NOT SET}"
+echo "  clerk-jwks-url: ${CLERK_JWKS_URL:+found}${CLERK_JWKS_URL:-NOT SET}"
+echo "  clerk-issuer: ${CLERK_ISSUER:+found}${CLERK_ISSUER:-NOT SET}"
 echo "  restic-password: ${RESTIC_PASSWORD:+found}${RESTIC_PASSWORD:-NOT SET}"
 echo "  anthropic-api-key: ${ANTHROPIC_API_KEY:+found}${ANTHROPIC_API_KEY:-NOT SET}"
 echo "  openai-api-key: ${OPENAI_API_KEY:+found}${OPENAI_API_KEY:-NOT SET}"
@@ -230,6 +234,8 @@ REDIS_URL=redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}localhost:6379/0
 # Clerk Authentication
 ${CLERK_SECRET_KEY:+CLERK_SECRET_KEY=${CLERK_SECRET_KEY}}
 ${CLERK_PUBLISHABLE_KEY:+CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}}
+${CLERK_JWKS_URL:+CLERK_JWKS_URL=${CLERK_JWKS_URL}}
+${CLERK_ISSUER:+CLERK_ISSUER=${CLERK_ISSUER}}
 
 # JWT Secret (required for production)
 ${JWT_SECRET:+JWT_SECRET=${JWT_SECRET}}

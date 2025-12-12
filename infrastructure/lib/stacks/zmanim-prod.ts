@@ -555,7 +555,20 @@ echo "User data script completed at $(date)"
     // Public GET routes (no auth required)
     // Need both base paths and {proxy+} patterns since {proxy+} requires at least one segment
     // Each prefix needs its own integration to preserve the prefix in the forwarded path
-    const publicPrefixes = ["zmanim", "cities", "publishers", "countries", "continents", "regions", "coverage", "geo"];
+    const publicPrefixes = [
+      "zmanim",
+      "cities",
+      "publishers",
+      "countries",
+      "continents",
+      "regions",
+      "coverage",
+      "geo",
+      "registry",      // Master zmanim registry, primitives
+      "categories",    // Display groups, time categories, event categories
+      "algorithms",    // Public algorithm browsing
+      "tag-types",     // Tag types for UI
+    ];
     publicPrefixes.forEach((prefix) => {
       // Create integration that includes the prefix in the URI
       const prefixIntegration = new Apigatewayv2Integration(this, `ec2-${prefix}-proxy-integration`, {
@@ -578,7 +591,14 @@ echo "User data script completed at $(date)"
 
     // Base routes for list endpoints (no subpath): /api/v1/countries, /api/v1/publishers, etc.
     // These need separate integrations since they map differently
-    const baseEndpoints = ["publishers", "countries", "continents", "regions", "cities"];
+    const baseEndpoints = [
+      "publishers",
+      "countries",
+      "continents",
+      "regions",
+      "cities",
+      "tag-types",     // GET /api/v1/tag-types
+    ];
     baseEndpoints.forEach((endpoint) => {
       const baseIntegration = new Apigatewayv2Integration(this, `ec2-${endpoint}-integration`, {
         apiId: httpApi.id,
