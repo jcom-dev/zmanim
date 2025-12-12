@@ -394,7 +394,20 @@ export class ZmanimProdStack extends TerraformStack {
     const userData = `#!/bin/bash
 set -euo pipefail
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-echo "Starting user data script at $(date)"
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+log_step() { echo ""; log "========== $* =========="; }
+log_ok() { log "  ✓ $*"; }
+log_err() { log "  ✗ ERROR: $*"; }
+log_warn() { log "  ! WARNING: $*"; }
+
+SCRIPT_START=$(date +%s)
+log_step "ZMANIM USER DATA SCRIPT STARTING"
+log "Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id || echo 'unknown')"
+log "AMI ID: $(curl -s http://169.254.169.254/latest/meta-data/ami-id || echo 'unknown')"
 
 DATA_LABEL="zmanim-data"
 DATA_MOUNT="/data"
@@ -402,30 +415,32 @@ DATA_MOUNT="/data"
 # =============================================================================
 # Step 1: Mount the EBS data volume
 # =============================================================================
-echo "Step 1: Mounting data volume..."
+log_step "Step 1/4: Mounting EBS data volume"
 
 if ! mountpoint -q $DATA_MOUNT; then
-    echo "Data volume not mounted, looking for labeled volume..."
+    log "Data volume not mounted, searching for labeled volume..."
     DATA_DEVICE=""
     for i in {1..60}; do
         DATA_DEVICE=$(blkid -L "$DATA_LABEL" 2>/dev/null || true)
         if [ -n "$DATA_DEVICE" ] && [ -b "$DATA_DEVICE" ]; then
-            echo "Found labeled volume $DATA_LABEL at $DATA_DEVICE"
+            log_ok "Found labeled volume $DATA_LABEL at $DATA_DEVICE"
             break
         fi
         for dev in /dev/nvme1n1 /dev/nvme2n1 /dev/nvme3n1; do
             if [ -b "$dev" ] && ! blkid "$dev" | grep -q "TYPE="; then
-                echo "Found unformatted device $dev - formatting..."
+                log "Found unformatted device $dev - formatting with XFS..."
                 mkfs.xfs -L "$DATA_LABEL" "$dev"
                 DATA_DEVICE="$dev"
+                log_ok "Formatted $dev with label $DATA_LABEL"
                 break 2
             fi
         done
-        echo "Waiting for data volume... ($i/60)"
+        [ $((i % 10)) -eq 0 ] && log "  Waiting for data volume... ($i/60s)"
         sleep 1
     done
     if [ -z "$DATA_DEVICE" ] || [ ! -b "$DATA_DEVICE" ]; then
-        echo "ERROR: Data volume not found after 60 seconds"
+        log_err "Data volume not found after 60 seconds"
+        lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,LABEL
         exit 1
     fi
     mkdir -p $DATA_MOUNT
@@ -433,136 +448,160 @@ if ! mountpoint -q $DATA_MOUNT; then
     if ! grep -q "LABEL=$DATA_LABEL" /etc/fstab; then
         sed -i "\\|$DATA_MOUNT|d" /etc/fstab
         echo "LABEL=$DATA_LABEL $DATA_MOUNT xfs defaults,nofail 0 2" >> /etc/fstab
+        log_ok "Added $DATA_MOUNT to /etc/fstab"
     fi
-    echo "Data volume mounted at $DATA_MOUNT"
+    log_ok "Data volume mounted at $DATA_MOUNT"
 else
-    echo "Data volume already mounted"
+    log_ok "Data volume already mounted at $DATA_MOUNT"
 fi
+df -h $DATA_MOUNT
 
 # =============================================================================
 # Step 2: Create data directories with correct ownership
 # =============================================================================
-echo "Step 2: Creating data directories..."
+log_step "Step 2/4: Creating data directories"
 
 mkdir -p /data/postgres /data/redis
 chown postgres:postgres /data/postgres 2>/dev/null || true
 chmod 700 /data/postgres
 chown redis:redis /data/redis 2>/dev/null || true
 chmod 750 /data/redis
+log_ok "Created /data/postgres (postgres:postgres, 700)"
+log_ok "Created /data/redis (redis:redis, 750)"
+ls -la /data/
 
 # =============================================================================
 # Step 3: Enable and start services (in correct order)
 # =============================================================================
-echo "Step 3: Enabling and starting services..."
+log_step "Step 3/4: Starting services"
+log "Boot order: firstboot → postgresql → db-init → redis → zmanim-api"
 
-# Services were disabled in AMI to prevent startup before /data is mounted
-# Now that /data is mounted, enable and start them in the correct order:
-#   1. zmanim-firstboot - fetches config from SSM (required by all)
-#   2. postgresql - database (required by db-init and api)
-#   3. zmanim-db-init - creates database/user (required by api)
-#   4. redis-server - cache (required by api)
-#   5. zmanim-api - the application (depends on all above)
-#   6. restic-backup.timer - scheduled backups
+log "Enabling all services for future boots..."
+systemctl enable zmanim-firstboot.service postgresql postgresql@17-main.service zmanim-db-init.service redis-server zmanim-api.service restic-backup.timer 2>/dev/null
+log_ok "All services enabled"
 
-echo "  Enabling all services..."
-systemctl enable zmanim-firstboot.service
-systemctl enable postgresql
-systemctl enable postgresql@17-main.service
-systemctl enable zmanim-db-init.service
-systemctl enable redis-server
-systemctl enable zmanim-api.service
-systemctl enable restic-backup.timer
-
-echo ""
-echo "  [1/5] Starting zmanim-firstboot (fetches config from SSM)..."
+# --- 1. Firstboot ---
+log ""
+log "[1/5] Starting zmanim-firstboot (fetches config from SSM)..."
+START_TIME=$(date +%s)
 systemctl start zmanim-firstboot.service
-# Wait for oneshot service to finish (RemainAfterExit=yes means it stays "active" after completion)
-# So we wait for the service to become active (meaning it finished successfully)
 for i in {1..60}; do
     if systemctl is-active --quiet zmanim-firstboot.service; then
-        echo "        firstboot completed"
+        ELAPSED=$(($(date +%s) - START_TIME))
+        log_ok "firstboot completed in \${ELAPSED}s"
         break
     fi
     if systemctl is-failed --quiet zmanim-firstboot.service; then
-        echo "        ERROR: firstboot failed!"
-        systemctl status zmanim-firstboot.service --no-pager -l || true
+        log_err "firstboot failed!"
+        journalctl -u zmanim-firstboot.service --no-pager -n 30
         exit 1
     fi
     sleep 1
 done
 
-echo "  [2/5] Starting PostgreSQL..."
+# --- 2. PostgreSQL ---
+log ""
+log "[2/5] Starting PostgreSQL 17..."
+START_TIME=$(date +%s)
 systemctl start postgresql@17-main.service
-# Wait for PostgreSQL to be ready (socket available)
 for i in {1..30}; do
     if [ -S /var/run/postgresql/.s.PGSQL.5432 ]; then
-        echo "        PostgreSQL ready (socket available)"
+        ELAPSED=$(($(date +%s) - START_TIME))
+        log_ok "PostgreSQL ready in \${ELAPSED}s (socket available)"
         break
     fi
     if systemctl is-failed --quiet postgresql@17-main.service; then
-        echo "        ERROR: PostgreSQL failed to start!"
-        systemctl status postgresql@17-main.service --no-pager -l || true
-        journalctl -u postgresql@17-main.service --no-pager -n 50 || true
+        log_err "PostgreSQL failed to start!"
+        journalctl -u postgresql@17-main.service --no-pager -n 50
         exit 1
     fi
     sleep 1
 done
 
-echo "  [3/5] Starting zmanim-db-init (creates database if needed)..."
+# --- 3. DB Init ---
+log ""
+log "[3/5] Starting zmanim-db-init (creates database if needed)..."
+START_TIME=$(date +%s)
 systemctl start zmanim-db-init.service
-# Wait for oneshot service to finish (RemainAfterExit=yes)
 for i in {1..60}; do
     if systemctl is-active --quiet zmanim-db-init.service; then
-        echo "        db-init completed"
+        ELAPSED=$(($(date +%s) - START_TIME))
+        log_ok "db-init completed in \${ELAPSED}s"
         break
     fi
     if systemctl is-failed --quiet zmanim-db-init.service; then
-        echo "        ERROR: db-init failed!"
-        systemctl status zmanim-db-init.service --no-pager -l || true
+        log_err "db-init failed!"
+        journalctl -u zmanim-db-init.service --no-pager -n 30
         exit 1
     fi
     sleep 1
 done
 
-echo "  [4/5] Starting Redis..."
+# --- 4. Redis ---
+log ""
+log "[4/5] Starting Redis..."
+START_TIME=$(date +%s)
 systemctl start redis-server
-# Wait for Redis to be ready
-for i in {1..10}; do
+for i in {1..15}; do
     if redis-cli ping 2>/dev/null | grep -q PONG; then
-        echo "        Redis ready (responding to PING)"
+        ELAPSED=$(($(date +%s) - START_TIME))
+        log_ok "Redis ready in \${ELAPSED}s (responding to PING)"
         break
+    fi
+    if systemctl is-failed --quiet redis-server; then
+        log_err "Redis failed to start!"
+        journalctl -u redis-server --no-pager -n 30
+        exit 1
     fi
     sleep 1
 done
 
-echo "  [5/5] Starting Zmanim API..."
+# --- 5. Zmanim API ---
+log ""
+log "[5/5] Starting Zmanim API..."
+START_TIME=$(date +%s)
 systemctl start zmanim-api.service
 sleep 3
 if systemctl is-active --quiet zmanim-api.service; then
-    echo "        Zmanim API started successfully"
+    ELAPSED=$(($(date +%s) - START_TIME))
+    log_ok "Zmanim API started in \${ELAPSED}s"
 else
-    echo "        WARNING: Zmanim API may have failed to start"
-    systemctl status zmanim-api.service --no-pager -l || true
+    log_warn "Zmanim API may have failed to start"
+    journalctl -u zmanim-api.service --no-pager -n 30
 fi
 
-echo ""
-echo "  Starting backup timer..."
+# --- Backup timer ---
+log ""
+log "Starting backup timer..."
 systemctl start restic-backup.timer
-systemctl is-active --quiet restic-backup.timer && echo "        Backup timer started"
+systemctl is-active --quiet restic-backup.timer && log_ok "Backup timer started"
 
 # =============================================================================
-# Step 4: Verify all services
+# Step 4: Final verification
 # =============================================================================
-echo "Step 4: Verifying services..."
-echo ""
-systemctl status postgresql --no-pager -l || true
-echo ""
-systemctl status redis-server --no-pager -l || true
-echo ""
-systemctl status zmanim-api.service --no-pager -l || true
+log_step "Step 4/4: Final verification"
 
-echo ""
-echo "User data script completed at $(date)"
+log "Service status summary:"
+for svc in zmanim-firstboot postgresql@17-main zmanim-db-init redis-server zmanim-api restic-backup.timer; do
+    if systemctl is-active --quiet "\$svc" 2>/dev/null; then
+        log_ok "\$svc: active"
+    elif systemctl is-failed --quiet "\$svc" 2>/dev/null; then
+        log_err "\$svc: failed"
+    else
+        log_warn "\$svc: inactive"
+    fi
+done
+
+log ""
+log "Disk usage:"
+df -h /data /
+
+log ""
+log "Memory usage:"
+free -h
+
+log_step "ZMANIM USER DATA SCRIPT COMPLETED"
+log "Total startup time: $(($(date +%s) - SCRIPT_START))s"
 `;
 
     const ec2Instance = new Instance(this, "ec2", {
