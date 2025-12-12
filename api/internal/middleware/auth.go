@@ -37,11 +37,32 @@ const (
 	PublisherAccessListKey contextKey = "publisher_access_list"
 )
 
+// StringOrArray handles JWT fields that can be either a string or an array of strings
+type StringOrArray []string
+
+// UnmarshalJSON implements custom unmarshaling for fields that can be string or []string
+func (s *StringOrArray) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as a string first
+	var single string
+	if err := json.Unmarshal(data, &single); err == nil {
+		*s = []string{single}
+		return nil
+	}
+
+	// Try to unmarshal as an array of strings
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return err
+	}
+	*s = arr
+	return nil
+}
+
 // Claims represents the JWT claims from Clerk
 type Claims struct {
 	Subject        string                 `json:"sub"`
 	Issuer         string                 `json:"iss"`
-	Audience       []string               `json:"aud"`
+	Audience       StringOrArray          `json:"aud"`
 	ExpiresAt      int64                  `json:"exp"`
 	IssuedAt       int64                  `json:"iat"`
 	NotBefore      int64                  `json:"nbf"`
