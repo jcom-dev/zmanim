@@ -456,9 +456,15 @@ chmod 750 /data/redis
 echo "Step 3: Enabling and starting services..."
 
 # Services were disabled in AMI to prevent startup before /data is mounted
-# Now that /data is mounted, enable and start them in the correct order
+# Now that /data is mounted, enable and start them in the correct order:
+#   1. zmanim-firstboot - fetches config from SSM (required by all)
+#   2. postgresql - database (required by db-init and api)
+#   3. zmanim-db-init - creates database/user (required by api)
+#   4. redis-server - cache (required by api)
+#   5. zmanim-api - the application (depends on all above)
+#   6. restic-backup.timer - scheduled backups
 
-echo "  Enabling services..."
+echo "  Enabling all services..."
 systemctl enable zmanim-firstboot.service
 systemctl enable postgresql
 systemctl enable zmanim-db-init.service
@@ -466,30 +472,55 @@ systemctl enable redis-server
 systemctl enable zmanim-api.service
 systemctl enable restic-backup.timer
 
-echo "  Starting zmanim-firstboot (fetches config from SSM)..."
+echo ""
+echo "  [1/5] Starting zmanim-firstboot (fetches config from SSM)..."
 systemctl start zmanim-firstboot.service
-systemctl is-active --quiet zmanim-firstboot.service || echo "    firstboot completed (oneshot)"
+# Wait for oneshot to complete
+while systemctl is-active --quiet zmanim-firstboot.service 2>/dev/null; do sleep 1; done
+echo "        firstboot completed"
 
-echo "  Starting PostgreSQL..."
+echo "  [2/5] Starting PostgreSQL..."
 systemctl start postgresql
-systemctl is-active --quiet postgresql && echo "    PostgreSQL started"
+# Wait for PostgreSQL to be ready (socket available)
+for i in {1..30}; do
+    if [ -S /var/run/postgresql/.s.PGSQL.5432 ]; then
+        echo "        PostgreSQL ready (socket available)"
+        break
+    fi
+    sleep 1
+done
 
-echo "  Starting zmanim-db-init (creates database if needed)..."
+echo "  [3/5] Starting zmanim-db-init (creates database if needed)..."
 systemctl start zmanim-db-init.service
-systemctl is-active --quiet zmanim-db-init.service || echo "    db-init completed (oneshot)"
+# Wait for oneshot to complete
+while systemctl is-active --quiet zmanim-db-init.service 2>/dev/null; do sleep 1; done
+echo "        db-init completed"
 
-echo "  Starting Redis..."
+echo "  [4/5] Starting Redis..."
 systemctl start redis-server
-systemctl is-active --quiet redis-server && echo "    Redis started"
+# Wait for Redis to be ready
+for i in {1..10}; do
+    if redis-cli ping 2>/dev/null | grep -q PONG; then
+        echo "        Redis ready (responding to PING)"
+        break
+    fi
+    sleep 1
+done
 
-echo "  Starting Zmanim API..."
+echo "  [5/5] Starting Zmanim API..."
 systemctl start zmanim-api.service
-sleep 2
-systemctl is-active --quiet zmanim-api.service && echo "    Zmanim API started"
+sleep 3
+if systemctl is-active --quiet zmanim-api.service; then
+    echo "        Zmanim API started successfully"
+else
+    echo "        WARNING: Zmanim API may have failed to start"
+    systemctl status zmanim-api.service --no-pager -l || true
+fi
 
+echo ""
 echo "  Starting backup timer..."
 systemctl start restic-backup.timer
-systemctl is-active --quiet restic-backup.timer && echo "    Backup timer started"
+systemctl is-active --quiet restic-backup.timer && echo "        Backup timer started"
 
 # =============================================================================
 # Step 4: Verify all services
