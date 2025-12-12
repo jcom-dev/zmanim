@@ -5,7 +5,7 @@ set -euo pipefail
 # This allows code updates and migrations without rebuilding the AMI
 
 BINARY_PATH="/opt/zmanim/zmanim-api"
-S3_BUCKET="${S3_RELEASES_BUCKET:-zmanim-releases}"
+S3_BUCKET="${S3_RELEASES_BUCKET:-zmanim-releases-prod}"
 S3_KEY="${S3_BINARY_KEY:-releases/latest/zmanim-api}"
 TEMP_BINARY="/tmp/zmanim-api.new"
 REPO_DIR="/opt/zmanim/repo"
