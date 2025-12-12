@@ -177,13 +177,15 @@ export class DnsStack extends cdk.Stack {
     // ==========================================================================
     // AC3: A record alias points to CloudFront
     // Creates: zmanim.shtetl.io → CloudFront distribution
-    new route53.ARecord(this, 'CloudFrontAlias', {
+    const aRecord = new route53.ARecord(this, 'CloudFrontAlias', {
       zone: hostedZone,
       recordName: 'zmanim', // zmanim.shtetl.io
       target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
       // Note: TTL is ignored for alias records - CloudFront manages the TTL
       comment: 'CloudFront distribution alias for zmanim.shtetl.io',
     });
+    // Preserve the A record if stack is deleted
+    aRecord.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
 
     // ==========================================================================
     // Story 7.8 Task 4: Health Check

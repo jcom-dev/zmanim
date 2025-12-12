@@ -1,0 +1,17 @@
+[Unit]
+Description=Backup Failure Email Notification for %i
+Documentation=https://github.com/jcomradev/zmanim
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+
+# Send failure notification
+# %i will be replaced with the failed service name
+ExecStart=/opt/zmanim/notify-failure.sh %i
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=backup-notify

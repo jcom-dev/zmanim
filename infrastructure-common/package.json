@@ -1,7 +1,7 @@
 {
-  "name": "infrastructure",
+  "name": "infrastructure-common",
   "version": "1.0.0",
-  "description": "Zmanim Infrastructure - EC2, API Gateway, CloudFront, Lambda",
+  "description": "Shtetl Common Stack - Shared infrastructure (VPC, Route53, OIDC, State bucket)",
   "main": "main.js",
   "scripts": {
     "get": "cdktf get",
@@ -14,7 +14,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.2",
-    "cdktf-cli": "^0.20.10",
+    "cdktf-cli": "^0.21.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",

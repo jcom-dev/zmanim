@@ -1,0 +1,9 @@
+{
+  "language": "typescript",
+  "app": "npx ts-node main.ts",
+  "projectId": "zmanim-prod",
+  "sendCrashReports": false,
+  "terraformProviders": [],
+  "terraformModules": [],
+  "codeMakerOutput": "imports"
+}

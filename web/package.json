@@ -1,10 +1,11 @@
 {
-  "name": "alos-hashachar-app",
+  "name": "zmanim",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
+    "build:open-next": "npx open-next build",
     "start": "next start -p 3001",
     "lint": "eslint . --ext .ts,.tsx --ignore-pattern 'node_modules' --ignore-pattern '.next'",
     "type-check": "tsc --noEmit",

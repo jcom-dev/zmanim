@@ -1,0 +1,22 @@
+[Unit]
+Description=Zmanim First Boot Configuration
+Documentation=https://github.com/jcom-dev/zmanim
+After=network-online.target
+Wants=network-online.target
+Before=postgresql.service redis-server.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/zmanim/firstboot.sh
+
+# Allow network access for SSM
+PrivateNetwork=no
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zmanim-firstboot
+
+[Install]
+WantedBy=multi-user.target

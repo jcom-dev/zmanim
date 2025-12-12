@@ -1,19 +1,31 @@
 name: Deploy Prod Infrastructure
 
-# Deploys ALL AWS infrastructure (Network, Compute, DNS, CDN, Next.js)
-# Triggers on infrastructure/ changes to main branch
+# Deploys ALL AWS infrastructure via CDKTF/Terraform
+# Two stacks: shtetl-common (shared) and zmanim-prod (application)
+# Triggers on infrastructure changes to main branch
 # Uses OIDC authentication - no static AWS credentials required
-# Region: eu-west-1 (Ireland)
 
 on:
   push:
     branches: [main]
     paths:
+      - 'infrastructure-common/**'
       - 'infrastructure/**'
   workflow_dispatch:
+    inputs:
+      stack:
+        description: 'Stack to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - shtetl-common
+          - zmanim-prod
 
 env:
   AWS_REGION: eu-west-1
+  TF_VERSION: '1.10'
   NODE_VERSION: '22'
 
 # Required for OIDC authentication
@@ -21,14 +33,15 @@ permissions:
   id-token: write
   contents: read
 
-jobs:
-  validate:
-    name: Validate CDK
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infrastructure
+# Prevent concurrent Terraform deployments
+concurrency:
+  group: prod-terraform-deploy
+  cancel-in-progress: false
 
+jobs:
+  synth-common:
+    name: CDKTF Synth (Common)
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,41 +51,26 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: infrastructure/package-lock.json
+          cache-dependency-path: infrastructure-common/package-lock.json
 
-      - name: Install infrastructure dependencies
+      - name: Install dependencies
         run: npm ci
+        working-directory: infrastructure-common
 
-      - name: Install web dependencies
-        run: npm ci
-        working-directory: web
+      - name: CDKTF Synth
+        run: npx cdktf synth
+        working-directory: infrastructure-common
 
-      - name: Synthesize CloudFormation templates
-        run: npx cdk synth
-        env:
-          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
-          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
-          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
-
-      - name: Upload synthesized templates
+      - name: Upload synthesized stacks
         uses: actions/upload-artifact@v4
         with:
-          name: cdk-out
-          path: infrastructure/cdk.out
+          name: cdktf-out-common
+          path: infrastructure-common/cdktf.out
           retention-days: 7
 
-  deploy:
-    name: Deploy to AWS
-    needs: validate
+  synth-zmanim:
+    name: CDKTF Synth (Zmanim)
     runs-on: ubuntu-latest
-    # Only deploy on tag push or manual trigger
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    defaults:
-      run:
-        working-directory: infrastructure
-    environment: production
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,77 +84,134 @@ jobs:
 
       - name: Install infrastructure dependencies
         run: npm ci
+        working-directory: infrastructure
 
-      - name: Install web dependencies
-        run: npm ci
-        working-directory: web
+      - name: CDKTF Synth
+        run: npx cdktf synth
+        working-directory: infrastructure
+
+      - name: Upload synthesized stacks
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdktf-out-zmanim
+          path: infrastructure/cdktf.out
+          retention-days: 7
+
+  deploy-common:
+    name: Deploy Shtetl Common
+    needs: synth-common
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.stack == 'all' ||
+      github.event.inputs.stack == 'shtetl-common'
+    environment: production-common
+
+    steps:
+      - name: Download synthesized stacks
+        uses: actions/download-artifact@v4
+        with:
+          name: cdktf-out-common
+          path: cdktf.out
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          role-session-name: github-actions-cdk-deploy
+          role-session-name: github-actions-terraform-common
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify AWS credentials
         run: aws sts get-caller-identity
 
-      - name: Show expected changes
-        run: npx cdk diff --all
-        env:
-          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
-          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
-          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
-        continue-on-error: true
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
 
-      - name: CDK Synth
-        run: npx cdk synth
-        env:
-          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
-          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
-          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
+      - name: Terraform Init
+        working-directory: cdktf.out/stacks/shtetl-common
+        run: terraform init
 
-      - name: Fix OpenNext symlinks
-        run: |
-          # OpenNext creates absolute symlinks to /tmp/ that break CDK publish
-          for link in $(find cdk.out -type l 2>/dev/null); do
-            target=$(readlink "$link")
-            if [[ "$target" == /tmp/* ]]; then
-              rm "$link"
-            fi
-          done
+      - name: Terraform Plan
+        working-directory: cdktf.out/stacks/shtetl-common
+        run: terraform plan -out=tfplan
 
-      - name: Deploy all stacks
-        run: npx cdk deploy --all --require-approval never --app cdk.out
-        env:
-          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PROD_CLERK_PUBLISHABLE_KEY }}
-          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
-          CLERK_SECRET_KEY: ${{ secrets.PROD_CLERK_SECRET_KEY }}
+      - name: Terraform Apply
+        working-directory: cdktf.out/stacks/shtetl-common
+        run: terraform apply -auto-approve tfplan
 
-      - name: Output deployment status
+  deploy-zmanim:
+    name: Deploy Zmanim Prod
+    needs: [deploy-common, synth-zmanim]
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      needs.synth-zmanim.result == 'success' &&
+      (needs.deploy-common.result == 'success' || needs.deploy-common.result == 'skipped') &&
+      (
+        github.event_name == 'push' ||
+        github.event.inputs.stack == 'all' ||
+        github.event.inputs.stack == 'zmanim-prod'
+      )
+    environment: production
+
+    steps:
+      - name: Download synthesized stacks
+        uses: actions/download-artifact@v4
+        with:
+          name: cdktf-out-zmanim
+          path: cdktf.out
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-terraform-zmanim
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: cdktf.out/stacks/zmanim-prod
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: cdktf.out/stacks/zmanim-prod
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: cdktf.out/stacks/zmanim-prod
+        run: terraform apply -auto-approve tfplan
+
+      - name: Deployment summary
         run: |
           echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Authentication:** OIDC (no static credentials)" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Stacks Deployed:" >> $GITHUB_STEP_SUMMARY
-          echo "- ZmanimGitHubOidc (OIDC provider + IAM role)" >> $GITHUB_STEP_SUMMARY
-          echo "- ZmanimProdNetwork" >> $GITHUB_STEP_SUMMARY
-          echo "- ZmanimProdCompute" >> $GITHUB_STEP_SUMMARY
-          echo "- ZmanimProdCDN" >> $GITHUB_STEP_SUMMARY
-          echo "- ZmanimProdDNS" >> $GITHUB_STEP_SUMMARY
+          echo "- shtetl-common (VPC, Route53, GitHub OIDC)" >> $GITHUB_STEP_SUMMARY
+          echo "- zmanim-prod (EC2, API Gateway, S3)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- Site: https://zmanim.shtetl.io" >> $GITHUB_STEP_SUMMARY
+          echo "- API Health: https://zmanim.shtetl.io/api/health" >> $GITHUB_STEP_SUMMARY
 
 # GitHub Secrets Required:
-# - AWS_ACCOUNT_ID: AWS account ID (12 digits)
-# - AWS_DEPLOY_ROLE_ARN: IAM role ARN for OIDC
-# - PROD_CLERK_PUBLISHABLE_KEY: Clerk publishable key
-# - PROD_CLERK_SECRET_KEY: Clerk secret key
+# - AWS_DEPLOY_ROLE_ARN: IAM role ARN for OIDC (arn:aws:iam::ACCOUNT:role/github-actions-deploy)
 #
-# Trigger: Changes to infrastructure/ folder on main branch
-# This workflow deploys ALL stacks including Next.js, so deploy-prod.yml
-# should NOT run when infrastructure changes.
+# GitHub Environments Required:
+# - production-common: For shtetl-common stack (shared infrastructure)
+# - production: For zmanim-prod stack (application infrastructure)
+#
+# Terraform State:
+# - shtetl-common: s3://shtetl-tf/shtetl-common/terraform.tfstate
+# - zmanim-prod: s3://shtetl-tf/zmanim-prod/terraform.tfstate

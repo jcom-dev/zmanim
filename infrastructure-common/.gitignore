@@ -26,8 +26,3 @@ dist/
 
 # Keep package-lock.json
 !package-lock.json
-
-# Packer
-packer/packer_cache/
-packer/*.pkrvars.hcl
-packer/manifest.json

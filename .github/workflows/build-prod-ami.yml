@@ -195,7 +195,7 @@ jobs:
           echo "AMI Name: zmanim-${{ steps.version.outputs.version }}"
           echo "SSM Parameter: /zmanim/prod/ami-id"
           echo ""
-          echo "CDK will read AMI ID from SSM at deploy time (no caching)"
+          echo "Terraform will read AMI ID from SSM at deploy time (no caching)"
 
       - name: Upload Packer manifest
         uses: actions/upload-artifact@v4

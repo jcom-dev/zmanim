@@ -39,7 +39,7 @@ cd /home/coder/workspace
 # Step 1: Install Go 1.25.4 (latest)
 print_status "Installing Go 1.25.4..."
 if ! command -v go &> /dev/null || [[ $(go version | grep -o '1\.25\.4') == "" ]]; then
-    wget -q https://go.dev/dl/go1.25.4.linux-amd64.tar.gz
+    cd 
     sudo rm -rf /usr/local/go
     sudo tar -C /usr/local -xzf go1.25.4.linux-amd64.tar.gz
     rm go1.25.4.linux-amd64.tar.gz
