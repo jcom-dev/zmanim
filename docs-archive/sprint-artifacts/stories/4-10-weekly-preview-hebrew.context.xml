@@ -1,0 +1,112 @@
+<story-context id="4-10-weekly-preview-hebrew" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.10</storyId>
+    <title>Weekly Preview with Hebrew Calendar</title>
+    <status>ready-for-dev</status>
+    <storyPoints>8</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-10-weekly-preview-hebrew.md</sourceStoryPath>
+    <dependencies>Story 4.2 (DSL Parser), Story 4.3 (Bilingual Naming)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>a weekly preview showing zmanim with Hebrew dates and Jewish holidays</iWant>
+    <soThat>I can verify my algorithm handles special days correctly and see how times vary throughout the week</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.10.1" title="Hebrew Calendar Integration">
+      <item>hebcal-go library integrated for Hebrew date calculations</item>
+      <item>Hebrew dates display alongside Gregorian dates</item>
+      <item>44 Jewish events/holidays recognized (from hebcal)</item>
+      <item>Shabbat and holiday indicators shown</item>
+    </criterion>
+    <criterion id="AC-4.10.2" title="Weekly View Layout">
+      <item>7-day horizontal scrollable view</item>
+      <item>Each day shows: Gregorian date, Hebrew date, day of week</item>
+      <item>Holiday/event badges displayed on relevant days</item>
+      <item>Current day highlighted</item>
+      <item>Navigation arrows to move week forward/backward</item>
+    </criterion>
+    <criterion id="AC-4.10.3" title="Zmanim Display Per Day">
+      <item>All configured zmanim shown for each day</item>
+      <item>Times update based on DSL formula calculations</item>
+      <item>Candle lighting time shown on Friday</item>
+      <item>Havdalah time shown on Saturday</item>
+      <item>Holiday-specific times shown when applicable</item>
+    </criterion>
+    <criterion id="AC-4.10.4" title="Bilingual Display">
+      <item>Hebrew date in Hebrew characters (כ״ג כסלו תשפ״ה)</item>
+      <item>Hebrew date transliteration available (23 Kislev 5785)</item>
+      <item>Day names in Hebrew (יום ראשון, יום שני, etc.)</item>
+      <item>Holiday names in Hebrew with English translation</item>
+    </criterion>
+    <criterion id="AC-4.10.5" title="Responsive Design">
+      <item>Desktop: full 7-day view visible</item>
+      <item>Tablet: 5-day view with scroll</item>
+      <item>Mobile: 3-day view with swipe</item>
+      <item>Touch-friendly navigation</item>
+    </criterion>
+    <criterion id="AC-4.10.6" title="Print/Export">
+      <item>"Print Week" button generates printable view</item>
+      <item>Clean layout for printing</item>
+      <item>Option to export as PDF or image</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.10</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-ui-wireframes.md</path>
+        <section>Weekly Preview</section>
+      </doc>
+    </docs>
+    <newDependencies>
+      <go>github.com/hebcal/hebcal-go - Hebrew calendar library</go>
+    </newDependencies>
+  </artifacts>
+
+  <serviceStructure>
+    <directory path="api/internal/calendar/">
+      <file>hebrew.go - Hebrew date service</file>
+      <file>holidays.go - Holiday detection</file>
+      <file>week.go - Weekly data assembly</file>
+    </directory>
+    <directory path="web/components/preview/">
+      <file>WeeklyPreview.tsx - Main weekly view</file>
+      <file>DayColumn.tsx - Single day column</file>
+      <file>DayZmanim.tsx - Zmanim list for day</file>
+    </directory>
+  </serviceStructure>
+
+  <hebrewDayNames>
+    <day index="0" hebrew="יום ראשון" english="Sunday"/>
+    <day index="1" hebrew="יום שני" english="Monday"/>
+    <day index="2" hebrew="יום שלישי" english="Tuesday"/>
+    <day index="3" hebrew="יום רביעי" english="Wednesday"/>
+    <day index="4" hebrew="יום חמישי" english="Thursday"/>
+    <day index="5" hebrew="יום שישי" english="Friday"/>
+    <day index="6" hebrew="שבת" english="Shabbat"/>
+  </hebrewDayNames>
+
+  <holidayCategories>
+    <category name="major">Pesach, Shavuos, Sukkos, Rosh Hashanah, Yom Kippur</category>
+    <category name="minor">Chanukah, Purim, Tu B'Shvat, Lag BaOmer</category>
+    <category name="fast">Tzom Gedaliah, Asara B'Teves, Taanit Esther, Shiva Asar B'Tammuz, Tisha B'Av</category>
+    <category name="roshChodesh">Rosh Chodesh for all months</category>
+    <category name="shabbat">Regular Shabbat, Special Shabbatot (Zachor, Parah, etc.)</category>
+  </holidayCategories>
+
+  <constraints>
+    <constraint type="performance">Week data fetch should complete in less than 500ms</constraint>
+    <constraint type="responsive">Desktop 7-day, tablet 5-day, mobile 3-day views</constraint>
+    <constraint type="print">Print stylesheet for clean printing</constraint>
+  </constraints>
+</story-context>

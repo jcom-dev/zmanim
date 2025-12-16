@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for E2E Testing (with PostGIS + pgvector)
+  postgres-test:
+    build:
+      context: ./.coder/docker
+      dockerfile: Dockerfile.postgres
+    image: zmanim-postgres:17-postgis-pgvector-test
+    container_name: zmanim-postgres-test
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=zmanim_test
+      - POSTGRES_USER=zmanim_test
+      - POSTGRES_PASSWORD=test_password
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zmanim_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for E2E Testing
+  redis-test:
+    image: redis:7-alpine
+    container_name: zmanim-redis-test
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-test-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Frontend - Next.js
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      # Test environment
+      - CLERK_TEST_PUBLISHABLE_KEY=${CLERK_TEST_PUBLISHABLE_KEY:-}
+      - CLERK_TEST_SECRET_KEY=${CLERK_TEST_SECRET_KEY:-}
+    depends_on:
+      - api
+      - postgres-test
+      - redis-test
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/.next
+
+  # Backend - Go API
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - ENVIRONMENT=development
+      # Production database
+      - DATABASE_URL=${DATABASE_URL}
+      # Test database
+      - TEST_DATABASE_URL=postgresql://zmanim_test:test_password@postgres-test:5432/zmanim_test
+      - TEST_REDIS_URL=redis://redis-test:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGINS=http://localhost:3000
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+
+volumes:
+  postgres-test-data:
+    driver: local
+  redis-test-data:
+    driver: local
+
+# Development with hot reload (alternative)
+# Use: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up

@@ -1,0 +1,82 @@
+<story-context id="8-14-unified-location-search-api-frontend-migration" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>14</storyId>
+    <title>Unified Location Search API &amp; Frontend Migration</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-14-unified-location-search-api-frontend-migration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a single /locations/search endpoint</iWant>
+    <soThat>we have one source of truth for location search</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">New /locations/search endpoint using geo_search_index</criterion>
+    <criterion id="AC2">Returns all entity types (city, district, region, country, continent)</criterion>
+    <criterion id="AC3">Supports ?q= query parameter with context parsing</criterion>
+    <criterion id="AC4">Supports ?types= to filter entity types</criterion>
+    <criterion id="AC5">Supports ?publisher_id= to filter by coverage</criterion>
+    <criterion id="AC6">Supports ?country_code= to filter by country</criterion>
+    <criterion id="AC7">Results ranked by: exact → prefix → fuzzy → population</criterion>
+    <criterion id="AC8">Response includes full hierarchy IDs</criterion>
+    <criterion id="AC9">Frontend useLocationSearch hook migrated</criterion>
+    <criterion id="AC10">Old endpoints deprecated with warning logs</criterion>
+    <criterion id="AC11">All UI components using new endpoint</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/locations.go</path>
+        <kind>handler</kind>
+        <reason>New unified search handler</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/geo_search.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>SQLc queries for geo_search_index</reason>
+      </artifact>
+      <artifact>
+        <path>web/lib/hooks/useLocationSearch.ts</path>
+        <kind>hook</kind>
+        <reason>Update to use new endpoint</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/shared/LocationSearch.tsx</path>
+        <kind>component</kind>
+        <reason>Update component</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <stories>
+        <depends-on>8.8, 8.9, 8.10 (search infrastructure)</depends-on>
+      </stories>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Requires Stories 8.8, 8.9, 8.10 completed first</constraint>
+    <constraint>Old endpoints must remain functional with warnings</constraint>
+    <constraint>Publisher filtering uses coverage JOIN</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Unified Search Endpoint</name>
+      <kind>REST endpoint</kind>
+      <signature>
+        GET /locations/search
+          ?q=london england
+          ?types=city,region
+          ?publisher_id=uuid
+          ?country_code=GB
+          ?limit=20
+      </signature>
+    </interface>
+  </interfaces>
+</story-context>

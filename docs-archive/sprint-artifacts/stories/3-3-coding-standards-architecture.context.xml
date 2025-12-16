@@ -1,0 +1,234 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.3</storyId>
+    <title>Coding Standards & Architecture Update</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-27</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-3-coding-standards-architecture.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>clear coding standards and updated architecture documentation</iWant>
+    <soThat>I know exactly how to write code that matches the project's patterns</soThat>
+    <tasks>
+      Phase 1: Review Audit Findings
+      - Read codebase-audit.md from Story 3.2
+      - Extract patterns that should be standardized
+      - Identify successful approaches to formalize
+      - Note areas needing clarification
+
+      Phase 2: Create Coding Standards Document
+      - Create docs/coding-standards.md
+      - Document frontend standards (components, state, styling, imports)
+      - Document backend standards (handlers, services, errors, logging)
+      - Document testing standards (E2E patterns, test data, cleanup)
+      - Document API standards (endpoints, responses, status codes)
+      - Include DO/DON'T examples with file references
+      - Add code review checklist
+
+      Phase 3: Update Architecture Documentation
+      - Review current docs/architecture.md
+      - Add Testing Infrastructure section
+      - Document proven patterns from Epic 1 & 2
+      - Update Clerk integration details
+      - Ensure all patterns match actual implementation
+      - Add missing sections identified in audit
+
+      Phase 4: Verification
+      - Review standards against actual codebase
+      - Ensure all examples are from real code
+      - Verify recommendations are actionable
+      - Get team/stakeholder approval
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    AC-1: Frontend Coding Standards
+    - Component naming and file structure conventions
+    - Client vs Server component usage guidelines ('use client' directive)
+    - State management guidelines (Clerk hooks, TanStack Query, Context)
+    - Form handling standard approach
+    - Error handling and loading state patterns
+    - Styling approach (Tailwind conventions, responsive breakpoints)
+    - Icon usage (Lucide React patterns)
+    - Import organization
+    - TypeScript usage guidelines (types for Clerk metadata, etc.)
+
+    AC-2: Backend Coding Standards
+    - Handler structure and naming conventions (Chi router patterns)
+    - Service layer guidelines (context passing, error wrapping)
+    - Error handling and response formatting (Respond helpers)
+    - Database access patterns (pgx Pool usage)
+    - Logging conventions (slog structured logging)
+    - Clerk integration patterns (SDK usage, metadata updates)
+    - Testing approach for Go code
+
+    AC-3: Testing Standards
+    - E2E test file organization (test.describe, beforeAll, afterAll, beforeEach)
+    - Test data conventions (TEST_ prefix, test-zmanim.example.com domain)
+    - Auth injection patterns (Clerk testing library usage)
+    - Fixture usage patterns (test data creation and cleanup)
+    - Cleanup conventions (idempotent, comprehensive)
+    - Test naming conventions
+    - Assertion patterns
+
+    AC-4: API Standards
+    - Endpoint naming conventions
+    - Request/response format standards
+    - Error response structure
+    - Authentication header requirements
+    - Status code usage
+    - Pagination approach (if applicable)
+
+    AC-5: Architecture Document Update
+    - Review current docs/architecture.md
+    - Add Testing Infrastructure section based on Stories 3.0 & 3.1
+    - Update patterns proven during Epic 1 & 2
+    - Document Clerk integration patterns
+    - Document error handling patterns
+    - Ensure architecture matches actual implementation
+    - Add diagrams for key flows if needed
+
+    AC-6: Standards Document Created
+    - Create docs/coding-standards.md
+    - Include code examples for each standard
+    - Reference specific files as examples
+    - Make standards actionable (DO this, DON'T that)
+    - Organize by category (Frontend, Backend, Testing, API)
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/codebase-audit.md</path>
+        <title>Codebase Audit (from Story 3.2)</title>
+        <section>All findings from audit</section>
+        <snippet>Complete audit of Epic 1 & 2 implementation identifying frontend/backend/testing patterns, technical debt, inconsistencies, and recommendations for standardization. Source of truth for what patterns exist and should be formalized.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Current System Architecture</title>
+        <section>Project Structure, Tech Stack, Patterns</section>
+        <snippet>Defines current architecture with Next.js 16, Go 1.21, Chi router, Supabase, Clerk auth. Needs updates: add testing infrastructure section, document proven patterns, ensure reality matches documentation.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/stories/3-2-codebase-audit-documentation.md</path>
+        <title>Story 3.2: Codebase Audit</title>
+        <section>Technical Notes, Implementation Approach</section>
+        <snippet>Contains detailed template for audit document including frontend/backend/testing patterns, technical debt inventory, lessons learned, git history analysis, and recommendations</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>web/components/home/RoleNavigation.tsx</path>
+        <kind>component-example</kind>
+        <symbol>RoleNavigation</symbol>
+        <lines>1-55</lines>
+        <reason>Example to reference in standards: client component with 'use client', Clerk useUser hook, metadata type-casting, Lucide icons, Tailwind styling</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/admin.go</path>
+        <kind>handler-example</kind>
+        <symbol>AdminGetPublisherUsers</symbol>
+        <lines>17-59</lines>
+        <reason>Example to reference in standards: Chi URLParam, context passing, validation, service call, slog logging, Respond helpers</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/clerk_service.go</path>
+        <kind>service-example</kind>
+        <symbol>ClerkService methods</symbol>
+        <lines>1-100</lines>
+        <reason>Example to reference in standards: service struct, context-first params, error wrapping, Clerk SDK usage, structured logging</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/admin/publishers.spec.ts</path>
+        <kind>test-example</kind>
+        <symbol>Admin Publisher Management tests</symbol>
+        <lines>20-94</lines>
+        <reason>Example to reference in standards: test.describe, beforeEach for auth, proper assertions, waitForLoadState pattern</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/response.go</path>
+        <kind>utility-example</kind>
+        <symbol>Response helpers</symbol>
+        <lines>all</lines>
+        <reason>Standard response helpers to document: RespondJSON, RespondInternalError, RespondNotFound, RespondValidationError</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <documentation>
+        <tool name="Markdown" usage="Documentation format for coding-standards.md" />
+        <template name="Story 3.2 audit template" usage="Source for patterns to standardize" />
+      </documentation>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Standards must be based on actual patterns from codebase audit (Story 3.2), not invented
+    - All code examples must be from real project files with file references
+    - Standards must be actionable: clear DO/DON'T format with examples
+    - Architecture updates must reflect actual implementation, not aspirational design
+    - Testing infrastructure section must document Stories 3.0 & 3.1 patterns
+    - Standards should be living document (note that patterns may evolve)
+    - Focus on consistency over perfection
+    - Document when to deviate from standards (with good reason)
+    - Include code review checklist for enforcement
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Coding Standards Document Structure</name>
+      <kind>Document Template</kind>
+      <signature>
+        # Coding Standards
+        - General Principles
+        - Frontend Standards (components, state, styling, imports)
+        - Backend Standards (handlers, services, errors, logging)
+        - Testing Standards (E2E patterns, test data)
+        - API Standards (endpoints, responses, status codes)
+        - Code Review Checklist
+        - When to Deviate
+      </signature>
+      <path>docs/sprint-artifacts/stories/3-3-coding-standards-architecture.md:456-640</path>
+    </interface>
+    <interface>
+      <name>Architecture Testing Section</name>
+      <kind>Documentation Section</kind>
+      <signature>
+        ## Testing Infrastructure
+        - E2E Testing with Playwright
+        - Authentication (@clerk/testing/playwright)
+        - Test Data (fixtures, naming conventions)
+        - Coverage (130+ test scenarios from Story 3.1)
+      </signature>
+      <path>Story 3.3 specification</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      No new tests required for this story - it is a documentation task. However, the standards document will define testing standards for future stories.
+
+      Verification: Review docs/coding-standards.md against actual codebase to ensure all examples are accurate and patterns match reality.
+    </standards>
+    <locations>
+      N/A - Documentation story
+    </locations>
+    <ideas>
+      AC-1 Frontend Standards: Extract patterns from audit, create examples from RoleNavigation.tsx and other components, document DO/DON'T patterns
+
+      AC-2 Backend Standards: Extract patterns from audit, create examples from admin.go and clerk_service.go, document handler template
+
+      AC-3 Testing Standards: Document patterns from Stories 3.0 & 3.1, reference test files as examples, codify test data and cleanup conventions
+
+      AC-4 API Standards: Define endpoint naming, status codes, error responses based on actual API implementation
+
+      AC-5 Architecture Update: Add testing infrastructure section, update with patterns from Epic 1 & 2, ensure alignment with reality
+
+      AC-6 Standards Document: Create comprehensive docs/coding-standards.md with all sections, examples, and code review checklist
+    </ideas>
+  </tests>
+</story-context>

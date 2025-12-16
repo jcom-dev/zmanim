@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Shtetl Zmanim Pre-commit Hook
+# Runs compliance checks before allowing commit
+
+echo "🔍 Running pre-commit checks..."
+
+# Run compliance check script
+./scripts/check-compliance.sh --staged
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Pre-commit checks failed!"
+    echo "   Fix violations above or use 'git commit --no-verify' to skip (not recommended)"
+    exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0

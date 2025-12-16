@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Zmanim Calendar - Manchester Style</title>
+    <style>
+        /* A4 Page Setup */
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #e0e0e0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* A4 Paper Container */
+        .a4-page {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            padding: 8mm;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Bar */
+        .header-bar {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            color: white;
+            padding: 4mm 6mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3mm;
+        }
+
+        .header-bar .publisher-name {
+            font-size: 11pt;
+            font-weight: bold;
+        }
+
+        .header-bar .hebrew-title {
+            font-size: 11pt;
+            font-weight: bold;
+            direction: rtl;
+        }
+
+        /* Sub Header */
+        .sub-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2mm 0;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 2mm;
+        }
+
+        .sub-header .week-info {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #1a1a1a;
+        }
+
+        .sub-header .hebrew-month {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #1a1a1a;
+            direction: rtl;
+        }
+
+        /* Main Calendar Grid */
+        .calendar-grid {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        /* Day Row */
+        .day-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            border: 1px solid #999;
+            border-bottom: none;
+            min-height: 32mm;
+        }
+
+        .day-row:last-child {
+            border-bottom: 1px solid #999;
+        }
+
+        /* Zmanim Section (left side) */
+        .zmanim-section {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+            padding: 2mm;
+            border-right: 1px solid #ccc;
+        }
+
+        .zman-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1mm;
+            padding: 0 2mm;
+            border-right: 1px solid #eee;
+        }
+
+        .zman-column:last-child {
+            border-right: none;
+        }
+
+        .zman-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 8pt;
+            line-height: 1.4;
+        }
+
+        .zman-item .time {
+            font-weight: bold;
+            font-size: 9pt;
+            min-width: 28px;
+        }
+
+        .zman-item .name {
+            color: #444;
+            font-size: 7pt;
+            text-align: right;
+            flex: 1;
+            margin-left: 2mm;
+        }
+
+        /* Day Info Section (right side) */
+        .day-info {
+            width: 28mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2mm;
+            background: #f8f8f8;
+            text-align: center;
+        }
+
+        .day-info .hebrew-day {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #1a1a1a;
+            direction: rtl;
+        }
+
+        .day-info .hebrew-date-num {
+            font-size: 22pt;
+            font-weight: bold;
+            color: #1a1a1a;
+            line-height: 1;
+            direction: rtl;
+        }
+
+        .day-info .english-day {
+            font-size: 7pt;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .day-info .gregorian-num {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #333;
+            line-height: 1;
+        }
+
+        /* Shabbos Row Special */
+        .day-row.shabbos {
+            background: linear-gradient(to right, #f0f4ff 0%, #e8eeff 70%, #dbeafe 100%);
+        }
+
+        .day-row.shabbos .day-info {
+            background: #c7d2fe;
+        }
+
+        .day-row.shabbos .hebrew-day {
+            font-size: 11pt;
+        }
+
+        /* Friday Erev Shabbos */
+        .day-row.friday .day-info {
+            background: #fef3c7;
+        }
+
+        /* Event/Holiday Badge */
+        .event-badge {
+            font-size: 7pt;
+            color: #b45309;
+            font-weight: bold;
+            margin-top: 1mm;
+        }
+
+        /* Special Times Section */
+        .special-times {
+            display: flex;
+            gap: 3mm;
+            margin-top: auto;
+            padding-top: 2mm;
+            border-top: 1px dashed #ccc;
+            font-size: 8pt;
+        }
+
+        .special-time {
+            display: flex;
+            align-items: center;
+            gap: 1mm;
+        }
+
+        .special-time .icon {
+            font-size: 10pt;
+        }
+
+        .special-time .label {
+            font-size: 7pt;
+            color: #666;
+        }
+
+        .special-time .time {
+            font-weight: bold;
+            font-size: 9pt;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 3mm;
+            padding-top: 2mm;
+            border-top: 1px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            font-size: 6pt;
+            color: #666;
+        }
+
+        /* Bottom time scale (like Manchester) */
+        .time-scale {
+            background: #f5f5f5;
+            padding: 1mm 2mm;
+            font-size: 6pt;
+            color: #666;
+            text-align: center;
+            border-top: 1px solid #ccc;
+            margin-top: 2mm;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .a4-page {
+                width: 100%;
+                min-height: auto;
+                box-shadow: none;
+                page-break-after: always;
+            }
+
+            .controls {
+                display: none;
+            }
+        }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .controls button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .controls button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="window.print()">Print Preview</button>
+    </div>
+
+    <div class="a4-page">
+        <!-- Header Bar -->
+        <div class="header-bar">
+            <span class="publisher-name">MACHAZEKEI HADASS COMMUNITIES MANCHESTER</span>
+            <span class="hebrew-title">קהלת קדושה מחזיקי הדת מנצסתר יצ"ו</span>
+        </div>
+
+        <!-- Sub Header -->
+        <div class="sub-header">
+            <span class="week-info">January '25</span>
+            <span class="hebrew-month">טבת תשפ"ה</span>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div class="calendar-grid">
+
+            <!-- Sunday -->
+            <div class="day-row">
+                <div class="zmanim-section">
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">5:45</span><span class="name">Alos Hashachar</span></div>
+                        <div class="zman-item"><span class="time">7:20</span><span class="name">Sunrise</span></div>
+                        <div class="zman-item"><span class="time">9:32</span><span class="name">Latest Shema</span></div>
+                        <div class="zman-item"><span class="time">10:28</span><span class="name">Latest Shacharis</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">12:05</span><span class="name">Chatzos</span></div>
+                        <div class="zman-item"><span class="time">12:35</span><span class="name">Mincha Gedolah</span></div>
+                        <div class="zman-item"><span class="time">3:28</span><span class="name">Mincha Ketanah</span></div>
+                        <div class="zman-item"><span class="time">4:05</span><span class="name">Plag HaMincha</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">4:38</span><span class="name">Sunset</span></div>
+                        <div class="zman-item"><span class="time">5:12</span><span class="name">Nightfall (3 Stars)</span></div>
+                        <div class="zman-item"><span class="time">5:43</span><span class="name">Rabbeinu Tam</span></div>
+                    </div>
+                </div>
+                <div class="day-info">
+                    <span class="hebrew-day">יום ראשון</span>
+                    <span class="hebrew-date-num">ג׳</span>
+                    <span class="english-day">Sunday</span>
+                    <span class="gregorian-num">5</span>
+                </div>
+            </div>
+
+            <!-- Monday -->
+            <div class="day-row">
+                <div class="zmanim-section">
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">5:45</span><span class="name">Alos Hashachar</span></div>
+                        <div class="zman-item"><span class="time">7:20</span><span class="name">Sunrise</span></div>
+                        <div class="zman-item"><span class="time">9:33</span><span class="name">Latest Shema</span></div>
+                        <div class="zman-item"><span class="time">10:28</span><span class="name">Latest Shacharis</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">12:05</span><span class="name">Chatzos</span></div>
+                        <div class="zman-item"><span class="time">12:36</span><span class="name">Mincha Gedolah</span></div>
+                        <div class="zman-item"><span class="time">3:29</span><span class="name">Mincha Ketanah</span></div>
+                        <div class="zman-item"><span class="time">4:06</span><span class="name">Plag HaMincha</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">4:39</span><span class="name">Sunset</span></div>
+                        <div class="zman-item"><span class="time">5:13</span><span class="name">Nightfall (3 Stars)</span></div>
+                        <div class="zman-item"><span class="time">5:44</span><span class="name">Rabbeinu Tam</span></div>
+                    </div>
+                </div>
+                <div class="day-info">
+                    <span class="hebrew-day">יום שני</span>
+                    <span class="hebrew-date-num">ד׳</span>
+                    <span class="english-day">Monday</span>
+                    <span class="gregorian-num">6</span>
+                </div>
+            </div>
+
+            <!-- Tuesday -->
+            <div class="day-row">
+                <div class="zmanim-section">
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">5:45</span><span class="name">Alos Hashachar</span></div>
+                        <div class="zman-item"><span class="time">7:21</span><span class="name">Sunrise</span></div>
+                        <div class="zman-item"><span class="time">9:33</span><span class="name">Latest Shema</span></div>
+                        <div class="zman-item"><span class="time">10:29</span><span class="name">Latest Shacharis</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">12:06</span><span class="name">Chatzos</span></div>
+                        <div class="zman-item"><span class="time">12:36</span><span class="name">Mincha Gedolah</span></div>
+                        <div class="zman-item"><span class="time">3:30</span><span class="name">Mincha Ketanah</span></div>
+                        <div class="zman-item"><span class="time">4:07</span><span class="name">Plag HaMincha</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">4:40</span><span class="name">Sunset</span></div>
+                        <div class="zman-item"><span class="time">5:14</span><span class="name">Nightfall (3 Stars)</span></div>
+                        <div class="zman-item"><span class="time">5:45</span><span class="name">Rabbeinu Tam</span></div>
+                    </div>
+                </div>
+                <div class="day-info">
+                    <span class="hebrew-day">יום שלישי</span>
+                    <span class="hebrew-date-num">ה׳</span>
+                    <span class="english-day">Tuesday</span>
+                    <span class="gregorian-num">7</span>
+                </div>
+            </div>
+
+            <!-- Wednesday -->
+            <div class="day-row">
+                <div class="zmanim-section">
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">5:46</span><span class="name">Alos Hashachar</span></div>
+                        <div class="zman-item"><span class="time">7:21</span><span class="name">Sunrise</span></div>
+                        <div class="zman-item"><span class="time">9:33</span><span class="name">Latest Shema</span></div>
+                        <div class="zman-item"><span class="time">10:29</span><span class="name">Latest Shacharis</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">12:06</span><span class="name">Chatzos</span></div>
+                        <div class="zman-item"><span class="time">12:37</span><span class="name">Mincha Gedolah</span></div>
+                        <div class="zman-item"><span class="time">3:31</span><span class="name">Mincha Ketanah</span></div>
+                        <div class="zman-item"><span class="time">4:08</span><span class="name">Plag HaMincha</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">4:41</span><span class="name">Sunset</span></div>
+                        <div class="zman-item"><span class="time">5:15</span><span class="name">Nightfall (3 Stars)</span></div>
+                        <div class="zman-item"><span class="time">5:46</span><span class="name">Rabbeinu Tam</span></div>
+                    </div>
+                </div>
+                <div class="day-info">
+                    <span class="hebrew-day">יום רביעי</span>
+                    <span class="hebrew-date-num">ו׳</span>
+                    <span class="english-day">Wednesday</span>
+                    <span class="gregorian-num">8</span>
+                </div>
+            </div>
+
+            <!-- Thursday -->
+            <div class="day-row">
+                <div class="zmanim-section">
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">5:46</span><span class="name">Alos Hashachar</span></div>
+                        <div class="zman-item"><span class="time">7:21</span><span class="name">Sunrise</span></div>
+                        <div class="zman-item"><span class="time">9:33</span><span class="name">Latest Shema</span></div>
+                        <div class="zman-item"><span class="time">10:29</span><span class="name">Latest Shacharis</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">12:07</span><span class="name">Chatzos</span></div>
+                        <div class="zman-item"><span class="time">12:37</span><span class="name">Mincha Gedolah</span></div>
+                        <div class="zman-item"><span class="time">3:32</span><span class="name">Mincha Ketanah</span></div>
+                        <div class="zman-item"><span class="time">4:09</span><span class="name">Plag HaMincha</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">4:42</span><span class="name">Sunset</span></div>
+                        <div class="zman-item"><span class="time">5:16</span><span class="name">Nightfall (3 Stars)</span></div>
+                        <div class="zman-item"><span class="time">5:47</span><span class="name">Rabbeinu Tam</span></div>
+                    </div>
+                </div>
+                <div class="day-info">
+                    <span class="hebrew-day">יום חמישי</span>
+                    <span class="hebrew-date-num">ז׳</span>
+                    <span class="english-day">Thursday</span>
+                    <span class="gregorian-num">9</span>
+                </div>
+            </div>
+
+            <!-- Friday -->
+            <div class="day-row friday">
+                <div class="zmanim-section">
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">5:46</span><span class="name">Alos Hashachar</span></div>
+                        <div class="zman-item"><span class="time">7:21</span><span class="name">Sunrise</span></div>
+                        <div class="zman-item"><span class="time">9:34</span><span class="name">Latest Shema</span></div>
+                        <div class="zman-item"><span class="time">10:30</span><span class="name">Latest Shacharis</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">12:07</span><span class="name">Chatzos</span></div>
+                        <div class="zman-item"><span class="time">12:38</span><span class="name">Mincha Gedolah</span></div>
+                        <div class="zman-item"><span class="time">3:33</span><span class="name">Mincha Ketanah</span></div>
+                        <div class="zman-item"><span class="time">4:10</span><span class="name">Plag HaMincha</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">4:43</span><span class="name">Sunset</span></div>
+                        <div class="zman-item"><span class="time">5:17</span><span class="name">Nightfall (3 Stars)</span></div>
+                        <div class="special-times">
+                            <div class="special-time">
+                                <span class="label">Candles</span>
+                                <span class="time">4:25</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="day-info">
+                    <span class="hebrew-day">יום ששי</span>
+                    <span class="hebrew-date-num">ח׳</span>
+                    <span class="english-day">Friday</span>
+                    <span class="gregorian-num">10</span>
+                </div>
+            </div>
+
+            <!-- Shabbos -->
+            <div class="day-row shabbos">
+                <div class="zmanim-section">
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">5:47</span><span class="name">Alos Hashachar</span></div>
+                        <div class="zman-item"><span class="time">7:22</span><span class="name">Sunrise</span></div>
+                        <div class="zman-item"><span class="time">9:34</span><span class="name">Latest Shema</span></div>
+                        <div class="zman-item"><span class="time">10:30</span><span class="name">Latest Shacharis</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">12:08</span><span class="name">Chatzos</span></div>
+                        <div class="zman-item"><span class="time">12:38</span><span class="name">Mincha Gedolah</span></div>
+                        <div class="zman-item"><span class="time">3:34</span><span class="name">Mincha Ketanah</span></div>
+                        <div class="zman-item"><span class="time">4:11</span><span class="name">Plag HaMincha</span></div>
+                    </div>
+                    <div class="zman-column">
+                        <div class="zman-item"><span class="time">4:43</span><span class="name">Sunset</span></div>
+                        <div class="special-times">
+                            <div class="special-time">
+                                <span class="label">Havdalah</span>
+                                <span class="time">5:30</span>
+                            </div>
+                            <div class="special-time">
+                                <span class="label">R"T</span>
+                                <span class="time">5:48</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="day-info">
+                    <span class="hebrew-day">שבת קודש</span>
+                    <span class="hebrew-date-num">ט׳</span>
+                    <span class="event-badge">פ׳ ויחי</span>
+                    <span class="gregorian-num">11</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Time Scale Footer (like Manchester) -->
+        <div class="time-scale">
+            מנחה בתוך הי"ד: 12:51 | מנחה קטנה: 3:00 | פלג: 4:00 | שקיעה: 4:30 | מעריב בתוך צ"ג: 5:00
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <span>Generated: January 5, 2025 • via Shtetl.io</span>
+            <span>Brooklyn, NY (40.6782, -73.9442) • America/New_York</span>
+        </div>
+    </div>
+</body>
+</html>

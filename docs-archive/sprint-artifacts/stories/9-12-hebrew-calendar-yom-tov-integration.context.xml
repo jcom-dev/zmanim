@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.12" title="Hebrew Calendar/Yom Tov Integration">
+  <summary>
+    This context file provides all information needed to integrate Hebrew calendar support
+    into the DSL formula executor, enabling Yom Tov detection and conditional formulas.
+  </summary>
+
+  <current-state>
+    <description>
+      The DSL executor has no concept of Hebrew calendar. Formulas cannot detect Yom Tov,
+      Shabbat, or use Hebrew date logic. All calculations use Gregorian dates only.
+    </description>
+
+    <dsl-structure>
+      api/internal/dsl/
+      ├── dsl.go           # Main DSL parser and executor
+      ├── lexer.go         # Token lexer
+      ├── parser.go        # Expression parser
+      ├── ast.go           # Abstract syntax tree
+      └── executor.go      # Formula execution
+    </dsl-structure>
+  </current-state>
+
+  <target-state>
+    <description>
+      - hebcal-go library integrated for Hebrew calendar
+      - IsYomTov() function available in DSL
+      - IsShabbat() function available in DSL
+      - Hebrew date utilities available
+      - Conditional formulas based on day type
+    </description>
+
+    <new-dsl-functions>
+      <function name="IsYomTov">
+        <description>Returns true if date is a biblical Yom Tov</description>
+        <example>if(IsYomTov, sunset - 18min, sunset - 40min)</example>
+      </function>
+      <function name="IsShabbat">
+        <description>Returns true if date is Saturday</description>
+        <example>if(IsShabbat, @mincha_gedola, @mincha_gedola + 30min)</example>
+      </function>
+      <function name="IsShabbatOrYomTov">
+        <description>Returns true if Shabbat OR Yom Tov</description>
+        <example>if(IsShabbatOrYomTov, sunset - 18min, sunset)</example>
+      </function>
+    </new-dsl-functions>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/api/internal/dsl/dsl.go" relevance="primary">
+      <description>Main DSL file. Hebrew calendar functions will be integrated here.</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/internal/dsl/executor.go" relevance="primary">
+      <description>Executor that evaluates formulas. Function map needs Hebrew calendar additions.</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/internal/dsl/parser.go" relevance="secondary">
+      <description>Parser for DSL expressions. May need updates for if() syntax.</description>
+    </file>
+  </files>
+
+  <files-to-create>
+    <file path="api/internal/dsl/hebrew_calendar.go">
+      <purpose>Hebrew calendar helper functions using hebcal-go</purpose>
+    </file>
+  </files-to-create>
+
+  <dependencies>
+    <dependency>
+      <name>hebcal-go</name>
+      <install>go get github.com/hebcal/hebcal-go</install>
+      <usage>Hebrew date conversion, holiday detection, Shabbat times</usage>
+    </dependency>
+  </dependencies>
+
+  <implementation-guide>
+    <step n="1">
+      <task>Install hebcal-go</task>
+      <code>
+cd api
+go get github.com/hebcal/hebcal-go
+      </code>
+    </step>
+    <step n="2">
+      <task>Create Hebrew calendar helper</task>
+      <code>
+package dsl
+
+import (
+    "time"
+    "github.com/hebcal/hebcal-go/hebcal"
+    "github.com/hebcal/hebcal-go/hdate"
+)
+
+type HebrewCalendar struct {
+    diaspora bool
+}
+
+func NewHebrewCalendar(isInIsrael bool) *HebrewCalendar {
+    return &HebrewCalendar{diaspora: !isInIsrael}
+}
+
+func (hc *HebrewCalendar) IsYomTov(t time.Time) bool {
+    hd := hdate.FromGregorian(t.Year(), int(t.Month()), t.Day())
+    events := hebcal.GetHolidaysForYear(hd.Year(), hc.diaspora)
+    for _, ev := range events {
+        if ev.Date.Abs() == hd.Abs() && ev.Flags&hebcal.CHAG != 0 {
+            return true
+        }
+    }
+    return false
+}
+
+func (hc *HebrewCalendar) IsShabbat(t time.Time) bool {
+    return t.Weekday() == time.Saturday
+}
+      </code>
+    </step>
+    <step n="3">
+      <task>Add to executor function map</task>
+      <code>
+func (e *Executor) evaluateFunction(name string, args []interface{}) (time.Time, error) {
+    switch name {
+    case "IsYomTov":
+        if e.hebrewCal.IsYomTov(e.date) {
+            return e.date, nil // truthy
+        }
+        return time.Time{}, nil // falsy
+    case "IsShabbat":
+        if e.hebrewCal.IsShabbat(e.date) {
+            return e.date, nil
+        }
+        return time.Time{}, nil
+    // ... existing functions
+    }
+}
+      </code>
+    </step>
+    <step n="4">
+      <task>Implement conditional if() syntax</task>
+      <code>
+// if(condition, true_formula, false_formula)
+func (e *Executor) evaluateIf(condition, trueExpr, falseExpr Expression) (time.Time, error) {
+    result, err := e.evaluate(condition)
+    if err != nil {
+        return time.Time{}, err
+    }
+
+    if !result.IsZero() { // truthy
+        return e.evaluate(trueExpr)
+    }
+    return e.evaluate(falseExpr)
+}
+      </code>
+    </step>
+  </implementation-guide>
+
+  <yom-tov-reference>
+    <holiday name="Rosh Hashanah" hebrew="1-2 Tishrei" note="Always 2 days" />
+    <holiday name="Yom Kippur" hebrew="10 Tishrei" note="1 day" />
+    <holiday name="Sukkot" hebrew="15-16 Tishrei" note="Israel: 15 only" />
+    <holiday name="Shemini Atzeret" hebrew="22 Tishrei" note="Diaspora: 22-23" />
+    <holiday name="Pesach" hebrew="15-16, 21-22 Nisan" note="Israel: 15, 21" />
+    <holiday name="Shavuot" hebrew="6-7 Sivan" note="Israel: 6 only" />
+  </yom-tov-reference>
+
+  <testing>
+    <test-case name="IsYomTov on Rosh Hashanah">
+      <date>2024-10-03</date>
+      <expected>true</expected>
+    </test-case>
+    <test-case name="IsYomTov on regular day">
+      <date>2024-06-15</date>
+      <expected>false</expected>
+    </test-case>
+    <test-case name="IsShabbat on Saturday">
+      <date>2024-06-15</date>
+      <expected>true</expected>
+    </test-case>
+    <test-case name="Israel vs Diaspora">
+      <description>Test that Israel gets 1-day holidays, diaspora gets 2</description>
+    </test-case>
+    <test-case name="Conditional formula">
+      <formula>if(IsYomTov, sunset - 18min, sunset - 40min)</formula>
+      <description>Verify correct branch evaluated based on date</description>
+    </test-case>
+  </testing>
+</story-context>

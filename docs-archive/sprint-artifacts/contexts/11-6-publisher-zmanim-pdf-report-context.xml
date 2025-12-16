@@ -1,0 +1,950 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>11.6</story-id>
+    <story-name>Publisher Zmanim Report (PDF Export)</story-name>
+    <epic>Epic 11: Publisher Zmanim Registry Interface</epic>
+    <status>ready</status>
+    <created>2025-12-22</created>
+    <dependencies>
+      <dependency>Story 11.5 (Algorithm Page exists with header for button placement)</dependency>
+      <dependency>Mapbox API key configured in AWS SSM</dependency>
+      <dependency>Existing DSL calculation engine functional</dependency>
+      <dependency>Master zmanim registry populated with formula_explanation (from Story 11.0)</dependency>
+    </dependencies>
+  </metadata>
+
+  <story-overview>
+    <user-story>
+      As a **publisher**,
+      I want **to generate a comprehensive, beautifully designed PDF report of my zmanim calculations for a specific location and date**,
+      so that **I can share transparent, trustworthy documentation with end-users who want to understand exactly how each time was calculated**.
+    </user-story>
+
+    <key-deliverables>
+      <deliverable>Print button on Algorithm Page (/publisher/algorithm)</deliverable>
+      <deliverable>Configuration modal with location/date/glossary options</deliverable>
+      <deliverable>PDF generation service with modern design</deliverable>
+      <deliverable>Comprehensive PDF content: publisher header, location details, zmanim table, glossary</deliverable>
+      <deliverable>Mapbox static map integration for location visualization</deliverable>
+      <deliverable>DSL primitives and functions reference documentation</deliverable>
+      <deliverable>Cache strategy (1-hour TTL per unique request)</deliverable>
+    </key-deliverables>
+
+    <technical-approach>
+      <approach>Use github.com/johnfercher/maroto for PDF generation (modern, supports tables, images, colors, gradients)</approach>
+      <approach>Mapbox Static Images API for location maps (free tier: 50,000 requests/month)</approach>
+      <approach>Reuse existing DSL tokenizer/parser for primitive/function extraction</approach>
+      <approach>Redis cache with 1-hour TTL (key: pdf:zmanim:{publisher_id}:{locality_id}:{date}:{glossary})</approach>
+      <approach>POST /api/v1/publisher/reports/zmanim-pdf endpoint returning PDF binary stream</approach>
+    </technical-approach>
+  </story-overview>
+
+  <acceptance-criteria>
+    <ui-components>
+      <criterion id="AC-1">
+        Print button on /publisher/algorithm page header with printer icon
+      </criterion>
+      <criterion id="AC-2">
+        Configuration modal with:
+        - Location autocomplete dropdown
+        - Date picker (default: today)
+        - "Include Glossary" toggle (default: ON)
+        - Preview note
+        - "Generate PDF" and "Cancel" buttons
+      </criterion>
+      <criterion id="AC-3">
+        PDF generation flow:
+        - Loading indicator: "Generating your report..."
+        - API call: POST /api/v1/publisher/reports/zmanim-pdf
+        - Automatic download to browser
+        - Toast notification: "Zmanim report generated successfully"
+        - Modal closes after download
+      </criterion>
+    </ui-components>
+
+    <pdf-content>
+      <criterion id="AC-4">
+        Section 1: Publisher Header
+        - Publisher logo (from publishers.logo_url, fallback icon)
+        - Publisher name (large, bold)
+        - Publisher description
+        - Timestamp: "Generated on Dec 22, 2025 at 3:45 PM UTC"
+        - Modern gradient background (indigo-to-purple)
+      </criterion>
+      <criterion id="AC-5">
+        Section 2: Location Details
+        - Location name
+        - Coordinates (latitude/longitude)
+        - Elevation (meters)
+        - Timezone (e.g., "Asia/Jerusalem (UTC+2)")
+        - Embedded static map (400x200px, zoom 10, red pin marker)
+        - Card layout with icons for each field
+      </criterion>
+      <criterion id="AC-6">
+        Section 3: Report Metadata
+        - Selected date (full format: "Friday, December 22, 2025")
+        - Hebrew date (if available)
+        - Sunrise/Sunset preview times
+        - Timeline graphic showing daylight hours
+      </criterion>
+      <criterion id="AC-7">
+        Section 4: Zmanim List (Main Content)
+        - Table with columns: Zman Name (Hebrew+English), Calculated Time (HH:MM:SS), DSL Formula (syntax-highlighted), Explanation, Rounded Time (HH:MM)
+        - Monospace font for formulas
+        - Syntax color-coding (primitives: blue, functions: green, numbers: orange)
+        - Alternating row backgrounds
+        - Category icons (dawn, prayer, midday, afternoon, evening, night)
+      </criterion>
+      <criterion id="AC-8">
+        Section 5: Glossary - Primitives (if enabled)
+        - 2-column expandable cards
+        - For each primitive used: name, definition, calculation method, scientific source
+        - Only includes primitives actually used in the report
+      </criterion>
+      <criterion id="AC-9">
+        Section 6: Glossary - Functions (if enabled)
+        - 2-column expandable cards
+        - For each function used: name, purpose, syntax, parameters, example usage
+        - Only includes functions actually used in the report
+      </criterion>
+      <criterion id="AC-10">
+        PDF Footer (all pages)
+        - Page number (e.g., "Page 2 of 5")
+        - Shtetl Zmanim branding (small logo)
+        - Disclaimer: "Calculations provided for educational purposes. Consult your local halachic authority."
+        - Generated timestamp
+      </criterion>
+    </pdf-content>
+
+    <design-requirements>
+      <criterion id="AC-11">
+        Visual Style:
+        - Modern &amp; vibrant with gradient headers
+        - Color palette: Indigo (#4F46E5), Purple (#7C3AED), Green (#10B981), Orange (#F59E0B), Gray scale
+        - Typography: Headers (Inter/Helvetica bold), Body (regular sans-serif), Code (JetBrains Mono/Courier), Hebrew (Frank Ruehl CLM)
+        - Layout: A4 (210mm x 297mm), 20mm margins
+        - Accessibility: High contrast (4.5:1 ratio), clear hierarchy (H1/H2/H3), readable font sizes (body: 11pt, headers: 14-18pt)
+      </criterion>
+      <criterion id="AC-12">
+        Performance:
+        - PDF generation &lt;10 seconds (p95)
+        - File size &lt;5MB (optimized images, compressed fonts)
+        - Concurrent generation support (up to 50 simultaneous requests)
+      </criterion>
+    </design-requirements>
+
+    <edge-cases>
+      <criterion id="AC-13">
+        Glossary OFF: Sections 1-4 included, Sections 5-6 omitted, smaller file size (~2MB)
+      </criterion>
+      <criterion id="AC-14">
+        Formula Errors: Rows with errors show "Error" for time, error message in explanation, red background, PDF still generates
+      </criterion>
+      <criterion id="AC-15">
+        Coverage Validation: Return 400 if location not covered, show error modal: "You don't have coverage for this location"
+      </criterion>
+      <criterion id="AC-16">
+        Filename: {publisher_name}_zmanim_{location_name}_{date}.pdf (spaces → underscores, special chars removed)
+      </criterion>
+    </edge-cases>
+  </acceptance-criteria>
+
+  <architecture-decisions>
+    <decision>
+      <title>PDF Library Selection</title>
+      <choice>github.com/johnfercher/maroto</choice>
+      <rationale>Modern Go library supporting tables, images, colors, and gradients. Alternatives: chromedp (slower), gofpdf (limited styling)</rationale>
+    </decision>
+    <decision>
+      <title>Static Map API</title>
+      <choice>Mapbox Static Images API</choice>
+      <rationale>Free tier: 50,000 requests/month. Cache URLs to reduce API calls. Fallback: omit map if API fails</rationale>
+      <example>https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-l-marker+FF0000({lng},{lat})/{lng},{lat},10/400x200?access_token={token}</example>
+    </decision>
+    <decision>
+      <title>Caching Strategy</title>
+      <choice>Redis cache with 1-hour TTL</choice>
+      <key-format>pdf:zmanim:{publisher_id}:{locality_id}:{date}:{glossary}</key-format>
+      <invalidation>On publisher zmanim update</invalidation>
+    </decision>
+    <decision>
+      <title>DSL Parsing</title>
+      <choice>Reuse existing tokenizer/parser from api/internal/dsl/</choice>
+      <rationale>Extract primitives and functions via AST traversal for glossary generation</rationale>
+    </decision>
+  </architecture-decisions>
+
+  <database-schema>
+    <table name="publishers">
+      <description>Publisher organizations that publish zmanim calculations</description>
+      <columns>
+        <column name="id" type="integer" pk="true">Primary key</column>
+        <column name="name" type="text" required="true">Organization name (e.g., "Orthodox Union")</column>
+        <column name="contact_email" type="text" required="true">Public contact email</column>
+        <column name="website" type="text">Publisher organization website URL</column>
+        <column name="description" type="text">Publisher description</column>
+        <column name="logo_url" type="text">Publisher logo (external URL or S3)</column>
+        <column name="logo_data" type="text">Logo as base64-encoded data URI</column>
+        <column name="status_id" type="smallint" required="true">FK to publisher_statuses</column>
+        <column name="clerk_user_id" type="text">Primary owner Clerk user ID</column>
+        <column name="is_verified" type="boolean" default="false">Admin verified flag</column>
+        <column name="deleted_at" type="timestamptz">Soft delete timestamp</column>
+        <column name="created_at" type="timestamptz" default="now()">Created timestamp</column>
+        <column name="updated_at" type="timestamptz" default="now()">Updated timestamp</column>
+      </columns>
+      <indexes>
+        <index>idx_publishers_status ON (status_id)</index>
+        <index>idx_publishers_clerk ON (clerk_user_id)</index>
+        <index>idx_publishers_active ON (id) WHERE deleted_at IS NULL</index>
+      </indexes>
+    </table>
+
+    <table name="geo_localities">
+      <description>~4M localities with coordinates and timezone data</description>
+      <columns>
+        <column name="id" type="integer" pk="true">Primary key</column>
+        <column name="name" type="text" required="true">Locality name</column>
+        <column name="name_ascii" type="text">ASCII transliteration</column>
+        <column name="timezone" type="text" required="true">IANA timezone (e.g., "Asia/Jerusalem")</column>
+        <column name="population" type="integer">Population count</column>
+        <column name="continent_id" type="smallint">FK to continents</column>
+        <column name="country_id" type="smallint">FK to countries</column>
+        <column name="source_id" type="integer">Geographic data source</column>
+        <column name="boundary" type="geometry(MultiPolygon,4326)">PostGIS boundary</column>
+        <column name="created_at" type="timestamptz" default="now()">Created timestamp</column>
+        <column name="updated_at" type="timestamptz" default="now()">Updated timestamp</column>
+      </columns>
+      <note>Latitude/longitude extracted from boundary centroid at query time</note>
+    </table>
+
+    <table name="publisher_zmanim">
+      <description>Publisher-specific zmanim definitions with formulas</description>
+      <columns>
+        <column name="id" type="integer" pk="true">Primary key</column>
+        <column name="publisher_id" type="integer" required="true">FK to publishers</column>
+        <column name="master_zman_id" type="integer">FK to master_zmanim_registry (NULL if custom)</column>
+        <column name="linked_from_publisher_zman_id" type="integer">FK if linked from another publisher</column>
+        <column name="copied_from_publisher_id" type="integer">Publisher ID if copied</column>
+        <column name="zman_key" type="varchar(100)" required="true">Unique key (e.g., "alos_16_1")</column>
+        <column name="hebrew_name" type="text" required="true">Hebrew display name</column>
+        <column name="english_name" type="text" required="true">English display name</column>
+        <column name="formula_dsl" type="text" required="true">DSL formula (e.g., "solar(-16.1)")</column>
+        <column name="description" type="text">Brief description</column>
+        <column name="is_enabled" type="boolean" default="true">Enabled for calculation</column>
+        <column name="is_published" type="boolean" default="false">Published to end users</column>
+        <column name="deleted_at" type="timestamptz">Soft delete timestamp</column>
+        <column name="created_at" type="timestamptz" default="now()">Created timestamp</column>
+        <column name="updated_at" type="timestamptz" default="now()">Updated timestamp</column>
+      </columns>
+      <constraints>
+        <unique>UNIQUE (publisher_id, master_zman_id) WHERE deleted_at IS NULL</unique>
+        <unique>UNIQUE (publisher_id, zman_key) WHERE deleted_at IS NULL</unique>
+      </constraints>
+    </table>
+
+    <table name="master_zmanim_registry">
+      <description>Canonical zmanim definitions with comprehensive documentation</description>
+      <columns>
+        <column name="id" type="integer" pk="true">Primary key</column>
+        <column name="zman_key" type="varchar(100)" required="true" unique="true">Unique identifier</column>
+        <column name="hebrew_name" type="text" required="true">Hebrew name</column>
+        <column name="english_name" type="text" required="true">English name</column>
+        <column name="formula_dsl" type="text" required="true">Canonical DSL formula</column>
+        <column name="formula_explanation" type="text" required="true">Plain-language formula explanation (REQUIRED per Story 11.0)</column>
+        <column name="full_description" type="text">Detailed description</column>
+        <column name="halachic_source" type="text">Halachic sources and opinions</column>
+        <column name="usage_context" type="text">When/how this zman is used</column>
+        <column name="shita" type="varchar(50)">Opinion/method (GRA, MGA, BAAL_HATANYA, etc.)</column>
+        <column name="category" type="varchar(50)">Category (ALOS, SHEMA, TZAIS, etc.)</column>
+        <column name="created_at" type="timestamptz" default="now()">Created timestamp</column>
+      </columns>
+      <note>All documentation fields populated in Story 11.0 before PDF feature launches</note>
+    </table>
+
+    <table name="publisher_coverage">
+      <description>Geographic coverage areas at multiple levels</description>
+      <columns>
+        <column name="id" type="integer" pk="true">Primary key</column>
+        <column name="publisher_id" type="integer" required="true">FK to publishers</column>
+        <column name="coverage_level_id" type="smallint" required="true">continent/country/region/locality</column>
+        <column name="continent_id" type="smallint">FK if level=continent</column>
+        <column name="country_id" type="smallint">FK if level=country</column>
+        <column name="region_id" type="integer">FK if level=region</column>
+        <column name="locality_id" type="integer">FK if level=locality</column>
+        <column name="created_at" type="timestamptz" default="now()">Created timestamp</column>
+      </columns>
+      <note>Used for coverage validation in AC-15</note>
+    </table>
+  </database-schema>
+
+  <existing-code-patterns>
+    <handler-pattern>
+      <name>6-Step Handler Pattern (MANDATORY)</name>
+      <location>api/internal/handlers/*.go</location>
+      <example><![CDATA[
+func (h *Handlers) HandlerName(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+
+    // 1. Resolve publisher context (SECURITY CRITICAL)
+    pc := h.publisherResolver.MustResolve(w, r)
+    if pc == nil { return }
+
+    // 2. Extract URL params
+    id := chi.URLParam(r, "id")
+
+    // 3. Parse body
+    var req RequestType
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        RespondBadRequest(w, r, "Invalid request body")
+        return
+    }
+
+    // 4. Validate
+    if req.Name == "" {
+        RespondValidationError(w, r, "Name is required", nil)
+        return
+    }
+
+    // 5. SQLc query (NO RAW SQL)
+    result, err := h.db.Queries.GetSomething(ctx, sqlcgen.GetSomethingParams{
+        ID:          id,
+        PublisherID: pc.PublisherID,
+    })
+    if err != nil {
+        slog.Error("operation failed", "error", err, "id", id)
+        RespondInternalError(w, r)
+        return
+    }
+
+    // 6. Respond
+    RespondJSON(w, r, http.StatusOK, result)
+}
+]]></example>
+    </handler-pattern>
+
+    <service-pattern>
+      <name>UnifiedZmanimService</name>
+      <location>api/internal/services/zmanim_service.go</location>
+      <description>THE SINGLE SOURCE OF TRUTH for all zmanim operations</description>
+      <key-methods>
+        <method name="CalculateZmanim">Main entry point with locality lookup &amp; formula execution</method>
+        <method name="CalculateFormula">Single formula calculation with breakdown</method>
+        <method name="CalculateRange">Batch date range calculations</method>
+        <method name="SortZmanim">Category-based sorting (3-level priority)</method>
+        <method name="ApplyRounding">floor/ceil/math rounding modes</method>
+        <method name="InvalidateCache">Cache invalidation after updates</method>
+      </key-methods>
+      <cache-strategy>
+        <key-format>zmanim:{publisherID}:{localityID}:{date}:{filterHash}</key-format>
+        <ttl>24 hours</ttl>
+        <invalidation>On zman create/update/delete, algorithm change</invalidation>
+      </cache-strategy>
+    </service-pattern>
+
+    <dsl-pattern>
+      <name>DSL Formula Parsing</name>
+      <location>api/internal/dsl/</location>
+      <files>
+        <file>lexer.go - Tokenization</file>
+        <file>parser.go - AST construction</file>
+        <file>ast.go - 15+ node types</file>
+        <file>executor.go - Formula execution</file>
+        <file>validator.go - Type checking</file>
+      </files>
+      <supported-primitives>
+        <primitive>sunrise - Sunrise time</primitive>
+        <primitive>sunset - Sunset time</primitive>
+        <primitive>visible_sunrise - Visible sunrise (refraction adjusted)</primitive>
+        <primitive>visible_sunset - Visible sunset (refraction adjusted)</primitive>
+        <primitive>solar(degrees) - Custom solar angle</primitive>
+        <primitive>noon / chatzos / midday - Solar noon</primitive>
+        <primitive>alos - Dawn (configurable angle)</primitive>
+        <primitive>tzeis - Nightfall (configurable angle)</primitive>
+        <primitive>sha'a_zmanis_gra - GRA proportional hour</primitive>
+        <primitive>sha'a_zmanis_mga - MGA proportional hour</primitive>
+      </supported-primitives>
+      <supported-functions>
+        <function>+ - / * - Arithmetic operators</function>
+        <function>min() - Minimum value</function>
+        <function>max() - Maximum value</function>
+        <function>avg() - Average value</function>
+        <function>coalesce() - First non-null value</function>
+        <function>if (condition) { ... } - Conditional logic</function>
+      </supported-functions>
+    </dsl-pattern>
+
+    <frontend-api-pattern>
+      <name>useApi Hook (REQUIRED)</name>
+      <location>web/lib/api-client.ts</location>
+      <usage><![CDATA[
+'use client';
+import { useApi } from '@/lib/api-client';
+
+export function Component() {
+  const api = useApi();
+
+  // Publisher endpoint (Auth + X-Publisher-Id)
+  const data = await api.get<DataType>('/publisher/profile');
+  const result = await api.post('/publisher/zmanim', payload);
+
+  // Public endpoint (no auth)
+  const countries = await api.public.get('/countries');
+
+  // Admin endpoint (auth only, no X-Publisher-Id)
+  const stats = await api.admin.get('/admin/stats');
+}
+]]></usage>
+      <note>98% compliance - NEVER use raw fetch() in components</note>
+    </frontend-api-pattern>
+
+    <response-helpers>
+      <location>api/internal/handlers/response.go</location>
+      <helpers>
+        <helper>RespondJSON(w, r, statusCode, data) - Success response with data wrapper</helper>
+        <helper>RespondError(w, r, statusCode, code, message) - Error response</helper>
+        <helper>RespondValidationError(w, r, message, details) - 400 validation error</helper>
+        <helper>RespondNotFound(w, r) - 404 not found</helper>
+        <helper>RespondUnauthorized(w, r) - 401 unauthorized</helper>
+        <helper>RespondForbidden(w, r) - 403 forbidden</helper>
+        <helper>RespondInternalError(w, r) - 500 internal error (generic message)</helper>
+        <helper>RespondBadRequest(w, r, message) - 400 bad request</helper>
+      </helpers>
+      <response-format><![CDATA[
+// Success
+{
+  "data": { ... },
+  "meta": {
+    "timestamp": "2025-12-22T10:30:00Z",
+    "request_id": "uuid"
+  }
+}
+
+// Error
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid date format",
+    "details": { ... }
+  }
+}
+]]></response-format>
+    </response-helpers>
+  </existing-code-patterns>
+
+  <sqlc-queries>
+    <file>api/internal/db/queries/publishers.sql</file>
+    <queries>
+      <query name="GetPublisher">Get single publisher by ID</query>
+      <query name="GetPublisherForReport">Get publisher with logo_url, name, description for PDF header</query>
+    </queries>
+
+    <file>api/internal/db/queries/localities.sql</file>
+    <queries>
+      <query name="GetLocality">Get single locality by ID</query>
+      <query name="GetLocalityDetails">Get locality with name, lat/long (from centroid), elevation, timezone for PDF</query>
+    </queries>
+
+    <file>api/internal/db/queries/zmanim.sql</file>
+    <queries>
+      <query name="ListPublisherZmanim">Get all publisher zmanim</query>
+      <query name="ListPublisherZmanimForReport">Get all published zmanim for location/date with formulas</query>
+    </queries>
+
+    <file>api/internal/db/queries/master_registry.sql</file>
+    <queries>
+      <query name="GetMasterZman">Get single master zman</query>
+      <query name="GetMasterZmanExplanations">Get formula_explanation for master zmanim (for PDF table)</query>
+    </queries>
+
+    <file>api/internal/db/queries/coverage.sql</file>
+    <queries>
+      <query name="CheckPublisherCoverage">Validate publisher covers locality</query>
+    </queries>
+
+    <note>Run `cd api &amp;&amp; sqlc generate` after creating new queries</note>
+  </sqlc-queries>
+
+  <components-to-create>
+    <frontend>
+      <component>
+        <path>web/components/reports/ZmanimReportModal.tsx</path>
+        <purpose>Configuration modal for PDF generation</purpose>
+        <features>
+          <feature>Location autocomplete (reuse LocalityPicker component)</feature>
+          <feature>Date picker (shadcn/ui Calendar)</feature>
+          <feature>Include Glossary toggle (Switch component)</feature>
+          <feature>Loading indicator during generation</feature>
+          <feature>Error handling for coverage validation</feature>
+          <feature>PDF download handling (blob response)</feature>
+        </features>
+      </component>
+
+      <component>
+        <path>web/app/publisher/algorithm/page.tsx (modify)</path>
+        <purpose>Add Print Zmanim Report button to page header</purpose>
+        <changes>
+          <change>Add button next to "Browse Registry" with printer icon (Heroicons)</change>
+          <change>Wire button to open ZmanimReportModal</change>
+        </changes>
+      </component>
+    </frontend>
+
+    <backend>
+      <service>
+        <path>api/internal/services/pdf_generator.go</path>
+        <purpose>PDF generation service using maroto library</purpose>
+        <methods>
+          <method>GenerateZmanimReport(params) - Main entry point</method>
+          <method>buildPublisherHeader() - Section 1</method>
+          <method>buildLocationDetails() - Section 2 with map</method>
+          <method>buildReportMetadata() - Section 3 with timeline</method>
+          <method>buildZmanimTable() - Section 4 with syntax highlighting</method>
+          <method>buildPrimitivesGlossary() - Section 5</method>
+          <method>buildFunctionsGlossary() - Section 6</method>
+          <method>buildFooter() - Page footer</method>
+          <method>applyStyling() - Color scheme and typography</method>
+        </methods>
+      </service>
+
+      <service>
+        <path>api/internal/dsl/primitives_reference.go</path>
+        <purpose>Primitive documentation for glossary</purpose>
+        <data-structure><![CDATA[
+type PrimitiveDoc struct {
+    Name              string
+    Definition        string
+    CalculationMethod string
+    ScientificSource  string
+}
+
+var PrimitivesReference = map[string]PrimitiveDoc{
+    "sunrise": {
+        Name:              "sunrise",
+        Definition:        "Moment when upper edge of sun crosses horizon",
+        CalculationMethod: "NOAA Solar Position Algorithm",
+        ScientificSource:  "Jean Meeus 'Astronomical Algorithms'",
+    },
+    // ... more primitives
+}
+]]></data-structure>
+      </service>
+
+      <service>
+        <path>api/internal/dsl/functions_reference.go</path>
+        <purpose>Function documentation for glossary</purpose>
+        <data-structure><![CDATA[
+type FunctionDoc struct {
+    Name              string
+    Purpose           string
+    Syntax            string
+    Parameters        []ParameterDoc
+    Example           string
+    ResultExplanation string
+}
+
+type ParameterDoc struct {
+    Name         string
+    Type         string
+    Description  string
+    ExampleValue string
+}
+
+var FunctionsReference = map[string]FunctionDoc{
+    "coalesce": {
+        Name:    "coalesce",
+        Purpose: "Returns first non-null value from list",
+        Syntax:  "coalesce(value1, value2, ...)",
+        // ... parameters, example, explanation
+    },
+    // ... more functions
+}
+]]></data-structure>
+      </service>
+
+      <service>
+        <path>api/internal/dsl/parser.go (extend)</path>
+        <purpose>Extract primitives and functions from formula list</purpose>
+        <methods>
+          <method>ExtractPrimitives(formulas []string) []string - Get unique primitives</method>
+          <method>ExtractFunctions(formulas []string) []string - Get unique functions</method>
+        </methods>
+      </service>
+
+      <handler>
+        <path>api/internal/handlers/publisher_reports.go</path>
+        <purpose>PDF generation endpoint</purpose>
+        <endpoint>POST /api/v1/publisher/reports/zmanim-pdf</endpoint>
+        <request-body><![CDATA[
+{
+  "locality_id": 4993250,
+  "date": "2025-12-22",
+  "include_glossary": true
+}
+]]></request-body>
+        <response>
+          <content-type>application/pdf</content-type>
+          <headers>
+            <header>Content-Disposition: attachment; filename="MH_Zmanim_Jerusalem_Israel_2025-12-22.pdf"</header>
+          </headers>
+        </response>
+        <validation>
+          <check>Publisher coverage for locality (return 400 if not covered)</check>
+          <check>Date format validation</check>
+          <check>Publisher authentication via PublisherResolver</check>
+        </validation>
+      </handler>
+    </backend>
+  </components-to-create>
+
+  <third-party-integrations>
+    <integration>
+      <name>Mapbox Static Images API</name>
+      <purpose>Embedded location maps in PDF</purpose>
+      <url-template>https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-l-marker+FF0000({lng},{lat})/{lng},{lat},10/400x200?access_token={token}</url-template>
+      <configuration>
+        <api-key-location>AWS SSM: /zmanim/prod/mapbox-api-key</api-key-location>
+        <free-tier>50,000 requests/month</free-tier>
+        <cache-strategy>Cache static map URLs with 24-hour TTL per location</cache-strategy>
+        <fallback>Omit map section if API fails (don't fail entire PDF)</fallback>
+      </configuration>
+    </integration>
+
+    <integration>
+      <name>github.com/johnfercher/maroto</name>
+      <purpose>PDF generation library</purpose>
+      <installation>go get github.com/johnfercher/maroto</installation>
+      <features>
+        <feature>Table support with custom styling</feature>
+        <feature>Image embedding (logos, maps)</feature>
+        <feature>Color gradients for headers</feature>
+        <feature>Custom fonts and typography</feature>
+        <feature>Multi-page support with headers/footers</feature>
+      </features>
+      <alternatives>
+        <alternative>chromedp - HTML to PDF (slower, more flexible styling)</alternative>
+        <alternative>gofpdf - Older library with limited styling capabilities</alternative>
+      </alternatives>
+    </integration>
+  </third-party-integrations>
+
+  <caching-strategy>
+    <cache-key-format>pdf:zmanim:{publisher_id}:{locality_id}:{date}:{glossary}</cache-key-format>
+    <ttl>1 hour (3600 seconds)</ttl>
+    <storage>Redis (via existing cache.Client in services)</storage>
+    <invalidation>
+      <trigger>Publisher zmanim create/update/delete</trigger>
+      <trigger>Publisher algorithm change</trigger>
+      <action>Delete all keys matching pdf:zmanim:{publisher_id}:*</action>
+    </invalidation>
+    <implementation><![CDATA[
+// In pdf_generator.go service
+cacheKey := fmt.Sprintf("pdf:zmanim:%d:%d:%s:%t",
+    publisherID, localityID, date, includeGlossary)
+
+// Try cache first
+cachedPDF, err := h.cache.Get(ctx, cacheKey)
+if err == nil && cachedPDF != nil {
+    return cachedPDF, nil
+}
+
+// Generate PDF
+pdfBytes := generatePDF(...)
+
+// Store in cache
+h.cache.Set(ctx, cacheKey, pdfBytes, 3600*time.Second)
+
+return pdfBytes, nil
+]]></implementation>
+  </caching-strategy>
+
+  <error-handling>
+    <scenario>
+      <name>Formula Calculation Error</name>
+      <behavior>Show "Error" in Calculated Time column, error message in Explanation, red background for row, PDF still generates</behavior>
+    </scenario>
+
+    <scenario>
+      <name>Coverage Validation Failure</name>
+      <behavior>Return 400 error with message: "Publisher does not cover this location"</behavior>
+      <frontend>Modal shows error: "You don't have coverage for this location. Please select a location within your coverage area."</frontend>
+    </scenario>
+
+    <scenario>
+      <name>Mapbox API Failure</name>
+      <behavior>Omit map image from Location Details section, show text-only location details, don't fail PDF generation</behavior>
+    </scenario>
+
+    <scenario>
+      <name>Publisher Logo URL Broken</name>
+      <behavior>Use fallback default icon/logo</behavior>
+    </scenario>
+
+    <scenario>
+      <name>PDF Generation Timeout</name>
+      <behavior>Return 504 Gateway Timeout if generation exceeds 30 seconds</behavior>
+    </scenario>
+
+    <scenario>
+      <name>Missing Optional Fields</name>
+      <behavior>Show placeholder text: "No additional information available" (don't hide sections)</behavior>
+    </scenario>
+  </error-handling>
+
+  <performance-optimization>
+    <strategy>
+      <name>Concurrent Calculation</name>
+      <description>Calculate all zman times in parallel using goroutines</description>
+      <implementation>Use sync.WaitGroup or golang.org/x/sync/errgroup</implementation>
+    </strategy>
+
+    <strategy>
+      <name>Image Optimization</name>
+      <description>Compress map image before embedding in PDF</description>
+      <implementation>Reduce quality to 80%, resize if needed</implementation>
+    </strategy>
+
+    <strategy>
+      <name>Font Subset</name>
+      <description>Only embed characters used in document</description>
+      <implementation>maroto handles this automatically</implementation>
+    </strategy>
+
+    <strategy>
+      <name>Caching</name>
+      <description>Cache generated PDFs for 1 hour per unique request</description>
+      <expected-hit-ratio>&gt;70% for repeated requests</expected-hit-ratio>
+    </strategy>
+
+    <targets>
+      <target>PDF generation: &lt;10 seconds (p95)</target>
+      <target>File size: &lt;5MB with glossary, &lt;2MB without</target>
+      <target>Concurrent requests: Support up to 50 simultaneous generations</target>
+    </targets>
+  </performance-optimization>
+
+  <testing-patterns>
+    <unit-tests>
+      <test>
+        <file>api/internal/services/pdf_generator_test.go</file>
+        <cases>
+          <case>Test PDF generation with mock data</case>
+          <case>Test primitive extraction from formulas</case>
+          <case>Test function extraction from formulas</case>
+          <case>Test static map URL builder</case>
+          <case>Test filename sanitization (spaces, special chars)</case>
+        </cases>
+      </test>
+    </unit-tests>
+
+    <integration-tests>
+      <test>
+        <file>api/internal/handlers/publisher_reports_test.go</file>
+        <cases>
+          <case>Test full API endpoint with valid request</case>
+          <case>Test PDF binary structure verification</case>
+          <case>Test coverage validation (return 400 if not covered)</case>
+          <case>Test error handling for formula failures (should not fail PDF)</case>
+        </cases>
+      </test>
+    </integration-tests>
+
+    <e2e-tests>
+      <test>
+        <file>web/tests/e2e/publisher/pdf-report.spec.ts</file>
+        <cases>
+          <case>Navigate to /publisher/algorithm, verify Print button exists</case>
+          <case>Click Print button, verify modal opens</case>
+          <case>Select location and date</case>
+          <case>Toggle "Include Glossary" ON, generate PDF</case>
+          <case>Verify download triggers with correct filename pattern</case>
+          <case>Toggle "Include Glossary" OFF, generate PDF</case>
+          <case>Verify smaller file size</case>
+        </cases>
+      </test>
+    </e2e-tests>
+
+    <manual-qa>
+      <test>
+        <purpose>Visual PDF Quality Verification</purpose>
+        <steps>
+          <step>Open generated PDF in Adobe Reader</step>
+          <step>Verify publisher header section renders correctly</step>
+          <step>Verify location section with embedded map image</step>
+          <step>Verify zmanim table with syntax highlighting</step>
+          <step>Verify primitives glossary section</step>
+          <step>Verify functions glossary section</step>
+          <step>Verify footer on all pages</step>
+          <step>Test in Chrome PDF viewer</step>
+          <step>Test in macOS Preview.app</step>
+          <step>Verify colors, fonts, and layout match design specs</step>
+        </steps>
+      </test>
+    </manual-qa>
+  </testing-patterns>
+
+  <environment-configuration>
+    <variables>
+      <variable>
+        <name>MAPBOX_API_KEY</name>
+        <location>AWS SSM Parameter Store: /zmanim/prod/mapbox-api-key</location>
+        <source>Sign up at https://www.mapbox.com/ (free tier)</source>
+        <usage>Static map image URLs in PDF location section</usage>
+      </variable>
+
+      <variable>
+        <name>DATABASE_URL</name>
+        <location>api/.env</location>
+        <usage>PostgreSQL connection for publisher/locality/zmanim queries</usage>
+      </variable>
+
+      <variable>
+        <name>REDIS_URL</name>
+        <location>api/.env</location>
+        <usage>Redis cache for PDF caching</usage>
+      </variable>
+    </variables>
+
+    <aws-ssm-parameters>
+      <parameter>
+        <path>/zmanim/prod/mapbox-api-key</path>
+        <type>SecureString</type>
+        <description>Mapbox API access token for static maps</description>
+      </parameter>
+    </aws-ssm-parameters>
+  </environment-configuration>
+
+  <file-list>
+    <backend>
+      <new-file>api/internal/services/pdf_generator.go - PDF generation service (~500 LOC)</new-file>
+      <new-file>api/internal/dsl/primitives_reference.go - Primitive documentation (~200 LOC)</new-file>
+      <new-file>api/internal/dsl/functions_reference.go - Function documentation (~300 LOC)</new-file>
+      <new-file>api/internal/handlers/publisher_reports.go - PDF API endpoint (~150 LOC)</new-file>
+      <new-file>api/internal/db/queries/reports.sql - SQLc queries for PDF data (~100 LOC)</new-file>
+      <modified>api/internal/dsl/parser.go - Add ExtractPrimitives/ExtractFunctions methods</modified>
+      <modified>api/cmd/api/main.go - Register PDF route</modified>
+      <modified>api/go.mod - Add github.com/johnfercher/maroto dependency</modified>
+    </backend>
+
+    <frontend>
+      <new-file>web/components/reports/ZmanimReportModal.tsx - Configuration modal (~300 LOC)</new-file>
+      <modified>web/app/publisher/algorithm/page.tsx - Add Print button</modified>
+    </frontend>
+
+    <tests>
+      <new-file>api/internal/services/pdf_generator_test.go - Unit tests</new-file>
+      <new-file>api/internal/handlers/publisher_reports_test.go - Integration tests</new-file>
+      <new-file>web/tests/e2e/publisher/pdf-report.spec.ts - E2E tests</new-file>
+    </tests>
+
+    <docs>
+      <new-file>docs/api/pdf-report-api.md - API documentation</new-file>
+    </docs>
+  </file-list>
+
+  <compliance-checklist>
+    <backend>
+      <rule>✓ Use 6-step handler pattern in publisher_reports.go</rule>
+      <rule>✓ Use PublisherResolver.MustResolve() for authentication</rule>
+      <rule>✓ All database queries via SQLc (NO raw SQL)</rule>
+      <rule>✓ Use slog for structured logging (NO fmt.Printf)</rule>
+      <rule>✓ Use response helpers (RespondJSON, RespondError, etc.)</rule>
+      <rule>✓ Generic error messages for 500s (no stack traces/DB errors)</rule>
+      <rule>✓ Input validation for all request parameters</rule>
+      <rule>✓ Coverage validation before PDF generation</rule>
+      <rule>✓ Timeout handling (30-second max for PDF generation)</rule>
+    </backend>
+
+    <frontend>
+      <rule>✓ Use useApi() hook for all API calls (NO raw fetch)</rule>
+      <rule>✓ Use design tokens for colors (NO hardcoded hex values)</rule>
+      <rule>✓ Check Clerk isLoaded before accessing user data</rule>
+      <rule>✓ Use shadcn/ui components (Calendar, Switch, Dialog)</rule>
+      <rule>✓ 12-hour time format for all displayed times</rule>
+      <rule>✓ Loading states during PDF generation</rule>
+      <rule>✓ Error handling with user-friendly messages</rule>
+    </frontend>
+
+    <database>
+      <rule>✓ All tables use integer id primary key</rule>
+      <rule>✓ All lookup tables follow id + key pattern</rule>
+      <rule>✓ All FKs reference integer id columns</rule>
+      <rule>✓ Soft delete pattern (deleted_at, deleted_by columns)</rule>
+      <rule>✓ WHERE deleted_at IS NULL in all SELECT queries</rule>
+      <rule>✓ Partial indexes for active records</rule>
+    </database>
+
+    <security>
+      <rule>✓ No secrets committed to repository</rule>
+      <rule>✓ All secrets in environment variables or AWS SSM</rule>
+      <rule>✓ Tenant isolation via PublisherResolver</rule>
+      <rule>✓ IDOR prevention (queries filter by publisher_id)</rule>
+      <rule>✓ SQL injection prevention (SQLc parameterized queries)</rule>
+      <rule>✓ Input validation and sanitization</rule>
+    </security>
+
+    <testing>
+      <rule>✓ Parallel test execution (test.describe.configure mode: 'parallel')</rule>
+      <rule>✓ Shared fixtures (NO per-test creation)</rule>
+      <rule>✓ Unit tests for PDF generation service</rule>
+      <rule>✓ Integration tests for API endpoint</rule>
+      <rule>✓ E2E tests for complete flow</rule>
+      <rule>✓ Manual QA for PDF visual quality</rule>
+    </testing>
+  </compliance-checklist>
+
+  <development-workflow>
+    <commands>
+      <command>./restart.sh - ALWAYS use this to restart services (NOT go run or npm run dev)</command>
+      <command>cd api &amp;&amp; sqlc generate - After creating/modifying SQL queries</command>
+      <command>cd api &amp;&amp; go build ./cmd/api - Verify backend builds</command>
+      <command>cd web &amp;&amp; npm run type-check - Verify frontend types</command>
+      <command>./scripts/validate-ci-checks.sh - Run CI checks locally before push</command>
+    </commands>
+
+    <urls>
+      <url>http://localhost:3001 - Web app</url>
+      <url>http://localhost:8080 - API</url>
+      <url>http://localhost:8080/swagger/index.html - Swagger UI (update after adding endpoint)</url>
+    </urls>
+
+    <testing-workflow>
+      <step>Create unit tests first (TDD approach)</step>
+      <step>Implement PDF generation service</step>
+      <step>Create SQLc queries for report data</step>
+      <step>Implement API handler</step>
+      <step>Create frontend modal component</step>
+      <step>Add Print button to algorithm page</step>
+      <step>Run integration tests</step>
+      <step>Run E2E tests</step>
+      <step>Manual QA with PDF viewers</step>
+      <step>Performance testing (file size, generation time)</step>
+    </testing-workflow>
+  </development-workflow>
+
+  <references>
+    <document>docs/epic-11-publisher-zmanim-registry.md - Epic overview and all stories</document>
+    <document>docs/coding-standards.md - MANDATORY coding patterns and standards</document>
+    <document>docs/architecture.md - System architecture and tech stack</document>
+    <document>api/internal/handlers/INDEX.md - Handler registry and patterns</document>
+    <document>api/internal/db/queries/INDEX.md - SQLc query patterns</document>
+    <document>api/internal/services/INDEX.md - Service layer documentation</document>
+    <document>web/components/INDEX.md - Component registry</document>
+    <external-doc>https://docs.mapbox.com/api/maps/static-images/ - Mapbox Static Images API</external-doc>
+    <external-doc>https://github.com/johnfercher/maroto - Maroto PDF library documentation</external-doc>
+    <external-doc>https://www.esrl.noaa.gov/gmd/grad/solcalc/ - NOAA Solar Calculator reference</external-doc>
+  </references>
+
+  <notes>
+    <note>Story 11.0 MUST be complete before this story - ensures master registry documentation is populated</note>
+    <note>Mapbox API key must be provisioned in AWS SSM before deployment</note>
+    <note>PDF generation is CPU-intensive - consider implementing queue if concurrent load exceeds 50 requests</note>
+    <note>File size target: &lt;5MB with glossary, &lt;2MB without - test with real data</note>
+    <note>Hebrew font support: Ensure Frank Ruehl CLM or Taamey Frank is available in maroto</note>
+    <note>A4 page size (210mm x 297mm) is international standard - don't use US Letter</note>
+    <note>Syntax highlighting for DSL: Use color scheme matching web editor for consistency</note>
+    <note>Cache invalidation: Trigger on ANY publisher zmanim change, not just formula updates</note>
+    <note>Filename sanitization: Remove ALL special characters, not just spaces</note>
+    <note>Coverage validation is CRITICAL - don't generate PDFs for uncovered locations</note>
+  </notes>
+</story-context>

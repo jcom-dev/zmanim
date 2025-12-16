@@ -1,0 +1,31 @@
+[Unit]
+Description=Zmanim Database Initialization
+Documentation=https://github.com/jcom-dev/zmanim
+# Wait for PostgreSQL to be fully ready (socket available)
+After=postgresql.service zmanim-firstboot.service
+Requires=postgresql.service zmanim-firstboot.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Run as root (scripts use sudo -u postgres internally)
+User=root
+Group=root
+
+# Wait for PostgreSQL socket to be ready (up to 30 seconds)
+ExecStartPre=/bin/bash -c 'for i in {1..30}; do [ -S /var/run/postgresql/.s.PGSQL.5432 ] && exit 0; sleep 1; done; exit 1'
+
+# Step 1: Create user (idempotent SQL)
+ExecStart=/usr/bin/sudo -u postgres /usr/bin/psql -f /opt/zmanim/init-db.sql
+
+# Step 2: Create database if not exists (shell script, idempotent)
+ExecStartPost=/opt/zmanim/create-db.sh
+
+# Step 3: Enable extensions (idempotent)
+ExecStartPost=/usr/bin/sudo -u postgres /usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+ExecStartPost=/usr/bin/sudo -u postgres /usr/bin/psql -d zmanim -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+
+[Install]
+WantedBy=multi-user.target

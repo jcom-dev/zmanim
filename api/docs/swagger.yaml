@@ -1,0 +1,3280 @@
+basePath: /api/v1
+definitions:
+  github_com_jcom-dev_zmanim_internal_dsl.CalculationStep:
+    properties:
+      step:
+        type: string
+      value:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_dsl.ValidationError:
+    properties:
+      column:
+        type: integer
+      line:
+        type: integer
+      message:
+        type: string
+      suggestion:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.City:
+    properties:
+      continent:
+        description: Continent code (AF, AN, AS, EU, NA, OC, SA)
+        type: string
+      country:
+        type: string
+      country_code:
+        type: string
+      display_name:
+        description: Computed display field
+        type: string
+      elevation:
+        description: Elevation in meters above sea level
+        type: integer
+      id:
+        type: string
+      latitude:
+        type: number
+      longitude:
+        type: number
+      name:
+        type: string
+      population:
+        type: integer
+      region:
+        type: string
+      region_type:
+        type: string
+      timezone:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.CitySearchResponse:
+    properties:
+      cities:
+        items:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.City'
+        type: array
+      total:
+        type: integer
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.Publisher:
+    properties:
+      bio:
+        type: string
+      clerk_user_id:
+        type: string
+      contact_email:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      is_verified:
+        type: boolean
+      logo_data:
+        description: Base64 encoded logo image
+        type: string
+      logo_url:
+        type: string
+      name:
+        description: Publisher name is the organization name
+        type: string
+      status:
+        type: string
+      subscriber_count:
+        type: integer
+      updated_at:
+        type: string
+      website:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverage:
+    properties:
+      city_id:
+        type: string
+      city_name:
+        type: string
+      continent_code:
+        type: string
+      country:
+        type: string
+      country_code:
+        type: string
+      coverage_level:
+        description: continent, country, region, city
+        type: string
+      created_at:
+        type: string
+      display_name:
+        description: Computed fields for display
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      priority:
+        type: integer
+      publisher_id:
+        type: string
+      region:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverageCreateRequest:
+    properties:
+      city_id:
+        type: string
+      continent_code:
+        type: string
+      country_code:
+        type: string
+      coverage_level:
+        description: continent, country, region, city
+        type: string
+      priority:
+        type: integer
+      region:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverageListResponse:
+    properties:
+      coverage:
+        items:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage'
+        type: array
+      total:
+        type: integer
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.PublisherCoverageUpdateRequest:
+    properties:
+      is_active:
+        type: boolean
+      priority:
+        type: integer
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.PublisherForCity:
+    properties:
+      coverage_level:
+        type: string
+      match_type:
+        description: exact_city, region_match, country_match
+        type: string
+      priority:
+        type: integer
+      publisher_id:
+        type: string
+      publisher_name:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.PublisherProfileUpdateRequest:
+    properties:
+      bio:
+        type: string
+      email:
+        type: string
+      name:
+        description: Publisher name is the organization name
+        type: string
+      website:
+        type: string
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.PublishersForCityResponse:
+    properties:
+      city_id:
+        type: string
+      publishers:
+        items:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherForCity'
+        type: array
+      total:
+        type: integer
+    type: object
+  github_com_jcom-dev_zmanim_internal_models.ZmanimRequest:
+    properties:
+      date:
+        description: YYYY-MM-DD format
+        type: string
+      elevation:
+        type: integer
+      latitude:
+        type: number
+      longitude:
+        type: number
+      publisher_id:
+        type: string
+      timezone:
+        type: string
+    type: object
+  internal_handlers.APIError:
+    properties:
+      code:
+        type: string
+      details: {}
+      message:
+        type: string
+    type: object
+  internal_handlers.APIResponse:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/internal_handlers.APIError'
+      meta:
+        $ref: '#/definitions/internal_handlers.ResponseMeta'
+    type: object
+  internal_handlers.AdminCreateMasterZmanRequest:
+    properties:
+      canonical_english_name:
+        type: string
+      canonical_hebrew_name:
+        type: string
+      default_formula_dsl:
+        type: string
+      description:
+        type: string
+      halachic_notes:
+        type: string
+      halachic_source:
+        type: string
+      is_core:
+        type: boolean
+      is_hidden:
+        type: boolean
+      tag_ids:
+        items:
+          type: string
+        type: array
+      time_category:
+        type: string
+      transliteration:
+        type: string
+      zman_key:
+        type: string
+    required:
+    - canonical_english_name
+    - canonical_hebrew_name
+    - default_formula_dsl
+    - time_category
+    - zman_key
+    type: object
+  internal_handlers.AdminMasterZman:
+    properties:
+      canonical_english_name:
+        type: string
+      canonical_hebrew_name:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      default_formula_dsl:
+        type: string
+      description:
+        type: string
+      halachic_notes:
+        type: string
+      halachic_source:
+        type: string
+      id:
+        type: string
+      is_core:
+        type: boolean
+      is_hidden:
+        type: boolean
+      tag_ids:
+        items:
+          type: string
+        type: array
+      tags:
+        items:
+          $ref: '#/definitions/internal_handlers.ZmanTag'
+        type: array
+      time_category:
+        type: string
+      transliteration:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      zman_key:
+        type: string
+    type: object
+  internal_handlers.AdminMasterZmanDetail:
+    properties:
+      canonical_english_name:
+        type: string
+      canonical_hebrew_name:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      day_types:
+        items:
+          $ref: '#/definitions/internal_handlers.DayType'
+        type: array
+      default_formula_dsl:
+        type: string
+      description:
+        type: string
+      halachic_notes:
+        type: string
+      halachic_source:
+        type: string
+      id:
+        type: string
+      is_core:
+        type: boolean
+      is_hidden:
+        type: boolean
+      tag_ids:
+        items:
+          type: string
+        type: array
+      tags:
+        items:
+          $ref: '#/definitions/internal_handlers.ZmanTag'
+        type: array
+      time_category:
+        type: string
+      transliteration:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      zman_key:
+        type: string
+    type: object
+  internal_handlers.AdminUpdateMasterZmanRequest:
+    properties:
+      canonical_english_name:
+        type: string
+      canonical_hebrew_name:
+        type: string
+      default_formula_dsl:
+        type: string
+      description:
+        type: string
+      halachic_notes:
+        type: string
+      halachic_source:
+        type: string
+      is_core:
+        type: boolean
+      is_hidden:
+        type: boolean
+      tag_ids:
+        items:
+          type: string
+        type: array
+      time_category:
+        type: string
+      transliteration:
+        type: string
+    type: object
+  internal_handlers.ApprovedTagResponse:
+    properties:
+      display_name_english:
+        type: string
+      display_name_hebrew:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      tag_key:
+        type: string
+      tag_type:
+        type: string
+    type: object
+  internal_handlers.AstronomicalPrimitive:
+    properties:
+      calculation_type:
+        type: string
+      category:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      edge_type:
+        type: string
+      formula_dsl:
+        type: string
+      id:
+        type: string
+      is_dawn:
+        type: boolean
+      solar_angle:
+        type: number
+      sort_order:
+        type: integer
+      variable_name:
+        type: string
+    type: object
+  internal_handlers.AstronomicalPrimitivesGrouped:
+    properties:
+      category:
+        type: string
+      display_name:
+        type: string
+      primitives:
+        items:
+          $ref: '#/definitions/internal_handlers.AstronomicalPrimitive'
+        type: array
+    type: object
+  internal_handlers.CreateZmanFromRegistryRequest:
+    properties:
+      formula_dsl:
+        description: Optional override
+        type: string
+      master_zman_id:
+        type: string
+    required:
+    - master_zman_id
+    type: object
+  internal_handlers.CreateZmanRegistryRequestBody:
+    properties:
+      auto_add_on_approval:
+        type: boolean
+      description:
+        type: string
+      halachic_notes:
+        type: string
+      halachic_source:
+        type: string
+      requested_english_name:
+        type: string
+      requested_formula_dsl:
+        type: string
+      requested_hebrew_name:
+        type: string
+      requested_key:
+        type: string
+      requested_new_tags:
+        items:
+          properties:
+            name:
+              type: string
+            type:
+              type: string
+          type: object
+        type: array
+      tag_ids:
+        items:
+          type: string
+        type: array
+      time_category:
+        type: string
+      transliteration:
+        type: string
+    required:
+    - description
+    - requested_english_name
+    - requested_hebrew_name
+    - requested_key
+    - time_category
+    type: object
+  internal_handlers.CreateZmanRequest:
+    properties:
+      ai_explanation:
+        type: string
+      english_name:
+        type: string
+      formula_dsl:
+        type: string
+      hebrew_name:
+        type: string
+      is_enabled:
+        type: boolean
+      is_visible:
+        type: boolean
+      publisher_comment:
+        type: string
+      zman_key:
+        type: string
+    required:
+    - english_name
+    - formula_dsl
+    - hebrew_name
+    - zman_key
+    type: object
+  internal_handlers.DSLPreviewRequest:
+    properties:
+      date:
+        description: ISO 8601 date (YYYY-MM-DD)
+        type: string
+      elevation:
+        description: Optional elevation in meters
+        type: number
+      formula:
+        type: string
+      latitude:
+        description: Direct coordinates
+        type: number
+      location_id:
+        description: 'Optional: city/location ID'
+        type: string
+      longitude:
+        type: number
+      timezone:
+        description: e.g., "America/New_York"
+        type: string
+    type: object
+  internal_handlers.DSLPreviewResponse:
+    properties:
+      breakdown:
+        items:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_dsl.CalculationStep'
+        type: array
+      result:
+        description: Formatted time (HH:MM:SS)
+        type: string
+      timestamp:
+        description: Unix timestamp
+        type: integer
+    type: object
+  internal_handlers.DSLPreviewWeekRequest:
+    properties:
+      elevation:
+        type: number
+      formula:
+        type: string
+      latitude:
+        description: Direct coordinates
+        type: number
+      location_id:
+        description: 'Optional: city/location ID'
+        type: string
+      longitude:
+        type: number
+      start_date:
+        description: ISO 8601 date (YYYY-MM-DD)
+        type: string
+      timezone:
+        description: e.g., "America/New_York"
+        type: string
+    type: object
+  internal_handlers.DSLPreviewWeekResponse:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/internal_handlers.DayPreview'
+        type: array
+    type: object
+  internal_handlers.DSLValidateRequest:
+    properties:
+      formula:
+        type: string
+    type: object
+  internal_handlers.DSLValidateResponse:
+    properties:
+      dependencies:
+        items:
+          type: string
+        type: array
+      errors:
+        items:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_dsl.ValidationError'
+        type: array
+      valid:
+        type: boolean
+    type: object
+  internal_handlers.DayPreview:
+    properties:
+      date:
+        description: YYYY-MM-DD
+        type: string
+      events:
+        description: Jewish holidays, Shabbat, etc.
+        items:
+          type: string
+        type: array
+      hebrew_date:
+        description: Hebrew date string
+        type: string
+      is_shabbat:
+        type: boolean
+      is_yom_tov:
+        type: boolean
+      result:
+        description: Calculated time HH:MM:SS
+        type: string
+      sunrise:
+        description: HH:MM:SS
+        type: string
+      sunset:
+        description: HH:MM:SS
+        type: string
+    type: object
+  internal_handlers.DayType:
+    properties:
+      description:
+        type: string
+      display_name_english:
+        type: string
+      display_name_hebrew:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      parent_type:
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  internal_handlers.DeletedZman:
+    properties:
+      deleted_at:
+        type: string
+      deleted_by:
+        type: string
+      english_name:
+        type: string
+      formula_dsl:
+        type: string
+      hebrew_name:
+        type: string
+      id:
+        type: string
+      master_zman_id:
+        type: string
+      publisher_id:
+        type: string
+      time_category:
+        type: string
+      zman_key:
+        type: string
+    type: object
+  internal_handlers.FormulaDetails:
+    properties:
+      display_name:
+        type: string
+      explanation:
+        type: string
+      method:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+    type: object
+  internal_handlers.MasterZman:
+    properties:
+      canonical_english_name:
+        type: string
+      canonical_hebrew_name:
+        type: string
+      created_at:
+        type: string
+      day_types:
+        description: Day types this zman applies to
+        items:
+          type: string
+        type: array
+      default_formula_dsl:
+        type: string
+      description:
+        type: string
+      halachic_notes:
+        type: string
+      halachic_source:
+        type: string
+      id:
+        type: string
+      is_core:
+        type: boolean
+      tags:
+        items:
+          $ref: '#/definitions/internal_handlers.ZmanTag'
+        type: array
+      time_category:
+        type: string
+      transliteration:
+        type: string
+      updated_at:
+        type: string
+      zman_key:
+        type: string
+    type: object
+  internal_handlers.MasterZmanimGrouped:
+    properties:
+      display_name:
+        type: string
+      time_category:
+        type: string
+      zmanim:
+        items:
+          $ref: '#/definitions/internal_handlers.MasterZman'
+        type: array
+    type: object
+  internal_handlers.PublisherZman:
+    properties:
+      ai_explanation:
+        type: string
+      category:
+        type: string
+      created_at:
+        type: string
+      dependencies:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      english_name:
+        type: string
+      formula_dsl:
+        type: string
+      hebrew_name:
+        type: string
+      id:
+        type: string
+      is_beta:
+        type: boolean
+      is_custom:
+        type: boolean
+      is_enabled:
+        type: boolean
+      is_event_zman:
+        type: boolean
+      is_linked:
+        type: boolean
+      is_published:
+        type: boolean
+      is_visible:
+        type: boolean
+      linked_publisher_zman_id:
+        type: string
+      linked_source_is_deleted:
+        type: boolean
+      linked_source_publisher_name:
+        type: string
+      master_zman_id:
+        description: Linked zmanim support
+        type: string
+      publisher_comment:
+        type: string
+      publisher_id:
+        type: string
+      source_description:
+        type: string
+      source_english_name:
+        type: string
+      source_formula_dsl:
+        type: string
+      source_hebrew_name:
+        description: Source/original values from registry or linked publisher (for
+          diff/revert functionality)
+        type: string
+      source_transliteration:
+        type: string
+      source_type:
+        type: string
+      tags:
+        description: Tags from master zman
+        items:
+          $ref: '#/definitions/internal_handlers.ZmanTag'
+        type: array
+      time_category:
+        description: For ordering (from registry)
+        type: string
+      transliteration:
+        type: string
+      updated_at:
+        type: string
+      zman_key:
+        type: string
+    type: object
+  internal_handlers.ResponseMeta:
+    properties:
+      request_id:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  internal_handlers.ReviewZmanRequestBody:
+    properties:
+      reviewer_notes:
+        type: string
+      status:
+        description: '"approved" or "rejected"'
+        type: string
+    required:
+    - status
+    type: object
+  internal_handlers.RollbackZmanRequest:
+    properties:
+      version_number:
+        type: integer
+    required:
+    - version_number
+    type: object
+  internal_handlers.UpdateZmanRequest:
+    properties:
+      ai_explanation:
+        type: string
+      category:
+        type: string
+      description:
+        type: string
+      english_name:
+        type: string
+      formula_dsl:
+        type: string
+      hebrew_name:
+        type: string
+      is_beta:
+        type: boolean
+      is_enabled:
+        type: boolean
+      is_published:
+        type: boolean
+      is_visible:
+        type: boolean
+      publisher_comment:
+        type: string
+      transliteration:
+        type: string
+    type: object
+  internal_handlers.ValidateZmanKeyResponse:
+    properties:
+      available:
+        type: boolean
+      reason:
+        type: string
+    type: object
+  internal_handlers.ZmanRegistryRequest:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      publisher_email:
+        type: string
+      publisher_id:
+        type: string
+      publisher_name:
+        type: string
+      requested_english_name:
+        type: string
+      requested_formula_dsl:
+        type: string
+      requested_hebrew_name:
+        type: string
+      requested_key:
+        type: string
+      reviewed_at:
+        type: string
+      reviewed_by:
+        type: string
+      reviewer_notes:
+        type: string
+      status:
+        type: string
+      submitter_name:
+        type: string
+      time_category:
+        type: string
+    type: object
+  internal_handlers.ZmanRequestTagResponse:
+    properties:
+      existing_tag_key:
+        type: string
+      existing_tag_name:
+        type: string
+      existing_tag_type:
+        type: string
+      id:
+        type: string
+      is_new_tag_request:
+        type: boolean
+      request_id:
+        type: string
+      requested_tag_name:
+        type: string
+      requested_tag_type:
+        type: string
+      tag_id:
+        type: string
+    type: object
+  internal_handlers.ZmanTag:
+    properties:
+      color:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      display_name_english:
+        type: string
+      display_name_hebrew:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      sort_order:
+        type: integer
+      tag_key:
+        description: Unique key like "is_candle_lighting", "is_havdalah"
+        type: string
+      tag_type:
+        type: string
+    type: object
+  internal_handlers.ZmanVersion:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      formula_dsl:
+        type: string
+      id:
+        type: string
+      publisher_zman_id:
+        type: string
+      version_number:
+        type: integer
+    type: object
+  internal_handlers.ZmanWithFormula:
+    properties:
+      formula:
+        $ref: '#/definitions/internal_handlers.FormulaDetails'
+      is_beta:
+        type: boolean
+      key:
+        type: string
+      name:
+        type: string
+      time:
+        type: string
+      time_category:
+        type: string
+    type: object
+  internal_handlers.ZmanimLocationInfo:
+    properties:
+      city_id:
+        type: string
+      city_name:
+        type: string
+      country:
+        type: string
+      latitude:
+        type: number
+      longitude:
+        type: number
+      region:
+        type: string
+      timezone:
+        type: string
+    type: object
+  internal_handlers.ZmanimPublisherInfo:
+    properties:
+      id:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+    type: object
+  internal_handlers.ZmanimWithFormulaResponse:
+    properties:
+      cached:
+        type: boolean
+      cached_at:
+        type: string
+      date:
+        type: string
+      location:
+        $ref: '#/definitions/internal_handlers.ZmanimLocationInfo'
+      publisher:
+        $ref: '#/definitions/internal_handlers.ZmanimPublisherInfo'
+      zmanim:
+        items:
+          $ref: '#/definitions/internal_handlers.ZmanWithFormula'
+        type: array
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@zmanim.com
+    name: Shtetl Zmanim Support
+  description: API for Halachic Authorities to publish zmanim with complete autonomy and transparency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://zmanim.com/terms
+  title: Shtetl Zmanim API
+  version: "1.0"
+paths:
+  /admin/publishers:
+    get:
+      description: Returns a list of all publishers with their status, regardless
+        of verification
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of publishers
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "403":
+          description: Forbidden - admin role required
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List all publishers (admin)
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Creates a new publisher entity. Admin-created publishers are auto-approved.
+      parameters:
+      - description: Publisher data (name required, email/website/bio optional)
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created publisher
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "409":
+          description: Conflict - publisher name already exists
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create publisher (admin)
+      tags:
+      - Admin
+  /admin/publishers/{id}/verify:
+    put:
+      description: Verifies a pending publisher, sends approval email, and creates/updates
+        Clerk user
+      parameters:
+      - description: Publisher ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Verified publisher
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Verify publisher (admin)
+      tags:
+      - Admin
+  /admin/stats:
+    get:
+      description: Returns usage statistics including publisher counts and calculation
+        metrics
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: System statistics
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get system statistics (admin)
+      tags:
+      - Admin
+  /api/v1/admin/registry/day-types:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.DayType'
+            type: array
+      summary: Get all day types (admin)
+      tags:
+      - Admin
+  /api/v1/admin/registry/requests:
+    get:
+      parameters:
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.ZmanRegistryRequest'
+            type: array
+      summary: Get all zman registry requests
+      tags:
+      - Admin
+  /api/v1/admin/registry/requests/{id}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Review body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.ReviewZmanRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.ZmanRegistryRequest'
+      summary: Review zman registry request
+      tags:
+      - Admin
+  /api/v1/admin/registry/tags:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.ZmanTag'
+            type: array
+      summary: Get all zman tags (admin)
+      tags:
+      - Admin
+  /api/v1/admin/registry/time-categories:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties:
+                type: string
+              type: object
+            type: array
+      summary: Get time categories (admin)
+      tags:
+      - Admin
+  /api/v1/admin/registry/zmanim:
+    get:
+      parameters:
+      - description: Include hidden zmanim
+        in: query
+        name: include_hidden
+        type: boolean
+      - description: Filter by time category
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.AdminMasterZman'
+            type: array
+      summary: Get all master zmanim (admin)
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Create request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.AdminCreateMasterZmanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_handlers.AdminMasterZman'
+      summary: Create master zman (admin)
+      tags:
+      - Admin
+  /api/v1/admin/registry/zmanim/{id}:
+    delete:
+      parameters:
+      - description: Zman ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete master zman (admin)
+      tags:
+      - Admin
+    get:
+      parameters:
+      - description: Zman ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.AdminMasterZmanDetail'
+      summary: Get master zman by ID (admin)
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Zman ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.AdminUpdateMasterZmanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.AdminMasterZman'
+      summary: Update master zman (admin)
+      tags:
+      - Admin
+  /api/v1/admin/registry/zmanim/{id}/toggle-visibility:
+    post:
+      parameters:
+      - description: Zman ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.AdminMasterZman'
+      summary: Toggle zman visibility (admin)
+      tags:
+      - Admin
+  /api/v1/admin/zman-requests/{id}:
+    get:
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.ZmanRegistryRequest'
+      summary: Get zman registry request by ID
+      tags:
+      - Admin
+  /api/v1/admin/zman-requests/{id}/tags:
+    get:
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.ZmanRequestTagResponse'
+            type: array
+      summary: Get tags for zman request
+      tags:
+      - Admin
+  /api/v1/admin/zman-requests/{id}/tags/{tagRequestId}/approve:
+    post:
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Tag Request ID
+        in: path
+        name: tagRequestId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.ApprovedTagResponse'
+      summary: Approve tag request
+      tags:
+      - Admin
+  /api/v1/admin/zman-requests/{id}/tags/{tagRequestId}/reject:
+    post:
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Tag Request ID
+        in: path
+        name: tagRequestId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Reject tag request
+      tags:
+      - Admin
+  /api/v1/publisher/zman-requests:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get publisher's zman requests
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Create request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.CreateZmanFromRegistryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_handlers.PublisherZman'
+      summary: Add zman from master registry
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim/{zmanKey}:
+    delete:
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Soft delete a zman
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim/{zmanKey}/history:
+    get:
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.ZmanVersion'
+            type: array
+      summary: Get version history for a zman
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim/{zmanKey}/history/{version}:
+    get:
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      - description: Version number
+        in: path
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.ZmanVersion'
+      summary: Get specific version of a zman
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim/{zmanKey}/permanent:
+    delete:
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Permanently delete a zman
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim/{zmanKey}/restore:
+    post:
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.PublisherZman'
+      summary: Restore a deleted zman
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim/{zmanKey}/rollback:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      - description: Rollback request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.RollbackZmanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.PublisherZman'
+      summary: Rollback zman to previous version
+      tags:
+      - Publisher Zmanim
+  /api/v1/publisher/zmanim/deleted:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.DeletedZman'
+            type: array
+      summary: Get deleted zmanim
+      tags:
+      - Publisher Zmanim
+  /api/v1/registry/day-types:
+    get:
+      parameters:
+      - description: Filter by parent type
+        in: query
+        name: parent
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.DayType'
+            type: array
+      summary: Get all day types
+      tags:
+      - Registry
+  /api/v1/registry/primitives:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.AstronomicalPrimitive'
+            type: array
+      summary: Get all astronomical primitives
+      tags:
+      - Registry
+  /api/v1/registry/primitives/grouped:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.AstronomicalPrimitivesGrouped'
+            type: array
+      summary: Get astronomical primitives grouped by category
+      tags:
+      - Registry
+  /api/v1/registry/tags:
+    get:
+      parameters:
+      - description: Filter by tag type
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.ZmanTag'
+            type: array
+      summary: Get all zman tags
+      tags:
+      - Registry
+  /api/v1/registry/zmanim:
+    get:
+      parameters:
+      - description: Filter by time category
+        in: query
+        name: category
+        type: string
+      - description: Search by name
+        in: query
+        name: search
+        type: string
+      - description: Filter by tag name
+        in: query
+        name: tag
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.MasterZman'
+            type: array
+      summary: Get all master zmanim
+      tags:
+      - Registry
+  /api/v1/registry/zmanim/{zmanKey}:
+    get:
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.MasterZman'
+      summary: Get master zman by key
+      tags:
+      - Registry
+  /api/v1/registry/zmanim/{zmanKey}/day-types:
+    get:
+      parameters:
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.DayType'
+            type: array
+      summary: Get applicable day types for a zman
+      tags:
+      - Registry
+  /api/v1/registry/zmanim/events:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/internal_handlers.MasterZman'
+              type: array
+            type: object
+      summary: Get event zmanim grouped by category (candles, havdalah, etc.)
+      tags:
+      - Registry
+  /api/v1/registry/zmanim/grouped:
+    get:
+      parameters:
+      - description: Filter by day types (comma-separated, e.g., erev_shabbos,motzei_shabbos)
+        in: query
+        name: day_types
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handlers.MasterZmanimGrouped'
+            type: array
+      summary: Get master zmanim grouped by time category
+      tags:
+      - Registry
+  /api/v1/registry/zmanim/request:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.CreateZmanRegistryRequestBody'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_handlers.ZmanRegistryRequest'
+      summary: Request new zman for master registry
+      tags:
+      - Publisher Zmanim
+  /api/v1/registry/zmanim/validate-key:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Zman key to validate
+        in: query
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handlers.ValidateZmanKeyResponse'
+      summary: Validate zman key availability
+      tags:
+      - Registry
+  /cities:
+    get:
+      description: Search for cities by name with optional filtering by country, region,
+        or continent. Uses fuzzy matching for typo tolerance.
+      parameters:
+      - description: Search query (min 2 chars for fuzzy match)
+        in: query
+        name: search
+        type: string
+      - description: ISO 3166-1 alpha-2 country code
+        in: query
+        name: country_code
+        type: string
+      - description: Region/state name
+        in: query
+        name: region
+        type: string
+      - description: Continent code (AF, AS, EU, NA, OC, SA, AN)
+        in: query
+        name: continent_code
+        type: string
+      - description: Max results (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of matching cities
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.CitySearchResponse'
+              type: object
+        "400":
+          description: Invalid parameters
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Search cities
+      tags:
+      - Cities
+  /cities/{cityId}/publishers:
+    get:
+      description: Returns all publishers that have coverage for the specified city
+        (via city, region, country, or continent level)
+      parameters:
+      - description: City ID
+        in: path
+        name: cityId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Publishers serving this city
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublishersForCityResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Get publishers for city
+      tags:
+      - Cities
+  /cities/nearby:
+    get:
+      description: Finds the nearest city to the given GPS coordinates using PostGIS
+        spatial queries
+      parameters:
+      - description: Latitude (-90 to 90)
+        in: query
+        name: lat
+        required: true
+        type: number
+      - description: Longitude (-180 to 180)
+        in: query
+        name: lng
+        required: true
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Nearest city with distance
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: Invalid coordinates
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Find nearest city
+      tags:
+      - Cities
+  /continents:
+    get:
+      description: Returns all continents with their city counts
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of continents
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: List continents
+      tags:
+      - Geography
+  /countries:
+    get:
+      description: Returns all countries with their city counts, optionally filtered
+        by continent
+      parameters:
+      - description: Filter by continent code or name
+        in: query
+        name: continent
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of countries
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: List countries
+      tags:
+      - Geography
+  /dsl/preview:
+    post:
+      consumes:
+      - application/json
+      description: Calculates the result of a zmanim formula for a specific date and
+        location, returning the time and calculation breakdown
+      parameters:
+      - description: Formula, date, and location
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.DSLPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Calculation result with breakdown
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.DSLPreviewResponse'
+              type: object
+        "400":
+          description: Invalid request or formula error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Location not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Preview DSL formula
+      tags:
+      - DSL
+  /dsl/preview-week:
+    post:
+      consumes:
+      - application/json
+      description: Calculates a zmanim formula for 7 consecutive days starting from
+        the specified date, including Hebrew dates and Shabbat/holiday markers
+      parameters:
+      - description: Formula, start date, and location
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.DSLPreviewWeekRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Weekly calculation results
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.DSLPreviewWeekResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Location not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Preview DSL formula for a week
+      tags:
+      - DSL
+  /dsl/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validates a zmanim formula written in the DSL syntax, returning
+        any errors and dependencies
+      parameters:
+      - description: Formula to validate
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.DSLValidateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Validation result
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.DSLValidateResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Validate DSL formula
+      tags:
+      - DSL
+  /health:
+    get:
+      description: Returns the health status of the API and database connection
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service healthy
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "503":
+          description: Service unavailable
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Health check
+      tags:
+      - System
+  /publisher/accessible:
+    get:
+      description: Returns a list of publishers the authenticated user has access
+        to
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of accessible publishers
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get accessible publishers
+      tags:
+      - Publisher
+  /publisher/cache:
+    delete:
+      description: Clears all cached zmanim calculations for the authenticated publisher
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cache invalidated
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Invalidate publisher cache
+      tags:
+      - Publisher
+  /publisher/coverage:
+    get:
+      description: Returns all geographic coverage areas configured for the authenticated
+        publisher
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of coverage areas
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageListResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get publisher coverage areas
+      tags:
+      - Coverage
+    post:
+      consumes:
+      - application/json
+      description: Adds a new geographic coverage area (continent, country, region,
+        or city level)
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      - description: Coverage area configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created coverage area
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage'
+              type: object
+        "400":
+          description: Invalid request or duplicate coverage
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create coverage area
+      tags:
+      - Coverage
+  /publisher/coverage/{id}:
+    delete:
+      description: Removes a geographic coverage area from the publisher
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      - description: Coverage area ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deletion confirmation
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Coverage area not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Delete coverage area
+      tags:
+      - Coverage
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing coverage area's priority or active status
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      - description: Coverage area ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverageUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated coverage area
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherCoverage'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Coverage area not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update coverage area
+      tags:
+      - Coverage
+  /publisher/dashboard:
+    get:
+      description: Returns a summary of the publisher's profile, algorithm, coverage,
+        and analytics
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Dashboard summary
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get dashboard summary
+      tags:
+      - Publisher
+  /publisher/profile:
+    get:
+      description: Returns the authenticated publisher's profile
+      parameters:
+      - description: Publisher ID (optional, uses default if not specified)
+        in: header
+        name: X-Publisher-Id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Publisher profile
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get publisher profile
+      tags:
+      - Publisher
+    put:
+      consumes:
+      - application/json
+      description: Updates the authenticated publisher's profile information
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        type: string
+      - description: Profile update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.PublisherProfileUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated publisher profile
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update publisher profile
+      tags:
+      - Publisher
+  /publisher/zmanim:
+    get:
+      description: Returns all zmanim formulas for a publisher. With optional date/location
+        params, returns filtered zmanim with calculated times and day context.
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      - description: Date for filtering and calculation (YYYY-MM-DD)
+        in: query
+        name: date
+        type: string
+      - description: Latitude for time calculation (required with date)
+        in: query
+        name: latitude
+        type: number
+      - description: Longitude for time calculation (required with date)
+        in: query
+        name: longitude
+        type: number
+      - description: Timezone for calculation (defaults to UTC)
+        in: query
+        name: timezone
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of zmanim or filtered response with day context
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get publisher zmanim
+      tags:
+      - Publisher Zmanim
+    post:
+      consumes:
+      - application/json
+      description: Creates a new custom zman formula for the publisher
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      - description: Zman data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.CreateZmanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created zman
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.PublisherZman'
+              type: object
+        "400":
+          description: Invalid request or duplicate key
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create custom zman
+      tags:
+      - Publisher Zmanim
+  /publisher/zmanim/{zmanKey}:
+    get:
+      description: Returns a single zman formula by its unique key
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Zman details
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.PublisherZman'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Zman not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get single zman
+      tags:
+      - Publisher Zmanim
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing zman formula's properties
+      parameters:
+      - description: Publisher ID
+        in: header
+        name: X-Publisher-Id
+        required: true
+        type: string
+      - description: Zman key
+        in: path
+        name: zmanKey
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.UpdateZmanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated zman
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.PublisherZman'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Zman not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update zman
+      tags:
+      - Publisher Zmanim
+  /publishers:
+    get:
+      description: Returns a paginated list of verified publishers, optionally filtered
+        by region or search query
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 20, max 100)
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by region ID
+        in: query
+        name: region_id
+        type: string
+      - description: Search query
+        in: query
+        name: q
+        type: string
+      - description: Filter to publishers with published algorithms
+        in: query
+        name: has_algorithm
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of publishers
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: List publishers
+      tags:
+      - Publishers
+  /publishers/{id}:
+    get:
+      description: Returns details for a specific publisher by ID
+      parameters:
+      - description: Publisher ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Publisher details
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.Publisher'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: Publisher not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Get publisher
+      tags:
+      - Publishers
+  /regions:
+    get:
+      description: Returns regions/states with their city counts, filtered by country
+        code or search query
+      parameters:
+      - description: Filter by ISO country code (required if search not provided)
+        in: query
+        name: country_code
+        type: string
+      - description: Search query for region name (min 2 chars)
+        in: query
+        name: search
+        type: string
+      - description: Max results (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of regions
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: Either country_code or search required
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: List regions
+      tags:
+      - Geography
+  /zmanim:
+    get:
+      consumes:
+      - application/json
+      description: Calculates zmanim for a specific locality and date using the Halachic
+        Authority's configured DSL formulas with complete transparency
+      parameters:
+      - description: City ID from the cities database
+        in: query
+        name: cityId
+        required: true
+        type: string
+      - description: Publisher ID for custom algorithm (uses default if not specified)
+        in: query
+        name: publisherId
+        type: string
+      - description: Date in YYYY-MM-DD format (defaults to today)
+        in: query
+        name: date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Calculated zmanim with formula details
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.ZmanimWithFormulaResponse'
+              type: object
+        "400":
+          description: Invalid parameters
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "404":
+          description: City not found
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Get zmanim for a city
+      tags:
+      - Zmanim
+    post:
+      consumes:
+      - application/json
+      description: Calculates zmanim using raw latitude/longitude coordinates. Prefer
+        the GET /zmanim endpoint with cityId for better accuracy.
+      parameters:
+      - description: Coordinates and date
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_jcom-dev_zmanim_internal_models.ZmanimRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Calculated zmanim
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handlers.ZmanimWithFormulaResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handlers.APIResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/internal_handlers.APIError'
+              type: object
+      summary: Calculate zmanim by coordinates (legacy)
+      tags:
+      - Zmanim
+securityDefinitions:
+  BearerAuth:
+    description: JWT Bearer token from Clerk authentication
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

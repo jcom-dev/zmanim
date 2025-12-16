@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-13-e2e-deterministic-waits" epic="5" generated="2025-12-02">
+  <summary>
+    Replace 52 waitForTimeout calls with deterministic wait conditions
+    for reliable, faster, non-flaky E2E tests.
+  </summary>
+
+  <violation-count>52 waitForTimeout calls</violation-count>
+  <detection-command>grep -rn "waitForTimeout" tests/e2e --include="*.ts"</detection-command>
+
+  <key-files>
+    <file path="tests/e2e/utils/wait-helpers.ts" action="modify">
+      Add/update helper functions for common wait patterns
+    </file>
+    <file path="tests/e2e/utils/index.ts" action="modify">
+      Export helpers
+    </file>
+    <file path="tests/e2e/**/*.spec.ts" action="modify">
+      All spec files with waitForTimeout calls
+    </file>
+  </key-files>
+
+  <replacement-patterns>
+    <pattern name="Page load">
+      <before>await page.waitForTimeout(2000);</before>
+      <after>await page.waitForLoadState('networkidle');</after>
+    </pattern>
+
+    <pattern name="Form submit">
+      <before>
+await page.click('button[type="submit"]');
+await page.waitForTimeout(1000);
+      </before>
+      <after>
+await Promise.all([
+  page.waitForResponse(resp => resp.url().includes('/api/')),
+  page.click('button[type="submit"]'),
+]);
+      </after>
+    </pattern>
+
+    <pattern name="Modal open">
+      <before>await page.waitForTimeout(500);</before>
+      <after>await expect(page.locator('[role="dialog"]')).toBeVisible();</after>
+    </pattern>
+
+    <pattern name="Modal close">
+      <before>await page.waitForTimeout(300);</before>
+      <after>await expect(page.locator('[role="dialog"]')).not.toBeVisible();</after>
+    </pattern>
+
+    <pattern name="Navigation">
+      <before>await page.waitForTimeout(1500);</before>
+      <after>await page.waitForURL('**/new-path');</after>
+    </pattern>
+
+    <pattern name="Data fetch">
+      <before>await page.waitForTimeout(2000);</before>
+      <after>await expect(page.getByText('Expected content')).toBeVisible();</after>
+    </pattern>
+
+    <pattern name="Loading complete">
+      <before>await page.waitForTimeout(1000);</before>
+      <after>await expect(page.locator('.animate-spin')).not.toBeVisible();</after>
+    </pattern>
+  </replacement-patterns>
+
+  <wait-helpers>
+    <helper name="waitForPageLoad">
+      await page.waitForLoadState('networkidle');
+    </helper>
+
+    <helper name="waitForApiResponse">
+      const [response] = await Promise.all([
+        page.waitForResponse(urlPattern),
+        action(),
+      ]);
+      return response.json();
+    </helper>
+
+    <helper name="waitForNavigation">
+      await page.waitForURL(`**${urlPattern}`);
+      await page.waitForLoadState('networkidle');
+    </helper>
+
+    <helper name="waitForElement">
+      await expect(page.locator(selector)).toBeVisible();
+    </helper>
+
+    <helper name="waitForToast">
+      await expect(page.getByText(text)).toBeVisible({ timeout: 5000 });
+    </helper>
+
+    <helper name="waitForLoadingComplete">
+      await expect(page.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+    </helper>
+
+    <helper name="waitForDataLoad">
+      await expect(page.locator(`${tableSelector} tbody tr`)).toHaveCount(minRows);
+    </helper>
+  </wait-helpers>
+
+  <playwright-wait-methods>
+    <method name="waitForLoadState('networkidle')">All network requests complete</method>
+    <method name="waitForResponse(predicate)">Specific API response</method>
+    <method name="waitForURL(pattern)">URL change</method>
+    <method name="waitForFunction(fn)">Custom condition</method>
+    <method name="expect().toBeVisible()">Element appears (with auto-retry)</method>
+    <method name="expect().not.toBeVisible()">Element disappears</method>
+    <method name="expect().toHaveText()">Text content</method>
+    <method name="expect().toHaveCount()">Element count</method>
+  </playwright-wait-methods>
+
+  <commands>
+    <command purpose="Find violations">grep -rn "waitForTimeout" tests/e2e --include="*.ts"</command>
+    <command purpose="Run tests">npx playwright test</command>
+    <command purpose="Run 3x for flakiness">npx playwright test && npx playwright test && npx playwright test</command>
+    <command purpose="Verify zero violations">grep -r "waitForTimeout" tests/e2e --include="*.ts" | wc -l</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Zero waitForTimeout calls in tests/e2e</item>
+    <item>All tests pass locally</item>
+    <item>Tests pass 3 consecutive runs (no flakiness)</item>
+    <item>CI tests pass</item>
+    <item>Test run time not significantly increased</item>
+    <item>Wait helpers exported from utils/index.ts</item>
+  </acceptance-checklist>
+</story-context>

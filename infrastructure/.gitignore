@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# CDKTF output
+cdktf.out/
+imports/
+dist/
+
+# TypeScript build output
+*.js
+*.d.ts
+*.js.map
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Keep package-lock.json
+!package-lock.json
+
+# Packer
+packer/packer_cache/
+packer/*.pkrvars.hcl
+packer/manifest.json

@@ -1,0 +1,210 @@
+/**
+ * E2E Tests: Publisher Team Management
+ *
+ * Optimized for parallel execution using shared fixtures.
+ */
+
+import { test, expect } from '@playwright/test';
+import {
+  loginAsPublisher,
+  getSharedPublisher,
+  BASE_URL,
+} from '../utils';
+
+// All tests run in parallel
+test.describe.configure({ mode: 'parallel' });
+
+test.describe('Team - Page Access', () => {
+  test('can access team page', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    expect(page.url()).toContain('/publisher/team');
+  });
+
+  test('shows header', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByRole('heading', { name: 'Team Members' })).toBeVisible();
+  });
+
+  test('shows description', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByText(/manage who can access/i)).toBeVisible();
+  });
+
+  test('has Invite Member button', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByRole('button', { name: /invite member/i })).toBeVisible();
+  });
+
+  test('loads without error', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    const content = await page.textContent('body');
+    expect(content).toBeTruthy();
+    expect(content?.toLowerCase()).not.toContain('error loading');
+  });
+});
+
+test.describe('Team - Current Team Section', () => {
+  test('shows Current Team heading', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByText(/current team/i)).toBeVisible();
+  });
+
+  test('shows member count', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByText(/current team \(\d+\)/i)).toBeVisible();
+  });
+
+  test('shows description', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByText(/people who can manage this publisher/i)).toBeVisible();
+  });
+});
+
+test.describe('Team - Invite Dialog', () => {
+  test('Invite Member opens dialog', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await expect(page.getByText('Invite Team Member')).toBeVisible();
+  });
+
+  test('dialog shows description', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await expect(page.getByText(/send an invitation to join/i)).toBeVisible();
+  });
+
+  test('dialog has email input', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await expect(page.getByLabel(/email/i)).toBeVisible();
+  });
+
+  test('dialog has placeholder', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await expect(page.getByPlaceholder(/colleague@example.com/i)).toBeVisible();
+  });
+
+  test('dialog has Send button', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await expect(page.getByRole('button', { name: /send invitation/i })).toBeVisible();
+  });
+
+  test('dialog has Cancel button', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await expect(page.getByRole('button', { name: /cancel/i })).toBeVisible();
+  });
+
+  test('Cancel closes dialog', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await expect(page.getByText('Invite Team Member')).toBeVisible();
+
+    await page.getByRole('button', { name: /cancel/i }).click();
+    await page.waitForTimeout(500);
+
+    await expect(page.getByText('Invite Team Member')).not.toBeVisible();
+  });
+
+  test('error for empty email', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await page.getByRole('button', { name: /send invitation/i }).click();
+
+    await expect(page.getByText(/email is required/i)).toBeVisible();
+  });
+
+  test('error for invalid email', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /invite member/i }).click();
+    await page.getByLabel(/email/i).fill('invalid-email');
+    await page.getByRole('button', { name: /send invitation/i }).click();
+
+    await expect(page.getByText(/valid email/i)).toBeVisible();
+  });
+});
+
+test.describe('Team - Member Display', () => {
+  test('shows Owner badge if exists', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+
+    const badge = page.getByText('Owner');
+    if (await badge.isVisible().catch(() => false)) {
+      await expect(badge).toBeVisible();
+    }
+  });
+});

@@ -1,0 +1,9 @@
+{
+  "language": "typescript",
+  "app": "npx ts-node main.ts",
+  "projectId": "shtetl-common",
+  "sendCrashReports": false,
+  "terraformProviders": [],
+  "terraformModules": [],
+  "codeMakerOutput": "imports"
+}

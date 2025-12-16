@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced DSL Editor - UX Mockup | Shtetl Zmanim</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-card: #111118;
+      --bg-elevated: #1a1a24;
+      --bg-input: #0d0d12;
+      --border: #2a2a3a;
+      --border-focus: #3b82f6;
+      --text: #f0f0f5;
+      --text-muted: #8888a0;
+      --text-dim: #5a5a70;
+      --primary: #3b82f6;
+      --primary-muted: #2563eb;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --accent-green: #22c55e;
+      --accent-blue: #3b82f6;
+      --accent-purple: #a855f7;
+      --accent-pink: #ec4899;
+      --accent-orange: #f97316;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+
+    .back-btn:hover {
+      background: var(--bg-elevated);
+      color: var(--text);
+    }
+
+    .divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+
+    .zman-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .zman-title h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .zman-title .hebrew {
+      font-family: 'Times New Roman', serif;
+      font-size: 20px;
+    }
+
+    .badge {
+      padding: 4px 10px;
+      background: var(--primary-muted);
+      color: white;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 12px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text);
+    }
+
+    .btn:hover {
+      background: var(--bg-card);
+      border-color: var(--text-muted);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-muted);
+    }
+
+    /* Main Layout */
+    .main {
+      display: flex;
+      height: calc(100vh - 57px);
+    }
+
+    /* Left Panel */
+    .left-panel {
+      flex: 0 0 55%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .left-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    /* Mode Toggle */
+    .mode-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      background: var(--bg-elevated);
+      border-radius: 10px;
+      margin-bottom: 24px;
+    }
+
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+
+    .mode-btn.active {
+      background: var(--bg-card);
+      color: var(--text);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .mode-btn:hover:not(.active) {
+      color: var(--text);
+    }
+
+    /* Bilingual Input */
+    .bilingual-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .input-group input {
+      padding: 10px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 15px;
+      transition: all 0.15s;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .input-group input.hebrew-input {
+      font-family: 'Times New Roman', serif;
+      font-size: 18px;
+      direction: rtl;
+    }
+
+    /* DSL Editor */
+    .editor-section {
+      margin-bottom: 24px;
+    }
+
+    .editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .editor-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .validation-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .validation-status.valid {
+      color: var(--success);
+    }
+
+    .validation-status.invalid {
+      color: var(--error);
+    }
+
+    .editor-container {
+      position: relative;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .editor-container:focus-within {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .code-editor {
+      width: 100%;
+      min-height: 160px;
+      padding: 16px;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 15px;
+      line-height: 1.6;
+      resize: vertical;
+    }
+
+    .code-editor:focus {
+      outline: none;
+    }
+
+    /* Syntax highlighting simulation */
+    .code-highlight {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      pointer-events: none;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .token-function { color: var(--accent-blue); }
+    .token-number { color: var(--accent-orange); }
+    .token-keyword { color: var(--accent-purple); }
+    .token-primitive { color: var(--accent-green); }
+    .token-reference { color: var(--accent-pink); }
+
+    /* Result Card */
+    .result-card {
+      background: linear-gradient(135deg, var(--bg-card) 0%, rgba(59, 130, 246, 0.08) 100%);
+      border: 2px solid rgba(59, 130, 246, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .result-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .result-time {
+      font-size: 42px;
+      font-weight: 700;
+      font-family: 'SF Mono', monospace;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+    }
+
+    .result-context {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Collapsible Sections */
+    .collapsible {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--bg-elevated);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .collapsible-header:hover {
+      background: var(--bg-card);
+    }
+
+    .collapsible-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .collapsible-content {
+      padding: 16px;
+      background: var(--bg-card);
+      display: none;
+    }
+
+    .collapsible.open .collapsible-content {
+      display: block;
+    }
+
+    .collapsible textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      resize: vertical;
+    }
+
+    .collapsible textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    /* Right Panel - Reference */
+    .right-panel {
+      flex: 0 0 45%;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-elevated);
+      overflow: hidden;
+    }
+
+    .reference-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 14px 10px 38px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    .search-wrapper {
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+
+    .reference-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+
+    /* Category */
+    .category {
+      margin-bottom: 20px;
+    }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .category-header:hover .category-title {
+      color: var(--text);
+    }
+
+    .category-chevron {
+      color: var(--text-muted);
+      transition: transform 0.2s;
+    }
+
+    .category.open .category-chevron {
+      transform: rotate(90deg);
+    }
+
+    .category-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      transition: color 0.15s;
+    }
+
+    .category-count {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .category-items {
+      display: none;
+      padding-left: 4px;
+    }
+
+    .category.open .category-items {
+      display: block;
+    }
+
+    /* Reference Item */
+    .ref-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      margin: 4px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .ref-item:hover {
+      background: var(--bg-card);
+    }
+
+    .ref-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .ref-dot.primitive { background: var(--accent-green); }
+    .ref-dot.function { background: var(--accent-blue); }
+    .ref-dot.operator { background: var(--accent-purple); }
+    .ref-dot.reference { background: var(--accent-pink); }
+
+    .ref-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ref-name {
+      font-family: 'SF Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .ref-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .ref-item.in-use {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .ref-item.in-use .ref-name::after {
+      content: ' (in use)';
+      font-size: 10px;
+      color: var(--primary);
+      font-weight: 400;
+    }
+
+    /* Examples Section */
+    .examples-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .examples-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .example-card {
+      padding: 12px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .example-card:hover {
+      border-color: var(--primary);
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .example-formula {
+      font-family: 'SF Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .example-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: absolute;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      max-width: 280px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 100;
+      display: none;
+    }
+
+    /* Icons (simple SVG) */
+    .icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .left-panel {
+        flex: 0 0 50%;
+      }
+      .right-panel {
+        flex: 0 0 50%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main {
+        flex-direction: column;
+      }
+      .left-panel, .right-panel {
+        flex: none;
+        width: 100%;
+        height: auto;
+      }
+      .right-panel {
+        max-height: 50vh;
+      }
+    }
+
+    /* Animation */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-in {
+      animation: fadeIn 0.2s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <button class="back-btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to List
+      </button>
+      <div class="divider"></div>
+      <div class="zman-title">
+        <h1><span class="hebrew">עלות השחר</span> <span style="color: var(--text-muted); margin: 0 8px;">*</span> Dawn (Alos Hashachar)</h1>
+        <span class="badge">essential</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <path d="M16 2v4M8 2v4M3 10h18"/>
+        </svg>
+        Preview Week
+      </button>
+      <button class="btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        AI Assistant
+      </button>
+      <button class="btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        Browse Templates
+      </button>
+      <button class="btn btn-primary">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17,21 17,13 7,13 7,21"/>
+          <polyline points="7,3 7,8 15,8"/>
+        </svg>
+        Save
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Left Panel: Editor -->
+    <div class="left-panel">
+      <div class="left-content">
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+          <button class="mode-btn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/>
+            </svg>
+            Guided Builder
+          </button>
+          <button class="mode-btn active">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16,18 22,12 16,6"/>
+              <polyline points="8,6 2,12 8,18"/>
+            </svg>
+            Advanced DSL
+          </button>
+        </div>
+
+        <!-- Bilingual Names -->
+        <div class="bilingual-section">
+          <div class="input-group">
+            <label>Hebrew Name <span style="color: var(--text-dim);">שם בעברית</span></label>
+            <input type="text" class="hebrew-input" value="עלות השחר" />
+          </div>
+          <div class="input-group">
+            <label>English Name <span style="color: var(--error);">*</span></label>
+            <input type="text" value="Dawn (Alos Hashachar)" />
+          </div>
+        </div>
+
+        <!-- DSL Editor -->
+        <div class="editor-section">
+          <div class="editor-header">
+            <div class="editor-label">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16,18 22,12 16,6"/>
+                <polyline points="8,6 2,12 8,18"/>
+              </svg>
+              DSL Formula
+            </div>
+            <div class="validation-status valid">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22,4 12,14.01 9,11.01"/>
+              </svg>
+              Valid
+            </div>
+          </div>
+          <div class="editor-container">
+            <textarea class="code-editor" spellcheck="false">solar(16.1, before_sunrise)</textarea>
+          </div>
+        </div>
+
+        <!-- Result Card -->
+        <div class="result-card animate-in">
+          <div class="result-label">Calculated Result</div>
+          <div class="result-time">5:53:52 AM</div>
+          <div class="result-context">2025-11-30 * London, Greater London, United Kingdom</div>
+        </div>
+
+        <!-- Collapsible: AI Explanation -->
+        <div class="collapsible">
+          <div class="collapsible-header" onclick="this.parentElement.classList.toggle('open')">
+            <div class="collapsible-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              AI Explanation
+            </div>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </div>
+          <div class="collapsible-content">
+            <textarea placeholder="Click 'Generate' to create an AI explanation of this formula..."></textarea>
+          </div>
+        </div>
+
+        <!-- Collapsible: Publisher Comment -->
+        <div class="collapsible">
+          <div class="collapsible-header" onclick="this.parentElement.classList.toggle('open')">
+            <div class="collapsible-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Publisher Comment
+            </div>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </div>
+          <div class="collapsible-content">
+            <textarea placeholder="Add a note for users viewing this zman (e.g., halachic source, custom minhag)..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Reference -->
+    <div class="right-panel">
+      <div class="reference-header">
+        <div class="search-wrapper">
+          <svg class="search-icon icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" class="search-input" placeholder="Search functions, primitives..." id="searchInput" />
+        </div>
+      </div>
+      <div class="reference-content">
+        <!-- Primitives -->
+        <div class="category open">
+          <div class="category-header" onclick="this.parentElement.classList.toggle('open')">
+            <svg class="category-chevron icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9,6 15,12 9,18"/>
+            </svg>
+            <span class="category-title">Primitives</span>
+            <span class="category-count">(4)</span>
+          </div>
+          <div class="category-items">
+            <div class="ref-item" onclick="insertText('sunrise')">
+              <div class="ref-dot primitive"></div>
+              <div class="ref-content">
+                <div class="ref-name">sunrise</div>
+                <div class="ref-desc">Start of visible sun (amud hashachar)</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('sunset')">
+              <div class="ref-dot primitive"></div>
+              <div class="ref-content">
+                <div class="ref-name">sunset</div>
+                <div class="ref-desc">End of visible sun (shkiah)</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('solar_noon')">
+              <div class="ref-dot primitive"></div>
+              <div class="ref-content">
+                <div class="ref-name">solar_noon</div>
+                <div class="ref-desc">Sun at highest point (chatzos hayom)</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('midnight')">
+              <div class="ref-dot primitive"></div>
+              <div class="ref-content">
+                <div class="ref-name">midnight</div>
+                <div class="ref-desc">Solar midnight (chatzos halayla)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Functions -->
+        <div class="category open">
+          <div class="category-header" onclick="this.parentElement.classList.toggle('open')">
+            <svg class="category-chevron icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9,6 15,12 9,18"/>
+            </svg>
+            <span class="category-title">Functions</span>
+            <span class="category-count">(5)</span>
+          </div>
+          <div class="category-items">
+            <div class="ref-item in-use" onclick="insertText('solar(degrees, direction)')">
+              <div class="ref-dot function"></div>
+              <div class="ref-content">
+                <div class="ref-name">solar(degrees, direction)</div>
+                <div class="ref-desc">Time when sun reaches angle. Direction: before_sunrise, after_sunrise, before_sunset, after_sunset</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('shaos(hours, base)')">
+              <div class="ref-dot function"></div>
+              <div class="ref-content">
+                <div class="ref-name">shaos(hours, base)</div>
+                <div class="ref-desc">Proportional (sha'os zmaniyos) hours from base zman</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('offset(zman, minutes)')">
+              <div class="ref-dot function"></div>
+              <div class="ref-content">
+                <div class="ref-name">offset(zman, minutes)</div>
+                <div class="ref-desc">Add or subtract fixed minutes from a zman</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('min(a, b)')">
+              <div class="ref-dot function"></div>
+              <div class="ref-content">
+                <div class="ref-name">min(a, b)</div>
+                <div class="ref-desc">Returns the earlier of two times</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('max(a, b)')">
+              <div class="ref-dot function"></div>
+              <div class="ref-content">
+                <div class="ref-name">max(a, b)</div>
+                <div class="ref-desc">Returns the later of two times</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Operators -->
+        <div class="category open">
+          <div class="category-header" onclick="this.parentElement.classList.toggle('open')">
+            <svg class="category-chevron icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9,6 15,12 9,18"/>
+            </svg>
+            <span class="category-title">Operators</span>
+            <span class="category-count">(4)</span>
+          </div>
+          <div class="category-items">
+            <div class="ref-item" onclick="insertText(' + ')">
+              <div class="ref-dot operator"></div>
+              <div class="ref-content">
+                <div class="ref-name">+</div>
+                <div class="ref-desc">Add duration (e.g., sunrise + 30min)</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText(' - ')">
+              <div class="ref-dot operator"></div>
+              <div class="ref-content">
+                <div class="ref-name">-</div>
+                <div class="ref-desc">Subtract duration (e.g., sunset - 18min)</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('min')">
+              <div class="ref-dot operator"></div>
+              <div class="ref-content">
+                <div class="ref-name">min</div>
+                <div class="ref-desc">Minutes unit (e.g., 72min)</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('hr')">
+              <div class="ref-dot operator"></div>
+              <div class="ref-content">
+                <div class="ref-name">hr</div>
+                <div class="ref-desc">Hours unit (e.g., 1hr)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- References -->
+        <div class="category open">
+          <div class="category-header" onclick="this.parentElement.classList.toggle('open')">
+            <svg class="category-chevron icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9,6 15,12 9,18"/>
+            </svg>
+            <span class="category-title">Your Zmanim</span>
+            <span class="category-count">(8)</span>
+          </div>
+          <div class="category-items">
+            <div class="ref-item" onclick="insertText('@alos_72')">
+              <div class="ref-dot reference"></div>
+              <div class="ref-content">
+                <div class="ref-name">@alos_72</div>
+                <div class="ref-desc">Reference Dawn - 72 minutes</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('@sunrise')">
+              <div class="ref-dot reference"></div>
+              <div class="ref-content">
+                <div class="ref-name">@sunrise</div>
+                <div class="ref-desc">Reference Sunrise (Netz)</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('@chatzos')">
+              <div class="ref-dot reference"></div>
+              <div class="ref-content">
+                <div class="ref-name">@chatzos</div>
+                <div class="ref-desc">Reference Midday</div>
+              </div>
+            </div>
+            <div class="ref-item" onclick="insertText('@mincha_gedola')">
+              <div class="ref-dot reference"></div>
+              <div class="ref-content">
+                <div class="ref-name">@mincha_gedola</div>
+                <div class="ref-desc">Reference Earliest Mincha</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Examples Section -->
+        <div class="examples-section">
+          <div class="examples-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            Common Patterns
+          </div>
+          <div class="example-card" onclick="setFormula('sunrise - 72min')">
+            <div class="example-formula">sunrise - 72min</div>
+            <div class="example-desc">Dawn - 72 fixed minutes before sunrise</div>
+          </div>
+          <div class="example-card" onclick="setFormula('solar(16.1, before_sunrise)')">
+            <div class="example-formula">solar(16.1, before_sunrise)</div>
+            <div class="example-desc">Dawn at 16.1 degrees (Magen Avraham)</div>
+          </div>
+          <div class="example-card" onclick="setFormula('shaos(4, sunrise)')">
+            <div class="example-formula">shaos(4, sunrise)</div>
+            <div class="example-desc">End of 4th proportional hour (Sof Zman Shema)</div>
+          </div>
+          <div class="example-card" onclick="setFormula('sunset - 18min')">
+            <div class="example-formula">sunset - 18min</div>
+            <div class="example-desc">Candle lighting - 18 minutes before sunset</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Insert text at cursor position in editor
+    function insertText(text) {
+      const editor = document.querySelector('.code-editor');
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const before = editor.value.substring(0, start);
+      const after = editor.value.substring(end);
+      editor.value = before + text + after;
+      editor.focus();
+      editor.selectionStart = editor.selectionEnd = start + text.length;
+    }
+
+    // Set entire formula (for examples)
+    function setFormula(formula) {
+      const editor = document.querySelector('.code-editor');
+      if (editor.value.trim() && editor.value.trim() !== formula) {
+        if (!confirm('Replace current formula with this example?')) return;
+      }
+      editor.value = formula;
+      editor.focus();
+    }
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+      const query = e.target.value.toLowerCase();
+      const items = document.querySelectorAll('.ref-item');
+      const categories = document.querySelectorAll('.category');
+
+      items.forEach(item => {
+        const name = item.querySelector('.ref-name').textContent.toLowerCase();
+        const desc = item.querySelector('.ref-desc').textContent.toLowerCase();
+        const matches = name.includes(query) || desc.includes(query);
+        item.style.display = matches ? 'flex' : 'none';
+      });
+
+      // Show/hide categories based on visible items
+      categories.forEach(cat => {
+        const visibleItems = cat.querySelectorAll('.ref-item[style="display: flex"], .ref-item:not([style])');
+        const hasVisible = Array.from(cat.querySelectorAll('.ref-item')).some(
+          item => item.style.display !== 'none'
+        );
+        cat.style.display = hasVisible || !query ? 'block' : 'none';
+        if (query) cat.classList.add('open');
+      });
+    });
+  </script>
+</body>
+</html>

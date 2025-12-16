@@ -1,0 +1,177 @@
+<story-context id="8-6-external-api-bulk-zmanim-calculation" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>6</storyId>
+    <title>External API - Bulk Zmanim Calculation</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-6-external-api-bulk-zmanim-calculation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer integrating with Shtetl Zmanim</asA>
+    <iWant>to request zmanim for up to 365 days in one call</iWant>
+    <soThat>my app can cache yearly schedules efficiently</soThat>
+    <tasks>
+      <task id="1">Create handler CalculateExternalBulkZmanim (AC: 1-4)</task>
+      <task id="2">Implement batch calculation logic (AC: 4, 6)</task>
+      <task id="3">Add specialized caching for bulk requests (AC: 5)</task>
+      <task id="4">Optimize with parallel date calculations (AC: 6)</task>
+      <task id="5">Add rate limiting (AC: 7)</task>
+      <task id="6">Performance testing (AC: 6)</task>
+      <task id="7">Testing (AC: 1-7)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">POST /external/zmanim/calculate endpoint implemented</criterion>
+    <criterion id="AC2">Accepts date range up to 365 days</criterion>
+    <criterion id="AC3">Accepts list of zman IDs with optional version IDs</criterion>
+    <criterion id="AC4">Returns calculated times for each day in the range</criterion>
+    <criterion id="AC5">Response cached by publisher+city+date range</criterion>
+    <criterion id="AC6">Performance: &lt;2s for 365 days, 10 zmanim</criterion>
+    <criterion id="AC7">Rate limited: 10 req/min, 100 req/hour</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.6: External API - Bulk Zmanim Calculation</section>
+        <snippet>Split into weekly chunks, calculate in parallel with goroutines, cache individual days. Target &lt;2s for 365 days.</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>DSL Formula Syntax</section>
+        <snippet>DSL formulas: sunrise, sunset, solar(-16.1), sunrise + 72min, @alos_hashachar + 30min</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/external_api.go</path>
+        <kind>handler</kind>
+        <reason>Add CalculateExternalBulkZmanim handler</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/</path>
+        <kind>service-directory</kind>
+        <reason>Location for new zmanim_bulk.go service</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/zmanim_service.go</path>
+        <kind>service</kind>
+        <symbol>ZmanimService</symbol>
+        <reason>Reference for existing calculation logic</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/cache_service.go</path>
+        <kind>service</kind>
+        <symbol>CacheService</symbol>
+        <reason>Bulk caching strategy</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/dsl/executor.go</path>
+        <kind>dsl</kind>
+        <symbol>Execute</symbol>
+        <reason>DSL formula execution</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/astro/</path>
+        <kind>package</kind>
+        <reason>Solar calculations for zmanim</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/go-chi/chi/v5</package>
+        <package>github.com/jackc/pgx/v5</package>
+        <package>github.com/redis/go-redis/v9</package>
+        <package>sync</package>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Max date range: 365 days</constraint>
+    <constraint>Use worker pool with max 4 concurrent goroutines</constraint>
+    <constraint>Cache individual days, compose bulk response from cache</constraint>
+    <constraint>Performance target: &lt;2s for 365 days, 10 zmanim</constraint>
+    <constraint>Rate limit: 10 req/min, 100 req/hour per client_id</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Bulk Calculate Endpoint</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /external/zmanim/calculate</signature>
+      <path>api/internal/handlers/external_api.go</path>
+    </interface>
+    <interface>
+      <name>Request Structure</name>
+      <kind>JSON request</kind>
+      <signature>
+        {
+          "publisher_id": "uuid",
+          "city_id": 12345,
+          "date_range": { "start": "2025-01-01", "end": "2025-12-31" },
+          "zmanim": [
+            { "zman_key": "sunrise" },
+            { "zman_key": "sunset" },
+            { "zman_key": "alos_hashachar", "version_id": "v2" }
+          ]
+        }
+      </signature>
+      <path>api/internal/handlers/external_api.go</path>
+    </interface>
+    <interface>
+      <name>Response Structure</name>
+      <kind>JSON response</kind>
+      <signature>
+        {
+          "publisher_id": "uuid",
+          "location": { "city_id": 12345, "name": "Jerusalem", "country": "Israel", "latitude": 31.7683, "longitude": 35.2137, "timezone": "Asia/Jerusalem" },
+          "results": [
+            { "zman_key": "sunrise", "version_id": "v3", "times": { "2025-01-01": "06:42:30", "2025-01-02": "06:42:45" } }
+          ],
+          "date_range": { "start": "2025-01-01", "end": "2025-12-31", "days": 365 },
+          "cached": false,
+          "calculation_time_ms": 1234,
+          "generated_at": "2025-12-10T10:00:00Z"
+        }
+      </signature>
+      <path>api/internal/handlers/external_api.go</path>
+    </interface>
+    <interface>
+      <name>Bulk Service</name>
+      <kind>Go service</kind>
+      <signature>
+        func (s *ZmanimService) CalculateBulk(ctx context.Context, req BulkRequest) (*BulkResponse, error)
+        - Split date range into weekly chunks
+        - Calculate in parallel with worker pool (max 4 concurrent)
+        - Check cache for individual days
+        - Aggregate results
+      </signature>
+      <path>api/internal/services/zmanim_bulk.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Unit tests for bulk logic. Performance tests required. Integration tests with test database.</standards>
+    <locations>
+      <location>api/internal/services/*_test.go</location>
+      <location>api/internal/handlers/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test endpoint returns 200 with valid request</idea>
+      <idea acRef="AC2">Test 400 returned for date range &gt; 365 days</idea>
+      <idea acRef="AC3">Test invalid zman_key returns appropriate error</idea>
+      <idea acRef="AC4">Test response contains times for all days in range</idea>
+      <idea acRef="AC5">Test cached response returns faster</idea>
+      <idea acRef="AC6">Benchmark: 365 days, 10 zmanim &lt; 2s</idea>
+      <idea acRef="AC7">Test rate limiting applied (requires 8.7)</idea>
+    </ideas>
+  </tests>
+</story-context>

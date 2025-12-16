@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.14" title="Status Lookup Table Integration">
+  <summary>
+    This context file provides information for fixing the hardcoded "active" status values
+    in admin handlers. Status should be derived from the statuses lookup table.
+  </summary>
+
+  <current-state>
+    <description>
+      Admin handlers hardcode "active" status instead of fetching from the database.
+      This means publishers could appear as "active" when they're actually "pending" or "suspended".
+    </description>
+
+    <source-todos>
+      <todo file="api/internal/handlers/admin.go" line="809">
+        "status": "active", // TODO: Get actual status from lookup
+      </todo>
+      <todo file="api/internal/handlers/admin.go" line="944">
+        "status": "active", // TODO: Get actual status from lookup
+      </todo>
+    </source-todos>
+  </current-state>
+
+  <target-state>
+    <description>
+      - Status derived from publishers.status_id joined to statuses table
+      - Admin views show accurate status
+      - No hardcoded status values
+    </description>
+  </target-state>
+
+  <database-schema>
+    <table name="statuses">
+      <column name="id" type="SERIAL PRIMARY KEY" />
+      <column name="name" type="TEXT NOT NULL UNIQUE" />
+      <column name="description" type="TEXT" />
+      <data>
+        <row id="1" name="active" />
+        <row id="2" name="pending" />
+        <row id="3" name="suspended" />
+        <row id="4" name="rejected" />
+      </data>
+    </table>
+
+    <table name="publishers">
+      <column name="id" type="UUID PRIMARY KEY" />
+      <column name="name" type="TEXT NOT NULL" />
+      <column name="status_id" type="INTEGER REFERENCES statuses(id) DEFAULT 2" />
+    </table>
+  </database-schema>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/api/internal/handlers/admin.go" relevance="primary">
+      <description>
+        Admin handlers with hardcoded status values at lines 809 and 944.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/internal/db/queries/admin.sql" relevance="primary">
+      <description>
+        SQLc queries for admin handlers. Need to add JOIN to statuses table.
+      </description>
+    </file>
+  </files>
+
+  <implementation-guide>
+    <step n="1">
+      <task>Update SQLc query for GetPublishersForAdmin</task>
+      <code>
+-- name: GetPublishersForAdmin :many
+SELECT
+    p.id,
+    p.name,
+    p.slug,
+    p.created_at,
+    p.updated_at,
+    s.name as status
+FROM publishers p
+JOIN statuses s ON p.status_id = s.id
+ORDER BY p.created_at DESC;
+      </code>
+    </step>
+    <step n="2">
+      <task>Update SQLc query for GetPublisherByIDForAdmin</task>
+      <code>
+-- name: GetPublisherByIDForAdmin :one
+SELECT
+    p.id,
+    p.name,
+    p.slug,
+    p.created_at,
+    p.updated_at,
+    s.name as status
+FROM publishers p
+JOIN statuses s ON p.status_id = s.id
+WHERE p.id = $1;
+      </code>
+    </step>
+    <step n="3">
+      <task>Regenerate SQLc</task>
+      <code>
+cd api && sqlc generate
+      </code>
+    </step>
+    <step n="4">
+      <task>Update admin.go handlers</task>
+      <code>
+// Line 809 - Before:
+"status": "active", // TODO: Get actual status from lookup
+
+// Line 809 - After:
+"status": row.Status,
+
+// Line 944 - Before:
+"status": "active", // TODO: Get actual status from lookup
+
+// Line 944 - After:
+"status": row.Status,
+      </code>
+    </step>
+  </implementation-guide>
+
+  <testing>
+    <test-case name="Pending publisher">
+      <setup>Create publisher with status_id = 2</setup>
+      <verify>Admin view shows status: "pending"</verify>
+    </test-case>
+    <test-case name="Active publisher">
+      <setup>Create publisher with status_id = 1</setup>
+      <verify>Admin view shows status: "active"</verify>
+    </test-case>
+    <test-case name="Suspended publisher">
+      <setup>Create publisher with status_id = 3</setup>
+      <verify>Admin view shows status: "suspended"</verify>
+    </test-case>
+  </testing>
+
+  <verification>
+    <command description="Find hardcoded status">
+      grep -rn '"active"' api/internal/handlers/*.go
+    </command>
+    <command description="Find status in queries">
+      grep -rn 'status' api/internal/db/queries/*.sql
+    </command>
+  </verification>
+</story-context>

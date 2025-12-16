@@ -1,0 +1,599 @@
+<story-context id="6-4-publisher-location-overrides" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>4</storyId>
+    <title>Publisher Location Overrides</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/6-4-publisher-location-overrides.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>to override city coordinates, elevation, and timezone for my users only</iWant>
+    <soThat>my zmanim calculations use accurate location data specific to my community's needs</soThat>
+    <tasks>
+      <task id="1" status="pending">
+        <title>Database Schema (AC-6.4.1)</title>
+        <subtasks>
+          <subtask>1.1 Create migration file 00000000000026_publisher_location_overrides.sql</subtask>
+          <subtask>1.2 Define table schema with fields: id, publisher_id, city_id, override_latitude, override_longitude, override_elevation, override_timezone, reason, timestamps</subtask>
+          <subtask>1.3 Add unique constraint (publisher_id, city_id) and indexes on publisher_id and city_id</subtask>
+          <subtask>1.4 Run migration using ./scripts/migrate.sh</subtask>
+          <subtask>1.5 Verify schema in database</subtask>
+        </subtasks>
+      </task>
+      <task id="2" status="pending">
+        <title>SQLc Queries (AC-6.4.2)</title>
+        <subtasks>
+          <subtask>2.1 Create api/internal/db/queries/location_overrides.sql</subtask>
+          <subtask>2.2 Write CreateLocationOverride query</subtask>
+          <subtask>2.3 Write GetPublisherLocationOverrides query</subtask>
+          <subtask>2.4 Write GetLocationOverrideForCalculation query (specific city)</subtask>
+          <subtask>2.5 Write UpdateLocationOverride query</subtask>
+          <subtask>2.6 Write DeleteLocationOverride query</subtask>
+          <subtask>2.7 Run `cd api && sqlc generate`</subtask>
+          <subtask>2.8 Verify generated code in api/internal/db/sqlcgen/</subtask>
+        </subtasks>
+      </task>
+      <task id="3" status="pending">
+        <title>Backend API (AC-6.4.3)</title>
+        <subtasks>
+          <subtask>3.1 Create api/internal/handlers/location_overrides.go</subtask>
+          <subtask>3.2 Implement CreateOverride handler (6-step pattern with PublisherResolver)</subtask>
+          <subtask>3.3 Implement GetOverrides handler</subtask>
+          <subtask>3.4 Implement UpdateOverride handler</subtask>
+          <subtask>3.5 Implement DeleteOverride handler</subtask>
+          <subtask>3.6 Add routes to router in api/cmd/api/main.go</subtask>
+          <subtask>3.7 Test endpoints with curl</subtask>
+        </subtasks>
+      </task>
+      <task id="4" status="pending">
+        <title>Calculation Integration (AC-6.4.4)</title>
+        <subtasks>
+          <subtask>4.1 Locate calculation service (note: calculation_service.go does not exist yet)</subtask>
+          <subtask>4.2 Add override lookup before calculation</subtask>
+          <subtask>4.3 Apply override values if exists (lat, lon, elevation, timezone)</subtask>
+          <subtask>4.4 Add slog.Debug logging for override usage</subtask>
+          <subtask>4.5 Test calculation with override</subtask>
+        </subtasks>
+      </task>
+      <task id="5" status="pending">
+        <title>Frontend Component (AC-6.4.5)</title>
+        <subtasks>
+          <subtask>5.1 Create web/components/publisher/LocationOverrideDialog.tsx</subtask>
+          <subtask>5.2 Show current city data (read-only) using geography.ts types</subtask>
+          <subtask>5.3 Add override input fields (latitude, longitude, elevation, timezone, reason)</subtask>
+          <subtask>5.4 Add validation logic (lat: -90 to 90, lon: -180 to 180, elevation: integer)</subtask>
+          <subtask>5.5 Add map preview button (optional)</subtask>
+          <subtask>5.6 Handle save action using useApi hook</subtask>
+          <subtask>5.7 Handle delete action</subtask>
+          <subtask>5.8 Add error handling</subtask>
+        </subtasks>
+      </task>
+      <task id="6" status="pending">
+        <title>Coverage Page Integration (AC-6.4.6)</title>
+        <subtasks>
+          <subtask>6.1 Update web/app/publisher/coverage/page.tsx</subtask>
+          <subtask>6.2 Add "Override Location Data" button to city detail view</subtask>
+          <subtask>6.3 Open LocationOverrideDialog on button click</subtask>
+          <subtask>6.4 Show "⚙️ Overridden" badge on cities with overrides</subtask>
+          <subtask>6.5 Refresh coverage list after save/delete</subtask>
+        </subtasks>
+      </task>
+      <task id="7" status="pending">
+        <title>End-to-End Testing (AC-6.4.7)</title>
+        <subtasks>
+          <subtask>7.1 Test create override</subtask>
+          <subtask>7.2 Test calculation uses override</subtask>
+          <subtask>7.3 Test update override</subtask>
+          <subtask>7.4 Test delete override</subtask>
+          <subtask>7.5 Test calculation reverts to global data</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-6.4.1">
+      <title>Create Database Schema</title>
+      <description>
+        - Create migration 00000000000026_publisher_location_overrides.sql
+        - Create table publisher_location_overrides with fields: id (UUID), publisher_id (UUID FK), city_id (BIGINT FK to geo_cities), override_latitude (nullable), override_longitude (nullable), override_elevation (nullable), override_timezone (nullable), reason (TEXT), created_at, updated_at
+        - Add unique constraint (publisher_id, city_id)
+        - Add indexes on publisher_id and city_id
+      </description>
+    </criterion>
+    <criterion id="AC-6.4.2">
+      <title>Create SQLc Queries</title>
+      <description>
+        - Create api/internal/db/queries/location_overrides.sql
+        - Add queries: CreateLocationOverride, GetPublisherLocationOverrides, GetLocationOverrideForCalculation, UpdateLocationOverride, DeleteLocationOverride
+        - Run sqlc generate to create Go code in api/internal/db/sqlcgen/
+      </description>
+    </criterion>
+    <criterion id="AC-6.4.3">
+      <title>Create Publisher API Endpoints</title>
+      <description>
+        - Create handler api/internal/handlers/location_overrides.go
+        - Implement POST /api/v1/publisher/locations/{cityId}/override
+        - Implement GET /api/v1/publisher/location-overrides
+        - Implement PUT /api/v1/publisher/location-overrides/{id}
+        - Implement DELETE /api/v1/publisher/location-overrides/{id}
+        - Add routes to router in api/cmd/api/main.go
+      </description>
+    </criterion>
+    <criterion id="AC-6.4.4">
+      <title>Integrate with Calculation Service</title>
+      <description>
+        - Update calculation service (location TBD - may need to be created)
+        - Before calculation, check for location override using GetLocationOverrideForCalculation
+        - If override exists, use override values instead of city data
+        - Log override usage in debug mode using slog.Debug
+      </description>
+    </criterion>
+    <criterion id="AC-6.4.5">
+      <title>Create Publisher UI Component</title>
+      <description>
+        - Create web/components/publisher/LocationOverrideDialog.tsx
+        - Dialog shows: current data (read-only) + override fields (editable)
+        - Fields: latitude, longitude, elevation, timezone, reason
+        - Validate: lat (-90 to 90), lon (-180 to 180), elevation (integer)
+        - Show "Preview on Map" button
+        - Handle save, update, delete actions using useApi hook
+      </description>
+    </criterion>
+    <criterion id="AC-6.4.6">
+      <title>Integrate with Coverage Page</title>
+      <description>
+        - Update web/app/publisher/coverage/page.tsx
+        - Add "Override Location Data" button to city detail view
+        - Open LocationOverrideDialog on button click
+        - Show "⚙️ Overridden" badge on cities with overrides
+        - Refresh coverage list after save/delete
+      </description>
+    </criterion>
+    <criterion id="AC-6.4.7">
+      <title>Test End-to-End</title>
+      <description>
+        - Publisher creates override → Override appears in list with badge
+        - Zmanim calculation uses override data
+        - Publisher updates override
+        - Publisher deletes override → Calculation reverts to global data
+      </description>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/coding-standards.md">
+        <purpose>Mandatory coding standards - MUST be followed</purpose>
+        <keyPoints>
+          - Backend: 6-step handler pattern, PublisherResolver, SQLc queries only (no raw SQL), slog for logging
+          - Frontend: useApi hook, design tokens for colors, 12-hour time format, check isLoaded before Clerk access
+          - Database: Integer IDs (SERIAL/BIGSERIAL), lookup tables with id + key pattern, FKs reference integer id
+          - Testing: parallel mode, shared fixtures, proper waits (no waitForTimeout)
+          - Security: ZERO TOLERANCE for secrets in code, use environment variables
+        </keyPoints>
+      </doc>
+      <doc path="docs/sprint-artifacts/stories/6-4-publisher-location-overrides.md">
+        <purpose>Full story specification with acceptance criteria and dev notes</purpose>
+        <keyPoints>
+          - Background: Publishers need to override inaccurate city data for their users only
+          - Example: OU overrides NYC coordinates to One World Trade Center
+          - Overrides apply ONLY to that publisher's users, not globally
+          - Can be reverted at any time
+        </keyPoints>
+      </doc>
+      <doc path="web/types/geography.ts">
+        <purpose>Central TypeScript type definitions for all geographic/location data (Story 6.1)</purpose>
+        <keyPoints>
+          - PublisherLocationOverride interface defined (lines 240-258)
+          - City interface with coordinates, timezone, elevation (lines 52-63)
+          - LocationSelection interface for unified location handling (lines 119-138)
+          - isCityLocation type guard for checking city with coordinates
+        </keyPoints>
+      </doc>
+    </docs>
+
+    <code>
+      <file path="api/internal/handlers/coverage.go">
+        <purpose>Example of 6-step handler pattern with PublisherResolver</purpose>
+        <keyPoints>
+          - Line 38-40: PublisherResolver.MustResolve(w, r) pattern
+          - Line 51: SQLc query usage (h.db.Queries.GetPublisherCoverage)
+          - Line 53: slog.Error for logging
+          - Line 64: RespondJSON for responses
+          - Lines 84-270: Full CRUD example (Create, Get, Update, Delete)
+        </keyPoints>
+      </file>
+      <file path="api/internal/handlers/cities.go">
+        <purpose>Example of geographic data handling</purpose>
+        <keyPoints>
+          - Lines 415-441, 443-469: Helper functions to convert SQLc rows to models.City
+          - Lines 185-210: GetCityByID handler showing city data retrieval
+          - Line 417: Timezone service usage for fixing UTC timezones
+        </keyPoints>
+      </file>
+      <file path="api/internal/db/queries/coverage.sql">
+        <purpose>Example SQLc query patterns</purpose>
+        <keyPoints>
+          - Lines 1-46: Complex JOIN query with hierarchy traversal
+          - Lines 60-69: CreateCoverageContinent pattern with RETURNING clause
+          - Pattern: Use lookup table key ('continent') to get ID
+          - All queries use named parameters ($1, $2, etc.)
+        </keyPoints>
+      </file>
+      <file path="web/app/publisher/coverage/page.tsx">
+        <purpose>Coverage page where override button will be added</purpose>
+        <keyPoints>
+          - Lines 66, 32: useApi hook for API calls
+          - Lines 78-92: fetchCoverage callback pattern
+          - Lines 338-407: Coverage list item rendering (add override button here)
+          - Lines 39-62: Coverage interface matching API response
+          - Lines 109-144: handleAddCoverage example for API mutations
+        </keyPoints>
+      </file>
+      <file path="web/components/shared/CoverageSearchPanel.tsx">
+        <purpose>Reference for location selection UI patterns</purpose>
+        <keyPoints>
+          - Uses LocationSelection type from web/types/geography.ts
+          - Multi-select pattern with add/remove functionality
+          - Integration with location search
+        </keyPoints>
+      </file>
+    </code>
+
+    <dependencies>
+      <dependency type="database_table" name="geo_cities">
+        <description>Cities table that overrides will reference via city_id FK</description>
+        <schema>
+          Fields: id (BIGINT), name, country, country_code, region, latitude, longitude, timezone, elevation_m
+        </schema>
+      </dependency>
+      <dependency type="database_table" name="publishers">
+        <description>Publishers table that overrides will reference via publisher_id FK</description>
+        <schema>
+          Fields: id (UUID), name, slug, status_id, created_at
+        </schema>
+      </dependency>
+      <dependency type="go_package" name="github.com/jcom-dev/zmanim/internal/db/sqlcgen">
+        <description>SQLc-generated Go code for database queries</description>
+        <location>api/internal/db/sqlcgen/</location>
+      </dependency>
+      <dependency type="go_package" name="github.com/jcom-dev/zmanim/internal/handlers">
+        <description>HTTP handlers package where new location_overrides.go will be added</description>
+        <location>api/internal/handlers/</location>
+      </dependency>
+      <dependency type="typescript_module" name="@/lib/api-client">
+        <description>useApi hook for authenticated API calls</description>
+        <exports>useApi, usePublisherQuery, usePublisherMutation</exports>
+      </dependency>
+      <dependency type="typescript_module" name="@/types/geography">
+        <description>Type definitions including PublisherLocationOverride</description>
+        <location>web/types/geography.ts</location>
+      </dependency>
+      <dependency type="ui_components" name="shadcn/ui">
+        <description>UI components: Dialog, Input, Label, Textarea, Button</description>
+        <imports>@/components/ui/dialog, @/components/ui/input, @/components/ui/label, @/components/ui/textarea, @/components/ui/button</imports>
+      </dependency>
+      <dependency type="service" name="calculation_service">
+        <description>Calculation service that needs to check for overrides (NOTE: May not exist yet - needs investigation)</description>
+        <location>api/internal/services/calculation_service.go (DOES NOT EXIST - needs to be located or created)</location>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <ux-design-requirement>
+      <mandate>For ALL frontend/UI work, use the frontend_design skill for distinctive, production-grade interfaces</mandate>
+      <file>.claude/skills/frontend_design.md</file>
+      <guidance>Avoid generic AI aesthetics - choose bold aesthetic direction and execute with precision</guidance>
+    </ux-design-requirement>
+    <critical-requirement>
+      <mandate>MUST follow ALL standards in docs/coding-standards.md</mandate>
+      <file>docs/coding-standards.md</file>
+      <enforcement>PR blocker - violations block merges</enforcement>
+    </critical-requirement>
+    <constraint type="security">
+      ZERO TOLERANCE: No secrets, passwords, or credentials in code. Use environment variables.
+    </constraint>
+    <constraint type="database">
+      - Table name: publisher_location_overrides (NOT publisher_location_override)
+      - Use UUID for id and publisher_id (consistent with publishers table)
+      - Use BIGINT for city_id (consistent with geo_cities table)
+      - Unique constraint on (publisher_id, city_id) - one override per city per publisher
+      - All override fields are nullable (NULL = use original city data)
+      - Follow migration numbering: 00000000000026_publisher_location_overrides.sql
+    </constraint>
+    <constraint type="backend">
+      - MUST use 6-step handler pattern: (1) PublisherResolver, (2) URL params, (3) Parse body, (4) Validate, (5) SQLc query, (6) Respond
+      - MUST use PublisherResolver.MustResolve(w, r) for all publisher endpoints
+      - NO raw SQL - only SQLc queries
+      - Use slog for all logging (slog.Error, slog.Debug, slog.Info)
+      - Use response helpers: RespondJSON, RespondBadRequest, RespondNotFound, RespondInternalError
+      - Generic error messages for 500s (no internal details exposed)
+    </constraint>
+    <constraint type="frontend">
+      - MUST use useApi hook for all API calls (no raw fetch())
+      - MUST use design tokens for colors (no hardcoded colors like #1e3a5f)
+      - Use 'use client' directive only for components with hooks/events
+      - Check isLoaded before accessing Clerk user data
+      - Use proper TypeScript types from web/types/geography.ts
+      - Validation: latitude (-90 to 90), longitude (-180 to 180), elevation (integer)
+    </constraint>
+    <constraint type="testing">
+      - Use test.describe.configure({ mode: 'parallel' }) at top of spec
+      - Use shared fixtures from tests/e2e/utils.ts (getSharedPublisher)
+      - Use proper waits: page.waitForLoadState('networkidle'), NOT waitForTimeout
+      - Use role/text selectors: page.getByRole(), page.getByText()
+    </constraint>
+    <constraint type="naming">
+      - API routes: /api/v1/publisher/location-overrides (plural)
+      - Handler file: location_overrides.go (snake_case)
+      - SQL file: location_overrides.sql (snake_case)
+      - React component: LocationOverrideDialog.tsx (PascalCase)
+      - Table name: publisher_location_overrides (plural, snake_case)
+    </constraint>
+    <constraint type="calculation_integration">
+      CRITICAL: Calculation service location is unknown. Before implementing AC-6.4.4:
+      1. Search for existing calculation logic in api/internal/services/
+      2. Search for zmanim calculation endpoints in api/internal/handlers/
+      3. If calculation_service.go doesn't exist, may need to create it or integrate with existing service
+      4. Ensure override lookup happens BEFORE coordinates are passed to astronomical calculations
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <api>
+      <endpoint method="POST" path="/api/v1/publisher/locations/{cityId}/override">
+        <description>Create location override for a city</description>
+        <auth>Required (publisher)</auth>
+        <headers>
+          <header name="X-Publisher-Id">Publisher UUID</header>
+        </headers>
+        <requestBody>
+          {
+            "override_latitude": 40.7589,
+            "override_longitude": -73.9851,
+            "override_elevation": 33,
+            "override_timezone": "America/New_York",
+            "reason": "Using One World Trade Center location"
+          }
+        </requestBody>
+        <response status="201">
+          {
+            "id": "uuid",
+            "publisher_id": "uuid",
+            "city_id": "12345",
+            "override_latitude": 40.7589,
+            "override_longitude": -73.9851,
+            "override_elevation": 33,
+            "override_timezone": "America/New_York",
+            "reason": "Using One World Trade Center location",
+            "created_at": "2025-12-08T10:00:00Z",
+            "updated_at": "2025-12-08T10:00:00Z"
+          }
+        </response>
+      </endpoint>
+      <endpoint method="GET" path="/api/v1/publisher/location-overrides">
+        <description>Get all location overrides for authenticated publisher</description>
+        <auth>Required (publisher)</auth>
+        <headers>
+          <header name="X-Publisher-Id">Publisher UUID</header>
+        </headers>
+        <response status="200">
+          {
+            "overrides": [
+              {
+                "id": "uuid",
+                "publisher_id": "uuid",
+                "city_id": "12345",
+                "city_name": "New York",
+                "country_name": "United States",
+                "override_latitude": 40.7589,
+                "override_longitude": -73.9851,
+                "override_elevation": 33,
+                "override_timezone": "America/New_York",
+                "reason": "Using One World Trade Center location",
+                "created_at": "2025-12-08T10:00:00Z",
+                "updated_at": "2025-12-08T10:00:00Z"
+              }
+            ],
+            "total": 1
+          }
+        </response>
+      </endpoint>
+      <endpoint method="PUT" path="/api/v1/publisher/location-overrides/{id}">
+        <description>Update existing location override</description>
+        <auth>Required (publisher, ownership verified)</auth>
+        <headers>
+          <header name="X-Publisher-Id">Publisher UUID</header>
+        </headers>
+        <requestBody>
+          {
+            "override_latitude": 40.7590,
+            "override_longitude": -73.9850,
+            "override_elevation": 34,
+            "override_timezone": "America/New_York",
+            "reason": "Updated coordinates"
+          }
+        </requestBody>
+        <response status="200">Override object</response>
+      </endpoint>
+      <endpoint method="DELETE" path="/api/v1/publisher/location-overrides/{id}">
+        <description>Delete location override</description>
+        <auth>Required (publisher, ownership verified)</auth>
+        <headers>
+          <header name="X-Publisher-Id">Publisher UUID</header>
+        </headers>
+        <response status="200">
+          { "message": "Location override deleted successfully" }
+        </response>
+      </endpoint>
+    </api>
+
+    <database>
+      <table name="publisher_location_overrides">
+        <schema>
+          CREATE TABLE publisher_location_overrides (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            publisher_id UUID NOT NULL REFERENCES publishers(id) ON DELETE CASCADE,
+            city_id BIGINT NOT NULL REFERENCES geo_cities(id) ON DELETE CASCADE,
+
+            -- Overrides (NULL = use original)
+            override_latitude DOUBLE PRECISION,
+            override_longitude DOUBLE PRECISION,
+            override_elevation INTEGER,
+            override_timezone TEXT,
+
+            -- Metadata
+            reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+            UNIQUE(publisher_id, city_id)
+          );
+
+          CREATE INDEX idx_publisher_overrides_publisher ON publisher_location_overrides(publisher_id);
+          CREATE INDEX idx_publisher_overrides_city ON publisher_location_overrides(city_id);
+        </schema>
+      </table>
+      <query name="GetLocationOverrideForCalculation">
+        <purpose>Lookup override for calculation service</purpose>
+        <pattern>
+          SELECT override_latitude, override_longitude, override_elevation, override_timezone
+          FROM publisher_location_overrides
+          WHERE publisher_id = $1 AND city_id = $2;
+        </pattern>
+      </query>
+    </database>
+
+    <components>
+      <component name="LocationOverrideDialog">
+        <path>web/components/publisher/LocationOverrideDialog.tsx</path>
+        <props>
+          - city: City (from web/types/geography.ts)
+          - existingOverride?: PublisherLocationOverride
+          - onSave: (override: LocationOverrideInput) => Promise&lt;void&gt;
+          - onDelete?: () => Promise&lt;void&gt;
+          - onClose: () => void
+        </props>
+        <behavior>
+          - Display current city data (read-only)
+          - Show override input fields (latitude, longitude, elevation, timezone, reason)
+          - Validate inputs before submission
+          - Call onSave with override data
+          - Call onDelete if deleting existing override
+          - Use shadcn/ui components: Dialog, Input, Label, Textarea, Button
+        </behavior>
+      </component>
+    </components>
+  </interfaces>
+
+  <tests>
+    <standards>
+      From docs/coding-standards.md (lines 377-410):
+      - Use test.describe.configure({ mode: 'parallel' }) at top of spec file
+      - Use shared fixtures: getSharedPublisher('verified-1') instead of creating new data
+      - Use proper waits: page.waitForLoadState('networkidle'), NOT waitForTimeout
+      - Use role/text selectors: page.getByRole(), page.getByText()
+      - Import from tests/e2e/utils: loginAsPublisher, getSharedPublisher, BASE_URL
+      - Pattern: test('description', async ({ page }) => { ... })
+    </standards>
+
+    <locations>
+      <location path="tests/e2e/publisher/coverage.spec.ts">
+        <description>Add tests for location override functionality</description>
+        <existingPattern>
+          - Lines 8-12: Import pattern (loginAsPublisher, getSharedPublisher, BASE_URL)
+          - Line 15: test.describe.configure({ mode: 'parallel' })
+          - Lines 18-25: Basic page access test pattern
+          - Lines 27-34: Element visibility test pattern
+        </existingPattern>
+      </location>
+      <location path="api/internal/handlers/" purpose="Unit tests">
+        <description>Create location_overrides_test.go for handler tests</description>
+        <pattern>Test each CRUD endpoint with valid/invalid inputs</pattern>
+      </location>
+    </locations>
+
+    <ideas>
+      <testCase id="E2E-1">
+        <title>Publisher creates location override for city</title>
+        <steps>
+          1. Login as verified publisher
+          2. Navigate to coverage page
+          3. Click on city in coverage list
+          4. Click "Override Location Data" button
+          5. Enter override values (latitude, longitude, elevation, timezone, reason)
+          6. Click Save
+          7. Verify override appears in list with ⚙️ badge
+        </steps>
+      </testCase>
+      <testCase id="E2E-2">
+        <title>Publisher updates existing override</title>
+        <steps>
+          1. Login as publisher with existing override
+          2. Navigate to coverage page
+          3. Click on city with override
+          4. Click "Override Location Data" button
+          5. Modify override values
+          6. Click Save
+          7. Verify updated values appear
+        </steps>
+      </testCase>
+      <testCase id="E2E-3">
+        <title>Publisher deletes override</title>
+        <steps>
+          1. Login as publisher with existing override
+          2. Navigate to coverage page
+          3. Click on city with override
+          4. Click "Override Location Data" button
+          5. Click Delete Override
+          6. Confirm deletion
+          7. Verify ⚙️ badge disappears
+        </steps>
+      </testCase>
+      <testCase id="Unit-1">
+        <title>CreateOverride validates latitude range</title>
+        <steps>
+          Test latitude validation: reject -91, -90.1, 90.1, 91; accept -90, 0, 90
+        </steps>
+      </testCase>
+      <testCase id="Unit-2">
+        <title>CreateOverride validates longitude range</title>
+        <steps>
+          Test longitude validation: reject -181, -180.1, 180.1, 181; accept -180, 0, 180
+        </steps>
+      </testCase>
+      <testCase id="Unit-3">
+        <title>CreateOverride enforces unique constraint</title>
+        <steps>
+          1. Create override for city_id=123
+          2. Attempt to create another override for city_id=123
+          3. Expect 400 Bad Request
+        </steps>
+      </testCase>
+      <testCase id="Integration-1">
+        <title>Calculation uses override data</title>
+        <steps>
+          1. Create override with different coordinates
+          2. Request zmanim calculation for that city
+          3. Verify calculation uses override coordinates (check logs)
+          4. Compare with calculation without override (different publisher)
+        </steps>
+      </testCase>
+      <testCase id="Integration-2">
+        <title>Override only affects owning publisher</title>
+        <steps>
+          1. Publisher A creates override for New York
+          2. Publisher B (no override) requests calculation for New York
+          3. Verify Publisher A uses override coordinates
+          4. Verify Publisher B uses original coordinates
+        </steps>
+      </testCase>
+    </ideas>
+  </tests>
+</story-context>

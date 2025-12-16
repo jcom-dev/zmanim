@@ -1,0 +1,16 @@
+[Unit]
+Description=Daily Restic Backup Timer at 3 AM UTC
+Documentation=https://restic.net/
+
+[Timer]
+# Run daily at 3 AM UTC
+OnCalendar=*-*-* 03:00:00
+
+# If system was off during scheduled time, run on next boot
+Persistent=true
+
+# Add random delay to avoid thundering herd
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-4-publisher-alias-api" epic="5" generated="2025-12-02">
+  <summary>
+    Backend API for publishers to create custom display names for zmanim.
+    Preserves canonical master registry references while allowing customization.
+  </summary>
+
+  <key-files>
+    <file path="api/internal/handlers/publisher_aliases.go" action="create">
+      Handler implementations for alias CRUD operations
+    </file>
+    <file path="api/internal/db/queries/aliases.sql" action="create">
+      SQLc query definitions (if not created in 5-0)
+    </file>
+    <file path="api/cmd/api/main.go" action="modify">
+      Route registration for alias endpoints
+    </file>
+    <file path="api/internal/handlers/publisher_zmanim.go" action="modify">
+      Include alias info in existing zmanim responses
+    </file>
+  </key-files>
+
+  <api-endpoints>
+    <endpoint method="PUT" path="/api/v1/publisher/zmanim/{zmanKey}/alias">
+      <purpose>Create or update alias for a zman</purpose>
+      <request>
+        {
+          "custom_hebrew_name": "string (required)",
+          "custom_english_name": "string (required)",
+          "custom_transliteration": "string (optional)"
+        }
+      </request>
+      <response>Returns alias with both custom and canonical names</response>
+      <errors>
+        <error code="400">Invalid request body</error>
+        <error code="404">Zman not found in publisher's list</error>
+      </errors>
+    </endpoint>
+
+    <endpoint method="GET" path="/api/v1/publisher/zmanim/{zmanKey}/alias">
+      <purpose>Get alias for specific zman</purpose>
+      <response>Alias with custom and canonical names, or 200 with null if no alias</response>
+    </endpoint>
+
+    <endpoint method="DELETE" path="/api/v1/publisher/zmanim/{zmanKey}/alias">
+      <purpose>Remove alias, revert to canonical names</purpose>
+      <response>204 No Content on success</response>
+    </endpoint>
+
+    <endpoint method="GET" path="/api/v1/publisher/zmanim/aliases">
+      <purpose>List all aliases for publisher</purpose>
+      <response>Array of aliases sorted by zman sort_order</response>
+    </endpoint>
+  </api-endpoints>
+
+  <handler-pattern>
+    <note>Follow 6-step handler pattern from coding-standards.md</note>
+    <step n="1">Resolve publisher context with h.publisherResolver.MustResolve()</step>
+    <step n="2">Extract URL params with chi.URLParam(r, "zmanKey")</step>
+    <step n="3">Parse request body for POST/PUT</step>
+    <step n="4">Validate inputs</step>
+    <step n="5">Execute SQLc queries</step>
+    <step n="6">Respond with RespondJSON()</step>
+  </handler-pattern>
+
+  <response-shape>
+    <typescript>
+interface AliasResponse {
+  id: string;
+  zman_key: string;
+  custom_hebrew_name: string;
+  custom_english_name: string;
+  custom_transliteration?: string;
+  canonical_hebrew_name: string;  // Always include canonical
+  canonical_english_name: string;
+  created_at: string;
+  updated_at: string;
+}
+    </typescript>
+  </response-shape>
+
+  <sqlc-queries>
+    <query name="GetPublisherZmanAlias">Get single alias with canonical names</query>
+    <query name="UpsertPublisherZmanAlias">Create or update alias (ON CONFLICT)</query>
+    <query name="DeletePublisherZmanAlias">Remove alias by publisher_id + zman_key</query>
+    <query name="GetAllPublisherZmanAliases">List all active aliases for publisher</query>
+  </sqlc-queries>
+
+  <commands>
+    <command purpose="Generate SQLc">cd api && sqlc generate</command>
+    <command purpose="Build">cd api && go build ./...</command>
+    <command purpose="Test">cd api && go test ./...</command>
+    <command purpose="Restart">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>PUT endpoint creates/updates alias</item>
+    <item>GET endpoint returns alias or 200 with null</item>
+    <item>DELETE endpoint removes alias</item>
+    <item>List endpoint returns all publisher aliases</item>
+    <item>Response includes both custom and canonical names</item>
+    <item>Authorization validated (only own aliases)</item>
+    <item>Cannot create alias for zman not in publisher's list (404)</item>
+    <item>Routes registered with auth middleware</item>
+  </acceptance-checklist>
+</story-context>

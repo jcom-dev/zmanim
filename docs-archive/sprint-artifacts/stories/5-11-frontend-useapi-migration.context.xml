@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-11-frontend-useapi-migration" epic="5" generated="2025-12-02">
+  <summary>
+    Migrate all 73 raw fetch() calls to useApi hook for consistent auth handling,
+    error management, and response unwrapping across the entire frontend.
+  </summary>
+
+  <violation-count>73 raw fetch() calls</violation-count>
+  <detection-command>grep -rn "await fetch(" web/app web/components --include="*.tsx"</detection-command>
+
+  <key-files>
+    <file path="web/lib/api-client.ts" action="reference">
+      Unified API client with useApi hook - the target pattern
+    </file>
+    <file path="web/lib/hooks/useApiQuery.ts" action="reference">
+      React Query factory hooks for data fetching
+    </file>
+    <file path="web/app/publisher/**/*.tsx" action="modify">
+      Publisher pages with fetch calls to migrate
+    </file>
+    <file path="web/app/admin/**/*.tsx" action="modify">
+      Admin pages with fetch calls to migrate
+    </file>
+    <file path="web/components/**/*.tsx" action="modify">
+      Components with fetch calls to migrate
+    </file>
+  </key-files>
+
+  <migration-patterns>
+    <pattern name="Simple GET - Before">
+      <code>
+const token = await getToken();
+const response = await fetch(`${API_BASE}/api/v1/publisher/profile`, {
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'X-Publisher-Id': selectedPublisher?.id,
+  },
+});
+const json = await response.json();
+setData(json.data || json);
+      </code>
+    </pattern>
+
+    <pattern name="Simple GET - After (useApi)">
+      <code>
+const api = useApi();
+const result = await api.get&lt;ProfileData&gt;('/publisher/profile');
+setData(result);
+      </code>
+    </pattern>
+
+    <pattern name="Simple GET - After (React Query)">
+      <code>
+const { data, isLoading, error } = usePublisherQuery&lt;ProfileData&gt;(
+  'publisher-profile',
+  '/publisher/profile'
+);
+      </code>
+    </pattern>
+
+    <pattern name="POST - Before">
+      <code>
+const token = await getToken();
+const response = await fetch(`${API_BASE}/api/v1/publisher/zmanim`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'X-Publisher-Id': selectedPublisher?.id,
+  },
+  body: JSON.stringify(zmanData),
+});
+      </code>
+    </pattern>
+
+    <pattern name="POST - After">
+      <code>
+const api = useApi();
+await api.post('/publisher/zmanim', { body: JSON.stringify(zmanData) });
+      </code>
+    </pattern>
+
+    <pattern name="Public endpoint - After">
+      <code>
+const api = useApi();
+const countries = await api.public.get&lt;Country[]&gt;('/countries');
+      </code>
+    </pattern>
+
+    <pattern name="Admin endpoint - After">
+      <code>
+const api = useApi();
+const stats = await api.admin.get('/admin/stats');
+      </code>
+    </pattern>
+  </migration-patterns>
+
+  <api-client-methods>
+    <method name="api.get(path)">Publisher-scoped GET (auto X-Publisher-Id)</method>
+    <method name="api.post(path, options)">Publisher-scoped POST</method>
+    <method name="api.put(path, options)">Publisher-scoped PUT</method>
+    <method name="api.delete(path)">Publisher-scoped DELETE</method>
+    <method name="api.public.get(path)">Public GET (no auth)</method>
+    <method name="api.public.post(path, options)">Public POST</method>
+    <method name="api.admin.get(path)">Admin GET (auth, no X-Publisher-Id)</method>
+    <method name="api.admin.post(path, options)">Admin POST</method>
+  </api-client-methods>
+
+  <high-priority-files>
+    <file path="web/app/publisher/dashboard/page.tsx" count="5">Multiple fetch calls</file>
+    <file path="web/app/publisher/algorithm-editor/page.tsx" count="8">Complex state</file>
+    <file path="web/components/publisher/TeamManagement.tsx" count="4">Invite flows</file>
+    <file path="web/app/publisher/coverage/page.tsx" count="6">CRUD operations</file>
+    <file path="web/app/admin/publishers/page.tsx" count="4">Admin operations</file>
+  </high-priority-files>
+
+  <error-handling>
+    <note>Use ApiError class for error handling</note>
+    <code>
+import { ApiError } from '@/lib/api-client';
+
+try {
+  await api.post('/endpoint', { body: JSON.stringify(data) });
+} catch (error) {
+  if (error instanceof ApiError) {
+    if (error.isUnauthorized) { /* handle 401 */ }
+    else if (error.isNotFound) { /* handle 404 */ }
+    setError(error.message);
+  }
+}
+    </code>
+  </error-handling>
+
+  <commands>
+    <command purpose="Find violations">grep -rn "await fetch(" web/app web/components --include="*.tsx"</command>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Lint">cd web && npm run lint</command>
+    <command purpose="Restart">./restart.sh</command>
+    <command purpose="Verify zero violations">grep -r "await fetch(" web/app web/components --include="*.tsx" | wc -l</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Zero raw fetch() calls in web/app and web/components</item>
+    <item>All API calls use appropriate useApi method</item>
+    <item>Publisher endpoints use api.get/post (auto X-Publisher-Id)</item>
+    <item>Public endpoints use api.public.get/post</item>
+    <item>Admin endpoints use api.admin.get/post</item>
+    <item>TypeScript compiles without errors</item>
+    <item>All migrated pages manually tested</item>
+    <item>E2E tests pass</item>
+  </acceptance-checklist>
+</story-context>

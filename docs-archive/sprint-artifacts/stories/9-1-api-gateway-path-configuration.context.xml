@@ -1,0 +1,776 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.1" title="API Gateway Path Configuration">
+  <summary>
+    This context file provides all infrastructure and routing details needed to simplify the AWS API Gateway configuration
+    from 50+ individual routes to just 2 authentication patterns (/api/v1/public/* and /api/v1/auth/*).
+    The backend has already been restructured (Story 8.17 Tasks 1-5). This story completes the infrastructure changes (Task 6).
+  </summary>
+
+  <current-state>
+    <description>
+      The API Gateway currently uses multiple individual route patterns with over 50 separate route configurations:
+      - Health endpoint: GET /api/v1/health (no auth)
+      - Public prefixes: Individual routes for zmanim, publishers, cities, countries, etc. (no auth)
+      - Base endpoints: Separate routes for list endpoints like /publishers, /countries (no auth)
+      - Publisher routes: ANY /api/v1/publisher/{proxy+} (JWT auth)
+      - Admin routes: ANY /api/v1/admin/{proxy+} (JWT auth)
+      - Catch-all: ANY /api/v1/{proxy+} (JWT auth)
+
+      This complex configuration is error-prone and requires infrastructure redeployment for every new route.
+    </description>
+
+    <backend-status>
+      COMPLETE - All backend routes have been reorganized under /api/v1/public/* (no auth) and /api/v1/auth/* (JWT required).
+      See Story 8.17 Tasks 1-5 for completed backend work.
+    </backend-status>
+
+    <frontend-status>
+      COMPLETE - The normalizeEndpoint function in api-client.ts already handles routing to correct paths.
+      No frontend changes needed.
+    </frontend-status>
+  </current-state>
+
+  <target-state>
+    <description>
+      Simplified API Gateway configuration with just 2 path patterns:
+
+      1. GET /api/v1/health → No authentication (health check)
+      2. ANY /api/v1/public/{proxy+} → No authentication (forwards to EC2 /api/v1/public/{proxy})
+      3. ANY /api/v1/auth/{proxy+} → JWT authentication with Clerk authorizer (forwards to EC2 /api/v1/auth/{proxy})
+
+      This eliminates the need for infrastructure changes when adding new routes. The backend Chi router
+      handles all sub-routing within the /public and /auth prefixes.
+    </description>
+
+    <benefits>
+      - Single source of truth: Routes defined in backend only (main.go)
+      - No infrastructure redeployment: New routes automatically work
+      - Clear security boundary: Path-based authentication at gateway level
+      - Reduced configuration complexity: 3 routes instead of 50+
+      - Maintainable: Easy to understand and audit
+    </benefits>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/infrastructure/lib/stacks/zmanim-prod.ts" relevance="primary">
+      <description>
+        Main CDK infrastructure stack. Contains all API Gateway route definitions (lines 664-883).
+        This file needs to be updated to replace complex routing with simplified 2-path pattern.
+      </description>
+      <key-sections>
+        <section name="API Gateway Configuration" lines="664-883">
+          Lines 664-710: API Gateway creation and stage configuration
+          Lines 712-721: Clerk JWT authorizer configuration
+          Lines 723-752: Health check integration and route
+          Lines 754-817: Public route patterns (TO BE REMOVED)
+          Lines 819-834: Public POST routes (TO BE REMOVED)
+          Lines 836-873: Protected routes for /publisher and /admin (TO BE REMOVED)
+          Lines 875-883: Catch-all route (TO BE REMOVED)
+        </section>
+        <section name="Integration Pattern" lines="723-745">
+          Current integration uses HTTP_PROXY with individual path forwarding.
+          Key parameters:
+          - integrationUri: Points to EC2 elastic IP on port 8080
+          - timeoutMilliseconds: 29000 (29 seconds - just under API Gateway 30s limit)
+          - requestParameters: Injects X-Origin-Verify header for security
+          - integrationMethod: GET, POST, or ANY
+        </section>
+        <section name="Clerk Authorizer" lines="712-721">
+          JWT authorizer configuration for authentication:
+          - authorizerType: "JWT"
+          - identitySources: ["$request.header.Authorization"]
+          - audience: From SSM parameter (clerkAudience)
+          - issuer: Clerk domain (https://{clerkDomain})
+
+          Used on protected routes via:
+            authorizationType: "JWT"
+            authorizerId: clerkAuthorizer.id
+        </section>
+      </key-sections>
+      <notes>
+        - The file uses CDKTF (Terraform CDK) with TypeScript
+        - Resources use AWS CDK provider (@cdktf/provider-aws)
+        - Elastic IP is referenced as elasticIp.publicIp
+        - SSM parameters loaded at top of file (lines 151-198)
+        - Integration URI pattern: http://{elasticIp.publicIp}:8080/path/{proxy}
+        - Route key pattern: "METHOD /path/{proxy+}" where {proxy+} matches 1+ segments
+        - Integration URI uses {proxy} (singular) - API Gateway replaces with matched segments
+      </notes>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/cmd/api/main.go" relevance="reference">
+      <description>
+        Backend route structure (already complete). Shows the /public and /auth organization that
+        the API Gateway needs to forward to.
+      </description>
+      <key-sections>
+        <section name="Route Structure" lines="224-550">
+          Line 225: r.Route("/api/v1", ...) - Base path
+
+          Lines 228-320: Public routes under r.Group (no /public prefix in this old code)
+            These were MOVED to /api/v1/public/* in Story 8.17
+
+          Lines 322-327: Authenticated algorithm actions (moved to /auth/algorithms/*)
+          Lines 329-334: Verified publishers (moved to /auth/publishers/verified)
+          Lines 336-439: Publisher routes under /publisher (moved to /auth/publisher/*)
+          Lines 441-445: User routes (mixed public/auth)
+          Lines 447-531: Admin routes under /admin (moved to /auth/admin/*)
+          Lines 533-549: External API routes under /external (moved to /auth/external/*)
+
+          NOTE: The code shown in main.go is PRE-Story 8.17. The actual current structure is:
+            /api/v1/public/* - All unauthenticated routes
+            /api/v1/auth/* - All authenticated routes with sub-groups:
+              /api/v1/auth/publisher/*
+              /api/v1/auth/admin/*
+              /api/v1/auth/external/*
+              /api/v1/auth/algorithms/* (copy/fork endpoints)
+        </section>
+      </key-sections>
+      <notes>
+        - Backend uses Chi router (github.com/go-chi/chi/v5)
+        - Auth middleware applied at /auth route level
+        - Role-based middleware (RequireRole) applied to sub-groups
+        - Health check at /health (not /api/v1/health) - API Gateway routes GET /api/v1/health to /health
+      </notes>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/web/lib/api-client.ts" relevance="reference">
+      <description>
+        Frontend API client with normalizeEndpoint function. Already handles routing to new paths.
+        No changes needed but included for reference.
+      </description>
+      <key-sections>
+        <section name="normalizeEndpoint Function" lines="424-470">
+          Automatically adds /api/v1 prefix to endpoints if not present.
+          Recognizes standard route prefixes: /publisher, /admin, /user, /zmanim, etc.
+
+          Frontend calls like:
+            api.get('/publisher/profile') → /api/v1/publisher/profile
+            api.public.get('/publishers') → /api/v1/publishers
+            api.admin.get('/admin/stats') → /api/v1/admin/stats
+        </section>
+        <section name="API Client Structure" lines="115-312">
+          - createApiClient factory with getToken and selectedPublisher
+          - Automatic Authorization header injection
+          - Automatic X-Publisher-Id header for publisher routes
+          - Public API methods (skipAuth: true)
+          - Admin API methods (skipPublisherId: true)
+        </section>
+      </key-sections>
+      <notes>
+        - Frontend is NOT aware of /public vs /auth backend structure
+        - normalizeEndpoint just ensures /api/v1 prefix
+        - Backend Story 8.17 added legacy route redirects (301) for old paths
+        - Frontend will work unchanged because it already uses /api/v1/* paths
+      </notes>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/infrastructure/lib/config.ts" relevance="reference">
+      <description>
+        Infrastructure configuration values. Contains SSM parameter paths and environment config.
+      </description>
+      <content><![CDATA[
+export interface ZmanimConfig {
+  environment: "prod";
+  region: string;              // "eu-west-1"
+  usEast1Region: string;       // "us-east-1" for ACM cert
+  domain: string;              // "zmanim.shtetl.io"
+  baseDomain: string;          // "shtetl.io"
+  stateBucketName: string;     // "shtetl-tf"
+  hostedZoneId: string;        // Route53 zone
+  instanceType: string;        // "m7g.medium"
+  dataVolumeSize: number;      // 30 GB
+  defaultTags: Record<string, string>;
+}
+
+export const ssmPaths = {
+  amiVersion: "/zmanim/prod/ami-version",
+  clerkDomain: "/zmanim/prod/clerk-domain",
+  clerkAudience: "/zmanim/prod/clerk-audience",
+  originVerifyKey: "/zmanim/prod/origin-verify-key",
+  postgresPassword: "/zmanim/prod/postgres-password",
+  redisPassword: "/zmanim/prod/redis-password",
+  clerkSecretKey: "/zmanim/prod/clerk-secret-key",
+  clerkPublishableKey: "/zmanim/prod/clerk-publishable-key",
+  resticPassword: "/zmanim/prod/restic-password",
+  jwtSecret: "/zmanim/prod/jwt-secret",
+};
+      ]]></content>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/infrastructure/main.ts" relevance="reference">
+      <description>
+        CDKTF application entry point. Shows stack instantiation.
+      </description>
+      <content><![CDATA[
+import { App } from "cdktf";
+import { ZmanimProdStack } from "./lib/stacks/zmanim-prod";
+import { zmanimConfig } from "./lib/config";
+
+const app = new App();
+
+new ZmanimProdStack(app, "zmanim-prod", {
+  config: zmanimConfig,
+});
+
+app.synth();
+      ]]></content>
+      <notes>
+        - Stack name: "zmanim-prod"
+        - Synth generates Terraform JSON in cdktf.out/stacks/zmanim-prod/
+        - Deploy with: npx cdktf deploy zmanim-prod
+        - Preview with: npx cdktf diff zmanim-prod
+      </notes>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/docs/sprint-artifacts/stories/8-17-api-path-restructuring-gateway-authentication.md" relevance="background">
+      <description>
+        Story 8.17 - The original story that restructured backend routes. Task 6 was deferred and became Story 9.1.
+      </description>
+      <key-points>
+        - Tasks 1-5: Complete (backend routes restructured, frontend updated)
+        - Task 6: Deferred → Now Story 9.1
+        - Backend now uses /api/v1/public/* and /api/v1/auth/* structure
+        - Legacy routes return 301 redirects with 6-month sunset (2025-06-14)
+        - Frontend normalizeEndpoint already handles new paths
+      </key-points>
+    </file>
+  </files>
+
+  <patterns>
+    <pattern name="CDKTF API Gateway Route Pattern">
+      <description>
+        Pattern for creating API Gateway routes with integrations in CDKTF.
+      </description>
+      <example><![CDATA[
+// 1. Create Integration
+const myIntegration = new Apigatewayv2Integration(this, "my-integration-id", {
+  apiId: httpApi.id,
+  integrationType: "HTTP_PROXY",
+  integrationUri: `http://${elasticIp.publicIp}:8080/backend/path/{proxy}`,
+  integrationMethod: "ANY",  // or "GET", "POST", etc.
+  timeoutMilliseconds: 29000,
+  requestParameters: {
+    "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+  },
+});
+
+// 2. Create Route (no auth)
+new Apigatewayv2Route(this, "route-id", {
+  apiId: httpApi.id,
+  routeKey: "ANY /api/v1/path/{proxy+}",
+  target: `integrations/${myIntegration.id}`,
+});
+
+// 3. Create Route (with JWT auth)
+new Apigatewayv2Route(this, "route-protected-id", {
+  apiId: httpApi.id,
+  routeKey: "ANY /api/v1/protected/{proxy+}",
+  target: `integrations/${myIntegration.id}`,
+  authorizationType: "JWT",
+  authorizerId: clerkAuthorizer.id,
+});
+      ]]></example>
+      <notes>
+        - Route key uses {proxy+} (1+ segments) - Gateway matches everything after the prefix
+        - Integration URI uses {proxy} (singular) - Gateway substitutes matched segments
+        - Example: Route "GET /api/v1/public/{proxy+}" matches "/api/v1/public/publishers/123"
+          Integration URI "http://IP:8080/api/v1/public/{proxy}" becomes "http://IP:8080/api/v1/public/publishers/123"
+        - Each route needs its own integration to preserve the path structure
+        - X-Origin-Verify header blocks direct EC2 access (only allow via API Gateway)
+      </notes>
+    </pattern>
+
+    <pattern name="Clerk JWT Authorizer Configuration">
+      <description>
+        JWT authorizer validates Clerk authentication tokens.
+      </description>
+      <example><![CDATA[
+const clerkAuthorizer = new Apigatewayv2Authorizer(this, "clerk-authorizer", {
+  apiId: httpApi.id,
+  authorizerType: "JWT",
+  identitySources: ["$request.header.Authorization"],
+  name: "clerk-jwt",
+  jwtConfiguration: {
+    audience: [ssmClerkAudience.value],  // e.g., "zmanim-api"
+    issuer: `https://${ssmClerkDomain.value}`,  // e.g., "https://abc-123.clerk.accounts.dev"
+  },
+});
+      ]]></example>
+      <notes>
+        - API Gateway validates JWT signature using Clerk's public keys (JWKS)
+        - Audience must match the JWT template configured in Clerk Dashboard
+        - Issuer is the Clerk frontend API domain
+        - Invalid tokens return 401 Unauthorized before reaching backend
+        - Backend still validates tokens for role-based access (publisher/admin)
+      </notes>
+    </pattern>
+
+    <pattern name="Origin Security (X-Origin-Verify)">
+      <description>
+        Security pattern to prevent direct EC2 access, forcing all traffic through API Gateway.
+      </description>
+      <example><![CDATA[
+// Infrastructure: Inject header in all integrations
+requestParameters: {
+  "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+}
+
+// Backend middleware (already implemented): Verify header
+func OriginVerify(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    expectedKey := os.Getenv("ORIGIN_VERIFY_KEY")
+    actualKey := r.Header.Get("X-Origin-Verify")
+
+    if actualKey != expectedKey {
+      http.Error(w, "Forbidden", http.StatusForbidden)
+      return
+    }
+
+    next.ServeHTTP(w, r)
+  })
+}
+      ]]></example>
+      <notes>
+        - Secret key stored in SSM Parameter Store (/zmanim/prod/origin-verify-key)
+        - API Gateway injects header on every request
+        - Backend verifies header before processing request
+        - Direct EC2 requests (without gateway) are blocked
+        - This prevents bypassing API Gateway authentication
+      </notes>
+    </pattern>
+  </patterns>
+
+  <implementation-notes>
+    <section name="Step-by-Step Implementation">
+      <task number="1" title="Backup Current Configuration">
+        Before making changes, document the current route configuration:
+        ```bash
+        cd infrastructure
+        npx cdktf synth
+        # Review cdktf.out/stacks/zmanim-prod/cdk.tf.json
+        # Look for "aws_apigatewayv2_route" resources
+        ```
+      </task>
+
+      <task number="2" title="Update zmanim-prod.ts">
+        In /home/coder/workspace/zmanim/infrastructure/lib/stacks/zmanim-prod.ts:
+
+        a) Keep lines 664-752 (API Gateway creation, stage, authorizer, health check) - NO CHANGES
+
+        b) REMOVE lines 754-834 (all public prefix routes and base endpoint routes)
+
+        c) REMOVE lines 836-873 (publisher and admin protected routes)
+
+        d) REMOVE lines 875-883 (catch-all route)
+
+        e) ADD new simplified routes after line 752 (after health check route):
+
+        ```typescript
+        // Public routes integration - forwards to /api/v1/public/{proxy}
+        const publicIntegration = new Apigatewayv2Integration(this, "ec2-public-integration", {
+          apiId: httpApi.id,
+          integrationType: "HTTP_PROXY",
+          integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/public/{proxy}`,
+          integrationMethod: "ANY",
+          timeoutMilliseconds: 29000,
+          requestParameters: {
+            "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+          },
+        });
+
+        new Apigatewayv2Route(this, "route-public", {
+          apiId: httpApi.id,
+          routeKey: "ANY /api/v1/public/{proxy+}",
+          target: `integrations/${publicIntegration.id}`,
+          // No authorizationType - public access
+        });
+
+        // Authenticated routes integration - forwards to /api/v1/auth/{proxy}
+        const authIntegration = new Apigatewayv2Integration(this, "ec2-auth-integration", {
+          apiId: httpApi.id,
+          integrationType: "HTTP_PROXY",
+          integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/auth/{proxy}`,
+          integrationMethod: "ANY",
+          timeoutMilliseconds: 29000,
+          requestParameters: {
+            "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+          },
+        });
+
+        new Apigatewayv2Route(this, "route-auth", {
+          apiId: httpApi.id,
+          routeKey: "ANY /api/v1/auth/{proxy+}",
+          target: `integrations/${authIntegration.id}`,
+          authorizationType: "JWT",
+          authorizerId: clerkAuthorizer.id,
+        });
+        ```
+      </task>
+
+      <task number="3" title="Preview Changes">
+        ```bash
+        cd infrastructure
+        npx cdktf diff zmanim-prod
+        ```
+
+        Expected changes:
+        - REMOVE: 50+ individual route resources
+        - REMOVE: 50+ individual integration resources
+        - ADD: 2 new integration resources (public, auth)
+        - ADD: 2 new route resources (public, auth)
+        - KEEP: Health check route unchanged
+        - KEEP: Clerk authorizer unchanged
+      </task>
+
+      <task number="4" title="Deploy Infrastructure">
+        ```bash
+        cd infrastructure
+        npx cdktf deploy zmanim-prod
+        ```
+
+        Deployment will:
+        1. Create new integrations (public, auth)
+        2. Create new routes (public, auth)
+        3. Delete old routes (50+ routes)
+        4. Delete old integrations (50+ integrations)
+
+        Note: There will be a brief moment during deployment where routes are unavailable.
+        Plan deployment during low-traffic period if possible.
+      </task>
+
+      <task number="5" title="Verify Deployment">
+        Test public endpoint (should work without auth):
+        ```bash
+        curl https://zmanim.shtetl.io/api/v1/public/publishers
+        # Expected: 200 OK with publishers list
+        ```
+
+        Test auth endpoint without JWT (should fail):
+        ```bash
+        curl https://zmanim.shtetl.io/api/v1/auth/publisher/profile
+        # Expected: 401 Unauthorized
+        ```
+
+        Test auth endpoint with valid JWT (need real token from Clerk):
+        ```bash
+        curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+          https://zmanim.shtetl.io/api/v1/auth/publisher/profile
+        # Expected: 200 OK with profile data
+        ```
+
+        Test health endpoint:
+        ```bash
+        curl https://zmanim.shtetl.io/api/v1/health
+        # Expected: 200 OK with health status
+        ```
+      </task>
+
+      <task number="6" title="Monitor CloudWatch Logs">
+        Check for errors in:
+        - API Gateway logs: /aws/apigateway/zmanim-api-prod
+        - Application logs on EC2: journalctl -u zmanim-api -f
+
+        Look for:
+        - 401 errors from Clerk authorizer (expected for invalid tokens)
+        - 403 errors from X-Origin-Verify (unexpected - means header not working)
+        - 404 errors (unexpected - means routing broken)
+        - 500 errors (unexpected - backend issue)
+      </task>
+
+      <task number="7" title="Frontend Verification">
+        Test the full application:
+        1. Anonymous user accessing /zmanim page
+        2. Publisher accessing /publisher/algorithm
+        3. Admin accessing /admin dashboard
+
+        All should work without frontend changes due to normalizeEndpoint function.
+      </task>
+    </section>
+
+    <section name="Rollback Plan">
+      If deployment fails or causes issues:
+
+      ```bash
+      # Revert the code changes in git
+      cd /home/coder/workspace/zmanim/infrastructure
+      git checkout HEAD~1 lib/stacks/zmanim-prod.ts
+
+      # Redeploy previous configuration
+      npx cdktf deploy zmanim-prod
+      ```
+
+      Alternative: Keep both old and new routes temporarily (deploy, test, then remove old).
+      This requires deploying in 2 phases:
+      Phase 1: Add new routes alongside old routes
+      Phase 2: Remove old routes after testing
+    </section>
+
+    <section name="Key Differences from Current Config">
+      Current (Complex):
+      - 50+ individual routes with specific paths
+      - Each public endpoint has its own integration
+      - Requires infrastructure deployment for new routes
+      - Path structure mixed (some /api/v1/X, some /api/v1/public/X)
+
+      New (Simplified):
+      - 3 routes total (health, public, auth)
+      - 2 integrations (public, auth) + 1 for health
+      - New routes work automatically (handled by backend)
+      - Clear path structure (/api/v1/public/* vs /api/v1/auth/*)
+    </section>
+
+    <section name="Important URI Pattern">
+      CRITICAL: Integration URI uses {proxy} singular, not {proxy+}
+
+      ✓ CORRECT:
+        Route: "ANY /api/v1/public/{proxy+}"
+        Integration: "http://IP:8080/api/v1/public/{proxy}"
+
+      ✗ WRONG:
+        Route: "ANY /api/v1/public/{proxy+}"
+        Integration: "http://IP:8080/api/v1/public/{proxy+}"
+
+      API Gateway will automatically replace {proxy} in the integration URI with
+      the full path segments matched by {proxy+} in the route key.
+    </section>
+
+    <section name="Testing Checklist">
+      Public endpoints (no auth):
+      - [ ] GET /api/v1/public/publishers
+      - [ ] GET /api/v1/public/publishers/{id}
+      - [ ] GET /api/v1/public/cities?search=jerusalem
+      - [ ] GET /api/v1/public/countries
+      - [ ] GET /api/v1/public/zmanim?cityId=123&date=2025-01-01
+      - [ ] POST /api/v1/public/zmanim (legacy calculation)
+      - [ ] GET /api/v1/public/registry/zmanim
+
+      Auth endpoints (require JWT):
+      - [ ] GET /api/v1/auth/publisher/profile
+      - [ ] GET /api/v1/auth/publisher/algorithm
+      - [ ] GET /api/v1/auth/publisher/zmanim
+      - [ ] POST /api/v1/auth/publisher/zmanim
+      - [ ] GET /api/v1/auth/admin/publishers
+      - [ ] GET /api/v1/auth/admin/stats
+
+      Health check:
+      - [ ] GET /api/v1/health
+    </section>
+
+    <section name="Common Issues and Solutions">
+      Issue: 403 Forbidden on all requests
+      Solution: X-Origin-Verify header not configured correctly. Check SSM parameter and integration config.
+
+      Issue: 401 Unauthorized on public endpoints
+      Solution: Route is using authorizationType when it shouldn't. Remove auth from public route.
+
+      Issue: 404 Not Found on valid endpoints
+      Solution: Integration URI pattern wrong. Verify {proxy} is used in URI, not {proxy+}.
+
+      Issue: Backend receives /api/v1/public/public/publishers (double prefix)
+      Solution: Integration URI should not include prefix that's already in route key.
+
+      Issue: JWT validation fails with valid tokens
+      Solution: Clerk audience/issuer mismatch. Verify SSM parameters match Clerk Dashboard settings.
+    </section>
+  </implementation-notes>
+
+  <deployment-commands>
+    <command name="Synthesize CDK">
+      <description>Generate Terraform JSON from CDKTF code</description>
+      <code>cd infrastructure && npx cdktf synth</code>
+    </command>
+
+    <command name="Preview Changes">
+      <description>Show what will change without deploying</description>
+      <code>cd infrastructure && npx cdktf diff zmanim-prod</code>
+    </command>
+
+    <command name="Deploy Infrastructure">
+      <description>Apply infrastructure changes to AWS</description>
+      <code>cd infrastructure && npx cdktf deploy zmanim-prod</code>
+    </command>
+
+    <command name="Test Public Endpoint">
+      <description>Verify public endpoint works without auth</description>
+      <code>curl https://zmanim.shtetl.io/api/v1/public/publishers</code>
+    </command>
+
+    <command name="Test Auth Endpoint (No Token)">
+      <description>Verify auth endpoint rejects unauthenticated requests</description>
+      <code>curl https://zmanim.shtetl.io/api/v1/auth/publisher/profile</code>
+      <expected-result>401 Unauthorized</expected-result>
+    </command>
+
+    <command name="View API Gateway Logs">
+      <description>Check CloudWatch logs for API Gateway</description>
+      <code>aws logs tail /aws/apigateway/zmanim-api-prod --follow --region eu-west-1</code>
+    </command>
+  </deployment-commands>
+
+  <aws-resources>
+    <resource type="Apigatewayv2Api">
+      <id>http-api</id>
+      <description>Main HTTP API Gateway</description>
+      <attributes>
+        - name: zmanim-api-prod
+        - protocolType: HTTP
+        - corsConfiguration: Configured for zmanim.shtetl.io
+      </attributes>
+    </resource>
+
+    <resource type="Apigatewayv2Authorizer">
+      <id>clerk-authorizer</id>
+      <description>JWT authorizer for Clerk authentication</description>
+      <attributes>
+        - authorizerType: JWT
+        - audience: From SSM (/zmanim/prod/clerk-audience)
+        - issuer: From SSM (/zmanim/prod/clerk-domain)
+      </attributes>
+    </resource>
+
+    <resource type="Apigatewayv2Integration">
+      <id>ec2-public-integration (NEW)</id>
+      <description>Integration for public routes</description>
+      <attributes>
+        - integrationType: HTTP_PROXY
+        - integrationUri: http://{elasticIp}:8080/api/v1/public/{proxy}
+        - integrationMethod: ANY
+        - X-Origin-Verify header injected
+      </attributes>
+    </resource>
+
+    <resource type="Apigatewayv2Integration">
+      <id>ec2-auth-integration (NEW)</id>
+      <description>Integration for authenticated routes</description>
+      <attributes>
+        - integrationType: HTTP_PROXY
+        - integrationUri: http://{elasticIp}:8080/api/v1/auth/{proxy}
+        - integrationMethod: ANY
+        - X-Origin-Verify header injected
+      </attributes>
+    </resource>
+
+    <resource type="Apigatewayv2Route">
+      <id>route-public (NEW)</id>
+      <description>Route for all public endpoints</description>
+      <attributes>
+        - routeKey: ANY /api/v1/public/{proxy+}
+        - No authentication
+        - Target: ec2-public-integration
+      </attributes>
+    </resource>
+
+    <resource type="Apigatewayv2Route">
+      <id>route-auth (NEW)</id>
+      <description>Route for all authenticated endpoints</description>
+      <attributes>
+        - routeKey: ANY /api/v1/auth/{proxy+}
+        - authorizationType: JWT
+        - authorizerId: clerk-authorizer
+        - Target: ec2-auth-integration
+      </attributes>
+    </resource>
+  </aws-resources>
+
+  <security-considerations>
+    <item priority="critical">
+      X-Origin-Verify header MUST be injected in both integrations to prevent direct EC2 access.
+      This forces all traffic through API Gateway where authentication is enforced.
+    </item>
+
+    <item priority="critical">
+      Clerk JWT authorizer MUST be applied to /auth route to enforce authentication.
+      Missing this would expose all protected endpoints.
+    </item>
+
+    <item priority="high">
+      SSM parameters (clerkAudience, clerkDomain, originVerifyKey) must be correct.
+      Incorrect values will break authentication or security.
+    </item>
+
+    <item priority="high">
+      Integration timeout is 29 seconds (29000ms) - just under API Gateway's 30s limit.
+      Backend operations must complete within this time.
+    </item>
+
+    <item priority="medium">
+      CORS configuration only allows zmanim.shtetl.io origin.
+      This prevents unauthorized cross-origin requests.
+    </item>
+  </security-considerations>
+
+  <testing-strategy>
+    <phase name="Unit Testing">
+      Not applicable - infrastructure changes, no code to unit test.
+    </phase>
+
+    <phase name="Integration Testing">
+      1. Deploy to production (low-risk: no code changes, only routing)
+      2. Test public endpoints without auth (curl)
+      3. Test auth endpoints without JWT (expect 401)
+      4. Test auth endpoints with valid JWT (need Clerk token)
+      5. Test health endpoint
+      6. Monitor CloudWatch logs for errors
+    </phase>
+
+    <phase name="E2E Testing">
+      1. Open zmanim.shtetl.io in browser
+      2. Test anonymous user flow (view zmanim, search cities)
+      3. Sign in as publisher
+      4. Test publisher flow (view algorithm, edit zmanim)
+      5. Sign in as admin
+      6. Test admin flow (view publishers, manage requests)
+      7. Verify no console errors or failed network requests
+    </phase>
+
+    <phase name="Performance Testing">
+      Compare CloudWatch metrics before and after:
+      - API Gateway latency (should be same or better)
+      - Integration latency (should be same)
+      - Error rate (should be 0%)
+      - Request count (should match previous patterns)
+    </phase>
+  </testing-strategy>
+
+  <related-stories>
+    <story id="8.17" status="complete">
+      API Path Restructuring for Gateway Authentication
+      - Completed Tasks 1-5: Backend restructuring, frontend updates
+      - Deferred Task 6: Infrastructure changes (became Story 9.1)
+    </story>
+
+    <story id="9.1" status="current">
+      API Gateway Path Configuration
+      - Completes Story 8.17 Task 6
+      - Simplifies infrastructure from 50+ routes to 2 patterns
+    </story>
+  </related-stories>
+
+  <references>
+    <reference type="documentation">
+      AWS API Gateway HTTP API:
+      https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api.html
+    </reference>
+
+    <reference type="documentation">
+      API Gateway JWT Authorizers:
+      https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html
+    </reference>
+
+    <reference type="documentation">
+      CDKTF AWS Provider:
+      https://github.com/hashicorp/terraform-cdk
+    </reference>
+
+    <reference type="code">
+      Story 8.17 (original restructuring):
+      /home/coder/workspace/zmanim/docs/sprint-artifacts/stories/8-17-api-path-restructuring-gateway-authentication.md
+    </reference>
+
+    <reference type="code">
+      Coding Standards (API section):
+      /home/coder/workspace/zmanim/docs/coding-standards.md
+    </reference>
+  </references>
+</story-context>

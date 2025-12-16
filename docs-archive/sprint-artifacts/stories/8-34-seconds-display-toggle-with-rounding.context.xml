@@ -1,0 +1,227 @@
+<story-context id="8-34-seconds-display-toggle-with-rounding" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>34</storyId>
+    <title>Seconds Display Toggle with Rounding Options</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>user viewing zmanim times</asA>
+    <iWant>to toggle whether seconds are displayed and choose how times are rounded when seconds are hidden</iWant>
+    <soThat>I can see times at my preferred precision level with appropriate rounding behavior</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Toggle switch for "Show Seconds" appears on anonymous zmanim page (/zmanim)</criterion>
+    <criterion id="AC2">Toggle switch for "Show Seconds" appears on publisher algorithm page (/publisher/algorithm)</criterion>
+    <criterion id="AC3">When seconds OFF, 3-way rounding selector appears: Floor, Mathematical (default), Ceil</criterion>
+    <criterion id="AC4">Anonymous page defaults: seconds OFF, rounding = mathematical</criterion>
+    <criterion id="AC5">Algorithm page defaults: seconds ON</criterion>
+    <criterion id="AC6">Settings persist in cookies (integrate with PreferencesContext)</criterion>
+    <criterion id="AC7">Settings apply consistently across all time displays on the page</criterion>
+    <criterion id="AC8">Rounding selector is hidden when seconds are ON</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <!-- PreferencesContext - Foundation to extend -->
+      <artifact>
+        <path>web/lib/contexts/PreferencesContext.tsx</path>
+        <kind>context-provider</kind>
+        <symbol>PreferencesProvider</symbol>
+        <reason>Extend with showSeconds and roundingMode preferences</reason>
+        <currentInterface><![CDATA[
+export interface UserPreferences {
+  cityId: number | null;
+  continentId: number | null;
+  countryId: number | null;
+  regionId: number | null;
+  theme: 'light' | 'dark' | 'system';
+}
+        ]]></currentInterface>
+        <requiredAdditions><![CDATA[
+// Add to UserPreferences:
+showSeconds: boolean | null;  // null = use page default
+roundingMode: RoundingMode;   // 'floor' | 'math' | 'ceil'
+
+// Add cookie constants:
+const COOKIE_SHOW_SECONDS = 'zmanim_show_seconds';
+const COOKIE_ROUNDING_MODE = 'zmanim_rounding_mode';
+const TTL_DISPLAY_PREFS = 365;
+
+// Add methods to context:
+setShowSeconds: (showSeconds: boolean) => void;
+setRoundingMode: (mode: RoundingMode) => void;
+        ]]></requiredAdditions>
+      </artifact>
+
+      <!-- Existing time formatters to enhance -->
+      <artifact>
+        <path>web/lib/utils.ts</path>
+        <kind>utility</kind>
+        <symbol>formatTime, formatTimeShort</symbol>
+        <reason>Existing formatters - simple string parsing, no rounding logic</reason>
+        <currentImplementation><![CDATA[
+export function formatTime(time: string): string {
+  const [hours, minutes, seconds] = time.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  if (seconds !== undefined && !isNaN(seconds)) {
+    return `${hour12}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${period}`;
+  }
+  return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
+export function formatTimeShort(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+        ]]></currentImplementation>
+      </artifact>
+
+      <!-- New file: time formatting utility -->
+      <artifact>
+        <path>web/lib/utils/time-format.ts</path>
+        <kind>utility</kind>
+        <symbol>formatZmanTime</symbol>
+        <reason>NEW FILE - Luxon-based formatter with rounding logic</reason>
+        <implementation><![CDATA[
+import { DateTime } from 'luxon';
+
+export type RoundingMode = 'floor' | 'math' | 'ceil';
+
+export function formatZmanTime(
+  time: DateTime,
+  showSeconds: boolean,
+  roundingMode: RoundingMode = 'math'
+): string {
+  if (showSeconds) {
+    return time.toFormat('h:mm:ss a');
+  }
+
+  const seconds = time.second;
+  let roundedTime = time;
+
+  switch (roundingMode) {
+    case 'floor':
+      roundedTime = time.startOf('minute');
+      break;
+    case 'ceil':
+      if (seconds > 0) {
+        roundedTime = time.startOf('minute').plus({ minutes: 1 });
+      } else {
+        roundedTime = time.startOf('minute');
+      }
+      break;
+    case 'math':
+    default:
+      if (seconds >= 30) {
+        roundedTime = time.startOf('minute').plus({ minutes: 1 });
+      } else {
+        roundedTime = time.startOf('minute');
+      }
+      break;
+  }
+
+  return roundedTime.toFormat('h:mm a');
+}
+
+// For string input (API response format HH:MM:SS)
+export function formatZmanTimeString(
+  timeStr: string,
+  showSeconds: boolean,
+  roundingMode: RoundingMode = 'math'
+): string {
+  const [hours, minutes, secs] = timeStr.split(':').map(Number);
+  const dt = DateTime.fromObject({ hour: hours, minute: minutes, second: secs || 0 });
+  return formatZmanTime(dt, showSeconds, roundingMode);
+}
+        ]]></implementation>
+      </artifact>
+
+      <!-- New component: DisplaySettingsToggle -->
+      <artifact>
+        <path>web/components/shared/DisplaySettingsToggle.tsx</path>
+        <kind>component</kind>
+        <symbol>DisplaySettingsToggle</symbol>
+        <reason>NEW FILE - Toggle + 3-way rounding selector</reason>
+        <uiElements>
+          <element>Switch from shadcn/ui for seconds toggle</element>
+          <element>ToggleGroup from shadcn/ui for rounding selection</element>
+          <element>Icons: ArrowDown (floor), Calculator (math), ArrowUp (ceil)</element>
+        </uiElements>
+      </artifact>
+
+      <!-- Pages to update -->
+      <artifact>
+        <path>web/app/zmanim/page.tsx</path>
+        <kind>page</kind>
+        <reason>Anonymous zmanim page - add DisplaySettingsToggle, default seconds OFF</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/publisher/algorithm/page.tsx</path>
+        <kind>page</kind>
+        <reason>Publisher algorithm page - add DisplaySettingsToggle, default seconds ON</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <roundingExamples>
+    <description>Rounding behavior for time 06:42:30</description>
+    <example mode="floor">06:42:30 -> 06:42 (always truncate seconds)</example>
+    <example mode="math">06:42:30 -> 06:43 (>=30 rounds up)</example>
+    <example mode="ceil">06:42:30 -> 06:43 (any seconds rounds up)</example>
+    <example mode="floor">06:42:29 -> 06:42</example>
+    <example mode="math">06:42:29 -> 06:42</example>
+    <example mode="ceil">06:42:29 -> 06:43</example>
+    <note>Floor is "safe" for start times (always earlier), Ceil is "safe" for end times (always later)</note>
+  </roundingExamples>
+
+  <cookieStrategy>
+    <cookie name="zmanim_show_seconds" ttl="365 days" values="true|false" />
+    <cookie name="zmanim_rounding_mode" ttl="365 days" values="floor|math|ceil" />
+    <defaultBehavior>
+      <anonymous showSeconds="false" rounding="math" />
+      <algorithm showSeconds="true" rounding="math" />
+    </defaultBehavior>
+    <crossTabSync>Use CustomEvent 'preferences-cookie-change' (existing pattern)</crossTabSync>
+  </cookieStrategy>
+
+  <dependencies>
+    <dependency>luxon (DateTime manipulation) - already installed</dependency>
+    <dependency>js-cookie - already installed</dependency>
+    <dependency>shadcn/ui Switch, ToggleGroup - already installed</dependency>
+    <dependency>Story 8-29 PreferencesContext foundation - already implemented</dependency>
+  </dependencies>
+
+  <testingStrategy>
+    <unit>
+      <test>formatZmanTime with floor rounding</test>
+      <test>formatZmanTime with math rounding</test>
+      <test>formatZmanTime with ceil rounding</test>
+      <test>Edge cases: 00 seconds, 30 seconds, 59 seconds</test>
+    </unit>
+    <component>
+      <test>DisplaySettingsToggle renders correctly</test>
+      <test>Rounding selector hidden when seconds ON</test>
+      <test>Rounding selector visible when seconds OFF</test>
+    </component>
+    <e2e>
+      <test>Toggle persists across page refresh</test>
+      <test>Settings sync between /zmanim and /publisher/algorithm</test>
+      <test>Cross-tab synchronization works</test>
+    </e2e>
+  </testingStrategy>
+
+  <constraints>
+    <constraint>Rounding affects DISPLAY only, not calculated values</constraint>
+    <constraint>Must work with SSR (read cookies server-side)</constraint>
+    <constraint>Must not break existing time displays</constraint>
+    <constraint>Default behavior matches page context (anon=OFF, algo=ON)</constraint>
+  </constraints>
+</story-context>

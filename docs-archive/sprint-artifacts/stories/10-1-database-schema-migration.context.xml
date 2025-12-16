@@ -1,0 +1,139 @@
+<story-context id="10-1-database-schema-migration" v="1.0">
+  <metadata>
+    <epicId>10</epicId>
+    <storyId>1</storyId>
+    <title>Database Schema Migration for Overture Geographic Data</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-16</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/10-1-database-schema-migration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>the database schema restructured to support Overture geographic data</iWant>
+    <soThat>we can import flexible locality hierarchies with multi-language names</soThat>
+    <tasks>
+      <task id="1">Create geo_region_types lookup table with seed data (region, state, province, county, localadmin, district, prefecture)</task>
+      <task id="2">Create geo_locality_types lookup table with seed data (city, town, village, hamlet, neighborhood, borough)</task>
+      <task id="3">Alter geo_regions table - add parent_region_id, region_type_id, population, overture_id columns</task>
+      <task id="4">Create geo_localities table with all required columns and GENERATED location column</task>
+      <task id="5">Create 8 indexes on geo_localities (region, parent, type, country, location GIST, name, overture, population)</task>
+      <task id="6">Create geo_search_index table with composite PK (entity_type, entity_id)</task>
+      <task id="7">Create GIN indexes on keywords array and trigram index on display_name</task>
+      <task id="8">Create geo_hierarchy_populations materialized view with recursive CTE</task>
+      <task id="9">Add locality_id column to publisher_coverage table</task>
+      <task id="10">Run sqlc generate and verify compilation</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">geo_region_types table exists with 7 seed rows</criterion>
+    <criterion id="AC2">geo_locality_types table exists with 6 seed rows</criterion>
+    <criterion id="AC3">geo_regions has parent_region_id, region_type_id, population, overture_id columns with indexes</criterion>
+    <criterion id="AC4">geo_localities table exists with 18+ columns including GENERATED location</criterion>
+    <criterion id="AC5">8 indexes on geo_localities including GIST for location</criterion>
+    <criterion id="AC6">geo_search_index table with GIN and trigram indexes</criterion>
+    <criterion id="AC7">geo_hierarchy_populations materialized view is refreshable</criterion>
+    <criterion id="AC8">Old tables (geo_cities, geo_districts) preserved for transition</criterion>
+    <criterion id="AC9">publisher_coverage.locality_id column added</criterion>
+    <criterion id="AC10">sqlc generate succeeds without errors</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-artifacts/epic-10-tech-spec.md" title="Epic 10 Tech Spec" section="Database Schema Changes" snippet="Complete SQL DDL for all new tables, indexes, and materialized views. Includes geo_region_types, geo_locality_types, geo_localities, geo_search_index tables." />
+      <doc path="docs/sprint-artifacts/epic-10-overture-geographic-migration.md" title="Epic 10 Overview" section="Technical Architecture" snippet="Schema overview showing hierarchy: continents → countries → regions (with parent_region_id) → localities (with parent_locality_id)." />
+      <doc path="docs/refactoring/import-from-overture.md" title="Overture Migration Plan" section="Phase 1: Database Migration" snippet="Detailed DDL for lookup tables, geo_regions alterations, geo_localities creation, and search index design." />
+      <doc path="docs/coding-standards.md" title="Coding Standards" section="Database Standards" snippet="Primary Key Pattern: All tables use integer id (SERIAL/BIGSERIAL). Lookup tables use SMALLINT GENERATED ALWAYS AS IDENTITY." />
+    </docs>
+    <code>
+      <file path="db/migrations/00000000000001_schema.sql" kind="migration" symbol="initial_schema" reason="Current WOF-based schema - reference for understanding existing geo_cities, geo_districts, geo_regions structure" />
+      <file path="db/migrations/00000000000003_overture_schema.sql" kind="migration" symbol="overture_schema" reason="Target migration file - already partially created, needs completion per tech spec" />
+      <file path="api/internal/db/queries/cities.sql" kind="sqlc-query" symbol="cities_queries" lines="1-254" reason="Current city queries - will need localities.sql equivalent after schema change" />
+      <file path="api/internal/db/queries/geo_boundaries.sql" kind="sqlc-query" symbol="geo_boundaries_queries" lines="1-678" reason="PostGIS boundary queries - will need updates for new schema" />
+      <file path="api/internal/db/queries/coverage.sql" kind="sqlc-query" symbol="coverage_queries" lines="1-274" reason="Publisher coverage queries - will need locality_id support" />
+      <file path="api/internal/db/queries/geo_names.sql" kind="sqlc-query" symbol="geo_names_queries" lines="1-188" reason="Current search index queries - will be replaced by new geo_search_index" />
+    </code>
+    <dependencies>
+      <go>
+        <package name="github.com/jackc/pgx/v5" version="v5.x" purpose="PostgreSQL driver" />
+        <package name="github.com/sqlc-dev/sqlc" version="v1.x" purpose="SQL code generation" />
+      </go>
+      <postgres>
+        <extension name="postgis" purpose="Geographic data types and functions" />
+        <extension name="pg_trgm" purpose="Trigram similarity for fuzzy search" />
+      </postgres>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>All tables MUST use integer id (SERIAL/BIGSERIAL) per coding standards</constraint>
+    <constraint>Lookup tables MUST use SMALLINT GENERATED ALWAYS AS IDENTITY</constraint>
+    <constraint>Migration MUST be idempotent (IF NOT EXISTS, etc.)</constraint>
+    <constraint>Old tables (geo_cities, geo_districts) preserved - dropped in Story 10.6</constraint>
+    <constraint>No backward compatibility gymnastics - clean slate migration</constraint>
+    <constraint>GEOGRAPHY column MUST be GENERATED (computed from lat/lng)</constraint>
+    <constraint>pg_trgm extension required for fuzzy search index</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="geo_localities table" kind="database-table">
+      <signature>
+        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+        region_id INTEGER REFERENCES geo_regions(id),
+        parent_locality_id INTEGER REFERENCES geo_localities(id),
+        locality_type_id SMALLINT REFERENCES geo_locality_types(id),
+        name TEXT NOT NULL,
+        name_ascii TEXT,
+        latitude DOUBLE PRECISION NOT NULL,
+        longitude DOUBLE PRECISION NOT NULL,
+        location GEOGRAPHY(Point, 4326) GENERATED ALWAYS AS (...) STORED,
+        timezone TEXT NOT NULL,
+        elevation_m INTEGER DEFAULT 0,
+        population INTEGER,
+        continent_id SMALLINT REFERENCES geo_continents(id),
+        country_id SMALLINT REFERENCES geo_countries(id),
+        overture_id TEXT,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      </signature>
+      <path>db/migrations/00000000000003_overture_schema.sql</path>
+    </interface>
+    <interface name="geo_search_index table" kind="database-table">
+      <signature>
+        entity_type VARCHAR(20) NOT NULL,
+        entity_id INTEGER NOT NULL,
+        PRIMARY KEY (entity_type, entity_id),
+        locality_id INTEGER REFERENCES geo_localities(id) ON DELETE CASCADE,
+        keywords TEXT[] NOT NULL,
+        display_name TEXT NOT NULL,
+        display_hierarchy TEXT NOT NULL,
+        display_names JSONB,
+        population BIGINT,
+        latitude DOUBLE PRECISION,
+        longitude DOUBLE PRECISION,
+        timezone TEXT
+      </signature>
+      <path>db/migrations/00000000000003_overture_schema.sql</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>PostgreSQL schema verification using information_schema queries and pg_indexes. Run ./scripts/migrate.sh and verify with SQL queries per each AC.</standards>
+    <locations>
+      <location>db/migrations/</location>
+      <location>Verification queries in story AC sections</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">SELECT COUNT(*) FROM geo_region_types; -- Expected: 7</idea>
+      <idea ac="AC2">SELECT COUNT(*) FROM geo_locality_types; -- Expected: 6</idea>
+      <idea ac="AC3">SELECT column_name FROM information_schema.columns WHERE table_name = 'geo_regions' AND column_name IN ('parent_region_id', 'region_type_id');</idea>
+      <idea ac="AC4">SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'geo_localities'; -- Expected: 18+</idea>
+      <idea ac="AC5">SELECT COUNT(*) FROM pg_indexes WHERE tablename = 'geo_localities'; -- Expected: 8</idea>
+      <idea ac="AC6">SELECT indexname FROM pg_indexes WHERE tablename = 'geo_search_index' AND indexdef LIKE '%gin%';</idea>
+      <idea ac="AC7">REFRESH MATERIALIZED VIEW geo_hierarchy_populations; -- Should not error</idea>
+      <idea ac="AC10">cd api && sqlc generate -- Should succeed with no errors</idea>
+    </ideas>
+  </tests>
+</story-context>

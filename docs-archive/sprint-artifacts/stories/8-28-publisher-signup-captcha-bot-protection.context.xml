@@ -1,0 +1,86 @@
+<story-context id="8-28-publisher-signup-captcha-bot-protection" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>28</storyId>
+    <title>Publisher Signup CAPTCHA Bot Protection</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>platform administrator</asA>
+    <iWant>CAPTCHA protection on the publisher signup flow</iWant>
+    <soThat>bots cannot create fraudulent publisher accounts and spam the approval queue</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Clerk bot protection enabled in production environment</criterion>
+    <criterion id="AC2">"Smart" widget type selected (not deprecated "Invisible" type)</criterion>
+    <criterion id="AC3">Suspected bots shown interactive challenge on signup</criterion>
+    <criterion id="AC4">Legitimate users experience no friction (invisible protection)</criterion>
+    <criterion id="AC5">Publisher registration form works correctly with protection enabled</criterion>
+    <criterion id="AC6">Disposable email blocking enabled (optional, recommended)</criterion>
+    <criterion id="AC7">Email subaddress limiting enabled (optional, recommended)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <config>
+      <artifact>
+        <path>Clerk Dashboard</path>
+        <kind>configuration</kind>
+        <location>Configure > Attack protection</location>
+        <reason>Primary configuration location - dashboard toggle enables Cloudflare Turnstile</reason>
+        <settings>
+          <setting name="Bot sign-up protection">ON</setting>
+          <setting name="Widget type">Smart (recommended)</setting>
+          <setting name="Block disposable email domains">ON (recommended)</setting>
+          <setting name="Limit email subaddresses">ON (recommended)</setting>
+        </settings>
+      </artifact>
+    </config>
+    <code>
+      <artifact>
+        <path>web/components/onboarding/OnboardingWizard.tsx</path>
+        <kind>component</kind>
+        <reason>May need CAPTCHA div if using custom signup flow</reason>
+        <conditionalChange>Add clerk-captcha div only if custom signup form (not Clerk components)</conditionalChange>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <implementation>
+    <approach>Dashboard Configuration (Zero Code)</approach>
+    <technology>Cloudflare Turnstile via Clerk integration</technology>
+    <rationale>
+      <point>Clerk already handles authentication - use built-in bot protection</point>
+      <point>Zero additional code for standard SignUp component</point>
+      <point>Cloudflare Turnstile is industry-leading bot detection</point>
+      <point>Free and included with Clerk subscription</point>
+    </rationale>
+    <customFlowIntegration>
+      <description>Only needed if using custom signup forms (not Clerk SignUp component)</description>
+      <code><![CDATA[
+<div
+  id="clerk-captcha"
+  data-cl-theme="auto"
+  data-cl-size="normal"
+  data-cl-language="auto"
+/>
+// Place before calling signUp.create()
+      ]]></code>
+    </customFlowIntegration>
+  </implementation>
+
+  <constraints>
+    <constraint>Requires Clerk Dashboard access (production environment)</constraint>
+    <constraint>Bot protection only works in browser environments</constraint>
+    <constraint>Not supported in: Expo, Chrome Extensions, non-browser contexts</constraint>
+  </constraints>
+
+  <references>
+    <reference url="https://clerk.com/docs/guides/secure/bot-protection">Clerk Bot Protection Docs</reference>
+    <reference url="https://clerk.com/docs/custom-flows/bot-sign-up-protection">Custom Flows Integration</reference>
+    <reference url="https://www.cloudflare.com/application-services/products/turnstile/">Cloudflare Turnstile</reference>
+  </references>
+</story-context>

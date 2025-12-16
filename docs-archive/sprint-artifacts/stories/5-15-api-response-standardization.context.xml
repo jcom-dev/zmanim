@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-15-api-response-standardization" epic="5" generated="2025-12-02">
+  <summary>
+    Fix ~80 double-wrapped API responses to follow standard format.
+    All responses must use RespondJSON directly without manual wrapping.
+  </summary>
+
+  <violation-count>~80 double-wrapped responses</violation-count>
+  <detection-command>grep -rn 'RespondJSON.*map\[string\]interface{}' api/internal/handlers/</detection-command>
+
+  <standard-response-format>
+    <success>
+{
+  "data": &lt;your_data&gt;,
+  "meta": {
+    "timestamp": "2025-11-27T10:30:00Z",
+    "request_id": "uuid"
+  }
+}
+    </success>
+    <error>
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Name is required",
+    "details": { "name": "This field is required" }
+  },
+  "meta": {
+    "timestamp": "2025-11-27T10:30:00Z",
+    "request_id": "uuid"
+  }
+}
+    </error>
+  </standard-response-format>
+
+  <key-files>
+    <file path="api/internal/handlers/admin.go" action="modify">
+      Fix double-wrapped responses
+    </file>
+    <file path="api/internal/handlers/publisher_profile.go" action="modify">
+      Fix double-wrapped responses
+    </file>
+    <file path="api/internal/handlers/publisher_zmanim.go" action="modify">
+      Fix double-wrapped responses
+    </file>
+    <file path="api/internal/handlers/publisher_coverage.go" action="modify">
+      Fix double-wrapped responses
+    </file>
+    <file path="api/internal/handlers/publisher_algorithms.go" action="modify">
+      Fix double-wrapped responses
+    </file>
+    <file path="api/internal/handlers/zmanim.go" action="modify">
+      Fix double-wrapped responses
+    </file>
+    <file path="api/internal/handlers/locations.go" action="modify">
+      Fix double-wrapped responses
+    </file>
+    <file path="api/internal/handlers/response.go" action="reference">
+      RespondJSON already wraps with data/meta
+    </file>
+  </key-files>
+
+  <anti-patterns>
+    <pattern name="Double wrapping (WRONG)">
+      <before>
+RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+    "publishers": publishers,
+})
+// Result: { "data": { "publishers": [...] }, "meta": {...} }
+      </before>
+      <after>
+RespondJSON(w, r, http.StatusOK, publishers)
+// Result: { "data": [...], "meta": {...} }
+      </after>
+    </pattern>
+
+    <pattern name="Nested data key (WRONG)">
+      <before>
+RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+    "data": profile,
+    "extra": something,
+})
+// Result: { "data": { "data": {...}, "extra": {...} }, "meta": {...} }
+      </before>
+      <after>
+type ProfileResponse struct {
+    Profile Profile `json:"profile"`
+    Extra   string  `json:"extra,omitempty"`
+}
+RespondJSON(w, r, http.StatusOK, ProfileResponse{Profile: profile, Extra: extra})
+// Result: { "data": { "profile": {...}, "extra": "..." }, "meta": {...} }
+      </after>
+    </pattern>
+  </anti-patterns>
+
+  <response-rules>
+    <rule type="list-endpoint">
+      Return array directly in data: { "data": [...] }
+    </rule>
+    <rule type="single-resource">
+      Return object directly in data: { "data": {...} }
+    </rule>
+    <rule type="multiple-fields">
+      Use named struct type, NOT map[string]interface{}
+    </rule>
+  </response-rules>
+
+  <curl-verification>
+    <test name="List endpoint returns array">
+      curl -s http://localhost:8080/api/v1/countries | jq '.data | type'
+      # Expected: "array"
+    </test>
+    <test name="Single resource returns object">
+      curl -s -H "Authorization: Bearer $TOKEN" -H "X-Publisher-Id: $PID" \
+        http://localhost:8080/api/v1/publisher/profile | jq '.data | type'
+      # Expected: "object"
+    </test>
+  </curl-verification>
+
+  <commands>
+    <command purpose="Find double-wrapping">grep -rn 'RespondJSON.*map\[string\]interface{}' api/internal/handlers/</command>
+    <command purpose="Find map usage">grep -rn 'RespondJSON.*map\[string\]' api/internal/handlers/</command>
+    <command purpose="Build">cd api && go build ./...</command>
+    <command purpose="Test">cd api && go test ./...</command>
+    <command purpose="Restart">./restart.sh</command>
+    <command purpose="Verify zero violations">grep -r 'RespondJSON.*map\[string\]interface{}' api/internal/handlers/ | wc -l</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Zero double-wrapped responses in handlers</item>
+    <item>All list endpoints return arrays in data</item>
+    <item>All single-resource endpoints return objects in data</item>
+    <item>Go build passes</item>
+    <item>Go tests pass</item>
+    <item>E2E tests pass</item>
+    <item>Curl tests verify correct format</item>
+    <item>Frontend works without data.data?.X || data.X patterns</item>
+  </acceptance-checklist>
+</story-context>

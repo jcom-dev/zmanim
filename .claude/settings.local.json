@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source .env)",
+      "Bash(psql:*)",
+      "Bash(cat:*)",
+      "Bash(rm:*)",
+      "Bash(go build:*)",
+      "Bash(sqlc generate:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(source /home/coder/workspace/zmanim/api/.env)",
+      "Bash(pg_dump:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

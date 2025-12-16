@@ -1,0 +1,283 @@
+name: Deploy Prod Infrastructure
+
+# Deploys ALL AWS infrastructure via CDKTF/Terraform
+# Two stacks: shtetl-common (shared) and zmanim-prod (application)
+# Triggers on infrastructure changes to main branch
+# Uses OIDC authentication - no static AWS credentials required
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infrastructure-common/**'
+      - 'infrastructure/**'
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: 'Stack to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - shtetl-common
+          - zmanim-prod
+
+env:
+  AWS_REGION: eu-west-1
+  TF_VERSION: '1.10'
+  NODE_VERSION: '24'
+
+# Required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+# Prevent concurrent Terraform deployments
+concurrency:
+  group: prod-terraform-deploy
+  cancel-in-progress: false
+
+jobs:
+  synth-common:
+    name: CDKTF Synth (Common)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: infrastructure-common/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: infrastructure-common
+
+      - name: CDKTF Synth
+        run: npx cdktf synth
+        working-directory: infrastructure-common
+
+      - name: Upload synthesized stacks
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdktf-out-common
+          path: infrastructure-common/cdktf.out
+          retention-days: 7
+
+  synth-zmanim:
+    name: CDKTF Synth (Zmanim)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install infrastructure dependencies
+        run: npm ci
+        working-directory: infrastructure
+
+      - name: CDKTF Synth
+        run: npx cdktf synth
+        working-directory: infrastructure
+
+      - name: Upload synthesized stacks
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdktf-out-zmanim
+          path: infrastructure/cdktf.out
+          retention-days: 7
+
+  deploy-common:
+    name: Deploy Shtetl Common
+    needs: synth-common
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.stack == 'all' ||
+      github.event.inputs.stack == 'shtetl-common'
+    environment: production-common
+
+    steps:
+      - name: Download synthesized stacks
+        uses: actions/download-artifact@v4
+        with:
+          name: cdktf-out-common
+          path: cdktf.out
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-terraform-common
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: cdktf.out/stacks/shtetl-common
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: cdktf.out/stacks/shtetl-common
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: cdktf.out/stacks/shtetl-common
+        run: terraform apply -auto-approve tfplan
+
+  deploy-zmanim:
+    name: Deploy Zmanim Prod
+    needs: [deploy-common, synth-zmanim]
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      needs.synth-zmanim.result == 'success' &&
+      (needs.deploy-common.result == 'success' || needs.deploy-common.result == 'skipped') &&
+      (
+        github.event_name == 'push' ||
+        github.event.inputs.stack == 'all' ||
+        github.event.inputs.stack == 'zmanim-prod'
+      )
+    environment: production
+
+    steps:
+      - name: Download synthesized stacks
+        uses: actions/download-artifact@v4
+        with:
+          name: cdktf-out-zmanim
+          path: cdktf.out
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-terraform-zmanim
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: cdktf.out/stacks/zmanim-prod
+        run: terraform init
+
+      - name: Check and terminate outdated EC2 instance
+        run: |
+          echo "Checking if EC2 instance needs replacement..."
+
+          # Get desired AMI version from SSM
+          DESIRED_VERSION=$(aws ssm get-parameter \
+            --name "/zmanim/prod/ami-version" \
+            --query "Parameter.Value" \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          if [ -z "$DESIRED_VERSION" ]; then
+            echo "No AMI version in SSM, skipping check"
+            exit 0
+          fi
+          echo "Desired AMI version: $DESIRED_VERSION"
+
+          # Find the desired AMI ID by version tag
+          DESIRED_AMI=$(aws ec2 describe-images \
+            --owners self \
+            --filters "Name=tag:Version,Values=${DESIRED_VERSION}" "Name=tag:ManagedBy,Values=Packer" "Name=state,Values=available" \
+            --query "Images | sort_by(@, &CreationDate) | [-1].ImageId" \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          if [ -z "$DESIRED_AMI" ] || [ "$DESIRED_AMI" = "None" ]; then
+            echo "No AMI found with version $DESIRED_VERSION"
+            exit 0
+          fi
+          echo "Desired AMI ID: $DESIRED_AMI"
+
+          # Find existing zmanim EC2 instance
+          INSTANCE_INFO=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=zmanim-api-prod" "Name=instance-state-name,Values=running,pending,stopping,stopped" \
+            --query "Reservations[0].Instances[0].[InstanceId,ImageId]" \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          if [ -z "$INSTANCE_INFO" ] || [ "$INSTANCE_INFO" = "None" ]; then
+            echo "No existing instance found, Terraform will create one"
+            exit 0
+          fi
+
+          INSTANCE_ID=$(echo "$INSTANCE_INFO" | awk '{print $1}')
+          CURRENT_AMI=$(echo "$INSTANCE_INFO" | awk '{print $2}')
+
+          echo "Found instance: $INSTANCE_ID running AMI: $CURRENT_AMI"
+
+          if [ "$CURRENT_AMI" = "$DESIRED_AMI" ]; then
+            echo "Instance is already running the correct AMI, no action needed"
+            exit 0
+          fi
+
+          echo "Instance is running outdated AMI!"
+          echo "  Current: $CURRENT_AMI"
+          echo "  Desired: $DESIRED_AMI"
+          echo ""
+          echo "Terminating instance $INSTANCE_ID so Terraform can create a new one..."
+
+          aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" --region eu-west-1
+
+          echo "Waiting for instance to terminate..."
+          aws ec2 wait instance-terminated --instance-ids "$INSTANCE_ID" --region eu-west-1
+
+          echo "Instance terminated. Terraform will create a new instance with the correct AMI."
+
+      - name: Terraform Plan
+        working-directory: cdktf.out/stacks/zmanim-prod
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: cdktf.out/stacks/zmanim-prod
+        run: terraform apply -auto-approve tfplan
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Stacks Deployed:" >> $GITHUB_STEP_SUMMARY
+          echo "- shtetl-common (VPC, Route53, GitHub OIDC)" >> $GITHUB_STEP_SUMMARY
+          echo "- zmanim-prod (EC2, API Gateway, S3)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- Site: https://zmanim.shtetl.io" >> $GITHUB_STEP_SUMMARY
+          echo "- API Health: https://zmanim.shtetl.io/api/health" >> $GITHUB_STEP_SUMMARY
+
+# GitHub Secrets Required:
+# - AWS_DEPLOY_ROLE_ARN: IAM role ARN for OIDC (arn:aws:iam::ACCOUNT:role/github-actions-deploy)
+#
+# GitHub Environments Required:
+# - production-common: For shtetl-common stack (shared infrastructure)
+# - production: For zmanim-prod stack (application infrastructure)
+#
+# Terraform State:
+# - shtetl-common: s3://shtetl-tf/shtetl-common/terraform.tfstate
+# - zmanim-prod: s3://shtetl-tf/zmanim-prod/terraform.tfstate

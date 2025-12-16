@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.13" title="External API Caching Implementation">
+  <summary>
+    This context file provides all information needed to implement Redis caching for external
+    API calculation results. Currently every request triggers full calculation.
+  </summary>
+
+  <current-state>
+    <description>
+      The external API calculates zmanim for each request. The response includes Cached: false
+      as a placeholder. No caching is implemented.
+    </description>
+
+    <source-todos>
+      <todo file="api/internal/handlers/external_api.go" line="370">
+        Cached: false, // TODO: implement caching
+      </todo>
+      <todo file="api/internal/handlers/external_api.go" line="384">
+        CacheHit: false, // TODO: implement caching
+      </todo>
+    </source-todos>
+  </current-state>
+
+  <target-state>
+    <description>
+      - Redis-based caching for external API results
+      - Configurable TTL per request type
+      - Cache hit/miss metrics
+      - Cache invalidation on publisher zmanim changes
+    </description>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/api/internal/handlers/external_api.go" relevance="primary">
+      <description>
+        External API handler. Contains TODO placeholders and calculation logic.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/internal/handlers/publisher_zmanim.go" relevance="secondary">
+      <description>
+        Publisher zmanim handlers. Cache invalidation should be triggered on updates.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/cmd/api/main.go" relevance="secondary">
+      <description>
+        Application entry point. Redis client already initialized here.
+      </description>
+    </file>
+  </files>
+
+  <files-to-create>
+    <file path="api/internal/cache/external_api.go">
+      <purpose>External API cache wrapper with key generation, TTL management</purpose>
+    </file>
+  </files-to-create>
+
+  <cache-design>
+    <key-format>external_api:{publisher_id}:{city_id}:{date_start}:{date_end}:{zmanim_hash}</key-format>
+
+    <ttl-strategy>
+      <rule type="single-day" ttl="24h">Single day queries</rule>
+      <rule type="multi-day" ttl="12h">Date ranges up to 7 days</rule>
+      <rule type="bulk" ttl="6h">Bulk requests over 7 days</rule>
+    </ttl-strategy>
+
+    <invalidation-triggers>
+      <trigger>Publisher zman created</trigger>
+      <trigger>Publisher zman updated</trigger>
+      <trigger>Publisher zman deleted</trigger>
+    </invalidation-triggers>
+  </cache-design>
+
+  <implementation-guide>
+    <step n="1">
+      <task>Create cache module</task>
+      <code>
+package cache
+
+type ExternalAPICache struct {
+    redis  *redis.Client
+    config Config
+}
+
+type Config struct {
+    SingleDayTTL   time.Duration
+    MultiDayTTL    time.Duration
+    BulkRequestTTL time.Duration
+    MaxCacheSize   int64
+}
+
+func (c *ExternalAPICache) GenerateKey(publisherID, cityID string, start, end time.Time, zmanim []string) string {
+    hash := hashZmanim(zmanim)
+    return fmt.Sprintf("external_api:%s:%s:%s:%s:%s",
+        publisherID, cityID,
+        start.Format("2006-01-02"),
+        end.Format("2006-01-02"),
+        hash[:12])
+}
+      </code>
+    </step>
+    <step n="2">
+      <task>Implement cache Get/Set</task>
+      <code>
+func (c *ExternalAPICache) Get(ctx context.Context, key string) ([]byte, bool, error) {
+    data, err := c.redis.Get(ctx, key).Bytes()
+    if err == redis.Nil {
+        return nil, false, nil // Cache miss
+    }
+    if err != nil {
+        return nil, false, err
+    }
+    return data, true, nil // Cache hit
+}
+
+func (c *ExternalAPICache) Set(ctx context.Context, key string, data []byte, ttl time.Duration) error {
+    return c.redis.Set(ctx, key, data, ttl).Err()
+}
+      </code>
+    </step>
+    <step n="3">
+      <task>Integrate with handler</task>
+      <code>
+func (h *Handlers) GetExternalZmanim(w http.ResponseWriter, r *http.Request) {
+    // 1. Generate cache key
+    cacheKey := h.externalCache.GenerateKey(...)
+
+    // 2. Check cache
+    if cached, hit, _ := h.externalCache.Get(ctx, cacheKey); hit {
+        w.Header().Set("X-Cache", "HIT")
+        w.Write(cached)
+        return
+    }
+
+    // 3. Calculate (cache miss)
+    result := h.calculateZmanim(ctx, req)
+
+    // 4. Store in cache
+    ttl := h.externalCache.GetTTL(req.StartDate, req.EndDate)
+    h.externalCache.Set(ctx, cacheKey, responseJSON, ttl)
+
+    w.Header().Set("X-Cache", "MISS")
+    w.Write(responseJSON)
+}
+      </code>
+    </step>
+    <step n="4">
+      <task>Implement cache invalidation</task>
+      <code>
+func (c *ExternalAPICache) Invalidate(ctx context.Context, publisherID string) error {
+    pattern := fmt.Sprintf("external_api:%s:*", publisherID)
+    iter := c.redis.Scan(ctx, 0, pattern, 100).Iterator()
+    for iter.Next(ctx) {
+        c.redis.Del(ctx, iter.Val())
+    }
+    return iter.Err()
+}
+      </code>
+    </step>
+  </implementation-guide>
+
+  <performance-expectations>
+    <metric name="Single day uncached" value="~200ms" />
+    <metric name="Single day cached" value="~5ms" />
+    <metric name="7-day uncached" value="~800ms" />
+    <metric name="7-day cached" value="~5ms" />
+    <metric name="Target hit rate" value="80%+" />
+  </performance-expectations>
+
+  <testing>
+    <test-case name="Cache miss">
+      <description>First request calculates and stores result</description>
+      <verify>Response has Cached: false, X-Cache: MISS</verify>
+    </test-case>
+    <test-case name="Cache hit">
+      <description>Second identical request returns cached</description>
+      <verify>Response has Cached: true, X-Cache: HIT</verify>
+    </test-case>
+    <test-case name="Cache invalidation">
+      <description>Cache cleared when publisher updates zmanim</description>
+      <verify>Next request is cache miss</verify>
+    </test-case>
+    <test-case name="TTL expiry">
+      <description>Cache expires after TTL</description>
+      <verify>Request after TTL is cache miss</verify>
+    </test-case>
+  </testing>
+</story-context>

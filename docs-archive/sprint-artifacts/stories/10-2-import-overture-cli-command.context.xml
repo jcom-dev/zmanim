@@ -1,0 +1,127 @@
+<story-context id="10-2-import-overture-cli-command" v="1.0">
+  <metadata>
+    <epicId>10</epicId>
+    <storyId>2</storyId>
+    <title>import-overture CLI Command</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-16</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/10-2-import-overture-cli-command.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a CLI command to import Overture Maps geographic data</iWant>
+    <soThat>we can populate the new geo_localities schema with high-quality data</soThat>
+    <tasks>
+      <task id="1">Create main.go with cobra CLI framework and 5 subcommands (download, import, refresh, status, reset)</task>
+      <task id="2">Implement download.go - download Overture Parquet files from S3</task>
+      <task id="3">Implement parquet.go - pure Go parquet reader wrapper (no CGO/DuckDB)</task>
+      <task id="4">Implement continents.go - import continents from Overture divisions</task>
+      <task id="5">Implement countries.go - import countries with continent mapping and boundaries</task>
+      <task id="6">Implement regions.go - import region hierarchy with parent_region_id</task>
+      <task id="7">Implement localities.go - import localities with parent_locality_id hierarchy</task>
+      <task id="8">Implement boundaries.go - import country/region boundaries (NOT locality)</task>
+      <task id="9">Implement names.go - import multi-language names with BCP 47 normalization</task>
+      <task id="10">Implement refresh.go - refresh materialized views</task>
+      <task id="11">Implement status.go - show import statistics</task>
+      <task id="12">Add batch processing with 10,000 records per batch and progress reporting</task>
+      <task id="13">Add error handling with geo_import_errors table logging</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">CLI command structure with 5 subcommands and --help for each</criterion>
+    <criterion id="AC2">Download subcommand downloads Overture Parquet from S3 with progress</criterion>
+    <criterion id="AC3">Import imports 7 continents with boundaries</criterion>
+    <criterion id="AC4">Import imports ~200 countries with boundaries and multi-language names</criterion>
+    <criterion id="AC5">Import imports regions with hierarchy (parent_region_id set correctly)</criterion>
+    <criterion id="AC6">Import imports 500k+ localities with parent_locality_id hierarchy</criterion>
+    <criterion id="AC7">Import imports names in 10+ languages with BCP 47 normalization</criterion>
+    <criterion id="AC8">Import performance: batch inserts, indexes disabled during import, total time &lt;60 minutes</criterion>
+    <criterion id="AC9">Refresh subcommand refreshes geo_hierarchy_populations and geo_search_index</criterion>
+    <criterion id="AC10">Status subcommand shows import statistics and timestamps</criterion>
+    <criterion id="AC11">Reset subcommand with --confirm flag truncates tables</criterion>
+    <criterion id="AC12">Error handling logs to geo_import_errors table, continues on individual failures</criterion>
+    <criterion id="AC13">Pure Go implementation (no CGO, builds with CGO_ENABLED=0)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-artifacts/epic-10-tech-spec.md" title="Epic 10 Tech Spec" section="import-overture CLI Command" snippet="Command structure, file layout (main.go, download.go, import.go, etc.), import order (continents → countries → regions → localities → boundaries → names → refresh views)." />
+      <doc path="docs/refactoring/import-from-overture.md" title="Overture Migration Plan" section="Phase 2: import-overture Command" snippet="Data source: s3://overturemaps-us-west-2/release/2025-*/theme=divisions/*. Format: Parquet. Pure Go reader recommended." />
+      <doc path="docs/coding-standards.md" title="Coding Standards" section="Backend Standards" snippet="Use slog for logging (no log.Printf/fmt.Printf). CLI commands follow cobra patterns." />
+    </docs>
+    <code>
+      <file path="api/cmd/import-wof/main.go" kind="cli-command" symbol="main" reason="Reference for existing WOF importer structure - import-overture follows similar pattern" />
+      <file path="api/cmd/import-elevation/main.go" kind="cli-command" symbol="main" reason="Reference for elevation import pattern - uses batch processing and progress reporting" />
+      <file path="api/cmd/seed-geodata/main.go" kind="cli-command" symbol="main" reason="Reference for geo data seeding - parallel restore, integrity verification" />
+      <file path="api/cmd/geo-hierarchy/main.go" kind="cli-command" symbol="main" reason="Reference for hierarchy validation - will need updates for new flexible hierarchy" />
+      <file path="api/internal/db/queries/cities.sql" kind="sqlc-query" symbol="InsertCity" reason="Reference for batch insert patterns" />
+    </code>
+    <dependencies>
+      <go>
+        <package name="github.com/spf13/cobra" version="v1.x" purpose="CLI framework" />
+        <package name="github.com/parquet-go/parquet-go" version="latest" purpose="Pure Go Parquet reader (no CGO)" />
+        <package name="github.com/jackc/pgx/v5" version="v5.x" purpose="PostgreSQL driver with COPY support" />
+        <package name="github.com/aws/aws-sdk-go-v2" version="v1.x" purpose="AWS S3 access for Overture data" />
+      </go>
+      <external>
+        <source name="Overture Maps" url="s3://overturemaps-us-west-2/release/2025-*/theme=divisions/*" format="Parquet" />
+      </external>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Pure Go implementation - no CGO, no DuckDB dependency</constraint>
+    <constraint>Must build with CGO_ENABLED=0 for cross-platform compatibility</constraint>
+    <constraint>Batch size: 10,000 records per INSERT batch</constraint>
+    <constraint>Progress reporting every 100,000 records</constraint>
+    <constraint>Total import time target: &lt;60 minutes for full dataset</constraint>
+    <constraint>Language codes: normalize BCP 47 to simple codes (en-US → en, he-IL → he)</constraint>
+    <constraint>Boundaries: import for countries and regions only, NOT localities (point-only)</constraint>
+    <constraint>Uses slog for all logging (no log.Printf or fmt.Printf)</constraint>
+    <constraint>Reset command requires --confirm flag for safety</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="import-overture CLI" kind="cli-command">
+      <signature>
+        import-overture download [--release=2025-01] [--output=./data/overture/] [--force]
+        import-overture import [--skip-download] [--batch-size=10000]
+        import-overture refresh
+        import-overture status
+        import-overture reset --confirm
+      </signature>
+      <path>api/cmd/import-overture/main.go</path>
+    </interface>
+    <interface name="Overture Parquet Reader" kind="go-interface">
+      <signature>
+        type OvertureReader interface {
+          ReadDivisions(path string) ([]Division, error)
+          ReadLocalities(path string) ([]Locality, error)
+          ReadBoundaries(path string) ([]Boundary, error)
+          ReadNames(path string) ([]Name, error)
+        }
+      </signature>
+      <path>api/cmd/import-overture/parquet.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Go unit tests for parsing logic, integration tests with sample Parquet data. Build verification with CGO_ENABLED=0.</standards>
+    <locations>
+      <location>api/cmd/import-overture/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">go build ./cmd/import-overture && ./import-overture --help</idea>
+      <idea ac="AC3">SELECT COUNT(*) FROM geo_continents; -- Expected: 7</idea>
+      <idea ac="AC4">SELECT COUNT(*) FROM geo_countries WHERE overture_id IS NOT NULL; -- Expected: ~200</idea>
+      <idea ac="AC5">SELECT COUNT(*) FROM geo_regions WHERE parent_region_id IS NOT NULL; -- Expected: sub-regions have parents</idea>
+      <idea ac="AC6">SELECT COUNT(*) FROM geo_localities; -- Expected: 500,000+</idea>
+      <idea ac="AC7">SELECT COUNT(DISTINCT language_code) FROM geo_names; -- Expected: 10+</idea>
+      <idea ac="AC8">time ./import-overture import -- Expected: &lt;60 minutes</idea>
+      <idea ac="AC13">CGO_ENABLED=0 go build -o import-overture ./cmd/import-overture -- Expected: builds successfully</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,73 @@
+{
+  "workflow_version": "1.2.0",
+  "timestamps": {
+    "started": "2025-11-25T07:35:59Z",
+    "completed": "2025-11-25T07:55:00Z"
+  },
+  "mode": "initial_scan",
+  "scan_level": "exhaustive",
+  "project_root": "/home/daniel/repos/zmanim",
+  "output_folder": "/home/daniel/repos/zmanim/docs",
+  "completed_steps": [
+    "step_1_validate_workflow",
+    "step_2_check_resumability",
+    "step_3_determine_mode",
+    "step_4_detect_structure",
+    "step_5_discover_documentation",
+    "step_6_analyze_tech_stack",
+    "step_7_conditional_analysis",
+    "step_8_generate_documentation"
+  ],
+  "current_step": "completed",
+  "findings": {
+    "project_type": "multi-part",
+    "parts": [
+      {
+        "id": "web",
+        "type": "web",
+        "root": "/",
+        "framework": "Next.js 16",
+        "language": "TypeScript"
+      },
+      {
+        "id": "backend",
+        "type": "backend",
+        "root": "backend/",
+        "framework": "Go Chi",
+        "language": "Go 1.21"
+      }
+    ],
+    "database": {
+      "type": "PostgreSQL",
+      "provider": "Xata",
+      "extensions": ["PostGIS"]
+    },
+    "authentication": {
+      "provider": "Clerk"
+    },
+    "deployment": {
+      "frontend": "Vercel (planned)",
+      "backend": "Fly.io",
+      "database": "Xata"
+    },
+    "planned_changes": [
+      "Restructure repo: web/ + api/ separation",
+      "Add GitHub Actions CI/CD",
+      "Add Coder/devcontainer"
+    ]
+  },
+  "outputs_generated": [
+    "project-scan-report.json",
+    "index.md",
+    "api-reference.md",
+    "data-models.md",
+    "frontend-components.md",
+    "deployment.md"
+  ],
+  "existing_documentation": [
+    "README.md",
+    "backend/README.md",
+    "docs/ARCHITECTURE.md",
+    "setup-database.md"
+  ]
+}

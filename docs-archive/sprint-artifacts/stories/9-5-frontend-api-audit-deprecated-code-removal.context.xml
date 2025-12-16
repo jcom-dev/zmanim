@@ -1,0 +1,781 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.5" title="Frontend API Audit & Deprecated Code Removal">
+  <summary>
+    Comprehensive context for auditing and cleaning deprecated code across the entire codebase.
+    Includes API client architecture, violation examples, conversion patterns, and technical debt baseline.
+    This file provides everything needed to complete the cleanup without additional codebase exploration.
+  </summary>
+
+  <technical-debt-baseline date="2025-12-15">
+    <metric name="raw_fetch_calls" count="6" severity="CRITICAL">
+      Files with raw fetch() calls instead of useApi() hook
+    </metric>
+    <metric name="todo_comments" count="102" severity="HIGH">
+      TODO markers in frontend (web/) that need resolution
+    </metric>
+    <metric name="fixme_comments" count="3" severity="HIGH">
+      FIXME markers across codebase
+    </metric>
+    <metric name="deprecated_markers" count="6388" severity="MEDIUM">
+      @deprecated, // DEPRECATED, // Legacy markers (includes auto-generated docs)
+    </metric>
+    <metric name="log_printf_calls" count="26" severity="HIGH">
+      log.Printf/fmt.Printf in api/internal (should use slog)
+    </metric>
+    <note>
+      Most deprecated markers (6388) are likely in auto-generated Swagger docs.
+      Manual verification needed to separate generated vs actual code violations.
+    </note>
+  </technical-debt-baseline>
+
+  <files>
+    <file path="web/lib/api-client.ts" relevance="critical">
+      <purpose>Unified API client - SINGLE source of truth for all API requests</purpose>
+      <content><![CDATA[
+/**
+ * Unified API Client for Shtetl Zmanim
+ *
+ * This is the SINGLE source of truth for all API requests.
+ * All components MUST use this client for API calls.
+ *
+ * Features:
+ * - Automatic authentication token injection
+ * - Automatic X-Publisher-Id header for publisher routes
+ * - Consistent error handling with ApiError class
+ * - Type-safe request/response handling
+ * - Support for public (unauthenticated) requests
+ */
+
+'use client';
+
+import { useCallback, useMemo } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { usePublisherContextOptional } from '@/providers/PublisherContext';
+
+// Configuration
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '/api/v1';
+const JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE || 'zmanim-api';
+
+// ApiError class
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public data?: unknown,
+    public endpoint?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+
+  get isUnauthorized(): boolean { return this.status === 401; }
+  get isForbidden(): boolean { return this.status === 403; }
+  get isNotFound(): boolean { return this.status === 404; }
+  get isServerError(): boolean { return this.status >= 500; }
+}
+
+// Request options
+export interface RequestOptions extends Omit<RequestInit, 'headers' | 'body'> {
+  headers?: Record<string, string>;
+  body?: string | FormData;
+  skipPublisherId?: boolean;  // Skip X-Publisher-Id header (admin routes)
+  skipAuth?: boolean;         // Skip auth entirely (public endpoints)
+  timeout?: number;           // Custom timeout (default: 30000ms)
+}
+
+// Core fetch function with auth, headers, timeout handling
+async function request<T>(
+  getToken: () => Promise<string | null>,
+  selectedPublisher: Publisher | null,
+  endpoint: string,
+  options: RequestOptions = {}
+): Promise<T> {
+  const {
+    skipPublisherId = false,
+    skipAuth = false,
+    timeout = 30000,
+    headers: customHeaders,
+    ...fetchOptions
+  } = options;
+
+  // Build headers
+  const headers: Record<string, string> = {};
+
+  if (!(fetchOptions.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  // Add auth token
+  if (!skipAuth) {
+    const token = await getToken();
+    if (!token) {
+      throw new ApiError('Not authenticated - no token available', 401, undefined, endpoint);
+    }
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Add publisher ID for publisher routes
+  if (!skipPublisherId && selectedPublisher?.id) {
+    headers['X-Publisher-Id'] = selectedPublisher.id;
+  }
+
+  Object.assign(headers, customHeaders);
+
+  // Normalize endpoint (ensure /api/v1 prefix)
+  const normalizedEndpoint = normalizeEndpoint(endpoint);
+  const url = `${API_BASE}${normalizedEndpoint}`;
+
+  // Timeout handling with AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      const errorMessage = errorData.error?.message || errorData.message ||
+                          (typeof errorData.error === 'string' ? errorData.error : null) ||
+                          `API Error: ${response.status}`;
+      throw new ApiError(errorMessage, response.status, errorData, endpoint);
+    }
+
+    // Handle empty responses (204 No Content)
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return {} as T;
+    }
+
+    const json = await response.json();
+    // Unwrap data field if present (API returns { data: ..., meta: ... })
+    return json.data !== undefined ? json.data : json;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof ApiError) throw error;
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new ApiError(`Request timeout after ${timeout}ms`, 408, undefined, endpoint);
+      }
+      throw new ApiError(error.message, 0, undefined, endpoint);
+    }
+    throw new ApiError('Unknown error occurred', 0, undefined, endpoint);
+  }
+}
+
+// React hook for API requests
+export function useApi() {
+  const { getToken } = useAuth();
+  const publisherContext = usePublisherContextOptional();
+
+  const getApiToken = useCallback(
+    () => getToken({ template: JWT_TEMPLATE }),
+    [getToken]
+  );
+
+  const api = useMemo(
+    () => createApiClient(getApiToken, publisherContext?.selectedPublisher ?? null),
+    [getApiToken, publisherContext?.selectedPublisher]
+  );
+
+  return api;
+}
+
+// Endpoint normalization - ensures /api/v1 prefix
+function normalizeEndpoint(endpoint: string): string {
+  let normalized = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  if (normalized.startsWith('/api/v1')) {
+    return normalized;
+  }
+
+  if (normalized.startsWith('/api/')) {
+    return normalized.replace('/api/', '/api/v1/');
+  }
+
+  const routePrefixes = [
+    '/publisher', '/admin', '/user', '/dsl', '/zmanim', '/registry',
+    '/cities', '/continents', '/countries', '/regions', '/coverage',
+    '/algorithms', '/calendar', '/ai', '/health', '/categories',
+    '/tag-types', '/geo', '/publishers',
+  ];
+
+  const needsPrefix = routePrefixes.some(
+    (prefix) => normalized.startsWith(prefix) || normalized === prefix
+  );
+
+  if (needsPrefix) {
+    normalized = `${API_PREFIX}${normalized}`;
+  }
+
+  return normalized;
+}
+      ]]></content>
+    </file>
+
+    <file path="docs/coding-standards.md" relevance="critical">
+      <purpose>ZERO TOLERANCE clean code policy - the law for this story</purpose>
+      <extract><![CDATA[
+## Clean Code Policy - ZERO TOLERANCE
+
+**FORBIDDEN patterns - delete, don't mark:**
+- @deprecated annotations, // Legacy, // TODO: remove, // FIXME
+- Fallback logic for old formats
+- Dual-format support (status == 'verified' || status == 'active')
+- Re-exports "for compatibility"
+
+**Rule:** One format only. Migrate data, update code, delete old code.
+
+## Raw fetch() in Components (FORBIDDEN)
+// FORBIDDEN
+fetch(`${API_BASE}/api/v1/endpoint`)
+
+// REQUIRED - unified API client
+const api = useApi();
+await api.get<DataType>('/publisher/profile');   // Auth + X-Publisher-Id
+await api.public.get('/countries');               // No auth
+await api.admin.get('/admin/stats');              // Auth only
+
+## Backend Logging - slog only
+slog.Error("operation failed", "error", err, "user_id", userID)
+// FORBIDDEN: fmt.Println, log.Printf
+      ]]></extract>
+    </file>
+
+    <file path="api/internal/handlers/admin.go" relevance="high">
+      <purpose>Example of proper backend handler pattern with slog</purpose>
+      <extract><![CDATA[
+// File: admin.go
+// Purpose: Admin-only endpoints
+// Pattern: 6-step-handler-admin
+// Compliance: slog:✓ SQLc:✓
+
+package handlers
+
+import (
+  "log/slog"
+  "net/http"
+  "github.com/go-chi/chi/v5"
+)
+
+func (h *Handlers) AdminListPublishers(w http.ResponseWriter, r *http.Request) {
+  ctx := r.Context()
+
+  // Check if we should include deleted publishers
+  includeDeleted := r.URL.Query().Get("include_deleted") == "true"
+
+  rows, err := h.db.Queries.AdminListAllPublishers(ctx, includeDeleted)
+  if err != nil {
+    slog.Error("failed to query publishers", "error", err)  // ✓ CORRECT - slog
+    RespondInternalError(w, r, "Failed to retrieve publishers")
+    return
+  }
+
+  RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+    "publishers": rows,
+  })
+}
+      ]]></extract>
+    </file>
+  </files>
+
+  <violation-examples>
+    <example type="raw_fetch" file="web/components/publisher/LogoUpload.tsx" line="150">
+      <before><![CDATA[
+// VIOLATION - raw fetch() for data URL to blob conversion (LINE 150)
+const response = await fetch(dataUrl);
+const blob = await response.blob();
+const file = new File([blob], 'generated-logo.png', { type: 'image/png' });
+
+// This is actually ACCEPTABLE - converting data URL, not an API call
+// However, the API call on line 168 uses useApi() correctly:
+const data = await api.post<{ logo_data: string }>('/publisher/logo', {
+  body: formData,
+});
+      ]]></before>
+      <note>
+        This file actually shows CORRECT usage - fetch() is only used for data URL conversion,
+        not API calls. The actual API call (line 168, 251) uses the useApi() hook properly.
+      </note>
+    </example>
+
+    <example type="raw_fetch" file="web/lib/api-client.ts" line="176">
+      <before><![CDATA[
+// ACCEPTABLE - This IS the API client implementation itself
+const response = await fetch(url, {
+  ...fetchOptions,
+  headers,
+  signal: controller.signal,
+});
+
+// This file is the IMPLEMENTATION of useApi(), so raw fetch is required here
+      ]]></before>
+      <note>
+        api-client.ts MUST use raw fetch() - it's the implementation.
+        Only violations are in COMPONENTS using fetch() instead of useApi().
+      </note>
+    </example>
+
+    <example type="todo_comment" file="web/app/publisher/algorithm/page.tsx" line="1221">
+      <violation><![CDATA[
+// TODO: Open browse publishers dialog
+      ]]></violation>
+      <action>
+        Option 1: Complete the work (implement the dialog)
+        Option 2: Create a story for it
+        Option 3: Delete if obsolete
+        ZERO TOLERANCE - cannot leave TODO in code
+      </action>
+    </example>
+
+    <example type="todo_comment" file="api/internal/handlers/external_api.go" line="370,384">
+      <violation><![CDATA[
+Cached:            false, // TODO: implement caching
+CacheHit:          false, // TODO: implement caching
+      ]]></violation>
+      <action>
+        Option 1: Implement caching now
+        Option 2: Create Story 9.x for caching feature
+        Option 3: Remove if not planned
+        Delete the TODO comments regardless
+      </action>
+    </example>
+
+    <example type="todo_comment" file="api/internal/handlers/invitations.go" line="201,453,621">
+      <violation><![CDATA[
+// 10. Send email (TODO: Implement email sending)
+// 5. TODO: Link user to publisher via user_publishers table
+// TODO: Implement Clerk API check when Clerk client is available
+      ]]></violation>
+      <action>
+        These are feature work items. Create stories for:
+        1. Email sending service integration
+        2. User-publisher linking table
+        3. Clerk API integration
+        Then DELETE the TODO comments
+      </action>
+    </example>
+
+    <example type="deprecated_annotation" file="web/lib/utils/time-format.ts" line="167">
+      <violation><![CDATA[
+/**
+ * @deprecated Use formatTimeString directly - it now returns 12-hour format
+ */
+      ]]></violation>
+      <action>
+        1. Update all imports to use formatTimeString
+        2. Delete the deprecated function entirely
+        3. Run type-check to catch broken imports
+        ZERO TOLERANCE - no @deprecated allowed
+      </action>
+    </example>
+
+    <example type="log_printf" file="api/internal/astro/tz_debug_test.go" line="16-23">
+      <violation><![CDATA[
+fmt.Printf("Date: %v\n", date)
+fmt.Printf("Timezone: %v\n", tz)
+fmt.Printf("\nSunrise: %v (formatted: %s)\n", st.Sunrise, st.Sunrise.Format("15:04:05"))
+fmt.Printf("Sunrise.Location: %v\n", st.Sunrise.Location())
+fmt.Printf("SolarNoon: %v (formatted: %s)\n", st.SolarNoon, st.SolarNoon.Format("15:04:05"))
+      ]]></violation>
+      <note>
+        This is in a TEST file (_test.go) for debugging.
+        fmt.Printf in tests is ACCEPTABLE for debug output.
+        Only violations in api/internal/*.go (non-test) need fixing.
+      </note>
+    </example>
+  </violation-examples>
+
+  <conversion-patterns>
+    <pattern name="fetch to useApi - GET request">
+      <before><![CDATA[
+// FORBIDDEN
+const response = await fetch(`${API_BASE}/api/v1/publisher/profile`, {
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'X-Publisher-Id': publisherId,
+  },
+});
+const data = await response.json();
+if (!response.ok) {
+  throw new Error(data.message);
+}
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED
+const api = useApi();
+try {
+  const data = await api.get<ProfileData>('/publisher/profile');
+  // Success - data is already unwrapped
+} catch (err) {
+  if (err instanceof ApiError) {
+    console.error(err.message, err.status);
+  }
+}
+      ]]></after>
+    </pattern>
+
+    <pattern name="fetch to useApi - POST with body">
+      <before><![CDATA[
+// FORBIDDEN
+const response = await fetch(`${API_BASE}/api/v1/publisher/zmanim`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'X-Publisher-Id': publisherId,
+  },
+  body: JSON.stringify(zmanData),
+});
+const result = await response.json();
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED
+const api = useApi();
+const result = await api.post<ZmanData>('/publisher/zmanim', {
+  body: JSON.stringify(zmanData),
+});
+// Headers (auth, publisher ID, content-type) are automatic
+      ]]></after>
+    </pattern>
+
+    <pattern name="fetch to useApi - Public endpoint (no auth)">
+      <before><![CDATA[
+// FORBIDDEN
+const response = await fetch(`${API_BASE}/api/v1/countries`);
+const countries = await response.json();
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED
+const api = useApi();
+const countries = await api.public.get<Country[]>('/countries');
+// No auth headers, normalizes to /api/v1/public/countries
+      ]]></after>
+    </pattern>
+
+    <pattern name="fetch to useApi - Admin endpoint">
+      <before><![CDATA[
+// FORBIDDEN
+const response = await fetch(`${API_BASE}/api/v1/admin/publishers`, {
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    // NO X-Publisher-Id for admin routes
+  },
+});
+const publishers = await response.json();
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED
+const api = useApi();
+const publishers = await api.admin.get<Publisher[]>('/admin/publishers');
+// Auth header included, X-Publisher-Id automatically skipped
+      ]]></after>
+    </pattern>
+
+    <pattern name="log.Printf to slog - Info level">
+      <before><![CDATA[
+// FORBIDDEN
+log.Printf("Processing request for publisher %d", publisherID)
+fmt.Printf("User %s updated profile\n", userID)
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED
+slog.Info("processing request", "publisher_id", publisherID)
+slog.Info("profile updated", "user_id", userID)
+      ]]></after>
+    </pattern>
+
+    <pattern name="log.Printf to slog - Error level">
+      <before><![CDATA[
+// FORBIDDEN
+log.Printf("Error fetching data: %v", err)
+fmt.Printf("Database query failed: %v\n", err)
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED
+slog.Error("failed to fetch data", "error", err, "publisher_id", publisherID)
+slog.Error("database query failed", "error", err, "query", queryName)
+      ]]></after>
+    </pattern>
+
+    <pattern name="Dual-format to single format">
+      <before><![CDATA[
+// FORBIDDEN - dual format support
+const status = data.status || data.status_key;
+const name = data.display_name || data.name;
+if (publisher.status === 'verified' || publisher.status === 'active') {
+  // ...
+}
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED - one format only
+const status = data.status_key;  // Canonical format (lookup table key)
+const name = data.display_name;  // Canonical format
+if (publisher.status_key === 'verified') {
+  // ...
+}
+// Migrate data to new format, delete old format support
+      ]]></after>
+    </pattern>
+
+    <pattern name="Deprecated function removal">
+      <before><![CDATA[
+// FORBIDDEN
+/**
+ * @deprecated Use newFunction() instead
+ */
+export function oldFunction() {
+  // ...
+}
+
+// Component using it
+import { oldFunction } from './utils';
+oldFunction();
+      ]]></before>
+      <after><![CDATA[
+// REQUIRED
+// 1. Update all imports
+import { newFunction } from './utils';
+newFunction();
+
+// 2. Delete the deprecated function entirely from utils
+// 3. Run: cd web && npm run type-check
+// 4. Fix any remaining imports caught by TypeScript
+      ]]></after>
+    </pattern>
+  </conversion-patterns>
+
+  <audit-checklist>
+    <section name="Frontend API Call Audit">
+      <files>
+        <priority level="high">
+          <path>web/app/admin/**/*.tsx</path>
+          <path>web/app/publisher/**/*.tsx</path>
+          <path>web/app/zmanim/**/*.tsx</path>
+          <count>40 page files</count>
+        </priority>
+        <priority level="high">
+          <path>web/components/admin/**/*.tsx</path>
+          <path>web/components/publisher/**/*.tsx</path>
+          <path>web/components/shared/**/*.tsx</path>
+          <count>119 component files</count>
+        </priority>
+        <priority level="medium">
+          <path>web/lib/hooks/**/*.ts</path>
+          <path>web/lib/*.ts</path>
+          <count>Various utility and hook files</count>
+        </priority>
+      </files>
+      <search-commands>
+        <command>
+          grep -rn "await fetch\(" web/app web/components --include="*.tsx" --include="*.ts"
+        </command>
+        <command>
+          grep -rn "\.then(response" web/app web/components --include="*.tsx" --include="*.ts"
+        </command>
+        <command>
+          grep -rn "fetch(" web/lib --include="*.ts" | grep -v api-client.ts
+        </command>
+      </search-commands>
+      <exceptions>
+        <exception>web/lib/api-client.ts - This IS the implementation</exception>
+        <exception>web/lib/api.ts - Legacy file (verify if still used, may delete)</exception>
+        <exception>Data URL conversions (fetch(dataUrl) for blob) - Acceptable</exception>
+      </exceptions>
+    </section>
+
+    <section name="Frontend Deprecated Code Audit">
+      <search-commands>
+        <command>grep -rn "// TODO\|TODO:" web/ --include="*.tsx" --include="*.ts"</command>
+        <command>grep -rn "// FIXME\|FIXME:" web/ --include="*.tsx" --include="*.ts"</command>
+        <command>grep -rn "// Legacy" web/ --include="*.tsx" --include="*.ts"</command>
+        <command>grep -rn "// DEPRECATED" web/ --include="*.tsx" --include="*.ts"</command>
+        <command>grep -rn "@deprecated" web/ --include="*.tsx" --include="*.ts"</command>
+        <command>grep -rn "fallback" web/ --include="*.tsx" --include="*.ts" -i</command>
+        <command>grep -rn "for compatibility" web/ --include="*.tsx" --include="*.ts" -i</command>
+      </search-commands>
+      <actions>
+        <action>For TODO: Complete work, create story, or delete if obsolete</action>
+        <action>For FIXME: Fix bug immediately or create story</action>
+        <action>For @deprecated: Update imports, delete function, run type-check</action>
+        <action>For fallback: Remove fallback, use one format only</action>
+        <action>For compatibility: Update imports, delete re-exports</action>
+      </actions>
+    </section>
+
+    <section name="Backend Deprecated Code Audit">
+      <files>
+        <path>api/internal/handlers/*.go</path>
+        <count>45 handler files</count>
+        <path>api/internal/services/*.go</path>
+        <path>api/internal/middleware/*.go</path>
+      </files>
+      <search-commands>
+        <command>grep -rn "// TODO\|TODO:" api/internal --include="*.go"</command>
+        <command>grep -rn "// FIXME\|FIXME:" api/internal --include="*.go"</command>
+        <command>grep -rn "// Legacy\|// DEPRECATED" api/internal --include="*.go"</command>
+        <command>grep -rn "log\.Printf" api/internal --include="*.go"</command>
+        <command>grep -rn "fmt\.Printf\|fmt\.Println" api/internal --include="*.go"</command>
+      </search-commands>
+      <exceptions>
+        <exception>api/internal/astro/*_test.go - fmt.Printf in tests is acceptable</exception>
+        <exception>api/cmd/api/main.go - May have some log.Printf for startup (verify)</exception>
+      </exceptions>
+      <actions>
+        <action>For log.Printf: Replace with slog.Info/Error/Debug</action>
+        <action>For fmt.Printf in handlers: Replace with slog</action>
+        <action>For fmt.Println: Delete entirely or replace with slog</action>
+        <action>Add structured logging keys: "error", "user_id", "publisher_id"</action>
+      </actions>
+    </section>
+
+    <section name="API Path Normalization Verification">
+      <test-commands>
+        <command>curl -I http://localhost:8080/api/v1/publishers</command>
+        <expected>301 Moved Permanently → Location: /api/v1/public/publishers</expected>
+
+        <command>curl -I http://localhost:8080/api/v1/cities</command>
+        <expected>301 Moved Permanently → Location: /api/v1/public/cities</expected>
+
+        <command>curl -I http://localhost:8080/api/v1/countries</command>
+        <expected>301 Moved Permanently → Location: /api/v1/public/countries</expected>
+      </test-commands>
+      <browser-verification>
+        <step>Start dev: ./restart.sh</step>
+        <step>Open DevTools Network tab</step>
+        <step>Navigate to all pages (home, zmanim, publisher, admin)</step>
+        <step>Verify all API calls use /api/v1/public/* or /api/v1/auth/*</step>
+        <step>Verify zero 404 errors</step>
+        <step>Verify zero 401 errors for authenticated users</step>
+      </browser-verification>
+    </section>
+  </audit-checklist>
+
+  <verification-commands>
+    <command name="frontend-type-check">
+      <description>Verify TypeScript compilation</description>
+      <cmd>cd web && npm run type-check</cmd>
+      <expected>Zero errors</expected>
+    </command>
+
+    <command name="backend-build">
+      <description>Verify Go compilation</description>
+      <cmd>cd api && go build -v ./cmd/api ./internal/...</cmd>
+      <expected>Clean build</expected>
+    </command>
+
+    <command name="backend-lint">
+      <description>Verify Go linting</description>
+      <cmd>cd api && golangci-lint run ./...</cmd>
+      <expected>Zero errors</expected>
+    </command>
+
+    <command name="backend-tests">
+      <description>Verify unit tests</description>
+      <cmd>cd api && go test ./...</cmd>
+      <expected>All tests pass</expected>
+    </command>
+
+    <command name="e2e-tests">
+      <description>Verify end-to-end tests</description>
+      <cmd>cd tests && npx playwright test</cmd>
+      <expected>All tests pass</expected>
+    </command>
+
+    <command name="verify-zero-todos">
+      <description>Verify zero TODO comments</description>
+      <cmd>grep -r "TODO" web/ api/ --include="*.tsx" --include="*.ts" --include="*.go" | grep -v node_modules | grep -v _test.go</cmd>
+      <expected>Zero results (excluding tests)</expected>
+    </command>
+
+    <command name="verify-zero-fixmes">
+      <description>Verify zero FIXME comments</description>
+      <cmd>grep -r "FIXME" web/ api/ --include="*.tsx" --include="*.ts" --include="*.go" | grep -v node_modules</cmd>
+      <expected>Zero results</expected>
+    </command>
+
+    <command name="verify-zero-deprecated">
+      <description>Verify zero deprecated markers</description>
+      <cmd>grep -r "@deprecated\|DEPRECATED\|Legacy" web/ api/ --include="*.tsx" --include="*.ts" --include="*.go" | grep -v node_modules | grep -v docs/</cmd>
+      <expected>Zero results (excluding auto-generated docs)</expected>
+    </command>
+
+    <command name="verify-zero-raw-fetch">
+      <description>Verify zero raw fetch in components</description>
+      <cmd>grep -r "await fetch\(" web/app web/components --include="*.tsx" --include="*.ts"</cmd>
+      <expected>Zero results</expected>
+    </command>
+
+    <command name="verify-zero-log-printf">
+      <description>Verify zero log.Printf in handlers</description>
+      <cmd>grep -r "log\.Printf\|fmt\.Printf" api/internal --include="*.go" | grep -v _test.go</cmd>
+      <expected>Zero results (excluding tests)</expected>
+    </command>
+  </verification-commands>
+
+  <story-completion-criteria>
+    <criterion id="AC-1" priority="critical">
+      All API calls in web/ use useApi() hook - zero raw fetch() in components
+    </criterion>
+    <criterion id="AC-2" priority="critical">
+      Zero TODO comments in web/ and api/ (excluding tests and docs)
+    </criterion>
+    <criterion id="AC-3" priority="critical">
+      Zero FIXME comments in codebase
+    </criterion>
+    <criterion id="AC-4" priority="critical">
+      Zero @deprecated, // DEPRECATED, // Legacy markers
+    </criterion>
+    <criterion id="AC-5" priority="critical">
+      All log.Printf/fmt.Printf replaced with slog in api/internal (excluding tests)
+    </criterion>
+    <criterion id="AC-6" priority="high">
+      All frontend type-check passes
+    </criterion>
+    <criterion id="AC-7" priority="high">
+      All backend build and lint passes
+    </criterion>
+    <criterion id="AC-8" priority="high">
+      All E2E tests pass
+    </criterion>
+    <criterion id="AC-9" priority="medium">
+      Legacy redirect endpoints verified working (301s)
+    </criterion>
+    <criterion id="AC-10" priority="medium">
+      No API errors in browser console on all pages
+    </criterion>
+  </story-completion-criteria>
+
+  <notes>
+    <note type="important">
+      The high count of "deprecated_markers" (6388) is likely from auto-generated
+      Swagger documentation. Focus on actual source code violations in web/ and api/internal.
+    </note>
+
+    <note type="important">
+      fmt.Printf in *_test.go files is ACCEPTABLE for test debugging output.
+      Only production code (handlers, services, middleware) must use slog.
+    </note>
+
+    <note type="important">
+      Raw fetch() in web/lib/api-client.ts is REQUIRED - it's the implementation.
+      Only components/pages using fetch() directly are violations.
+    </note>
+
+    <note type="strategy">
+      For TODO comments: Create stories for legitimate feature work, delete obsolete markers.
+      Use Epic 9 for API-related work, create Epic 10 for new features if needed.
+    </note>
+
+    <note type="strategy">
+      Test locally BEFORE committing. Run all verification commands to ensure
+      clean build/type-check/lint. Push-and-wait cycle is 10x slower than local testing.
+    </note>
+  </notes>
+</story-context>

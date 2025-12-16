@@ -1,0 +1,172 @@
+<story-context id="8-10-smart-search-api-with-context-parsing" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>10</storyId>
+    <title>Smart Search API with Context Parsing</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-10-smart-search-api-with-context-parsing.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>to search "London England" and get London UK first</iWant>
+    <soThat>I can disambiguate cities with common names</soThat>
+    <tasks>
+      <task id="1">Create ParseSearchQuery function (AC: 1-5)</task>
+      <task id="2">Create FindContextMatches function (AC: 1-4)</task>
+      <task id="3">Create SearchLocationsWithContext SQLc query (AC: 1-4)</task>
+      <task id="4">Create SearchLocationsByPopulation SQLc query (AC: 5)</task>
+      <task id="5">Update /locations/search handler (AC: 1-7)</task>
+      <task id="6">Performance testing (AC: 7)</task>
+      <task id="7">Testing (AC: 1-7)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">"London England" returns London, UK as first result</criterion>
+    <criterion id="AC2">"London Ontario" returns London, Ontario, Canada as first result</criterion>
+    <criterion id="AC3">"Salford Manchester" returns Salford, Greater Manchester as first result</criterion>
+    <criterion id="AC4">"New York USA" returns New York City as first result</criterion>
+    <criterion id="AC5">Single word "London" returns results ranked by population (UK first)</criterion>
+    <criterion id="AC6">Fuzzy matching works for misspellings</criterion>
+    <criterion id="AC7">Response time &lt;50ms</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.10: Smart Search API with Context Parsing</section>
+        <snippet>Parse multi-word queries as [city] [context]. Context can be country name, region name, or alias. Single words ranked by population.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Location Search Improvement Details</section>
+        <snippet>Multi-factor ranking: exact match → prefix match → fuzzy match → population.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/services/</path>
+        <kind>service-directory</kind>
+        <reason>Location for new search_parser.go</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/locations.go</path>
+        <kind>handler</kind>
+        <reason>Update /locations/search handler or create new</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/cities.go</path>
+        <kind>handler</kind>
+        <symbol>SearchCities</symbol>
+        <reason>Reference for existing search patterns</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/geo_search.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>New SQLc queries for context-aware search</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/jackc/pgx/v5</package>
+        <package>strings</package>
+      </go>
+      <stories>
+        <depends-on>8.8 (geo_alternative_names, geo_foreign_names)</depends-on>
+        <depends-on>8.9 (geo_search_index materialized view)</depends-on>
+      </stories>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Requires Story 8.8 and 8.9 completed</constraint>
+    <constraint>Performance target: &lt;50ms response time</constraint>
+    <constraint>Handle special multi-word cities: "New York", "Los Angeles", "San Francisco"</constraint>
+    <constraint>Use DISTINCT ON (city_id) to deduplicate results</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>ParseSearchQuery</name>
+      <kind>Go function</kind>
+      <signature>
+        func ParseSearchQuery(query string) *ParsedQuery
+        type ParsedQuery struct {
+            CityTerm string
+            ContextTerm string
+            IsSingleWord bool
+        }
+        - Single word: IsSingleWord=true, search by population
+        - Multi-word: Split into city + context
+        - Handle special cases: "New York" stays together
+      </signature>
+      <path>api/internal/services/search_parser.go</path>
+    </interface>
+    <interface>
+      <name>FindContextMatches</name>
+      <kind>Go function</kind>
+      <signature>
+        func FindContextMatches(ctx context.Context, term string) (*ContextMatches, error)
+        type ContextMatches struct {
+            CountryIDs []int
+            RegionIDs []int
+        }
+        - Lookup country/region by name
+        - Lookup by alias (UK → GB)
+      </signature>
+      <path>api/internal/services/search_parser.go</path>
+    </interface>
+    <interface>
+      <name>SearchLocationsWithContext</name>
+      <kind>SQLc query</kind>
+      <signature>
+        -- name: SearchLocationsWithContext :many
+        SELECT DISTINCT ON (city_id) ...
+        FROM geo_search_index
+        WHERE (search_name ILIKE $city_term || '%' OR similarity(...) > 0.3)
+          AND (country_id = ANY($context_country_ids) OR region_id = ANY($context_region_ids))
+        ORDER BY city_id, name_type priority, exact match, population DESC
+        LIMIT $limit
+      </signature>
+      <path>api/internal/db/queries/geo_search.sql</path>
+    </interface>
+    <interface>
+      <name>SearchLocationsByPopulation</name>
+      <kind>SQLc query</kind>
+      <signature>
+        -- name: SearchLocationsByPopulation :many
+        SELECT DISTINCT ON (city_id) ...
+        FROM geo_search_index
+        WHERE entity_type = 'city'
+          AND (search_name ILIKE $query || '%' OR similarity(...) > 0.3)
+        ORDER BY city_id, name_type, population DESC
+        LIMIT $limit
+      </signature>
+      <path>api/internal/db/queries/geo_search.sql</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>E2E tests for search accuracy. Performance benchmarks. Test all AC scenarios.</standards>
+    <locations>
+      <location>api/internal/services/*_test.go</location>
+      <location>api/internal/handlers/*_test.go</location>
+      <location>tests/e2e/</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test "London England" → London UK first</idea>
+      <idea acRef="AC2">Test "London Ontario" → London Canada first</idea>
+      <idea acRef="AC3">Test "Salford Manchester" → Salford UK first</idea>
+      <idea acRef="AC4">Test "New York USA" → NYC first</idea>
+      <idea acRef="AC5">Test "London" (single) → UK first by population</idea>
+      <idea acRef="AC6">Test "Londn" (typo) → London suggested</idea>
+      <idea acRef="AC7">Benchmark: &lt;50ms response time</idea>
+    </ideas>
+  </tests>
+</story-context>

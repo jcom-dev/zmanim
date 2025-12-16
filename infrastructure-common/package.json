@@ -1,0 +1,28 @@
+{
+  "name": "infrastructure-common",
+  "version": "1.0.0",
+  "description": "Shtetl Common Stack - Shared infrastructure (VPC, Route53, OIDC, State bucket)",
+  "main": "main.js",
+  "scripts": {
+    "get": "cdktf get",
+    "build": "tsc",
+    "synth": "cdktf synth",
+    "deploy": "cdktf deploy",
+    "diff": "cdktf diff",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "cdktf-cli": "^0.21.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.7.2"
+  },
+  "dependencies": {
+    "@cdktf/provider-aws": "^19.54.0",
+    "cdktf": "^0.20.10",
+    "constructs": "^10.4.2"
+  }
+}

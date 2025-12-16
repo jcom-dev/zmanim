@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.11" title="Clerk API Integration for User Verification">
+  <summary>
+    This context file provides all information needed to integrate Clerk SDK for user verification
+    during invitation acceptance. The current implementation has a placeholder that always returns false.
+  </summary>
+
+  <current-state>
+    <description>
+      The checkUserExistsInClerk function is a placeholder that always returns false, bypassing
+      actual Clerk user verification. This could lead to data integrity issues.
+    </description>
+
+    <source-todo>
+      <file>api/internal/handlers/invitations.go</file>
+      <line>621</line>
+      <code>
+func (h *Handlers) checkUserExistsInClerk(ctx context.Context, email string) bool {
+    // TODO: Implement Clerk API check when Clerk client is available
+    // For now, return false (assume new user)
+    return false
+}
+      </code>
+    </source-todo>
+  </current-state>
+
+  <target-state>
+    <description>
+      - Clerk SDK integrated for user lookups
+      - Users verified before invitation acceptance
+      - Suspended/locked users handled appropriately
+      - Server-side only - never exposed to API
+    </description>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/api/internal/handlers/invitations.go" relevance="primary">
+      <description>
+        Contains checkUserExistsInClerk placeholder and invitation acceptance logic.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/cmd/api/main.go" relevance="secondary">
+      <description>
+        Application entry point. Clerk client will be initialized here.
+      </description>
+    </file>
+  </files>
+
+  <files-to-create>
+    <file path="api/internal/clerk/client.go">
+      <purpose>Clerk client wrapper with initialization and helper methods</purpose>
+    </file>
+  </files-to-create>
+
+  <environment-variables>
+    <variable name="CLERK_SECRET_KEY" example="sk_live_xxx" description="Clerk secret key (already exists in SSM)" />
+  </environment-variables>
+
+  <implementation-guide>
+    <step n="1">
+      <task>Install Clerk SDK</task>
+      <code>
+cd api
+go get github.com/clerk/clerk-sdk-go/v2
+      </code>
+    </step>
+    <step n="2">
+      <task>Create Clerk client wrapper</task>
+      <code>
+package clerk
+
+import (
+    "github.com/clerk/clerk-sdk-go/v2"
+    "github.com/clerk/clerk-sdk-go/v2/user"
+)
+
+type Client struct {
+    api *clerk.APIClient
+}
+
+func NewClient(secretKey string) (*Client, error) {
+    clerk.SetKey(secretKey)
+    return &Client{}, nil
+}
+
+func (c *Client) GetUserByEmail(ctx context.Context, email string) (*user.User, error) {
+    params := user.ListParams{EmailAddress: []string{email}}
+    users, err := user.List(ctx, &params)
+    if err != nil {
+        return nil, err
+    }
+    if len(users.Users) == 0 {
+        return nil, nil
+    }
+    return &users.Users[0], nil
+}
+      </code>
+    </step>
+    <step n="3">
+      <task>Update Handlers struct</task>
+      <code>
+type Handlers struct {
+    db          *db.DB
+    cfg         *config.Config
+    clerkClient *clerk.Client  // Add this
+}
+      </code>
+    </step>
+    <step n="4">
+      <task>Implement checkUserExistsInClerk</task>
+      <code>
+func (h *Handlers) checkUserExistsInClerk(ctx context.Context, email string) bool {
+    if h.clerkClient == nil {
+        slog.Warn("Clerk client not configured")
+        return false
+    }
+
+    user, err := h.clerkClient.GetUserByEmail(ctx, email)
+    if err != nil {
+        slog.Error("Clerk lookup failed", "error", err)
+        return false // Fail open
+    }
+
+    if user == nil {
+        return false
+    }
+
+    if user.Banned || user.Locked {
+        slog.Info("User suspended", "email", email)
+        return false
+    }
+
+    return true
+}
+      </code>
+    </step>
+  </implementation-guide>
+
+  <security-considerations>
+    <item>Never expose user existence to API responses (enumeration vector)</item>
+    <item>Never log Clerk API keys</item>
+    <item>Never return Clerk errors verbatim to clients</item>
+    <item>Fail open on Clerk errors - don't block invitations</item>
+  </security-considerations>
+
+  <testing>
+    <test-case name="User exists">
+      <description>Verify returns true for existing active user</description>
+      <approach>Mock Clerk client, return user with Banned=false</approach>
+    </test-case>
+    <test-case name="User not found">
+      <description>Verify returns false for non-existent user</description>
+      <approach>Mock Clerk client, return empty list</approach>
+    </test-case>
+    <test-case name="User suspended">
+      <description>Verify returns false for banned user</description>
+      <approach>Mock Clerk client, return user with Banned=true</approach>
+    </test-case>
+    <test-case name="Clerk unavailable">
+      <description>Verify graceful degradation on API error</description>
+      <approach>Mock Clerk client to return error, verify returns false</approach>
+    </test-case>
+  </testing>
+</story-context>

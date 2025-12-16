@@ -1,0 +1,158 @@
+<story-context id="8-8-geo-alternative-names-foreign-names-tables" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>8</storyId>
+    <title>Geo Alternative Names &amp; Foreign Names Tables</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-8-geo-alternative-names-foreign-names-tables.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>to search using common aliases and foreign names</iWant>
+    <soThat>I can find "UK", "England", "Yerushalayim", or "Londres" and get the right results</soThat>
+    <tasks>
+      <task id="1">Create migration for geo_alternative_names table (AC: 1, 3)</task>
+      <task id="2">Create migration for geo_foreign_names table (AC: 2, 3)</task>
+      <task id="3">Create ASCII normalization function (AC: 3)</task>
+      <task id="4">Seed alternative names (AC: 4)</task>
+      <task id="5">Import/seed foreign names (AC: 5)</task>
+      <task id="6">Create SQLc queries for lookups (AC: 1-3)</task>
+      <task id="7">Testing (AC: 1-6)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">geo_alternative_names table created with entity_type + entity_id lookup</criterion>
+    <criterion id="AC2">geo_foreign_names table created with language_code field</criterion>
+    <criterion id="AC3">Both tables have name_ascii column for normalized search</criterion>
+    <criterion id="AC4">Seed data: 100+ common aliases for countries/regions/major cities</criterion>
+    <criterion id="AC5">Foreign names populated from GeoNames alternateNames data (or manual seed)</criterion>
+    <criterion id="AC6">GIN trigram indexes on name_ascii columns for fuzzy matching</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.8: Geo Alternative Names &amp; Foreign Names Tables</section>
+        <snippet>Two tables: geo_alternative_names for aliases (UK, USA, England), geo_foreign_names for translations (Yerushalayim, Londres).</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>Key Tables</section>
+        <snippet>geo_cities has ~163k cities with PostGIS geometry. Follow lookup table patterns.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/db/migrations/</path>
+        <kind>migration-directory</kind>
+        <reason>Location for new migration files</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/</path>
+        <kind>query-directory</kind>
+        <reason>Location for new geo_names.sql SQLc queries</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/seeds/</path>
+        <kind>seed-directory</kind>
+        <reason>Location for seed files: geo_alternative_names.sql, geo_foreign_names.sql</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/cities.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>Reference for existing geo query patterns</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/jackc/pgx/v5</package>
+      </go>
+      <postgresql>
+        <extension>pg_trgm</extension>
+      </postgresql>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Require pg_trgm extension for GIN trigram indexes</constraint>
+    <constraint>entity_type CHECK constraint: city, district, region, country</constraint>
+    <constraint>ASCII normalization: strip apostrophes, remove Arabic ʿayn, transliterate accents, lowercase</constraint>
+    <constraint>Foreign key constraints NOT enforced (entity_id is polymorphic)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>geo_alternative_names table</name>
+      <kind>database-table</kind>
+      <signature>
+        id SERIAL PRIMARY KEY
+        entity_type VARCHAR(20) NOT NULL CHECK (entity_type IN ('city', 'district', 'region', 'country'))
+        entity_id INTEGER NOT NULL
+        name TEXT NOT NULL
+        name_ascii TEXT NOT NULL
+        is_common BOOLEAN DEFAULT false
+        created_at TIMESTAMPTZ DEFAULT now()
+
+        INDEXES:
+        idx_alt_names_lookup ON (entity_type, entity_id)
+        idx_alt_names_trgm USING gin (name_ascii gin_trgm_ops)
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+    <interface>
+      <name>geo_foreign_names table</name>
+      <kind>database-table</kind>
+      <signature>
+        id SERIAL PRIMARY KEY
+        entity_type VARCHAR(20) NOT NULL CHECK (entity_type IN ('city', 'district', 'region', 'country'))
+        entity_id INTEGER NOT NULL
+        language_code VARCHAR(10) NOT NULL
+        name TEXT NOT NULL
+        name_ascii TEXT NOT NULL
+        is_preferred BOOLEAN DEFAULT false
+        created_at TIMESTAMPTZ DEFAULT now()
+
+        INDEXES:
+        idx_foreign_names_lookup ON (entity_type, entity_id)
+        idx_foreign_names_lang ON (language_code)
+        idx_foreign_names_trgm USING gin (name_ascii gin_trgm_ops)
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+    <interface>
+      <name>ASCII Normalization</name>
+      <kind>SQL function</kind>
+      <signature>
+        normalize_ascii(input TEXT) RETURNS TEXT
+        - Strip leading apostrophes: 'Ain → ain
+        - Remove Arabic ʿayn: ʿ → (empty)
+        - Transliterate accents: Aïn → ain
+        - Lowercase all
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Test migrations, seed data loading, and search queries. Verify trigram index performance.</standards>
+    <locations>
+      <location>api/internal/db/migrations/</location>
+      <location>api/internal/handlers/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test UK → United Kingdom lookup</idea>
+      <idea acRef="AC2">Test Yerushalayim → Jerusalem lookup (Hebrew)</idea>
+      <idea acRef="AC3">Test 'Ain Defla searchable as "ain defla"</idea>
+      <idea acRef="AC4">Verify 100+ alternative names seeded</idea>
+      <idea acRef="AC5">Verify Hebrew city names seeded</idea>
+      <idea acRef="AC6">Test GIN trigram index performance (&lt;10ms)</idea>
+    </ideas>
+  </tests>
+</story-context>

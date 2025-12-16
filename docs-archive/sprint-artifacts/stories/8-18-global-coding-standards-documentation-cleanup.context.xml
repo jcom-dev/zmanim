@@ -1,0 +1,63 @@
+<story-context id="8-18-global-coding-standards-documentation-cleanup" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>18</storyId>
+    <title>Global Coding Standards &amp; Documentation Cleanup</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-18-global-coding-standards-documentation-cleanup.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer on other Shtetl projects</asA>
+    <iWant>reusable coding standards extracted from Shtetl Zmanim</iWant>
+    <soThat>we can maintain consistency across all projects</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">coding-standards-global.md created with all reusable patterns</criterion>
+    <criterion id="AC2">coding-standards.md refactored to inherit from global</criterion>
+    <criterion id="AC3">Global document is self-contained</criterion>
+    <criterion id="AC4">Project document references global for shared patterns</criterion>
+    <criterion id="AC5">All infrastructure lessons documented</criterion>
+    <criterion id="AC6">GitHub Actions workflow patterns documented</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>docs/coding-standards-global.md</path>
+        <kind>documentation</kind>
+        <reason>New global standards file</reason>
+      </artifact>
+      <artifact>
+        <path>docs/coding-standards.md</path>
+        <kind>documentation</kind>
+        <reason>Refactor to inherit from global</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>Global document must be self-contained (copyable to new projects)</constraint>
+    <constraint>Keep Zmanim-specific rules in project document</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Global Standards Sections</name>
+      <kind>documentation structure</kind>
+      <signature>
+        1. Security
+        2. Frontend Patterns
+        3. Backend Patterns
+        4. Database Patterns
+        5. Testing Patterns
+        6. Git &amp; CI/CD
+        7. Infrastructure Strategy
+        8. AI-Friendly Code
+      </signature>
+    </interface>
+  </interfaces>
+</story-context>

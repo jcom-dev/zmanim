@@ -1,0 +1,29 @@
+# Gitleaks ignore file - False positives and test fixtures
+# Format: <file>:<rule>:<line>
+
+# Test fixtures with example API keys
+scripts/get-test-token.js:generic-api-key
+scripts/test-auth.js:generic-api-key
+scripts/test-auth.sh:generic-api-key
+
+# Example environment files (not real secrets)
+.env.example:*
+.env.local.example:*
+
+# Documentation with example secrets
+docs/**/*.md:*
+README.md:*
+CLAUDE.md:*
+
+# SQLc generated code may contain test data
+api/internal/db/sqlcgen/**/*:*
+
+# Test files with mock credentials
+**/*_test.go:*
+**/*.test.ts:*
+**/*.test.tsx:*
+**/test-*.js:*
+tests/**/*:*
+
+# CDK outputs (no real secrets, just resource IDs)
+infrastructure/cdk.out/**/*:*

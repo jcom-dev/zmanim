@@ -1,0 +1,71 @@
+<story-context id="8-15-react-query-cache-invalidation-bug-fixes" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>15</storyId>
+    <title>React Query Cache Invalidation Bug Fixes</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-15-react-query-cache-invalidation-bug-fixes.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>UI updates to reflect my changes immediately</iWant>
+    <soThat>I don't see stale data after saving</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">LocationOverrideDialog uses mutation hooks with cache invalidation</criterion>
+    <criterion id="AC2">Coverage page uses mutation hooks instead of raw api calls</criterion>
+    <criterion id="AC3">Algorithm editor properly invalidates zmanim cache on save</criterion>
+    <criterion id="AC4">All dialogs that modify data invalidate relevant queries</criterion>
+    <criterion id="AC5">No stale data visible after any save operation</criterion>
+    <criterion id="AC6">E2E tests verify UI updates after mutations</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>web/components/publisher/LocationOverrideDialog.tsx</path>
+        <kind>component</kind>
+        <reason>Fix with useDynamicMutation</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/publisher/coverage/page.tsx</path>
+        <kind>page</kind>
+        <reason>Replace raw api calls with mutations</reason>
+      </artifact>
+      <artifact>
+        <path>web/lib/hooks/usePublisherCoverage.ts</path>
+        <kind>hook</kind>
+        <reason>New hook to create</reason>
+      </artifact>
+      <artifact>
+        <path>web/lib/hooks/useApiQuery.ts</path>
+        <kind>hook</kind>
+        <reason>Reference for existing mutation patterns</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use existing usePublisherMutation and useDynamicMutation hooks</constraint>
+    <constraint>Always specify invalidateKeys for mutations</constraint>
+    <constraint>Follow patterns from working components (RequestZmanModal)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Key Cache Keys</name>
+      <kind>React Query keys</kind>
+      <signature>
+        'publisher-zmanim'
+        'publisher-coverage'
+        'publisher-profile'
+        'publisher-location-overrides'
+        'publisher-snapshots'
+      </signature>
+    </interface>
+  </interfaces>
+</story-context>

@@ -1,0 +1,365 @@
+<story-context id="4-2-zmanim-dsl-parser" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.2</storyId>
+    <title>Zmanim DSL Parser</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-2-zmanim-dsl-parser.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a Go-based DSL parser that lexes, parses, validates, and executes zmanim formulas</iWant>
+    <soThat>the backend can calculate accurate prayer times from DSL expressions</soThat>
+    <tasks>
+      <task id="1" title="Create Package Structure" ac="4.2.1-4.2.4">
+        <subtask>1.1 Create api/internal/dsl/ package directory</subtask>
+        <subtask>1.2 Create lexer.go with Token types</subtask>
+        <subtask>1.3 Create parser.go with AST node types</subtask>
+        <subtask>1.4 Create validator.go for semantic checks</subtask>
+        <subtask>1.5 Create executor.go for calculation</subtask>
+        <subtask>1.6 Create errors.go for error types</subtask>
+      </task>
+      <task id="2" title="Implement Lexer" ac="4.2.1">
+        <subtask>2.1 Define Token enum (PRIMITIVE, FUNCTION, OPERATOR, DURATION, REFERENCE, etc.)</subtask>
+        <subtask>2.2 Implement Tokenize(input string) ([]Token, error)</subtask>
+        <subtask>2.3 Handle whitespace and comments</subtask>
+        <subtask>2.4 Track line/column for error reporting</subtask>
+        <subtask>2.5 Write lexer unit tests</subtask>
+      </task>
+      <task id="3" title="Implement Parser" ac="4.2.2">
+        <subtask>3.1 Define AST node interfaces and types</subtask>
+        <subtask>3.2 Implement recursive descent parser</subtask>
+        <subtask>3.3 Handle operator precedence with Pratt parsing or similar</subtask>
+        <subtask>3.4 Parse function calls with parameters</subtask>
+        <subtask>3.5 Parse conditional expressions</subtask>
+        <subtask>3.6 Write parser unit tests</subtask>
+      </task>
+      <task id="4" title="Implement Validator" ac="4.2.3">
+        <subtask>4.1 Implement type checking visitor</subtask>
+        <subtask>4.2 Implement parameter range validation</subtask>
+        <subtask>4.3 Implement reference resolution</subtask>
+        <subtask>4.4 Implement circular dependency detection (Tarjan's or Kahn's algorithm)</subtask>
+        <subtask>4.5 Generate helpful error suggestions</subtask>
+        <subtask>4.6 Write validator unit tests</subtask>
+      </task>
+      <task id="5" title="Implement Executor" ac="4.2.4">
+        <subtask>5.1 Integrate with existing astro package for sun calculations</subtask>
+        <subtask>5.2 Implement primitive evaluation</subtask>
+        <subtask>5.3 Implement solar() function</subtask>
+        <subtask>5.4 Implement shaos() function with all bases</subtask>
+        <subtask>5.5 Implement midpoint() function</subtask>
+        <subtask>5.6 Implement duration arithmetic</subtask>
+        <subtask>5.7 Implement conditional evaluation</subtask>
+        <subtask>5.8 Implement reference resolution with caching</subtask>
+        <subtask>5.9 Write executor unit tests</subtask>
+      </task>
+      <task id="6" title="Create API Endpoints" ac="4.2.5">
+        <subtask>6.1 Create POST /api/dsl/validate handler</subtask>
+        <subtask>6.2 Create POST /api/dsl/preview handler</subtask>
+        <subtask>6.3 Define request/response schemas</subtask>
+        <subtask>6.4 Add calculation breakdown to response</subtask>
+        <subtask>6.5 Write API integration tests</subtask>
+      </task>
+      <task id="7" title="Testing and Documentation">
+        <subtask>7.1 Write comprehensive unit tests (95%+ coverage)</subtask>
+        <subtask>7.2 Write integration tests for API</subtask>
+        <subtask>7.3 Test all example formulas from DSL spec</subtask>
+        <subtask>7.4 Test edge cases (polar, equatorial)</subtask>
+        <subtask>7.5 Document package usage</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.2.1" title="Lexer Implementation">
+      <item>Lexer tokenizes all DSL primitives (sunrise, sunset, solar_noon, etc.)</item>
+      <item>Lexer tokenizes all DSL functions (solar, shaos, midpoint)</item>
+      <item>Lexer tokenizes operators (+, -, *, /, (, ))</item>
+      <item>Lexer tokenizes durations (72min, 1hr, 1h 30min)</item>
+      <item>Lexer tokenizes references (@zman_key)</item>
+      <item>Lexer tokenizes conditionals (if, else, {, })</item>
+      <item>Lexer produces clear error messages with line/column positions</item>
+    </criterion>
+    <criterion id="AC-4.2.2" title="Parser Implementation">
+      <item>Parser builds valid AST from token stream</item>
+      <item>Parser handles operator precedence correctly (*/ before +-)</item>
+      <item>Parser handles parentheses for grouping</item>
+      <item>Parser handles function calls with parameters</item>
+      <item>Parser handles conditional expressions</item>
+      <item>Parser produces syntax errors with helpful messages</item>
+    </criterion>
+    <criterion id="AC-4.2.3" title="Semantic Validator">
+      <item>Validator checks type compatibility (Time + Duration = Time, etc.)</item>
+      <item>Validator checks parameter ranges (solar degrees: 0-90, shaos hours: 0.5-12)</item>
+      <item>Validator detects undefined zman references</item>
+      <item>Validator detects circular dependencies via topological sort</item>
+      <item>Validator produces semantic errors with suggestions ("Did you mean...?")</item>
+    </criterion>
+    <criterion id="AC-4.2.4" title="Executor Implementation">
+      <item>Executor calculates primitive values from date/location/timezone</item>
+      <item>Executor evaluates solar(degrees, direction) using astronomical algorithms</item>
+      <item>Executor evaluates shaos(hours, base) for GRA, MGA, and custom bases</item>
+      <item>Executor evaluates midpoint(t1, t2) correctly</item>
+      <item>Executor handles duration arithmetic</item>
+      <item>Executor resolves zman references in correct dependency order</item>
+      <item>Executor evaluates conditionals based on runtime context (latitude, day_length, etc.)</item>
+    </criterion>
+    <criterion id="AC-4.2.5" title="API Integration">
+      <item>POST /api/dsl/validate endpoint validates formula and returns errors</item>
+      <item>POST /api/dsl/preview endpoint calculates result for given date/location</item>
+      <item>Response includes calculation breakdown (step-by-step)</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-dsl-specification.md</path>
+        <title>Epic 4: Zmanim DSL - Complete Specification</title>
+        <section>Full Document</section>
+        <snippet>Complete DSL specification including BNF grammar, all primitives (sunrise, sunset, solar_noon, etc.), functions (solar, shaos, midpoint), operators, conditionals, and real-world formula examples.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <title>Epic 4: Comprehensive Planning Document</title>
+        <section>Story 4.2: Zmanim DSL Parser</section>
+        <snippet>Defines deliverables including lexer.go, parser.go, compiler.go, validator.go. Technical approach shows DSLService interface with Parse, Compile, Validate, Execute methods. Unit tests with 90%+ coverage required.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/stories/4-1-zmanim-dsl-design.md</path>
+        <title>Story 4.1: Zmanim DSL Design</title>
+        <section>DSL Specification</section>
+        <snippet>Prerequisite story that defines the DSL syntax. Story 4.2 implements the parser for the DSL designed in 4.1.</snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <file>
+        <path>api/internal/astro/sun.go</path>
+        <kind>package</kind>
+        <symbol>astro.CalculateSunTimes, astro.SunTimeAtAngle</symbol>
+        <lines>1-299</lines>
+        <reason>Core astronomical calculations using NOAA algorithms. The DSL executor MUST integrate with this package for sunrise/sunset/solar angle calculations. Contains SunTimes struct, CalculateSunTimes(), SunTimeAtAngle() functions.</reason>
+      </file>
+      <file>
+        <path>api/internal/astro/times.go</path>
+        <kind>package</kind>
+        <symbol>astro.AddMinutes, astro.SubtractMinutes, astro.Midpoint, astro.ShaosZmaniyosGRA, astro.ShaosZmaniyosMGA, astro.ShaosZmaniyosCustom</symbol>
+        <lines>1-93</lines>
+        <reason>Time arithmetic helpers for zmanim calculations. DSL executor should use these functions for shaos (proportional hours), midpoint, and duration arithmetic operations.</reason>
+      </file>
+      <file>
+        <path>api/internal/algorithm/types.go</path>
+        <kind>types</kind>
+        <symbol>AlgorithmConfig, ZmanConfig, ZmanResult, FormulaInfo, ZmanimResults</symbol>
+        <lines>1-183</lines>
+        <reason>Existing algorithm types for JSON-based calculations. The DSL parser will eventually replace this system. Shows current structure for algorithm configuration, zman results, and formula info that the DSL parser output should align with.</reason>
+      </file>
+      <file>
+        <path>api/internal/algorithm/parser.go</path>
+        <kind>service</kind>
+        <symbol>ParseAlgorithm, ValidateAlgorithm, GetFormulaInfo</symbol>
+        <lines>1-157</lines>
+        <reason>Current JSON algorithm parser. Shows validation patterns, method types (solar_angle, fixed_minutes, proportional, midpoint), and parameter extraction. DSL parser should support all these calculation methods.</reason>
+      </file>
+      <file>
+        <path>api/internal/algorithm/executor.go</path>
+        <kind>service</kind>
+        <symbol>Executor, Execute, calculateZman, calculateSolarAngle, calculateFixedMinutes, calculateProportional, calculateMidpoint</symbol>
+        <lines>1-286</lines>
+        <reason>Current JSON algorithm executor. Shows execution context setup, two-pass calculation for dependency resolution, and result formatting. DSL executor should follow similar patterns but use topological sort for proper dependency ordering.</reason>
+      </file>
+      <file>
+        <path>api/internal/services/zmanim_service.go</path>
+        <kind>service</kind>
+        <symbol>ZmanimService, CalculateZmanim, calculateWithAlgorithm</symbol>
+        <lines>1-233</lines>
+        <reason>Main zmanim service that will integrate with DSL parser. Shows caching strategy, algorithm lookup, and how zmanim calculations flow from request to response. New DSL endpoints will follow similar patterns.</reason>
+      </file>
+      <file>
+        <path>api/internal/handlers/zmanim.go</path>
+        <kind>handler</kind>
+        <symbol>ZmanimHandler</symbol>
+        <reason>Existing zmanim API handlers. Follow similar patterns for new /api/dsl/validate and /api/dsl/preview endpoints.</reason>
+      </file>
+      <file>
+        <path>api/internal/astro/sun_test.go</path>
+        <kind>test</kind>
+        <symbol>TestSunTimes, TestSunTimeAtAngle</symbol>
+        <lines>1-79</lines>
+        <reason>Test patterns for astronomical calculations. Shows table-driven tests with Brooklyn coordinates, time zone handling, and validation of sunrise/sunset/solar angles. Use similar patterns for DSL parser tests.</reason>
+      </file>
+    </code>
+
+    <dependencies>
+      <go>
+        <package>github.com/jcom-dev/zmanim</package>
+        <deps>
+          <dep>github.com/go-chi/chi/v5 v5.0.11</dep>
+          <dep>github.com/jackc/pgx/v5 v5.5.1</dep>
+          <dep>github.com/google/uuid v1.6.0</dep>
+          <dep>github.com/clerk/clerk-sdk-go/v2 v2.5.0</dep>
+        </deps>
+        <goVersion>1.21</goVersion>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <interfaces>
+    <interface>
+      <name>DSLService (New - to implement)</name>
+      <kind>Go interface</kind>
+      <signature>
+type DSLService interface {
+    Parse(formula string) (*AST, error)
+    Validate(formula string) ([]ValidationError, error)
+    Execute(ast *AST, ctx ExecutionContext) (time.Time, error)
+}
+      </signature>
+      <path>api/internal/dsl/service.go (to create)</path>
+    </interface>
+    <interface>
+      <name>POST /api/dsl/validate</name>
+      <kind>REST endpoint</kind>
+      <signature>
+Request:
+  { "formula": "sunrise + shaos(3, gra)" }
+Response:
+  { "valid": true, "errors": [], "dependencies": ["sunrise"] }
+  OR
+  { "valid": false, "errors": [{"line": 1, "column": 15, "message": "..."}] }
+      </signature>
+      <path>api/internal/handlers/dsl.go (to create)</path>
+    </interface>
+    <interface>
+      <name>POST /api/dsl/preview</name>
+      <kind>REST endpoint</kind>
+      <signature>
+Request:
+  { "formula": "sunrise + shaos(3, gra)", "date": "2025-11-28", "location_id": "uuid" }
+  OR
+  { "formula": "...", "date": "...", "latitude": 40.7, "longitude": -74.0, "timezone": "America/New_York" }
+Response:
+  { "result": "09:37:00", "breakdown": [{"step": "sunrise", "value": "06:34:00"}, ...] }
+      </signature>
+      <path>api/internal/handlers/dsl.go (to create)</path>
+    </interface>
+    <interface>
+      <name>astro.CalculateSunTimes</name>
+      <kind>Go function</kind>
+      <signature>func CalculateSunTimes(date time.Time, latitude, longitude float64, tz *time.Location) *SunTimes</signature>
+      <path>api/internal/astro/sun.go</path>
+    </interface>
+    <interface>
+      <name>astro.SunTimeAtAngle</name>
+      <kind>Go function</kind>
+      <signature>func SunTimeAtAngle(date time.Time, latitude, longitude float64, tz *time.Location, angle float64) (dawn, dusk time.Time)</signature>
+      <path>api/internal/astro/sun.go</path>
+    </interface>
+    <interface>
+      <name>astro.ShaosZmaniyosGRA/MGA/Custom</name>
+      <kind>Go functions</kind>
+      <signature>
+func ShaosZmaniyosGRA(sunrise, sunset time.Time, hours float64) time.Time
+func ShaosZmaniyosMGA(alos72, tzeis72 time.Time, hours float64) time.Time
+func ShaosZmaniyosCustom(start, end time.Time, hours float64) time.Time
+      </signature>
+      <path>api/internal/astro/times.go</path>
+    </interface>
+  </interfaces>
+
+  <constraints>
+    <constraint type="pattern">Follow existing Go package structure: api/internal/{package}/{files}.go</constraint>
+    <constraint type="pattern">Use table-driven tests following api/internal/astro/sun_test.go patterns</constraint>
+    <constraint type="pattern">Handler patterns should follow api/internal/handlers/zmanim.go structure</constraint>
+    <constraint type="performance">Parsing + execution must complete in less than 50ms for complex formulas</constraint>
+    <constraint type="coverage">Unit test coverage target: 95%+ for the dsl package</constraint>
+    <constraint type="validation">All parameter ranges from DSL spec must be enforced (solar degrees 0-90, shaos hours 0.5-12)</constraint>
+    <constraint type="compatibility">DSL executor output must be compatible with existing ZmanResult/FormulaInfo types</constraint>
+    <constraint type="error-handling">Error messages must include line/column positions and helpful suggestions</constraint>
+    <constraint type="architecture">DSL package must integrate with existing astro package - do NOT duplicate astronomical calculations</constraint>
+    <constraint type="architecture">Use topological sort (Tarjan's or Kahn's algorithm) for dependency resolution</constraint>
+  </constraints>
+
+  <tests>
+    <standards>
+      Go testing package with testify for assertions. Table-driven tests are preferred. Tests should cover:
+      - Lexer: all token types, error cases with positions
+      - Parser: AST generation, operator precedence, function parsing, conditionals
+      - Validator: type checking, parameter ranges, circular dependency detection
+      - Executor: calculation accuracy against known reference values
+      - API: request/response validation, error handling
+    </standards>
+    <locations>
+      <location>api/internal/dsl/lexer_test.go</location>
+      <location>api/internal/dsl/parser_test.go</location>
+      <location>api/internal/dsl/validator_test.go</location>
+      <location>api/internal/dsl/executor_test.go</location>
+      <location>api/internal/dsl/dsl_test.go (integration)</location>
+    </locations>
+    <ideas>
+      <idea ac="4.2.1">Test lexer with all DSL primitives: sunrise, sunset, solar_noon, civil_dawn, etc.</idea>
+      <idea ac="4.2.1">Test lexer with duration formats: 72min, 1hr, 1h 30min</idea>
+      <idea ac="4.2.1">Test lexer error messages include line:column positions</idea>
+      <idea ac="4.2.2">Test parser with simple formula: "sunrise + 72min"</idea>
+      <idea ac="4.2.2">Test parser with nested expressions: "(sunset - sunrise) * 3/12"</idea>
+      <idea ac="4.2.2">Test parser with conditionals: if (latitude > 60) { civil_dawn } else { solar(16.1, before_sunrise) }</idea>
+      <idea ac="4.2.2">Test operator precedence: "sunrise + 30min * 2" should parse as "sunrise + (30min * 2)"</idea>
+      <idea ac="4.2.3">Test validator catches type errors: "sunrise + sunset" (time + time invalid)</idea>
+      <idea ac="4.2.3">Test validator catches parameter range errors: shaos(15, gra) (hours > 12)</idea>
+      <idea ac="4.2.3">Test validator detects circular reference: @zman_a where zman_a = @zman_a + 30min</idea>
+      <idea ac="4.2.4">Test executor with Brooklyn coords (40.6782, -73.9442) against known values</idea>
+      <idea ac="4.2.4">Test executor with all example formulas from DSL specification</idea>
+      <idea ac="4.2.4">Test executor with high latitude (60+) conditional fallbacks</idea>
+      <idea ac="4.2.5">Test /api/dsl/validate returns structured errors for invalid formula</idea>
+      <idea ac="4.2.5">Test /api/dsl/preview returns calculation breakdown</idea>
+    </ideas>
+  </tests>
+
+  <dslReference>
+    <primitives>sunrise, sunset, solar_noon, solar_midnight, visible_sunrise, visible_sunset, civil_dawn, civil_dusk, nautical_dawn, nautical_dusk, astronomical_dawn, astronomical_dusk</primitives>
+    <functions>
+      <function name="solar" signature="solar(degrees, direction)" example="solar(16.1, before_sunrise)">
+        <directions>before_sunrise, after_sunset, before_noon, after_noon</directions>
+        <degrees_range>0.0 - 90.0</degrees_range>
+      </function>
+      <function name="shaos" signature="shaos(hours, base)" example="shaos(3, gra)">
+        <bases>gra, mga, mga_90, mga_120, custom(start, end)</bases>
+        <hours_range>0.5 - 12.0</hours_range>
+      </function>
+      <function name="midpoint" signature="midpoint(time1, time2)" example="midpoint(sunrise, sunset)"/>
+    </functions>
+    <operators>+ - * / ( )</operators>
+    <durations>Xmin, Xhr, Xh Ymin (e.g., 72min, 1hr, 1h 30min)</durations>
+    <references>@zman_key (e.g., @alos_hashachar)</references>
+    <conditionals>if (condition) { formula } else { alternative }</conditionals>
+    <conditionTypes>latitude &gt;/&lt; X, day_length &gt;/&lt; Xhr, month == X, season == "name"</conditionTypes>
+    <typeRules>
+      <rule>Time + Duration = Time</rule>
+      <rule>Time - Duration = Time</rule>
+      <rule>Time - Time = Duration</rule>
+      <rule>Duration + Duration = Duration</rule>
+      <rule>Duration * Scalar = Duration</rule>
+      <rule>Duration / Scalar = Duration</rule>
+    </typeRules>
+    <invalidOperations>
+      <invalid>Time + Time (cannot add two times)</invalid>
+      <invalid>Time * Scalar (cannot multiply time)</invalid>
+      <invalid>Duration / Time (cannot divide by time)</invalid>
+    </invalidOperations>
+  </dslReference>
+
+  <exampleFormulas>
+    <formula name="Alos 72min" dsl="sunrise - 72min"/>
+    <formula name="Sof Zman Shma GRA" dsl="sunrise + shaos(3, gra)"/>
+    <formula name="Sof Zman Shma MGA" dsl="sunrise - 72min + shaos(3, mga)"/>
+    <formula name="Tzais 8.5°" dsl="solar(8.5, after_sunset)"/>
+    <formula name="Chatzos" dsl="midpoint(sunrise, sunset)"/>
+    <formula name="Plag Manual" dsl="sunrise + (sunset - sunrise) * 10.75/12"/>
+    <formula name="High Lat Fallback" dsl="if (latitude > 60) { civil_dawn } else { solar(16.1, before_sunrise) }"/>
+    <formula name="With Reference" dsl="@alos_hashachar + shaos(3, custom(@alos_hashachar, @tzais_72))"/>
+  </exampleFormulas>
+</story-context>

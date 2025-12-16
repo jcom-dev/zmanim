@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-6-request-zman-api" epic="5" generated="2025-12-02">
+  <summary>
+    Backend API for publishers to request new zmanim be added to master registry.
+    Includes tag support, formula validation, and email notifications.
+  </summary>
+
+  <key-files>
+    <file path="api/internal/handlers/zman_requests.go" action="create">
+      Handler implementations for request CRUD operations
+    </file>
+    <file path="api/internal/db/queries/zman_requests.sql" action="create">
+      SQLc query definitions for request operations
+    </file>
+    <file path="api/internal/services/email_service.go" action="modify">
+      Add email templates for request notifications
+    </file>
+    <file path="api/internal/config/config.go" action="modify">
+      Add ADMIN_NOTIFICATION_EMAIL configuration
+    </file>
+    <file path="api/cmd/api/main.go" action="modify">
+      Route registration for request endpoints
+    </file>
+  </key-files>
+
+  <api-endpoints>
+    <endpoint method="POST" path="/api/v1/publisher/zmanim/request">
+      <purpose>Create new zman registry request</purpose>
+      <required-fields>hebrew_name, english_name, justification</required-fields>
+      <optional-fields>
+        transliteration, time_category, formula_dsl, description,
+        halachic_notes, halachic_source, existing_tag_ids, new_tag_requests,
+        auto_add_on_approval
+      </optional-fields>
+      <response>201 Created with request details</response>
+    </endpoint>
+
+    <endpoint method="GET" path="/api/v1/publisher/zmanim/requests">
+      <purpose>List publisher's own requests</purpose>
+      <response>Array of requests sorted by created_at desc</response>
+    </endpoint>
+
+    <endpoint method="GET" path="/api/v1/publisher/zmanim/requests/{id}">
+      <purpose>Get specific request details</purpose>
+      <response>Full request with tags and status</response>
+    </endpoint>
+  </api-endpoints>
+
+  <request-shape>
+    <go>
+type CreateZmanRequestInput struct {
+    HebrewName         string   `json:"hebrew_name" validate:"required"`
+    EnglishName        string   `json:"english_name" validate:"required"`
+    Justification      string   `json:"justification" validate:"required"`
+    Transliteration    *string  `json:"transliteration"`
+    TimeCategory       *string  `json:"time_category"` // dawn, morning, midday, afternoon, evening, night
+    FormulaDSL         *string  `json:"formula_dsl"`
+    Description        *string  `json:"description"`
+    HalachicNotes      *string  `json:"halachic_notes"`
+    HalachicSource     *string  `json:"halachic_source"`
+    ExistingTagIDs     []string `json:"existing_tag_ids"`
+    NewTagRequests     []NewTagRequestInput `json:"new_tag_requests"`
+    AutoAddOnApproval  *bool    `json:"auto_add_on_approval"` // default true
+}
+
+type NewTagRequestInput struct {
+    Name        string `json:"name" validate:"required"`
+    TagType     string `json:"tag_type" validate:"required,oneof=event timing behavior shita method"`
+    Description string `json:"description"`
+}
+    </go>
+  </request-shape>
+
+  <formula-validation>
+    <note>If formula_dsl provided, validate using existing DSL parser</note>
+    <note>Validation errors don't block request creation</note>
+    <note>Store formula_valid boolean AND validation_error message</note>
+    <note>Helps admin understand what needs fixing</note>
+  </formula-validation>
+
+  <tag-support>
+    <existing-tags>Array of UUIDs referencing zman_tags table</existing-tags>
+    <new-tags>Array of {name, tag_type, description} for proposing new tags</new-tags>
+    <storage>Saved to zman_request_tags table</storage>
+    <tag-types>event, timing, behavior, shita, method</tag-types>
+  </tag-support>
+
+  <email-notifications>
+    <template name="zman-request-submitted">
+      To: Publisher
+      Subject: "Zman Request Submitted"
+      Body: Confirmation of submission
+    </template>
+    <template name="admin-new-zman-request">
+      To: Admin (from ADMIN_NOTIFICATION_EMAIL env var)
+      Subject: "New Zman Request: {zmanName}"
+      Body: Publisher name, zman name, direct link to review page
+    </template>
+    <note>Emails sent asynchronously (goroutine)</note>
+  </email-notifications>
+
+  <configuration>
+    <env-var name="ADMIN_NOTIFICATION_EMAIL">
+      Email address for admin notifications
+      Add to api/internal/config/config.go
+      Default to no-reply address for development
+    </env-var>
+  </configuration>
+
+  <commands>
+    <command purpose="Generate SQLc">cd api && sqlc generate</command>
+    <command purpose="Build">cd api && go build ./...</command>
+    <command purpose="Test">cd api && go test ./...</command>
+    <command purpose="Restart">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>POST endpoint creates request with all fields</item>
+    <item>Only hebrew_name, english_name, justification required</item>
+    <item>Tag support works (existing + new tag requests)</item>
+    <item>Formula validation runs but doesn't block</item>
+    <item>Store validation_error message (not just boolean)</item>
+    <item>Email sent to publisher on submission</item>
+    <item>Email sent to admin with review link</item>
+    <item>ADMIN_NOTIFICATION_EMAIL configured via env var</item>
+    <item>GET endpoints return request details</item>
+    <item>Routes registered with auth middleware</item>
+  </acceptance-checklist>
+</story-context>

@@ -1,0 +1,47 @@
+# Gitleaks configuration for Shtetl Zmanim
+# See: https://github.com/gitleaks/gitleaks
+
+title = "Gitleaks Configuration for Shtetl Zmanim"
+
+[extend]
+# Use default gitleaks rules
+useDefault = true
+
+[allowlist]
+description = "Allowlist for false positives"
+
+# Paths to exclude from scanning
+paths = [
+  '''\.env\.example$''',
+  '''\.env\.local\.example$''',
+  '''^docs/''',
+  '''^README\.md$''',
+  '''^CLAUDE\.md$''',
+  '''^api/internal/db/sqlcgen/''',
+  '''^infrastructure/cdk\.out/''',
+  '''^web/node_modules/''',
+  '''^api/vendor/''',
+  '''^tests/test-results/''',
+  '''^\.git/''',
+]
+
+# Regexes to exclude from scanning (example placeholders, test data)
+regexes = [
+  '''(sk|pk)_test_[a-zA-Z0-9]{24,}''',  # Clerk test keys
+  '''YOUR_.*_KEY''',                     # Placeholder text
+  '''EXAMPLE_SECRET''',                  # Documentation examples
+  '''<.*>''',                            # Template variables
+  '''CHANGE_ME''',                       # Placeholder text
+  '''postgresql://zmanim_test:zmanim_test_password@localhost''',  # Local test DB
+]
+
+# Stopwords - prevent false positives on common words
+stopwords = [
+  "github",
+  "example",
+  "test",
+  "sample",
+  "demo",
+  "placeholder",
+  "changeme",
+]

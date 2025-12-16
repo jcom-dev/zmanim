@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-10-publisher-logo-editor" epic="5" generated="2025-12-02">
+  <summary>
+    Logo upload with crop/zoom editor for publishers.
+    Logo becomes mandatory for verified status, displayed on publisher cards.
+  </summary>
+
+  <key-files>
+    <file path="web/components/publisher/LogoEditor.tsx" action="create">
+      Image upload with crop/zoom functionality
+    </file>
+    <file path="web/app/publisher/profile/page.tsx" action="modify">
+      Integration point for logo editor
+    </file>
+    <file path="api/internal/handlers/publisher_logo.go" action="create">
+      Logo upload endpoint with image processing
+    </file>
+    <file path="api/internal/services/storage_service.go" action="modify">
+      Image storage (local or cloud)
+    </file>
+  </key-files>
+
+  <frontend-components>
+    <component name="LogoEditor">
+      <features>
+        <feature>File input accepting image/* types</feature>
+        <feature>Crop tool with aspect ratio (1:1 square)</feature>
+        <feature>Zoom slider for fine adjustment</feature>
+        <feature>Preview of cropped result</feature>
+        <feature>Save/Cancel buttons</feature>
+      </features>
+      <libraries>
+        <option name="react-image-crop">Popular, well-maintained</option>
+        <option name="react-easy-crop">Simpler API</option>
+        <option name="cropperjs">Full-featured</option>
+      </libraries>
+    </component>
+
+    <component name="LogoDisplay">
+      <purpose>Show logo on publisher cards and profile</purpose>
+      <fallback>Initials or default icon if no logo</fallback>
+      <sizes>
+        <size name="thumbnail">32x32px for cards</size>
+        <size name="medium">64x64px for profile</size>
+        <size name="large">128x128px for public page</size>
+      </sizes>
+    </component>
+  </frontend-components>
+
+  <backend-api>
+    <endpoint method="POST" path="/api/v1/publisher/logo">
+      <purpose>Upload and save cropped logo</purpose>
+      <content-type>multipart/form-data</content-type>
+      <field name="logo">Image file (PNG, JPG, WebP)</field>
+      <processing>
+        <step>Validate file type and size (max 5MB)</step>
+        <step>Resize to standard dimensions (256x256)</step>
+        <step>Convert to WebP for efficiency</step>
+        <step>Store with publisher ID in filename</step>
+        <step>Update publisher record with logo_url</step>
+      </processing>
+      <response>{ "logo_url": "https://..." }</response>
+    </endpoint>
+
+    <endpoint method="DELETE" path="/api/v1/publisher/logo">
+      <purpose>Remove logo</purpose>
+      <response>204 No Content</response>
+    </endpoint>
+  </backend-api>
+
+  <storage-options>
+    <option name="local">
+      Store in /uploads/logos/ directory
+      Serve via static file handler
+      Good for development
+    </option>
+    <option name="cloud">
+      Upload to Supabase Storage or S3
+      Return CDN URL
+      Better for production
+    </option>
+    <note>Start with local, upgrade to cloud later</note>
+  </storage-options>
+
+  <database-schema>
+    <migration>
+      ALTER TABLE publishers ADD COLUMN IF NOT EXISTS logo_url TEXT;
+    </migration>
+    <sqlc-query name="UpdatePublisherLogo">
+      UPDATE publishers SET logo_url = $2, updated_at = NOW()
+      WHERE id = $1
+      RETURNING logo_url;
+    </sqlc-query>
+  </database-schema>
+
+  <verification-requirement>
+    <rule>Logo becomes mandatory for 'verified' status</rule>
+    <display>
+      Profile page shows warning if no logo
+      Verification request blocked without logo
+    </display>
+    <existing-publishers>
+      Grace period: existing verified publishers not affected immediately
+      Show gentle reminder to add logo
+    </existing-publishers>
+  </verification-requirement>
+
+  <ui-integration>
+    <profile-page>
+      Logo editor section at top of profile
+      Current logo preview with "Change" button
+      "Remove logo" option if logo exists
+    </profile-page>
+    <publisher-cards>
+      Show logo thumbnail (32x32) next to publisher name
+      Fallback to initials avatar if no logo
+    </publisher-cards>
+    <public-pages>
+      Show logo on publisher's public zmanim page
+    </public-pages>
+  </ui-integration>
+
+  <image-requirements>
+    <format>PNG, JPG, WebP accepted</format>
+    <max-size>5MB upload limit</max-size>
+    <output-size>256x256px stored</output-size>
+    <aspect-ratio>1:1 (square, enforced by crop tool)</aspect-ratio>
+  </image-requirements>
+
+  <commands>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Build backend">cd api && go build ./...</command>
+    <command purpose="Run migration">./scripts/migrate.sh</command>
+    <command purpose="Restart">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>LogoEditor component with crop/zoom</item>
+    <item>1:1 aspect ratio enforced</item>
+    <item>Upload endpoint processes and stores image</item>
+    <item>Logo URL saved to publisher record</item>
+    <item>Logo displays on profile page</item>
+    <item>Logo displays on publisher cards</item>
+    <item>Fallback to initials when no logo</item>
+    <item>Delete logo functionality works</item>
+    <item>File size validation (5MB max)</item>
+    <item>Warning shown when logo required for verification</item>
+  </acceptance-checklist>
+</story-context>

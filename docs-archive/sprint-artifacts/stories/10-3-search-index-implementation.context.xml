@@ -1,0 +1,115 @@
+<story-context id="10-3-search-index-implementation" v="1.0">
+  <metadata>
+    <epicId>10</epicId>
+    <storyId>3</storyId>
+    <title>Search Index Implementation</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-16</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/10-3-search-index-implementation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user searching for a location</asA>
+    <iWant>fast, accurate search across all languages</iWant>
+    <soThat>I can find cities/neighborhoods by name in my preferred language</soThat>
+    <tasks>
+      <task id="1">Verify geo_search_index table is populated with all localities after import</task>
+      <task id="2">Verify keywords array contains names in ALL languages (Hebrew, Arabic, Russian, etc.)</task>
+      <task id="3">Verify ancestor names (region, country) are included in keywords array</task>
+      <task id="4">Test exact keyword search with GIN index (English, Hebrew, Arabic)</task>
+      <task id="5">Test fuzzy trigram search for typo tolerance</task>
+      <task id="6">Test ancestor search (search "new york" returns city AND neighborhoods)</task>
+      <task id="7">Implement SearchLocalities SQLc query with tiered ranking</task>
+      <task id="8">Verify geo_hierarchy_populations has correct aggregated populations</task>
+      <task id="9">Verify refresh_geo_search_index() function works and completes in &lt;5 minutes</task>
+      <task id="10">Verify display_names JSONB contains localized names</task>
+      <task id="11">Performance testing: exact search &lt;5ms, fuzzy search &lt;30ms</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">geo_search_index contains entries for all 500k+ localities</criterion>
+    <criterion id="AC2">Exact keyword search works for English, Hebrew, Arabic</criterion>
+    <criterion id="AC3">Fuzzy trigram search catches typos (brookln → Brooklyn)</criterion>
+    <criterion id="AC4">Ancestor search works (search "new york" returns NYC and its neighborhoods)</criterion>
+    <criterion id="AC5">SearchLocalities SQLc query with tiered ranking (exact → fuzzy → population)</criterion>
+    <criterion id="AC6">geo_hierarchy_populations has correct aggregated populations for regions/countries</criterion>
+    <criterion id="AC7">refresh_geo_search_index() completes in &lt;5 minutes for 500k localities</criterion>
+    <criterion id="AC8">Performance: exact keyword search &lt;5ms, fuzzy search &lt;30ms</criterion>
+    <criterion id="AC9">display_names JSONB populated ({"en": "Jerusalem", "he": "ירושלים", "ar": "القدس"})</criterion>
+    <criterion id="AC10">Entity type filter works (can filter to localities only)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-artifacts/epic-10-tech-spec.md" title="Epic 10 Tech Spec" section="Search Implementation" snippet="Tiered search query with exact keyword matches (Tier 1) and fuzzy trigram matches (Tier 2). Ranking by name_match_bonus, matched_terms, population." />
+      <doc path="docs/refactoring/import-from-overture.md" title="Overture Migration Plan" section="Phase 3: Search Index Design" snippet="geo_search_index table with keywords TEXT[] containing ALL language names from entity and ancestors. GIN index for exact match, trigram GIN for fuzzy." />
+      <doc path="docs/coding-standards.md" title="Coding Standards" section="Backend Standards" snippet="SQLc for all queries (no raw SQL). Handler pattern with 6 steps." />
+    </docs>
+    <code>
+      <file path="api/internal/db/queries/geo_names.sql" kind="sqlc-query" symbol="SearchLocationsUnified" lines="1-188" reason="Current search query using materialized view - will be replaced by new tiered search" />
+      <file path="api/internal/handlers/locations.go" kind="handler" symbol="SearchLocations" lines="1-289" reason="Current search handler - will use new SearchLocalities query" />
+      <file path="db/migrations/00000000000003_overture_schema.sql" kind="migration" symbol="geo_search_index" reason="Search index table definition and refresh function" />
+    </code>
+    <dependencies>
+      <postgres>
+        <extension name="pg_trgm" purpose="Trigram similarity for fuzzy search" />
+        <function name="similarity()" purpose="Calculate trigram similarity score" />
+        <operator name="%" purpose="Trigram similarity operator with threshold" />
+      </postgres>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Search index MUST include names from ALL languages (not just English)</constraint>
+    <constraint>Keywords array MUST include ancestor names (region, country in all languages)</constraint>
+    <constraint>Tiered ranking: exact matches first, then fuzzy, then by population within tier</constraint>
+    <constraint>name_match_bonus: entity's own name match ranks higher than ancestor match</constraint>
+    <constraint>Trigram similarity threshold: 0.3 (configurable via pg_trgm.similarity_threshold)</constraint>
+    <constraint>Performance: exact search &lt;5ms, fuzzy search &lt;30ms (verified with EXPLAIN ANALYZE)</constraint>
+    <constraint>Index refresh: &lt;5 minutes for 500k localities</constraint>
+    <constraint>EXPLAIN ANALYZE must show index usage (GIN keywords, GIN trigram)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="SearchLocalities SQLc Query" kind="sqlc-query">
+      <signature>
+        -- name: SearchLocalities :many
+        -- Input: query string, entity_types text[], country_id int, region_id int, limit_val int
+        -- Output: entity_type, entity_id, locality_id, display_name, display_hierarchy, display_names,
+        --         locality_type_id, region_id, country_id, country_code, population, latitude, longitude,
+        --         timezone, matched_terms, name_match_bonus, tier
+        -- Tiers: 1 = exact keyword match, 2 = fuzzy trigram match
+        -- Ranking: tier ASC, name_match_bonus DESC, matched_terms DESC, population DESC
+      </signature>
+      <path>api/internal/db/queries/localities.sql</path>
+    </interface>
+    <interface name="refresh_geo_search_index() function" kind="sql-function">
+      <signature>
+        CREATE OR REPLACE FUNCTION refresh_geo_search_index() RETURNS void
+        -- Truncates geo_search_index, rebuilds with recursive CTEs for hierarchy
+        -- Includes keywords from locality, all ancestor regions, and country in ALL languages
+      </signature>
+      <path>db/migrations/00000000000003_overture_schema.sql</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>SQL verification queries with timing. EXPLAIN ANALYZE for performance validation. Multi-language search verification.</standards>
+    <locations>
+      <location>Inline SQL verification queries</location>
+      <location>api/internal/handlers/localities_test.go (integration tests)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">SELECT COUNT(*) FROM geo_search_index WHERE entity_type = 'locality'; -- Expected: 500k+</idea>
+      <idea ac="AC2">SELECT * FROM geo_search_index WHERE keywords @> ARRAY['ירושלים']; -- Hebrew search</idea>
+      <idea ac="AC2">SELECT * FROM geo_search_index WHERE keywords @> ARRAY['القدس']; -- Arabic search</idea>
+      <idea ac="AC3">SET pg_trgm.similarity_threshold = 0.3; SELECT * FROM geo_search_index WHERE display_name % 'brookln'; -- Fuzzy</idea>
+      <idea ac="AC4">SELECT * FROM geo_search_index WHERE keywords @> ARRAY['new york'] ORDER BY CASE WHEN display_name ILIKE '%new york%' THEN 0 ELSE 1 END, population DESC LIMIT 10;</idea>
+      <idea ac="AC7">\timing on; SELECT refresh_geo_search_index(); -- Expected: &lt;5 minutes</idea>
+      <idea ac="AC8">EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM geo_search_index WHERE keywords @> ARRAY['london']; -- Expected: Index Scan, &lt;5ms</idea>
+      <idea ac="AC9">SELECT display_names FROM geo_search_index WHERE display_name = 'Jerusalem'; -- Expected: {"en": "Jerusalem", "he": "ירושלים"}</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,364 @@
+name: PR Checks
+
+# Runs lint, typecheck, and tests on pull requests to dev
+# Production deployments are handled by deploy-prod-*.yml workflows
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  # SQLc validation - Fail fast on database query issues
+  sqlc-validation:
+    name: SQLc Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: api/go.sum
+
+      - name: Install SQLc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+      - name: SQLc Compile Check
+        run: |
+          echo "Validating SQL queries..."
+          sqlc compile
+
+      - name: SQLc Generate Check
+        run: |
+          echo "Checking if generated code is up to date..."
+          sqlc generate
+          if ! git diff --exit-code internal/db/sqlcgen/; then
+            echo ""
+            echo "❌ ERROR: SQLc generated code is out of sync!"
+            echo ""
+            echo "To fix locally:"
+            echo "  cd api && sqlc generate"
+            echo "  git add internal/db/sqlcgen/"
+            echo "  git commit -m \"chore: regenerate SQLc code\""
+            echo ""
+            echo "See: docs/coding-standards.md#sqlc-workflow"
+            exit 1
+          fi
+          echo "✅ SQLc generated code is up to date"
+
+  # Code quality - Zero tolerance enforcement
+  code-quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for TODO markers
+        run: |
+          echo "Checking for TODO markers (ZERO TOLERANCE)..."
+          if grep -r "// TODO\|TODO:" web/ api/ --include="*.tsx" --include="*.ts" --include="*.go" 2>/dev/null | grep -v node_modules; then
+            echo ""
+            echo "❌ ZERO TOLERANCE VIOLATION: Found TODO comments"
+            echo ""
+            echo "This violates the clean code policy."
+            echo ""
+            echo "To fix:"
+            echo "  1. Complete the work or create a story"
+            echo "  2. Delete the TODO comment"
+            echo "  3. Re-run: npm run type-check && go test ./..."
+            echo ""
+            echo "See: docs/coding-standards.md#clean-code-policy"
+            exit 1
+          fi
+          echo "✅ No TODO markers found"
+
+      - name: Check for FIXME markers
+        run: |
+          echo "Checking for FIXME markers (ZERO TOLERANCE)..."
+          if grep -r "FIXME" web/ api/ --include="*.tsx" --include="*.ts" --include="*.go" 2>/dev/null | grep -v node_modules; then
+            echo ""
+            echo "❌ ZERO TOLERANCE VIOLATION: Found FIXME comments"
+            echo ""
+            echo "See: docs/coding-standards.md#clean-code-policy"
+            exit 1
+          fi
+          echo "✅ No FIXME markers found"
+
+      - name: Check for Legacy/DEPRECATED comment markers
+        run: |
+          echo "Checking for Legacy/DEPRECATED comment markers..."
+          if grep -r "// Legacy\|// DEPRECATED\|@deprecated\|/\* Legacy\|/\* DEPRECATED" web/ api/ --include="*.tsx" --include="*.ts" --include="*.go" 2>/dev/null | grep -v node_modules | grep -v "sqlcgen"; then
+            echo ""
+            echo "❌ ZERO TOLERANCE VIOLATION: Found Legacy/DEPRECATED comment markers"
+            echo ""
+            echo "See: docs/coding-standards.md#clean-code-policy"
+            exit 1
+          fi
+          echo "✅ No Legacy/DEPRECATED comment markers found"
+
+      - name: Check for raw fetch() calls
+        run: |
+          echo "Checking for raw fetch() calls (must use useApi())..."
+          if grep -r "await fetch\(" web/app web/components --include="*.tsx" --include="*.ts" 2>/dev/null | grep -v "api-client.ts" | grep -v node_modules; then
+            echo ""
+            echo "❌ VIOLATION: Found raw fetch() calls"
+            echo ""
+            echo "To fix: Use the unified API client"
+            echo "  const api = useApi();"
+            echo "  await api.get('/endpoint');"
+            echo ""
+            echo "See: docs/coding-standards.md#raw-fetch-in-components"
+            exit 1
+          fi
+          echo "✅ No raw fetch() calls found"
+
+      - name: Check for log.Printf/fmt.Printf in backend
+        run: |
+          echo "Checking for log.Printf/fmt.Printf (must use slog)..."
+          if grep -r "log\.Printf\|fmt\.Printf" api/internal --include="*.go" --exclude="*_test.go" 2>/dev/null; then
+            echo ""
+            echo "❌ VIOLATION: Found log.Printf/fmt.Printf calls in non-test code"
+            echo ""
+            echo "To fix: Use structured logging (slog)"
+            echo "  slog.Info(\"message\", \"key\", value)"
+            echo ""
+            exit 1
+          fi
+          echo "✅ No log.Printf/fmt.Printf calls found (test files excluded)"
+
+  # Security scanning - Vulnerability detection
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for secret scanning
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: api/go.sum
+
+      - name: Go Vulnerability Check
+        run: |
+          echo "Scanning Go dependencies for vulnerabilities..."
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          cd api && govulncheck ./...
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: NPM Audit
+        working-directory: web
+        run: |
+          echo "Auditing NPM dependencies..."
+          npm audit --audit-level=moderate || echo "⚠️  NPM audit found issues (non-blocking)"
+        continue-on-error: true
+
+      - name: Secret Detection (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # Type sync validation - Ensures frontend/backend type consistency
+  type-sync:
+    name: Type Sync Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: api/go.sum
+
+      - name: Install SQLc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Web Dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Run Type Sync Validation
+        run: |
+          chmod +x ./scripts/verify-type-sync.sh
+          ./scripts/verify-type-sync.sh
+
+  # Frontend checks
+  web:
+    needs: [code-quality]
+    name: Web CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.DEV_CLERK_PUBLISHABLE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  # Backend checks
+  api:
+    needs: [sqlc-validation, code-quality]
+    name: API CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    env:
+      DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+      OPENAI_API_KEY: ${{ secrets.DEV_OPENAI_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: api/go.sum
+
+      - name: Install GDAL (required for godal dependency)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdal-dev gdal-bin
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Build
+        run: go build -v ./...
+
+      # Note: The indexer requires a valid DATABASE_URL with embeddings table
+      # Skip in CI if not available or connection fails
+      - name: Generate RAG embeddings (optional)
+        run: |
+          if [ -n "$DATABASE_URL" ]; then
+            go run cmd/indexer/main.go || echo "Indexer skipped - database not available"
+          else
+            echo "DATABASE_URL not set - skipping indexer"
+          fi
+
+      - name: Test with coverage
+        run: |
+          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 5" | bc -l) )); then
+            echo "Coverage ${COVERAGE}% is below 5% threshold"
+            exit 1
+          fi
+
+      - name: Static analysis (golangci-lint)
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          working-directory: api
+          args: --timeout 5m
+
+  # ============================================================================
+  # WORKFLOW EXECUTION STRATEGY (Epic 9 - Story 9.9)
+  # ============================================================================
+  #
+  # Job Dependency Graph (Fail-Fast Strategy):
+  #
+  #   [sqlc-validation] ────┐
+  #                         ├───> [api]
+  #   [code-quality] ───────┤
+  #                         └───> [web]
+  #
+  #   [security-scan] (runs in parallel with web/api)
+  #
+  # 1. FAIL FAST: sqlc-validation and code-quality run first
+  #    - Quick checks that catch common errors
+  #    - No dependencies, run in parallel
+  #    - If these fail, other jobs don't run (saves CI time)
+  #
+  # 2. PARALLEL EXECUTION: web and api run in parallel after initial checks
+  #    - web depends on code-quality only
+  #    - api depends on both sqlc-validation and code-quality
+  #    - security-scan runs independently in parallel
+  #
+  # 3. CACHING: All jobs use GitHub Actions caching
+  #    - npm cache: keyed on web/package-lock.json
+  #    - Go module cache: keyed on api/go.sum
+  #    - Speeds up CI by ~2-3 minutes
+  #
+  # 4. TARGET TIMES:
+  #    - sqlc-validation: <30 seconds
+  #    - code-quality: <1 minute
+  #    - web: ~3-4 minutes
+  #    - api: ~4-5 minutes
+  #    - security-scan: ~2 minutes
+  #    - Total: <10 minutes (parallel execution)
+  #
+  # 5. E2E TESTS: Run in separate workflow (pr-e2e.yml)
+  #    - Requires PostgreSQL 17 + Redis services
+  #    - Full stack integration testing
+  #    - Longer timeout (30 minutes)
+  #    - Runs in parallel with PR checks
+  #
+  # See: docs/sprint-artifacts/stories/9-9-github-actions-ci-validation.md

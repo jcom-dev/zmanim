@@ -1,0 +1,474 @@
+<story-context id="6-2-extract-shared-hooks" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>2</storyId>
+    <title>Extract Shared Hooks &amp; Utilities</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/6-2-extract-shared-hooks.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>shared React hooks for common patterns (location search, map initialization, error handling)</iWant>
+    <soThat>components don't duplicate logic, maintenance is easier, and code reuse increases</soThat>
+    <tasks>
+      <task id="1" status="pending">
+        <title>Create useLocationSearch Hook</title>
+        <ac>AC-6.2.1</ac>
+        <subtasks>
+          <subtask>Create web/lib/hooks/useLocationSearch.ts</subtask>
+          <subtask>Accept endpoint, debounceMs, filters options</subtask>
+          <subtask>Use useDebounce for query debouncing</subtask>
+          <subtask>Use useApi for API calls</subtask>
+          <subtask>Manage loading and error states</subtask>
+          <subtask>Cancel pending requests on unmount</subtask>
+          <subtask>Add JSDoc comments</subtask>
+          <subtask>Export hook</subtask>
+        </subtasks>
+      </task>
+      <task id="2" status="pending">
+        <title>Create useMapPreview Hook</title>
+        <ac>AC-6.2.2</ac>
+        <subtasks>
+          <subtask>Create web/lib/hooks/useMapPreview.ts</subtask>
+          <subtask>Initialize MapLibre GL map</subtask>
+          <subtask>Handle map cleanup on unmount</subtask>
+          <subtask>Provide addMarker helper</subtask>
+          <subtask>Provide addBoundary helper</subtask>
+          <subtask>Add JSDoc comments</subtask>
+          <subtask>Export hook</subtask>
+        </subtasks>
+      </task>
+      <task id="3" status="pending">
+        <title>Create Error Handler Utility</title>
+        <ac>AC-6.2.3</ac>
+        <subtasks>
+          <subtask>Create web/lib/utils/errorHandler.ts</subtask>
+          <subtask>Implement handleApiError function</subtask>
+          <subtask>Extract error message from API response</subtask>
+          <subtask>Log to console in dev mode</subtask>
+          <subtask>Show toast notification</subtask>
+          <subtask>Handle network errors</subtask>
+          <subtask>Add JSDoc comments</subtask>
+          <subtask>Export function</subtask>
+        </subtasks>
+      </task>
+      <task id="4" status="pending">
+        <title>Update LocationSearch Component</title>
+        <ac>AC-6.2.4</ac>
+        <subtasks>
+          <subtask>Replace inline debouncing with useLocationSearch</subtask>
+          <subtask>Remove manual useEffect for debouncing</subtask>
+          <subtask>Replace error handling with handleApiError</subtask>
+          <subtask>Test component functionality</subtask>
+        </subtasks>
+      </task>
+      <task id="5" status="pending">
+        <title>Update CoverageSearchPanel Component</title>
+        <ac>AC-6.2.4</ac>
+        <subtasks>
+          <subtask>Replace inline debouncing with useLocationSearch</subtask>
+          <subtask>Remove manual useEffect for debouncing</subtask>
+          <subtask>Replace error handling with handleApiError</subtask>
+          <subtask>Test component functionality</subtask>
+        </subtasks>
+      </task>
+      <task id="6" status="pending">
+        <title>Update PrimitivesTable Component</title>
+        <ac>AC-6.2.4</ac>
+        <subtasks>
+          <subtask>Replace inline debouncing with useDebounce</subtask>
+          <subtask>Simplify search logic</subtask>
+          <subtask>Test component functionality</subtask>
+        </subtasks>
+      </task>
+      <task id="7" status="pending">
+        <title>Update CoveragePreviewMap Component</title>
+        <ac>AC-6.2.4</ac>
+        <subtasks>
+          <subtask>Replace inline map init with useMapPreview</subtask>
+          <subtask>Remove manual map cleanup logic</subtask>
+          <subtask>Use addMarker and addBoundary helpers</subtask>
+          <subtask>Test component functionality</subtask>
+        </subtasks>
+      </task>
+      <task id="8" status="pending">
+        <title>Validation</title>
+        <ac>AC-6.2.5</ac>
+        <subtasks>
+          <subtask>Run npm run type-check</subtask>
+          <subtask>Run npm run lint</subtask>
+          <subtask>Test coverage page</subtask>
+          <subtask>Test algorithm page</subtask>
+          <subtask>Test onboarding</subtask>
+          <subtask>Test error scenarios</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-6.2.1" title="Create useLocationSearch Hook">
+      <requirement>Create web/lib/hooks/useLocationSearch.ts</requirement>
+      <requirement>Hook accepts: endpoint, debounceMs, filters options</requirement>
+      <requirement>Hook returns: query, setQuery, results, loading, error</requirement>
+      <requirement>Uses existing useDebounce hook internally</requirement>
+      <requirement>Makes API calls using useApi hook</requirement>
+      <requirement>Handles loading and error states</requirement>
+      <requirement>Cancels pending requests when query changes</requirement>
+    </criterion>
+    <criterion id="AC-6.2.2" title="Create useMapPreview Hook">
+      <requirement>Create web/lib/hooks/useMapPreview.ts</requirement>
+      <requirement>Hook accepts: containerId, initialCenter, initialZoom options</requirement>
+      <requirement>Hook returns: map, loading, error, addMarker, addBoundary</requirement>
+      <requirement>Initializes MapLibre GL map</requirement>
+      <requirement>Handles map cleanup on unmount</requirement>
+      <requirement>Provides helpers for adding markers and boundaries</requirement>
+      <requirement>Uses MapLibre GL (not Mapbox GL)</requirement>
+    </criterion>
+    <criterion id="AC-6.2.3" title="Create Error Handler Utility">
+      <requirement>Create web/lib/utils/errorHandler.ts</requirement>
+      <requirement>Export handleApiError(error, userMessage?) function</requirement>
+      <requirement>Logs errors to console in dev mode</requirement>
+      <requirement>Shows toast notification with user-friendly message</requirement>
+      <requirement>Extracts error message from API response format</requirement>
+      <requirement>Handles network errors gracefully</requirement>
+    </criterion>
+    <criterion id="AC-6.2.4" title="Update Components to Use New Hooks">
+      <requirement>Replace inline debouncing in LocationSearch with useLocationSearch</requirement>
+      <requirement>Replace inline debouncing in CoverageSearchPanel with useLocationSearch</requirement>
+      <requirement>Replace inline debouncing in PrimitivesTable with useDebounce</requirement>
+      <requirement>Replace inline map init in CoveragePreviewMap with useMapPreview</requirement>
+      <requirement>Replace inline error handling with handleApiError across all components</requirement>
+    </criterion>
+    <criterion id="AC-6.2.5" title="Verify All Components Work">
+      <requirement>Run npm run type-check - must pass</requirement>
+      <requirement>Run npm run lint - must pass</requirement>
+      <requirement>Test coverage page - location search works</requirement>
+      <requirement>Test algorithm page - location search works</requirement>
+      <requirement>Test onboarding - map preview works</requirement>
+      <requirement>Test error scenarios - toast messages appear</requirement>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/coding-standards.md">
+        <purpose>Coding standards and patterns</purpose>
+        <relevantSections>
+          <section>Frontend Standards - Component Pattern (lines 182-203)</section>
+          <section>Design Tokens (MANDATORY) (lines 205-215)</section>
+          <section>React Query Pattern (lines 38-41)</section>
+          <section>Clerk Auth - MUST check isLoaded first (lines 43-48)</section>
+          <section>Testing Standards - Parallel Execution (lines 377-410)</section>
+        </relevantSections>
+      </doc>
+      <doc path="docs/sprint-artifacts/stories/6-2-extract-shared-hooks.md">
+        <purpose>Full story specification</purpose>
+        <relevantSections>
+          <section>Background - Problem statements (lines 19-49)</section>
+          <section>Dev Notes - Hook implementations (lines 162-338)</section>
+          <section>Coding Standards reference (lines 340-348)</section>
+        </relevantSections>
+      </doc>
+      <doc path="CLAUDE.md">
+        <purpose>Project overview and tech stack</purpose>
+        <relevantSections>
+          <section>Tech Stack (lines 13-18)</section>
+          <section>DSL Formula Syntax (lines 24-32)</section>
+          <section>Frontend API Pattern (lines 82-85)</section>
+        </relevantSections>
+      </doc>
+    </docs>
+    <code>
+      <component path="web/lib/api-client.ts">
+        <purpose>Unified API client with useApi hook</purpose>
+        <keyFeatures>
+          <feature>useApi hook for authenticated requests (lines 312-345)</feature>
+          <feature>ApiError class with type guards (lines 51-77)</feature>
+          <feature>Request cancellation with AbortController (lines 165-167)</feature>
+          <feature>Error message extraction (lines 178-193)</feature>
+        </keyFeatures>
+        <usagePattern>
+          const api = useApi();
+          await api.get('/endpoint');
+          await api.public.get('/public-endpoint');
+        </usagePattern>
+      </component>
+      <component path="web/components/shared/LocationSearch.tsx">
+        <purpose>Location search component with inline debouncing</purpose>
+        <duplicatePatterns>
+          <pattern>useEffect with setTimeout for debouncing (lines 138-232)</pattern>
+          <pattern>API call with error handling (lines 159-228)</pattern>
+          <pattern>AbortController for request cancellation (lines 195-223)</pattern>
+        </duplicatePatterns>
+        <linesToRefactor>
+          <line>111-118: useState declarations for search state</line>
+          <line>138-232: Debounced search useEffect - REPLACE with useLocationSearch</line>
+          <line>223-226: Error handling - REPLACE with handleApiError</line>
+        </linesToRefactor>
+      </component>
+      <component path="web/components/shared/CoverageSearchPanel.tsx">
+        <purpose>Coverage search panel with inline debouncing</purpose>
+        <duplicatePatterns>
+          <pattern>useEffect with setTimeout for debouncing (lines 116-144)</pattern>
+          <pattern>API call with error handling (lines 122-141)</pattern>
+        </duplicatePatterns>
+        <linesToRefactor>
+          <line>91-99: useState declarations for search state</line>
+          <line>116-144: Debounced search useEffect - REPLACE with useLocationSearch</line>
+          <line>136-137: Error handling - REPLACE with handleApiError</line>
+        </linesToRefactor>
+      </component>
+      <component path="web/components/shared/PrimitivesTable.tsx">
+        <purpose>Primitives table with fetch logic</purpose>
+        <duplicatePatterns>
+          <pattern>Inline fetchPrimitives callback (lines 408-418)</pattern>
+          <pattern>Error handling with setError (lines 413-414)</pattern>
+        </duplicatePatterns>
+        <linesToRefactor>
+          <line>408-418: fetchPrimitives - could use React Query or simple error handler</line>
+          <line>413-414: Error handling - REPLACE with handleApiError</line>
+        </linesToRefactor>
+        <note>PrimitivesTable doesn't have debounced search, but has error handling to standardize</note>
+      </component>
+      <component path="web/components/shared/CoveragePreviewMap.tsx">
+        <purpose>Map preview component with inline MapLibre initialization</purpose>
+        <duplicatePatterns>
+          <pattern>MapLibre initialization useEffect (lines 137-156)</pattern>
+          <pattern>Map source/layer management (lines 159-281)</pattern>
+          <pattern>fetchFeature callback (lines 73-83)</pattern>
+        </duplicatePatterns>
+        <linesToRefactor>
+          <line>137-156: Map initialization - REPLACE with useMapPreview</line>
+          <line>159-281: Source/layer updates - SIMPLIFY with hook helpers</line>
+          <line>73-83: fetchFeature - REPLACE error handling with handleApiError</line>
+        </linesToRefactor>
+      </component>
+      <component path="web/types/geography.ts">
+        <purpose>Centralized geography type definitions (Story 6.1 deliverable)</purpose>
+        <availableTypes>
+          <type>LocationType - Geographic hierarchy levels</type>
+          <type>LocationSelection - Unified location selection interface</type>
+          <type>LocationSearchResult - Search result format</type>
+          <type>City, Country, Region, District, Continent - Entity types</type>
+          <type>CoverageItem - Lightweight map representation</type>
+          <type>Coordinates - Lat/lon interface</type>
+        </availableTypes>
+        <note>All geography types are already centralized - import from this file</note>
+      </component>
+    </code>
+    <dependencies>
+      <dependency type="story">
+        <id>6.1</id>
+        <title>Consolidate Type Definitions</title>
+        <status>completed</status>
+        <deliverable>web/types/geography.ts created with centralized types</deliverable>
+        <impact>Use LocationType, LocationSelection, LocationSearchResult from central file</impact>
+      </dependency>
+      <dependency type="npm">
+        <package>maplibre-gl</package>
+        <version>existing</version>
+        <usage>Map rendering in useMapPreview hook</usage>
+      </dependency>
+      <dependency type="npm">
+        <package>sonner</package>
+        <version>existing</version>
+        <usage>Toast notifications in handleApiError utility</usage>
+      </dependency>
+      <dependency type="internal">
+        <module>useApi hook</module>
+        <location>web/lib/api-client.ts</location>
+        <usage>API calls in useLocationSearch hook</usage>
+      </dependency>
+      <dependency type="tbd">
+        <module>useDebounce hook</module>
+        <location>web/lib/hooks/useDebounce.ts (TO BE CREATED)</location>
+        <usage>Debouncing in useLocationSearch hook</usage>
+        <note>Story mentions "existing useDebounce hook" but file doesn't exist - must create it first</note>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <ux-design-requirement>
+      <mandate>For ALL frontend/UI work, use the frontend_design skill for distinctive, production-grade interfaces</mandate>
+      <file>.claude/skills/frontend_design.md</file>
+      <guidance>Avoid generic AI aesthetics - choose bold aesthetic direction and execute with precision</guidance>
+    </ux-design-requirement>
+    <critical-requirement>
+      <mandate>MUST follow ALL standards in docs/coding-standards.md</mandate>
+      <file>docs/coding-standards.md</file>
+      <enforcement>PR blocker - violations block merges</enforcement>
+    </critical-requirement>
+    <constraint type="technical">
+      <title>No useDebounce hook exists</title>
+      <description>Story references "existing useDebounce hook" but web/lib/hooks/useDebounce.ts does not exist. Must create this hook first before implementing useLocationSearch.</description>
+      <resolution>Create useDebounce.ts as part of Task 1 prerequisites</resolution>
+    </constraint>
+    <constraint type="technical">
+      <title>MapLibre GL (not Mapbox GL)</title>
+      <description>Must use MapLibre GL library, not Mapbox GL, per coding standards</description>
+      <verification>Check imports in useMapPreview.ts - must be 'maplibre-gl'</verification>
+    </constraint>
+    <constraint type="pattern">
+      <title>useApi hook required for all API calls</title>
+      <description>All API calls must use useApi hook per coding standards - no raw fetch()</description>
+      <verification>Grep for 'fetch(' in new hooks - should return 0 results</verification>
+    </constraint>
+    <constraint type="pattern">
+      <title>Design tokens for colors</title>
+      <description>No hardcoded colors allowed - must use Tailwind design tokens</description>
+      <verification>Grep for hex colors (#) in new code - should return 0 results</verification>
+    </constraint>
+    <constraint type="pattern">
+      <title>Request cancellation required</title>
+      <description>useLocationSearch must cancel pending requests on query change to prevent race conditions</description>
+      <implementation>Use AbortController pattern from api-client.ts</implementation>
+    </constraint>
+    <constraint type="pattern">
+      <title>Cleanup effects on unmount</title>
+      <description>useMapPreview must properly cleanup map instance on unmount to prevent memory leaks</description>
+      <implementation>Return cleanup function from useEffect that calls map.remove()</implementation>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <hook name="useLocationSearch">
+      <signature>
+        useLocationSearch(options: UseLocationSearchOptions): UseLocationSearchReturn
+      </signature>
+      <input>
+        <param name="endpoint" type="string" required="true">API endpoint to search (e.g., '/cities', '/coverage/search')</param>
+        <param name="debounceMs" type="number" default="300">Debounce delay in milliseconds</param>
+        <param name="filters" type="Record&lt;string, any&gt;" default="{}">Additional query parameters for filtering</param>
+      </input>
+      <output>
+        <field name="query" type="string">Current search query string</field>
+        <field name="setQuery" type="(q: string) => void">Update search query</field>
+        <field name="results" type="any[]">Array of search results</field>
+        <field name="loading" type="boolean">Loading state</field>
+        <field name="error" type="string | null">Error message if any</field>
+      </output>
+      <behavior>
+        <step>1. User types in search input</step>
+        <step>2. setQuery updates query state</step>
+        <step>3. useDebounce delays execution by debounceMs</step>
+        <step>4. useEffect triggers API call when debouncedQuery changes</step>
+        <step>5. AbortController cancels previous request if still pending</step>
+        <step>6. API returns results, updates results state</step>
+        <step>7. On error, updates error state (caught by handleApiError in component)</step>
+      </behavior>
+    </hook>
+    <hook name="useMapPreview">
+      <signature>
+        useMapPreview(options: UseMapPreviewOptions): UseMapPreviewReturn
+      </signature>
+      <input>
+        <param name="containerId" type="string" required="true">DOM element ID for map container</param>
+        <param name="initialCenter" type="[number, number]" default="[0, 0]">Initial [lng, lat] coordinates</param>
+        <param name="initialZoom" type="number" default="2">Initial zoom level (0-22)</param>
+      </input>
+      <output>
+        <field name="map" type="maplibregl.Map | null">MapLibre map instance</field>
+        <field name="loading" type="boolean">Map loading state</field>
+        <field name="error" type="string | null">Error message if any</field>
+        <field name="addMarker" type="(lat: number, lon: number) => void">Add point marker to map</field>
+        <field name="addBoundary" type="(geojson: GeoJSON.Geometry) => void">Add polygon boundary to map</field>
+      </output>
+      <behavior>
+        <step>1. useEffect initializes MapLibre map on mount</step>
+        <step>2. Map loads basemap style from CartoDB</step>
+        <step>3. On 'load' event, sets loading to false</step>
+        <step>4. addMarker helper creates and adds marker to map</step>
+        <step>5. addBoundary helper adds GeoJSON source and layer</step>
+        <step>6. On unmount, cleanup function calls map.remove()</step>
+      </behavior>
+    </hook>
+    <function name="handleApiError">
+      <signature>
+        handleApiError(error: unknown, userMessage?: string): void
+      </signature>
+      <input>
+        <param name="error" type="unknown" required="true">Error from catch block</param>
+        <param name="userMessage" type="string" optional="true">Custom user-facing message</param>
+      </input>
+      <output>
+        <effect>Logs error to console</effect>
+        <effect>Shows toast notification with error message</effect>
+      </output>
+      <behavior>
+        <step>1. console.error logs full error object</step>
+        <step>2. Extract message from error (ApiError, Error, or generic object)</step>
+        <step>3. Use userMessage if provided, otherwise extracted message</step>
+        <step>4. Call toast.error() with final message</step>
+      </behavior>
+      <errorExtraction>
+        <pattern>if (error instanceof Error) → error.message</pattern>
+        <pattern>if (error.error?.message) → API error format</pattern>
+        <pattern>if (error.message) → generic object with message</pattern>
+        <pattern>else → userMessage or "An error occurred"</pattern>
+      </errorExtraction>
+    </function>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard>Testing Standards from docs/coding-standards.md (lines 377-410)</standard>
+      <standard>Parallel Execution (REQUIRED) - test.describe.configure({ mode: 'parallel' })</standard>
+      <standard>Shared Fixtures (REQUIRED) - Use getSharedPublisher() instead of beforeEach creation</standard>
+      <standard>No waitForTimeout - Use waitForLoadState('networkidle') or proper selectors</standard>
+      <standard>Role/text selectors preferred over CSS selectors</standard>
+    </standards>
+    <locations>
+      <location path="tests/e2e/publisher/coverage.spec.ts">
+        <purpose>Coverage page E2E tests</purpose>
+        <relevantTests>Location search functionality (verify still works after refactor)</relevantTests>
+      </location>
+      <location path="tests/e2e/publisher/algorithm.spec.ts">
+        <purpose>Algorithm page E2E tests</purpose>
+        <relevantTests>Location search functionality (verify still works after refactor)</relevantTests>
+      </location>
+      <location path="tests/e2e/publisher/onboarding.spec.ts">
+        <purpose>Publisher onboarding E2E tests</purpose>
+        <relevantTests>Map preview rendering (verify still works after refactor)</relevantTests>
+      </location>
+    </locations>
+    <ideas>
+      <unit>
+        <test>useLocationSearch debounces correctly - verify setTimeout called with correct delay</test>
+        <test>useLocationSearch cancels pending requests - verify AbortController.abort() called on query change</test>
+        <test>handleApiError extracts message from ApiError instance</test>
+        <test>handleApiError extracts message from Error instance</test>
+        <test>handleApiError extracts message from API response format {error: {message: 'x'}}</test>
+        <test>handleApiError shows toast notification - verify toast.error() called</test>
+        <test>handleApiError uses userMessage when provided</test>
+      </unit>
+      <integration>
+        <test>useLocationSearch returns results from API - mock api.get() response</test>
+        <test>useLocationSearch handles API errors - mock api.get() rejection</test>
+        <test>useLocationSearch filters results based on filters param</test>
+        <test>useMapPreview initializes map with correct style URL</test>
+        <test>useMapPreview adds marker at correct coordinates</test>
+        <test>useMapPreview adds boundary from GeoJSON</test>
+        <test>useMapPreview cleans up map on unmount - verify map.remove() called</test>
+      </integration>
+      <e2e>
+        <test>Coverage page: Location search returns results and can be selected</test>
+        <test>Coverage page: Map preview displays existing coverage (green polygons)</test>
+        <test>Coverage page: Map preview displays selected coverage (blue polygons)</test>
+        <test>Algorithm page: Location search filters by publisher coverage areas</test>
+        <test>Onboarding: Map preview renders in setup wizard</test>
+        <test>Error handling: API failure shows toast notification with user-friendly message</test>
+        <test>Error handling: Network error shows toast notification</test>
+      </e2e>
+      <regression>
+        <note>Run existing E2E test suite to verify no regressions</note>
+        <note>Focus on coverage.spec.ts, algorithm.spec.ts, onboarding.spec.ts</note>
+        <note>No new E2E tests required - this is a refactoring story</note>
+      </regression>
+    </ideas>
+  </tests>
+</story-context>

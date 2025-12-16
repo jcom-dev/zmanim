@@ -1,0 +1,407 @@
+<story-context id="6-1-consolidate-type-definitions" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>1</storyId>
+    <title>Consolidate Type Definitions</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/6-1-consolidate-type-definitions.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>centralized TypeScript type definitions for geography/location data</iWant>
+    <soThat>types are consistent across frontend and backend, reducing duplication and preventing type mismatches</soThat>
+    <tasks>
+      <task id="1" ac="6.1.1">
+        <description>Create Central Type File</description>
+        <subtasks>
+          <subtask>1.1 - Create web/types/geography.ts</subtask>
+          <subtask>1.2 - Define LocationType enum</subtask>
+          <subtask>1.3 - Define Location, City, CoverageItem interfaces</subtask>
+          <subtask>1.4 - Define Coordinates, Timezone helper types</subtask>
+          <subtask>1.5 - Add JSDoc comments for each type</subtask>
+          <subtask>1.6 - Export all types</subtask>
+        </subtasks>
+      </task>
+      <task id="2" ac="6.1.2">
+        <description>Search for All Usage Locations</description>
+        <subtasks>
+          <subtask>2.1 - Grep for LocationType definitions</subtask>
+          <subtask>2.2 - Grep for interface City definitions</subtask>
+          <subtask>2.3 - Grep for interface Location definitions</subtask>
+          <subtask>2.4 - Create list of files to update</subtask>
+        </subtasks>
+      </task>
+      <task id="3" ac="6.1.2">
+        <description>Update Component Imports</description>
+        <subtasks>
+          <subtask>3.1 - Update CoverageSearchPanel.tsx</subtask>
+          <subtask>3.2 - Update CoveragePreviewMap.tsx</subtask>
+          <subtask>3.3 - Update LocationSearch.tsx</subtask>
+          <subtask>3.4 - Update CitySelector.tsx</subtask>
+          <subtask>3.5 - Update coverage page</subtask>
+          <subtask>3.6 - Update algorithm page</subtask>
+        </subtasks>
+      </task>
+      <task id="4" ac="6.1.3">
+        <description>Remove Duplicates</description>
+        <subtasks>
+          <subtask>4.1 - Delete inline type definitions from updated files</subtask>
+          <subtask>4.2 - Verify no unused imports remain</subtask>
+        </subtasks>
+      </task>
+      <task id="5" ac="6.1.4">
+        <description>Validation</description>
+        <subtasks>
+          <subtask>5.1 - Run npm run type-check</subtask>
+          <subtask>5.2 - Run npm run lint</subtask>
+          <subtask>5.3 - Test coverage page functionality</subtask>
+          <subtask>5.4 - Test algorithm page functionality</subtask>
+          <subtask>5.5 - Test location search functionality</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="6.1.1">
+      <title>Create Central Type File</title>
+      <requirements>
+        <requirement>Create web/types/geography.ts with all location types</requirement>
+        <requirement>Define LocationType enum ('city' | 'district' | 'region' | 'country' | 'continent')</requirement>
+        <requirement>Define Location interface (unified)</requirement>
+        <requirement>Define CoverageItem interface</requirement>
+        <requirement>Define City interface with lat/lon/elevation/timezone</requirement>
+        <requirement>Define Region, Country, Continent interfaces</requirement>
+        <requirement>Define Coordinates and Timezone types</requirement>
+        <requirement>Export all types for easy import</requirement>
+      </requirements>
+    </criterion>
+    <criterion id="6.1.2">
+      <title>Update Component Imports</title>
+      <requirements>
+        <requirement>Update CoverageSearchPanel.tsx to import from web/types/geography</requirement>
+        <requirement>Update CoveragePreviewMap.tsx to import from web/types/geography</requirement>
+        <requirement>Update LocationSearch.tsx to import from web/types/geography</requirement>
+        <requirement>Update CitySelector.tsx to import from web/types/geography</requirement>
+        <requirement>Update coverage page to import from web/types/geography</requirement>
+        <requirement>Update algorithm page to import from web/types/geography</requirement>
+      </requirements>
+    </criterion>
+    <criterion id="6.1.3">
+      <title>Remove Duplicate Definitions</title>
+      <requirements>
+        <requirement>Delete inline type definitions from CoverageSearchPanel</requirement>
+        <requirement>Delete inline type definitions from LocationSearch</requirement>
+        <requirement>Delete inline type definitions from CoveragePreviewMap</requirement>
+        <requirement>Delete any other duplicate definitions found via grep</requirement>
+      </requirements>
+    </criterion>
+    <criterion id="6.1.4">
+      <title>Verify Type Integrity</title>
+      <requirements>
+        <requirement>Run npm run type-check - must pass with no errors</requirement>
+        <requirement>Run npm run lint - must pass with no warnings</requirement>
+        <requirement>All components still compile without type errors</requirement>
+      </requirements>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/coding-standards.md">
+        <relevance>CRITICAL - All implementation MUST follow coding standards</relevance>
+        <sections>
+          <section name="Frontend Standards">Component patterns, design tokens, TypeScript strict mode</section>
+          <section name="Clean Code Policy">ZERO TOLERANCE for deprecated code, single format only</section>
+          <section name="CI/Linting Fixes">Test locally before committing, run type-check and lint</section>
+        </sections>
+        <keyPoints>
+          <point>Use Tailwind design tokens for colors</point>
+          <point>Follow TypeScript strict mode</point>
+          <point>Export types explicitly (no export *)</point>
+          <point>Run npm run type-check and npm run lint before committing</point>
+        </keyPoints>
+      </doc>
+      <doc path="docs/sprint-artifacts/epic-6-cleanup-and-overrides.md">
+        <relevance>Epic context for code cleanup focus</relevance>
+        <sections>
+          <section name="Goals">60% cleanup (technical debt), 40% features</section>
+          <section name="Story 6.1">Consolidate type definitions - remove duplication</section>
+        </sections>
+      </doc>
+      <doc path="CLAUDE.md">
+        <relevance>Project structure and tech stack reference</relevance>
+        <sections>
+          <section name="Tech Stack">Next.js 16, React 19, TypeScript</section>
+          <section name="Structure">web/ directory structure, component organization</section>
+        </sections>
+      </doc>
+    </docs>
+    <code>
+      <file path="web/types/geography.ts" status="EXISTS">
+        <purpose>SINGLE SOURCE OF TRUTH - Central geography type definitions</purpose>
+        <currentState>
+          <types>
+            <type name="LocationType">Already defined: 'continent' | 'country' | 'region' | 'district' | 'city'</type>
+            <type name="CoverageLevel">Legacy type: 'country' | 'region' | 'city'</type>
+            <type name="Coordinates">interface with latitude/longitude</type>
+            <type name="City">extends Coordinates, has full geographic details</type>
+            <type name="Country">code, name, optional id</type>
+            <type name="Region">name, type, optional id/country_code</type>
+            <type name="LocationSelection">Unified selection interface used across components</type>
+            <type name="LocationSearchResult">Search result format</type>
+            <type name="CoverageItem">Lightweight map visualization type</type>
+            <type name="Coverage">Full database coverage record</type>
+          </types>
+        </currentState>
+        <action>FILE ALREADY EXISTS - Use as reference, no need to recreate</action>
+      </file>
+      <file path="web/components/shared/CoverageSearchPanel.tsx" status="NEEDS_UPDATE">
+        <purpose>Search-first coverage selection with level filtering</purpose>
+        <duplicateTypes>
+          <type line="20">export type LocationType = 'city' | 'district' | 'region' | 'country' | 'continent'</type>
+          <type line="22">export interface LocationSelection { type, id, name, description?, country_code?, latitude?, longitude? }</type>
+          <type line="32">interface SearchResult (internal)</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Add import: import { LocationType, LocationSelection } from '@/types/geography'</step>
+          <step>2. Remove lines 20-30 (duplicate type definitions)</step>
+          <step>3. Keep SearchResult as internal interface (line 32-38)</step>
+        </action>
+      </file>
+      <file path="web/components/shared/LocationSearch.tsx" status="NEEDS_UPDATE">
+        <purpose>Unified location search across all geographic levels</purpose>
+        <duplicateTypes>
+          <type line="23">export type LocationType = 'city' | 'district' | 'region' | 'country' | 'continent'</type>
+          <type line="25">export interface LocationSelection { type, id, name, description?, country_code?, latitude?, longitude?, timezone?, display_name?, region? }</type>
+          <type line="39">interface LocationSearchResult (internal)</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Add import: import { LocationType, LocationSelection, LocationSearchResult } from '@/types/geography'</step>
+          <step>2. Remove lines 23-51 (duplicate type definitions)</step>
+          <step>3. Keep QUICK_SELECT_CITIES constant</step>
+        </action>
+      </file>
+      <file path="web/components/shared/CoveragePreviewMap.tsx" status="NEEDS_UPDATE">
+        <purpose>Read-only map preview for coverage visualization</purpose>
+        <duplicateTypes>
+          <type line="18">export interface CoverageItem { type, id, name, country_code? }</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Add import: import { CoverageItem } from '@/types/geography'</step>
+          <step>2. Remove lines 18-23 (duplicate type definition)</step>
+        </action>
+      </file>
+      <file path="web/components/publisher/CitySelector.tsx" status="NEEDS_UPDATE">
+        <purpose>City/region search for coverage - hierarchical search</purpose>
+        <duplicateTypes>
+          <type line="17">interface City { id, name, country, country_code, region, region_type, latitude, longitude, timezone, display_name }</type>
+          <type line="30">interface Country { code, name }</type>
+          <type line="35">interface Region { name, type }</type>
+          <type line="40">type CoverageLevel = 'country' | 'region' | 'city'</type>
+          <type line="42">interface CoverageSelection { level, countryCode?, countryName?, region?, cityId?, cityName?, displayName }</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Add import: import { City, Country, Region, CoverageLevel, CoverageSelection } from '@/types/geography'</step>
+          <step>2. Remove lines 17-50 (duplicate type definitions)</step>
+        </action>
+      </file>
+      <file path="web/app/publisher/coverage/page.tsx" status="NEEDS_UPDATE">
+        <purpose>Publisher coverage management page</purpose>
+        <duplicateTypes>
+          <type line="36">import { type LocationSelection } from CoverageSearchPanel (re-export)</type>
+          <type line="39">interface Coverage (local definition)</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Change import on line 36: import { CoverageSearchPanel } from '@/components/shared/CoverageSearchPanel'</step>
+          <step>2. Add import: import { LocationSelection, Coverage } from '@/types/geography'</step>
+          <step>3. Remove local Coverage interface (lines 39-63) if it matches geography.ts definition</step>
+        </action>
+      </file>
+      <file path="web/app/publisher/algorithm/page.tsx" status="NEEDS_UPDATE">
+        <purpose>Publisher algorithm management page</purpose>
+        <duplicateTypes>
+          <type line="9">import { LocationSearch } from '@/components/shared/LocationSearch' (may re-export types)</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Verify if algorithm page uses LocationSelection or other geography types directly</step>
+          <step>2. If yes, add explicit import: import { LocationSelection } from '@/types/geography'</step>
+          <step>3. Ensure no inline type definitions exist</step>
+        </action>
+      </file>
+      <file path="web/lib/api.ts" status="CHECK_CONFLICT">
+        <purpose>API client definitions</purpose>
+        <duplicateTypes>
+          <type line="69">export interface Location { id, name, ... }</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Check if this Location interface conflicts with geography.ts</step>
+          <step>2. If it's a different context (API-specific), keep it but consider renaming</step>
+          <step>3. If it's the same as geography types, replace with import</step>
+        </action>
+      </file>
+      <file path="web/lib/location.ts" status="CHECK_CONFLICT">
+        <purpose>Location utility functions</purpose>
+        <duplicateTypes>
+          <type line="4">export interface LocationData { ... }</type>
+        </duplicateTypes>
+        <action>
+          <step>1. Check if LocationData is distinct from geography types</step>
+          <step>2. If overlapping, consolidate into geography.ts</step>
+          <step>3. If distinct purpose, consider renaming for clarity</step>
+        </action>
+      </file>
+    </code>
+    <dependencies>
+      <dependency type="internal" path="web/types/geography.ts">
+        <description>Central type definitions - ALREADY EXISTS with comprehensive types</description>
+      </dependency>
+      <dependency type="tool" name="TypeScript compiler">
+        <description>npm run type-check for validation</description>
+      </dependency>
+      <dependency type="tool" name="ESLint">
+        <description>npm run lint for code quality</description>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <ux-design-requirement>
+      <mandate>For ALL frontend/UI work, use the frontend_design skill for distinctive, production-grade interfaces</mandate>
+      <file>.claude/skills/frontend_design.md</file>
+      <guidance>Avoid generic AI aesthetics - choose bold aesthetic direction and execute with precision</guidance>
+    </ux-design-requirement>
+    <critical-requirement>
+      <mandate>MUST follow ALL standards in docs/coding-standards.md</mandate>
+      <file>docs/coding-standards.md</file>
+      <enforcement>PR blocker - violations block merges</enforcement>
+    </critical-requirement>
+    <constraint type="CRITICAL">
+      <title>Coding Standards Compliance</title>
+      <description>MUST follow docs/coding-standards.md - PR blocker if violated</description>
+      <specifics>
+        <item>TypeScript strict mode</item>
+        <item>Export types explicitly (no export *)</item>
+        <item>Use design tokens for colors</item>
+        <item>No deprecated code or TODO comments</item>
+      </specifics>
+    </constraint>
+    <constraint type="CRITICAL">
+      <title>Zero Breaking Changes</title>
+      <description>Components must continue working exactly as before - this is pure refactoring</description>
+      <specifics>
+        <item>No changes to component behavior or API</item>
+        <item>No changes to exported type shapes</item>
+        <item>All existing code must compile without changes</item>
+      </specifics>
+    </constraint>
+    <constraint type="HIGH">
+      <title>Single Source of Truth</title>
+      <description>web/types/geography.ts is the ONLY location for geography types</description>
+      <specifics>
+        <item>No inline type definitions in components</item>
+        <item>No re-exports of geography types from components</item>
+        <item>All components import from @/types/geography</item>
+      </specifics>
+    </constraint>
+    <constraint type="MEDIUM">
+      <title>Type Safety</title>
+      <description>Maintain strict TypeScript type checking throughout</description>
+      <specifics>
+        <item>No any types introduced</item>
+        <item>No type assertions unless absolutely necessary</item>
+        <item>All imports must resolve correctly</item>
+      </specifics>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <interface type="FILE_STRUCTURE">
+      <description>TypeScript type organization</description>
+      <contract>
+        <item>web/types/geography.ts exports all geography-related types</item>
+        <item>Components import types using @/types/geography alias</item>
+        <item>No component exports its own geography types</item>
+      </contract>
+    </interface>
+    <interface type="TYPE_COMPATIBILITY">
+      <description>Backward compatibility with existing code</description>
+      <contract>
+        <item>LocationType: 'city' | 'district' | 'region' | 'country' | 'continent'</item>
+        <item>LocationSelection: type, id, name, description?, country_code?, lat?, lon?, timezone?, etc</item>
+        <item>CoverageItem: type, id, name, country_code?</item>
+        <item>City: id, name, country, country_code, region, latitude, longitude, timezone, display_name</item>
+        <item>Country: code, name</item>
+        <item>Region: name, type</item>
+      </contract>
+    </interface>
+    <interface type="IMPORT_PATHS">
+      <description>Consistent import pattern across codebase</description>
+      <contract>
+        <item>All imports use @/types/geography (not relative paths)</item>
+        <item>Named imports only (import { Type1, Type2 } from '@/types/geography')</item>
+        <item>No wildcard imports (no import * as Geography)</item>
+      </contract>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard>TypeScript Compilation</standard>
+      <verification>
+        <command>cd web && npm run type-check</command>
+        <expectation>Zero TypeScript errors</expectation>
+      </verification>
+    </standards>
+    <standards>
+      <standard>ESLint Validation</standard>
+      <verification>
+        <command>cd web && npm run lint</command>
+        <expectation>Zero lint errors or warnings</expectation>
+      </verification>
+    </standards>
+    <standards>
+      <standard>No Breaking Changes</standard>
+      <verification>
+        <command>Manual testing of coverage page, algorithm page, location search</command>
+        <expectation>All components function exactly as before</expectation>
+      </verification>
+    </standards>
+    <locations>
+      <testFile path="N/A - No new tests required">
+        <description>This is pure refactoring - existing E2E tests will catch any regressions</description>
+      </testFile>
+    </locations>
+    <ideas>
+      <idea priority="CRITICAL">
+        <title>Type Check Before/After Comparison</title>
+        <approach>Run npm run type-check before changes, save output. Run again after changes, compare.</approach>
+        <validation>Output should be identical (both pass or both have same errors)</validation>
+      </idea>
+      <idea priority="HIGH">
+        <title>Import Search Validation</title>
+        <approach>After changes, grep for any remaining inline type definitions</approach>
+        <command>grep -r "export (type|interface) (LocationType|LocationSelection|CoverageItem|City|Country|Region)" web/components web/app --include="*.tsx"</command>
+        <validation>Should only find types in web/types/geography.ts</validation>
+      </idea>
+      <idea priority="HIGH">
+        <title>Component Smoke Testing</title>
+        <approach>Manually open each updated page in browser</approach>
+        <pages>
+          <page url="http://localhost:3001/publisher/coverage">Coverage page - search and add locations</page>
+          <page url="http://localhost:3001/publisher/algorithm">Algorithm page - location preview selector</page>
+        </pages>
+        <validation>No console errors, components render and function correctly</validation>
+      </idea>
+      <idea priority="MEDIUM">
+        <title>Type Resolution Verification</title>
+        <approach>Use TypeScript's --traceResolution to verify import paths resolve correctly</approach>
+        <command>cd web && npx tsc --traceResolution | grep geography.ts</command>
+        <validation>All imports resolve to web/types/geography.ts</validation>
+      </idea>
+    </ideas>
+  </tests>
+</story-context>

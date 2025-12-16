@@ -1,0 +1,249 @@
+<story-context id="epic-7/story-7-6" v="1.0">
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.6</storyId>
+    <title>CloudFront Distribution</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-6-cloudfront-distribution.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>CloudFront CDN in front of API and static assets</iWant>
+    <soThat>US/Israel users get fast edge-cached responses</soThat>
+    <tasks>
+      <task id="1" name="CloudFront Distribution" ac="1">
+        <subtask>1.1 Define CloudFront distribution in `lib/cdn-stack.ts`</subtask>
+        <subtask>1.2 Enable Origin Shield in eu-west-1</subtask>
+        <subtask>1.3 Configure price class (US, EU, Israel edges)</subtask>
+        <subtask>1.4 Set default root object to `index.html`</subtask>
+      </task>
+      <task id="2" name="API Gateway Origin" ac="2">
+        <subtask>2.1 Create origin for API Gateway endpoint</subtask>
+        <subtask>2.2 Configure origin protocol HTTPS only</subtask>
+        <subtask>2.3 Create cache policy: 1 hour TTL for `/api/zmanim/*`</subtask>
+        <subtask>2.4 Create cache policy: no cache for auth endpoints</subtask>
+        <subtask>2.5 Configure origin request policy (forward headers)</subtask>
+      </task>
+      <task id="3" name="S3 Static Origin" ac="3">
+        <subtask>3.1 Create S3 origin with OAI (Origin Access Identity)</subtask>
+        <subtask>3.2 Configure cache policy: 1 year TTL for `/_next/static/*`</subtask>
+        <subtask>3.3 Configure cache policy: 1 day for HTML files</subtask>
+        <subtask>3.4 Enable compression (gzip, brotli)</subtask>
+      </task>
+      <task id="4" name="Behaviors" ac="4">
+        <subtask>4.1 Create behavior `/api/*` → API Gateway origin</subtask>
+        <subtask>4.2 Create behavior `/_next/static/*` → S3 (long cache)</subtask>
+        <subtask>4.3 Create behavior `/*` (default) → S3</subtask>
+        <subtask>4.4 Configure SPA routing function for client-side routes</subtask>
+      </task>
+      <task id="5" name="HTTPS Configuration" ac="5">
+        <subtask>5.1 Configure viewer protocol policy: redirect-to-https</subtask>
+        <subtask>5.2 Set minimum protocol version TLSv1.2</subtask>
+        <subtask>5.3 Configure security headers (HSTS, X-Frame-Options)</subtask>
+      </task>
+      <task id="6" name="Custom Domain" ac="6">
+        <subtask>6.1 Reference ACM certificate from DNS stack</subtask>
+        <subtask>6.2 Configure alternate domain name (CNAME)</subtask>
+        <subtask>6.3 Export distribution domain for Route53 alias</subtask>
+      </task>
+      <task id="7" name="SPA Routing Function" ac="4">
+        <subtask>7.1 Create CloudFront Function for client-side routing</subtask>
+        <subtask>7.2 Rewrite requests without extension to `/index.html`</subtask>
+        <subtask>7.3 Associate function with default behavior</subtask>
+      </task>
+      <task id="8" name="Testing" ac="1-6">
+        <subtask>8.1 Deploy distribution to staging</subtask>
+        <subtask>8.2 Test API routing through CloudFront</subtask>
+        <subtask>8.3 Test static asset caching</subtask>
+        <subtask>8.4 Verify cache hit ratios in CloudWatch</subtask>
+        <subtask>8.5 Test from US and Israel locations</subtask>
+        <subtask>8.6 Verify HTTPS redirect works</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">CloudFront distribution created with Origin Shield (eu-west-1)</criterion>
+    <criterion id="AC2">Origin 1: API Gateway (dynamic, 1hr cache)</criterion>
+    <criterion id="AC3">Origin 2: S3 (static, 1yr cache)</criterion>
+    <criterion id="AC4">Behaviors route `/api/*` → API Gateway, `/*` → S3</criterion>
+    <criterion id="AC5">HTTPS only with HTTP redirect</criterion>
+    <criterion id="AC6">Custom domain: zmanim.shtetl.io</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc type="epic" path="docs/sprint-artifacts/epic-7-aws-migration.md">
+        Epic 7 AWS Migration - CloudFront CDN layer with Origin Shield eu-west-1,
+        cache hit ratio target >80%, frontend deployment via S3 static export
+      </doc>
+      <doc type="tech-spec" path="docs/sprint-artifacts/tech-spec-epic-7.md">
+        Story 7.6 acceptance criteria, CloudFront configuration, cache policies,
+        SPA routing function, security headers, performance targets
+      </doc>
+      <doc type="coding-standards" path="docs/coding-standards.md">
+        Security standards: HTTPS only, no hardcoded credentials, environment variables
+      </doc>
+    </docs>
+
+    <code>
+      <existing>
+        <relevantFiles>
+          <file path="infrastructure/lib/network-stack.ts">VPC, security groups (Story 7.3)</file>
+          <file path="infrastructure/lib/compute-stack.ts">EC2, Elastic IP (Story 7.4)</file>
+          <file path="infrastructure/lib/dns-stack.ts">ACM certificate (Story 7.8)</file>
+          <file path="web/next.config.js">Next.js static export config</file>
+        </relevantFiles>
+      </existing>
+      <toCreate>
+        <file path="infrastructure/lib/cdn-stack.ts">
+          CloudFront distribution, origins (API Gateway + S3), cache policies,
+          behaviors, Origin Shield, SPA routing function, security headers
+        </file>
+        <file path="infrastructure/lib/cloudfront-functions/spa-routing.js">
+          CloudFront Function to rewrite requests without extensions to index.html
+        </file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <cdkConstructs>
+        <construct name="cloudfront.Distribution">Main CDN distribution</construct>
+        <construct name="cloudfront.Function">SPA routing function (viewer-request)</construct>
+        <construct name="cloudfront.CachePolicy">Custom cache policies for API and static</construct>
+        <construct name="cloudfront.OriginRequestPolicy">Forward headers for API</construct>
+        <construct name="origins.HttpOrigin">API Gateway origin</construct>
+        <construct name="origins.S3Origin">S3 static assets origin</construct>
+        <construct name="cloudfront.OriginAccessIdentity">S3 access control</construct>
+      </cdkConstructs>
+      <stackDependencies>
+        <dependency>Depends on ComputeStack for API Gateway endpoint</dependency>
+        <dependency>Depends on DNSStack for ACM certificate ARN</dependency>
+        <dependency>Depends on S3 bucket from Story 7.5 (zmanim-static-prod)</dependency>
+      </stackDependencies>
+      <awsServices>
+        <service name="CloudFront">Global CDN with edge locations in US, EU, Israel</service>
+        <service name="Origin Shield">Regional caching layer in eu-west-1</service>
+        <service name="API Gateway">Dynamic content origin (HTTP API)</service>
+        <service name="S3">Static assets origin (Next.js export)</service>
+        <service name="ACM">SSL certificate for zmanim.shtetl.io (us-east-1 for CloudFront)</service>
+        <service name="CloudWatch">Cache metrics, origin latency monitoring</service>
+      </awsServices>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint priority="critical">Origin Shield MUST be enabled in eu-west-1 (same region as origin)</constraint>
+      <constraint priority="critical">Price class: PRICE_CLASS_100 (US, EU, Israel only)</constraint>
+      <constraint priority="critical">SPA routing: rewrite requests without extension to /index.html</constraint>
+      <constraint priority="high">Cache hit ratio target: >80% for zmanim calculations</constraint>
+      <constraint priority="high">Compression enabled: gzip, brotli for text assets</constraint>
+    </architectural>
+    <security>
+      <constraint priority="critical">HTTPS only - redirect HTTP to HTTPS (ViewerProtocolPolicy.REDIRECT_TO_HTTPS)</constraint>
+      <constraint priority="critical">Minimum TLS version: TLSv1.2</constraint>
+      <constraint priority="critical">S3 origin access: OAI only (no public bucket access)</constraint>
+      <constraint priority="high">Security headers: HSTS, X-Frame-Options, X-Content-Type-Options</constraint>
+    </security>
+    <cost>
+      <constraint priority="high">Origin Shield cost: ~$5/month (reduces origin load by ~50%)</constraint>
+      <constraint priority="high">Price class restricts to US/EU/Israel edges (lower cost)</constraint>
+      <constraint priority="medium">Cache policies maximize hit ratio to minimize origin requests</constraint>
+    </cost>
+    <caching>
+      <policy path="/api/zmanim/*" ttl="1 hour">Cacheable zmanim calculations</policy>
+      <policy path="/api/*" ttl="0">No cache for auth, mutations</policy>
+      <policy path="/_next/static/*" ttl="1 year">Immutable hashed assets</policy>
+      <policy path="/*.html" ttl="1 day">HTML pages (SPA)</policy>
+      <policy path="/*" ttl="1 day">Other static files</policy>
+    </caching>
+  </constraints>
+
+  <interfaces>
+    <origins>
+      <origin name="ApiGateway">
+        <protocol>HTTPS only</protocol>
+        <endpoint>From ComputeStack output (API Gateway domain)</endpoint>
+        <cachePolicy>Custom: 1hr for /api/zmanim/*, 0 for other /api/*</cachePolicy>
+        <originRequestPolicy>ALL_VIEWER_EXCEPT_HOST_HEADER</originRequestPolicy>
+      </origin>
+      <origin name="S3Static">
+        <protocol>S3 via OAI</protocol>
+        <bucket>zmanim-static-prod (from Story 7.5)</bucket>
+        <cachePolicy>Custom: 1yr for /_next/static/*, 1 day for other</cachePolicy>
+        <compression>gzip, brotli</compression>
+      </origin>
+    </origins>
+    <behaviors>
+      <behavior path="/api/*" precedence="high">
+        <origin>ApiGateway</origin>
+        <allowedMethods>GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE</allowedMethods>
+        <cachePolicy>API cache policy (1hr for zmanim, 0 for others)</cachePolicy>
+      </behavior>
+      <behavior path="/_next/static/*" precedence="high">
+        <origin>S3Static</origin>
+        <allowedMethods>GET, HEAD, OPTIONS</allowedMethods>
+        <cachePolicy>1 year TTL (immutable assets)</cachePolicy>
+      </behavior>
+      <behavior path="/*" precedence="default">
+        <origin>S3Static</origin>
+        <allowedMethods>GET, HEAD, OPTIONS</allowedMethods>
+        <cachePolicy>1 day TTL</cachePolicy>
+        <function>SPA routing function (viewer-request)</function>
+      </behavior>
+    </behaviors>
+    <requestFlow>
+      <step>User → CloudFront Edge (cache check)</step>
+      <step>Cache miss → Origin Shield eu-west-1 (regional cache)</step>
+      <step>Cache miss → API Gateway or S3</step>
+      <step>Response → Cache at Origin Shield → Cache at Edge → User</step>
+    </requestFlow>
+    <stackOutputs>
+      <output name="DistributionId">CloudFront distribution ID (for invalidations)</output>
+      <output name="DistributionDomain">CloudFront domain name (e.g., d123.cloudfront.net)</output>
+      <output name="DistributionArn">ARN for Route53 alias record</output>
+    </stackOutputs>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard source="tech-spec-epic-7.md">
+        Performance: API response (cached, edge) &lt;50ms, API response (cached, origin) &lt;100ms
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        Cache hit ratio: &gt;80% for zmanim calculations (same date/location repeated)
+      </standard>
+      <standard source="tech-spec-epic-7.md">
+        Security: HTTPS only, TLSv1.2 minimum, HSTS headers enabled
+      </standard>
+      <standard source="coding-standards.md">
+        Test ALL changes locally BEFORE committing - cdk synth, cdk diff
+      </standard>
+    </standards>
+    <locations>
+      <location path="infrastructure/lib/cdn-stack.ts">CDK construct for CloudFront distribution</location>
+      <location path="infrastructure/lib/cloudfront-functions/spa-routing.js">SPA routing function</location>
+    </locations>
+    <ideas>
+      <testIdea type="unit">CDK synth produces valid CloudFormation for CloudFront distribution</testIdea>
+      <testIdea type="unit">Origin Shield correctly configured for eu-west-1 region</testIdea>
+      <testIdea type="unit">Cache policies have correct TTLs (1hr, 1yr, 1day, 0)</testIdea>
+      <testIdea type="unit">Behaviors correctly route /api/* to API Gateway, /* to S3</testIdea>
+      <testIdea type="unit">SPA routing function rewrites non-extension paths to /index.html</testIdea>
+      <testIdea type="integration">Deploy distribution, verify API routing through CloudFront</testIdea>
+      <testIdea type="integration">Test static asset caching with curl -I headers</testIdea>
+      <testIdea type="integration">Verify HTTP redirects to HTTPS (curl -L http://...)</testIdea>
+      <testIdea type="performance">Measure edge latency from US location (&lt;50ms target)</testIdea>
+      <testIdea type="performance">Measure edge latency from Israel location (&lt;50ms target)</testIdea>
+      <testIdea type="performance">Verify cache hit ratio &gt;80% in CloudWatch after 24hrs</testIdea>
+      <testIdea type="security">Verify TLS version with: openssl s_client -connect zmanim.shtetl.io:443</testIdea>
+      <testIdea type="security">Verify security headers present: curl -I https://zmanim.shtetl.io</testIdea>
+      <testIdea type="functional">Test SPA routing: /publisher/dashboard returns index.html</testIdea>
+      <testIdea type="functional">Test API routing: /api/zmanim returns JSON (not HTML)</testIdea>
+    </ideas>
+  </tests>
+</story-context>

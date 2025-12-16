@@ -1,0 +1,115 @@
+<story-context id="4-7-ai-context-system-rag" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.7</storyId>
+    <title>AI Context System (RAG with pgvector)</title>
+    <status>ready-for-dev</status>
+    <storyPoints>8</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-7-ai-context-system-rag.md</sourceStoryPath>
+    <dependencies>Story 4.0 (PostgreSQL + pgvector) COMPLETE, Story 4.1 (DSL Design)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>system</asA>
+    <iWant>a RAG (Retrieval Augmented Generation) system using pgvector for semantic search</iWant>
+    <soThat>AI-powered features have relevant halachic and DSL context for accurate formula generation</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.7.1" title="Vector Embedding Infrastructure">
+      <item>pgvector extension enabled and configured</item>
+      <item>embeddings table created with vector column (1536 dimensions)</item>
+      <item>OpenAI text-embedding-3-small API integrated</item>
+      <item>Embedding generation service created in Go</item>
+    </criterion>
+    <criterion id="AC-4.7.2" title="Knowledge Base Ingestion">
+      <item>DSL specification document chunked and embedded</item>
+      <item>KosherJava zmanim documentation embedded</item>
+      <item>Common halachic sources about zmanim embedded</item>
+      <item>Chunk size: ~500 tokens with 50 token overlap</item>
+      <item>Metadata stored: source, chunk_index, content_type</item>
+    </criterion>
+    <criterion id="AC-4.7.3" title="Semantic Search API">
+      <item>POST /api/ai/search endpoint for semantic search</item>
+      <item>Query embedding generated for user input</item>
+      <item>Top-K similar chunks retrieved (default 5)</item>
+      <item>Results include relevance score and source attribution</item>
+    </criterion>
+    <criterion id="AC-4.7.4" title="Context Assembly">
+      <item>Service assembles context from retrieved chunks</item>
+      <item>Context formatted for Claude API prompt</item>
+      <item>Context includes DSL examples when relevant</item>
+      <item>Total context respects token limits</item>
+    </criterion>
+    <criterion id="AC-4.7.5" title="Admin Management">
+      <item>Admin can view indexed documents</item>
+      <item>Admin can trigger re-indexing</item>
+      <item>Index statistics displayed (total chunks, last updated)</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.7, Database Schema</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-dsl-specification.md</path>
+        <section>Primary knowledge source to embed</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>api/db/migrations/</path>
+        <kind>directory</kind>
+        <reason>Location for embeddings table migration</reason>
+      </file>
+    </code>
+    <newDependencies>
+      <go>github.com/sashabaranov/go-openai - OpenAI client</go>
+      <go>github.com/pgvector/pgvector-go - pgvector Go support</go>
+    </newDependencies>
+  </artifacts>
+
+  <databaseSchema>
+    <table name="embeddings">
+      <column name="id" type="UUID" primary="true"/>
+      <column name="source" type="VARCHAR(255)" description="dsl-spec, kosher-java, halacha"/>
+      <column name="content_type" type="VARCHAR(50)" description="documentation, example, source"/>
+      <column name="chunk_index" type="INT"/>
+      <column name="content" type="TEXT"/>
+      <column name="metadata" type="JSONB"/>
+      <column name="embedding" type="vector(1536)"/>
+      <column name="created_at" type="TIMESTAMP"/>
+      <index type="ivfflat" column="embedding" ops="vector_cosine_ops"/>
+    </table>
+  </databaseSchema>
+
+  <serviceStructure>
+    <directory path="api/internal/ai/">
+      <file>embeddings.go - OpenAI embedding generation</file>
+      <file>chunker.go - Document chunking with overlap</file>
+      <file>search.go - Semantic search via pgvector</file>
+      <file>context.go - Context assembly for prompts</file>
+    </directory>
+    <directory path="api/cmd/seed-rag/">
+      <file>main.go - CLI for knowledge base ingestion</file>
+    </directory>
+  </serviceStructure>
+
+  <knowledgeSources>
+    <source name="DSL Specification" path="docs/sprint-artifacts/epic-4-dsl-specification.md" type="documentation"/>
+    <source name="KosherJava Docs" url="https://github.com/KosherJava/zmanim" type="documentation"/>
+    <source name="Halachic Summaries" description="Custom summaries of SA, MB on zmanim" type="halachic"/>
+  </knowledgeSources>
+
+  <constraints>
+    <constraint type="performance">Search must complete in less than 200ms</constraint>
+    <constraint type="performance">Embedding generation less than 500ms</constraint>
+    <constraint type="cost">Use text-embedding-3-small for cost efficiency</constraint>
+    <constraint type="infra">pgvector 0.8.0+ required (from Story 4.0)</constraint>
+  </constraints>
+</story-context>

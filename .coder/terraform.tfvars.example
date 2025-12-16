@@ -1,0 +1,32 @@
+# Coder Template Variables
+# Copy this file to terraform.tfvars and fill in your values
+# DO NOT commit terraform.tfvars to version control
+
+# Repository
+zmanim_branch = "main"
+zmanim_repo   = "git@github.com:jcom-dev/zmanim.git"
+
+# Database (PostgreSQL connection string)
+database_url = "postgresql://user:password@host:5432/database"
+
+# Upstash Redis (get from Upstash Console > Redis Database > REST API)
+upstash_redis_rest_url   = "https://DATABASE.upstash.io"
+upstash_redis_rest_token = "..."
+
+# Clerk Production (get from Clerk Dashboard > API Keys)
+clerk_publishable_key = "pk_live_..."
+clerk_secret_key      = "sk_live_..."
+clerk_jwks_url        = "https://your-clerk-domain.clerk.accounts.dev/.well-known/jwks.json"
+clerk_issuer          = "https://your-clerk-domain.clerk.accounts.dev"
+
+# Clerk Test Instance (for E2E tests - create separate test app)
+clerk_test_publishable_key = "pk_test_..."
+clerk_test_secret_key      = "sk_test_..."
+
+# Resend Email (get from Resend Dashboard)
+resend_api_key = "re_..."
+resend_domain  = "yourdomain.com"
+resend_from    = "noreply@yourdomain.com"
+
+# MailSlurp (for E2E email testing - get from https://app.mailslurp.com)
+mailslurp_api_key = "sk_..."

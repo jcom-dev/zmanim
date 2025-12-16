@@ -1,0 +1,154 @@
+<story-context id="8-32-publisher-registration-email-verification" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>32</storyId>
+    <title>Publisher Registration with Email Verification</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>person wanting to register a new publisher</asA>
+    <iWant>to verify my email address during registration</iWant>
+    <soThat>my existing Shtetl Zmanim account (if any) is automatically linked without revealing account existence publicly</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Publisher registration form collects: publisher name, contact email, registrant's email</criterion>
+    <criterion id="AC2">Registrant's email requires verification before submission</criterion>
+    <criterion id="AC3">System does NOT reveal if registrant's email exists in system</criterion>
+    <criterion id="AC4">Verification email sent to registrant (not publisher contact email)</criterion>
+    <criterion id="AC5">Existing users see streamlined "link account" flow</criterion>
+    <criterion id="AC6">New users complete account creation during verification</criterion>
+    <criterion id="AC7">After verification, publisher request goes to admin queue</criterion>
+    <criterion id="AC8">Admin sees registrant user info when reviewing request</criterion>
+    <criterion id="AC9">Unverified requests NOT visible in admin queue (only verified ones)</criterion>
+    <criterion id="AC10">Unverified registration tokens auto-deleted after 30 days (cleanup job)</criterion>
+    <criterion id="AC11">Verification token expires after 7 days</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/publishers.go</path>
+        <kind>handler</kind>
+        <reason>New public endpoints for registration flow</reason>
+        <newEndpoints>
+          <endpoint>POST /public/publishers/register - Start registration</endpoint>
+          <endpoint>GET /public/publishers/register/verify/{token} - Verify token</endpoint>
+          <endpoint>POST /public/publishers/register/complete/{token} - Complete registration</endpoint>
+        </newEndpoints>
+      </artifact>
+      <artifact>
+        <path>web/app/register/verify/[token]/page.tsx</path>
+        <kind>page</kind>
+        <reason>New page - registration verification flow</reason>
+        <exists>false</exists>
+      </artifact>
+      <artifact>
+        <path>web/components/onboarding/OnboardingWizard.tsx</path>
+        <kind>component</kind>
+        <reason>Existing component - may need updates for new registration flow</reason>
+      </artifact>
+    </code>
+    <database>
+      <artifact>
+        <path>db/migrations/000000000000XX_registration_tokens.sql</path>
+        <kind>migration</kind>
+        <reason>New table for registration tokens</reason>
+        <schema><![CDATA[
+CREATE TABLE publisher_registration_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    registrant_email TEXT NOT NULL,
+    publisher_data JSONB NOT NULL,  -- name, contact_email, description
+    token TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending, verified, completed, expired
+    user_exists BOOLEAN,  -- Set on verification (server-side only)
+    verified_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_reg_tokens_token ON publisher_registration_tokens(token);
+CREATE INDEX idx_reg_tokens_email ON publisher_registration_tokens(registrant_email);
+        ]]></schema>
+      </artifact>
+    </database>
+  </artifacts>
+
+  <flowDiagram><![CDATA[
+PUBLIC FORM (no auth required)
+├── Step 1: Enter publisher details (name, contact_email, description)
+├── Step 2: Enter your email (for login)
+└── Submit: "Verification email sent" (does NOT reveal if email exists)
+                              │
+                              ▼
+EMAIL SENT
+"Click to verify your email and complete registration"
+(Same email for existing and new users)
+                              │
+                              ▼
+VERIFICATION PAGE /register/verify/[token]
+├── IF EXISTING USER:                │ IF NEW USER:
+│   "Welcome back, John!"            │ "Create your account"
+│   "Click to submit your            │ - First name
+│    publisher request"              │ - Last name
+│   [Confirm & Submit]               │ - Password (via Clerk)
+│                                    │ [Create Account & Submit]
+                              │
+                              ▼
+SUCCESS
+"Your publisher request has been submitted for review."
+"You'll receive an email when it's approved."
+  ]]></flowDiagram>
+
+  <securityConsiderations>
+    <principle name="No User Enumeration">Public form never reveals if email exists</principle>
+    <principle name="Email Verification">Proves email ownership before processing</principle>
+    <principle name="Server-Side Detection">Only server knows if user exists (for email template)</principle>
+    <principle name="Admin Queue Protection">Unverified requests not shown to admins</principle>
+    <principle name="Cleanup Job">Stale tokens cleaned up after 30 days</principle>
+  </securityConsiderations>
+
+  <apiDesign>
+    <endpoint method="POST" path="/public/publishers/register">
+      <request>{
+        "publisher_name": "My Shul",
+        "publisher_contact_email": "info@myshul.org",
+        "publisher_description": "...",
+        "registrant_email": "rabbi@gmail.com"
+      }</request>
+      <response>{"success": true, "message": "Verification email sent. Please check your inbox."}</response>
+      <notes>Response is ALWAYS the same - never reveals if user exists</notes>
+    </endpoint>
+    <endpoint method="GET" path="/public/publishers/register/verify/{token}">
+      <response_existing>{"valid": true, "user_status": "existing", "user_name": "Rabbi Cohen", "publisher_name": "My Shul"}</response_existing>
+      <response_new>{"valid": true, "user_status": "new", "publisher_name": "My Shul", "required_fields": ["first_name", "last_name"]}</response_new>
+      <notes>Only reveals user status to the verified email owner</notes>
+    </endpoint>
+  </apiDesign>
+
+  <differentiationFromStory31>
+    <comparison>
+      <aspect>Story 8-31 (Invitation)</aspect>
+      <description>Admin invites user to existing publisher</description>
+    </comparison>
+    <comparison>
+      <aspect>Story 8-32 (Registration)</aspect>
+      <description>User requests new publisher creation</description>
+    </comparison>
+  </differentiationFromStory31>
+
+  <constraints>
+    <constraint>Public form response must be identical whether user exists or not</constraint>
+    <constraint>Admin queue must filter out unverified registration requests</constraint>
+    <constraint>Cleanup job must run periodically (cron or on-demand)</constraint>
+  </constraints>
+
+  <dependencies>
+    <dependency storyId="8-30" required="true">User vs Publisher Entity Separation</dependency>
+    <dependency storyId="8-31" required="true">Secure Invitation Flow (shares token patterns)</dependency>
+  </dependencies>
+</story-context>

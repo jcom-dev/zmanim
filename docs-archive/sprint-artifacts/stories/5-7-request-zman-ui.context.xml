@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-7-request-zman-ui" epic="5" generated="2025-12-02">
+  <summary>
+    Multi-step form for publishers to request new zmanim.
+    Guides user through providing all required and optional information.
+  </summary>
+
+  <key-files>
+    <file path="web/app/publisher/zmanim/request/page.tsx" action="create">
+      Multi-step request form page
+    </file>
+    <file path="web/components/publisher/ZmanRequestForm.tsx" action="create">
+      Form component with step navigation
+    </file>
+    <file path="web/components/publisher/TagSelector.tsx" action="create">
+      Component for selecting existing tags and proposing new ones
+    </file>
+    <file path="web/app/publisher/zmanim/requests/page.tsx" action="create">
+      List of publisher's submitted requests
+    </file>
+  </key-files>
+
+  <form-steps>
+    <step n="1" name="Basic Info">
+      <fields>
+        <field name="hebrew_name" required="true">Hebrew Name (RTL input)</field>
+        <field name="english_name" required="true">English Name</field>
+        <field name="transliteration" required="false">Transliteration</field>
+        <field name="time_category" required="false">
+          Time Category dropdown: dawn, morning, midday, afternoon, evening, night
+        </field>
+      </fields>
+    </step>
+
+    <step n="2" name="Justification">
+      <fields>
+        <field name="justification" required="true">
+          Why is this zman needed? (textarea)
+        </field>
+        <field name="halachic_source" required="false">
+          Halachic Source (e.g., Shulchan Aruch OC 293)
+        </field>
+        <field name="halachic_notes" required="false">
+          Additional halachic notes (textarea)
+        </field>
+      </fields>
+    </step>
+
+    <step n="3" name="Formula (Optional)">
+      <fields>
+        <field name="formula_dsl" required="false">
+          DSL Formula (optional, validated but doesn't block)
+        </field>
+        <field name="description" required="false">
+          Description of how the zman is calculated
+        </field>
+      </fields>
+      <note>Show validation result in real-time</note>
+      <note>If invalid, show friendly error but allow proceeding</note>
+    </step>
+
+    <step n="4" name="Tags">
+      <fields>
+        <field name="existing_tag_ids">
+          Multi-select from existing tags
+        </field>
+        <field name="new_tag_requests">
+          Form to propose new tags (name, type, description)
+        </field>
+      </fields>
+    </step>
+
+    <step n="5" name="Review &amp; Submit">
+      <content>Summary of all entered information</content>
+      <fields>
+        <field name="auto_add_on_approval" default="true">
+          Checkbox: "Automatically add to my published zmanim when approved"
+        </field>
+      </fields>
+      <action>Submit button</action>
+    </step>
+  </form-steps>
+
+  <tag-selector-component>
+    <features>
+      <feature>Search/filter existing tags</feature>
+      <feature>Multi-select with chips</feature>
+      <feature>"Add new tag" button to propose new tags</feature>
+      <feature>Tag type selector: event, timing, behavior, shita, method</feature>
+    </features>
+  </tag-selector-component>
+
+  <requests-list-page>
+    <url>/publisher/zmanim/requests</url>
+    <columns>
+      <column>Zman Name (Hebrew + English)</column>
+      <column>Status (pending, approved, rejected)</column>
+      <column>Submitted Date</column>
+      <column>Actions (View details)</column>
+    </columns>
+    <status-badges>
+      <badge status="pending" class="bg-yellow-100 text-yellow-800"/>
+      <badge status="approved" class="bg-green-100 text-green-800"/>
+      <badge status="rejected" class="bg-red-100 text-red-800"/>
+    </status-badges>
+  </requests-list-page>
+
+  <navigation>
+    <entry-point>Button in Algorithm Editor: "Request New Zman"</entry-point>
+    <entry-point>Link in Publisher Dashboard</entry-point>
+    <success-redirect>/publisher/zmanim/requests (with success toast)</success-redirect>
+  </navigation>
+
+  <api-integration>
+    <note>Use useApi() hook for all API calls</note>
+    <note>POST to /api/v1/publisher/zmanim/request</note>
+    <note>GET from /api/v1/publisher/zmanim/requests for list</note>
+    <note>GET from /api/v1/zman-tags for tag selector</note>
+  </api-integration>
+
+  <commands>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Lint">cd web && npm run lint</command>
+    <command purpose="Restart">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Multi-step form with 5 steps</item>
+    <item>Hebrew input has RTL support</item>
+    <item>Time category dropdown works</item>
+    <item>Formula validation shows results in real-time</item>
+    <item>Tag selector allows existing + new tags</item>
+    <item>Review step shows all entered data</item>
+    <item>Submit creates request via API</item>
+    <item>Success redirects to requests list with toast</item>
+    <item>Requests list shows status badges</item>
+    <item>Uses useApi() hook (not raw fetch)</item>
+  </acceptance-checklist>
+</story-context>

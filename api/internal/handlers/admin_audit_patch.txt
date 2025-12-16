@@ -1,0 +1,87 @@
+# This file contains the audit logging code that needs to be added to each handler
+# It's a reference for manual addition
+
+## AdminPermanentDeletePublisher (around line 1014, before deletion)
+# Add before: err = h.db.Queries.AdminPermanentDeletePublisher(ctx, idInt)
+	// Log admin action with diff (before deletion)
+	_ = h.activityService.LogActionWithDiff(
+		ctx,
+		services.ActionAdminPublisherPermanentDelete,
+		services.ConceptAdmin,
+		"publisher",
+		id,
+		"",
+		&services.ActionDiff{
+			Old: map[string]interface{}{
+				"id":   id,
+				"name": publisherName,
+			},
+		},
+		services.ExtractActionContext(r),
+	)
+
+## AdminSetPublisherCertified (around line 1254, needs before state)
+# Add before: row, err := h.db.Queries.AdminSetPublisherCertified
+	// CAPTURE BEFORE STATE
+	beforePub, err := h.db.Queries.GetPublisherByID(ctx, idInt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			RespondNotFound(w, r, "Publisher not found")
+			return
+		}
+		slog.Error("failed to get publisher", "error", err, "id", id)
+		RespondInternalError(w, r, "Failed to retrieve publisher")
+		return
+	}
+
+# Add after: slog.Info("publisher certified status updated"...)
+	// Log admin action with diff
+	_ = h.activityService.LogActionWithDiff(
+		ctx,
+		services.ActionAdminPublisherCertified,
+		services.ConceptAdmin,
+		"publisher",
+		id,
+		"",
+		&services.ActionDiff{
+			Old: map[string]interface{}{"is_certified": beforePub.IsCertified},
+			New: map[string]interface{}{"is_certified": row.IsCertified},
+		},
+		services.ExtractActionContext(r),
+	)
+
+## AdminExportPublisher (around line 1360, after export)
+# Add after: w.Write(exportJSON)
+	// Log admin action
+	_ = h.activityService.LogActionWithDiff(
+		ctx,
+		services.ActionAdminPublisherExport,
+		services.ConceptAdmin,
+		"publisher",
+		id,
+		"",
+		&services.ActionDiff{
+			New: map[string]interface{}{
+				"export_format": "json",
+			},
+		},
+		services.ExtractActionContext(r),
+	)
+
+## AdminImportPublisher (around line 1439, after import)
+# Add before final RespondJSON
+	// Log admin action
+	_ = h.activityService.LogActionWithDiff(
+		ctx,
+		services.ActionAdminPublisherImport,
+		services.ConceptAdmin,
+		"publisher",
+		fmt.Sprintf("%d", result.PublisherID),
+		"",
+		&services.ActionDiff{
+			New: map[string]interface{}{
+				"import_stats": result,
+			},
+		},
+		services.ExtractActionContext(r),
+	)

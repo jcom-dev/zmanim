@@ -1,0 +1,154 @@
+<story-context id="10-5-frontend-locality-picker-unification" v="1.0">
+  <metadata>
+    <epicId>10</epicId>
+    <storyId>5</storyId>
+    <title>Frontend LocalityPicker Unification</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-16</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/10-5-frontend-locality-picker-unification.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>a consistent location search experience across the application</iWant>
+    <soThat>I can find localities quickly regardless of where I'm searching</soThat>
+    <tasks>
+      <task id="1">Create locality-display.ts with shared utilities (getEntityIcon, getEntityBadgeColor, getEntityLabel, buildHierarchyDisplay, POPULAR_LOCALITIES)</task>
+      <task id="2">Create useLocalitySearch.ts hook with debounce, filtering, abort handling</task>
+      <task id="3">Create LocalityPicker.tsx component with single/multi modes</task>
+      <task id="4">Implement type filter tabs (All, Cities, Towns, Villages, Neighborhoods)</task>
+      <task id="5">Implement quick-select for popular localities</task>
+      <task id="6">Implement responsive hierarchy display (mobile → tablet → desktop)</task>
+      <task id="7">Implement full keyboard navigation (Arrow, Enter, Escape)</task>
+      <task id="8">Add ARIA attributes for accessibility</task>
+      <task id="9">Update home page (app/page.tsx) to use LocalityPicker</task>
+      <task id="10">Update coverage page to use LocalityPicker mode="multi"</task>
+      <task id="11">Update algorithm preview to use LocalityPicker mode="single"</task>
+      <task id="12">Delete old components: LocationSearch.tsx, CoverageSearchPanel.tsx, CitySelector.tsx</task>
+      <task id="13">Update TypeScript types in geography.ts</task>
+      <task id="14">Run npm run type-check, npm run build, npm run lint</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">locality-display.ts exports 6+ utility functions with design tokens only</criterion>
+    <criterion id="AC2">useLocalitySearch.ts uses useApi() hook (no raw fetch)</criterion>
+    <criterion id="AC3">LocalityPicker.tsx with 'use client', single/multi modes, keyboard navigation</criterion>
+    <criterion id="AC4">Single-select mode works (search, select, onSelect callback)</criterion>
+    <criterion id="AC5">Multi-select mode works (chips, remove, confirm button)</criterion>
+    <criterion id="AC6">Type filter tabs filter search results</criterion>
+    <criterion id="AC7">Quick-select shows popular localities when search empty</criterion>
+    <criterion id="AC8">Responsive hierarchy (mobile: minimal, tablet: medium, desktop: full)</criterion>
+    <criterion id="AC9">Home page uses LocalityPicker</criterion>
+    <criterion id="AC10">Coverage page uses LocalityPicker mode="multi"</criterion>
+    <criterion id="AC11">Algorithm preview uses LocalityPicker mode="single"</criterion>
+    <criterion id="AC12">Old components DELETED (LocationSearch.tsx, CoverageSearchPanel.tsx, CitySelector.tsx)</criterion>
+    <criterion id="AC13">TypeScript types updated (LocalitySearchResult, LocalityTypeCode, LocalitySelection)</criterion>
+    <criterion id="AC14">No raw fetch(), no hardcoded colors, no TODO/FIXME markers</criterion>
+    <criterion id="AC15">npm run type-check, npm run build, npm run lint all pass</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-artifacts/epic-10-tech-spec.md" title="Epic 10 Tech Spec" section="Frontend Changes" snippet="Shared utilities (locality-display.ts), search hook (useLocalitySearch.ts), LocalityPicker component with mode/variant props." />
+      <doc path="docs/refactoring/import-from-overture.md" title="Overture Migration Plan" section="Phase 6: UI Unification" snippet="Complete LocalityPicker component design with props interface, type filter config, responsive hierarchy patterns. Migration mapping from 3 old components." />
+      <doc path="docs/coding-standards.md" title="Coding Standards" section="Frontend Standards" snippet="useApi() for all API calls (no raw fetch). Design tokens only (no hardcoded colors). 'use client' for hooks/events. Check isLoaded before Clerk access." />
+    </docs>
+    <code>
+      <file path="web/components/shared/LocationSearch.tsx" kind="component" symbol="LocationSearch" lines="1-604" reason="OLD COMPONENT TO DELETE - 604 lines of duplicated code, replaced by LocalityPicker" />
+      <file path="web/components/shared/CoverageSearchPanel.tsx" kind="component" symbol="CoverageSearchPanel" lines="1-538" reason="OLD COMPONENT TO DELETE - 538 lines, replaced by LocalityPicker mode='multi'" />
+      <file path="web/components/publisher/CitySelector.tsx" kind="component" symbol="CitySelector" lines="1-404" reason="OLD COMPONENT TO DELETE - 404 lines, replaced by LocalityPicker" />
+      <file path="web/lib/hooks/useLocationSearch.ts" kind="hook" symbol="useLocationSearch" reason="Reference for search hook pattern - new useLocalitySearch follows similar structure" />
+      <file path="web/lib/api-client.ts" kind="utility" symbol="useApi" reason="Required API client hook - all API calls MUST use this" />
+      <file path="web/app/page.tsx" kind="page" symbol="HomePage" lines="1-812" reason="Home page - update to use LocalityPicker instead of inline search" />
+      <file path="web/app/publisher/coverage/page.tsx" kind="page" symbol="CoveragePage" reason="Coverage page - update to use LocalityPicker mode='multi'" />
+      <file path="web/app/publisher/algorithm/page.tsx" kind="page" symbol="AlgorithmPage" reason="Algorithm preview - update to use LocalityPicker" />
+    </code>
+    <dependencies>
+      <npm>
+        <package name="react" version="^19.x" purpose="React framework" />
+        <package name="next" version="^16.x" purpose="Next.js framework" />
+        <package name="lucide-react" version="latest" purpose="Icons for entity types" />
+        <package name="tailwindcss" version="^3.x" purpose="Styling with design tokens" />
+        <package name="@clerk/nextjs" version="latest" purpose="Authentication" />
+      </npm>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>useApi() for ALL API calls - no raw fetch() anywhere</constraint>
+    <constraint>Design tokens ONLY - no hardcoded hex colors (#XXXXXX), no rgb/rgba</constraint>
+    <constraint>'use client' directive required for components using hooks/events</constraint>
+    <constraint>No TODO/FIXME/DEPRECATED markers in new code</constraint>
+    <constraint>TypeScript strict mode - no 'any' types where typed struct is appropriate</constraint>
+    <constraint>Clerk isLoaded must be checked before accessing user data (if used)</constraint>
+    <constraint>12-hour time format if displaying times</constraint>
+    <constraint>Old components (LocationSearch, CoverageSearchPanel, CitySelector) MUST be deleted</constraint>
+    <constraint>No orphan imports referencing deleted components</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="LocalityPickerProps" kind="typescript-interface">
+      <signature>
+        interface LocalityPickerProps {
+          mode?: 'single' | 'multi';
+          variant?: 'inline' | 'dropdown' | 'compact';
+          placeholder?: string;
+          onSelect: (selection: LocalitySelection | LocalitySelection[]) => void;
+          onHighlight?: (item: LocalitySelection | null) => void;
+          exclude?: LocalitySelection[];
+          types?: GeoEntityType[];
+          countryId?: number;
+          regionId?: number;
+          publisherId?: string;
+          showQuickSelect?: boolean;
+          showTypeFilters?: boolean;
+          autoFocus?: boolean;
+          className?: string;
+        }
+      </signature>
+      <path>web/components/shared/LocalityPicker.tsx</path>
+    </interface>
+    <interface name="useLocalitySearch" kind="react-hook">
+      <signature>
+        function useLocalitySearch(options?: UseLocalitySearchOptions): {
+          results: LocalitySearchResult[];
+          isLoading: boolean;
+          error: string | null;
+          search: (query: string) => void;
+          clear: () => void;
+        }
+      </signature>
+      <path>web/lib/hooks/useLocalitySearch.ts</path>
+    </interface>
+    <interface name="locality-display utilities" kind="typescript-module">
+      <signature>
+        export function getEntityIcon(type: GeoEntityType, className?: string): React.ReactNode;
+        export function getEntityBadgeColor(type: GeoEntityType): string;
+        export function getEntityLabel(type: GeoEntityType): string;
+        export function buildHierarchyDisplay(locality: LocalityData, options?: HierarchyOptions): string;
+        export function buildResponsiveHierarchy(locality: LocalityData): { full: string[]; medium: string[]; minimal: string[] };
+        export const POPULAR_LOCALITIES: ReadonlyArray&lt;PopularLocality&gt;;
+      </signature>
+      <path>web/lib/locality-display.ts</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>TypeScript type checking, ESLint, Next.js build. Manual testing for keyboard navigation and accessibility. E2E tests for search functionality.</standards>
+    <locations>
+      <location>web/lib/__tests__/</location>
+      <location>tests/e2e/locality-search.spec.ts</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">grep "export function\|export const" web/lib/locality-display.ts -- Expected: 6+ exports</idea>
+      <idea ac="AC2">grep "useApi" web/lib/hooks/useLocalitySearch.ts -- Expected: match found</idea>
+      <idea ac="AC2">grep "await fetch" web/lib/hooks/useLocalitySearch.ts -- Expected: no matches</idea>
+      <idea ac="AC3">head -5 web/components/shared/LocalityPicker.tsx -- Expected: 'use client'</idea>
+      <idea ac="AC12">ls web/components/shared/LocationSearch.tsx 2>/dev/null -- Expected: file not found</idea>
+      <idea ac="AC14">grep -E "#[0-9a-fA-F]{3,6}" web/lib/locality-display.ts web/components/shared/LocalityPicker.tsx -- Expected: no matches</idea>
+      <idea ac="AC15">cd web && npm run type-check && npm run build && npm run lint</idea>
+    </ideas>
+  </tests>
+</story-context>

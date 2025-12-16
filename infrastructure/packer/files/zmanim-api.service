@@ -1,0 +1,44 @@
+[Unit]
+Description=Zmanim API Service
+Documentation=https://github.com/jcom-dev/zmanim
+After=network-online.target postgresql.service redis-server.service zmanim-firstboot.service zmanim-db-init.service
+Wants=network-online.target
+Requires=postgresql.service redis-server.service zmanim-firstboot.service zmanim-db-init.service
+
+[Service]
+Type=simple
+User=zmanim
+Group=zmanim
+WorkingDirectory=/opt/zmanim
+
+# Download latest binary, pull repo, and run migrations before starting
+# Runs as root to allow git clone and psql access
+ExecStartPre=+/opt/zmanim/download-latest.sh
+
+# Start the API service
+ExecStart=/opt/zmanim/zmanim-api
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5s
+
+# Environment configuration
+EnvironmentFile=/opt/zmanim/config.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/zmanim
+
+# Resource limits
+LimitNOFILE=65536
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zmanim-api
+
+[Install]
+WantedBy=multi-user.target

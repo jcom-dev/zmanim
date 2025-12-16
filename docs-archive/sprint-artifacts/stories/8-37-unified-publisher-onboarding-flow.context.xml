@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Story Context: 8-37 Unified Publisher Onboarding Flow
+  Generated: 2025-12-14
+  Purpose: Provide comprehensive implementation context for AI-assisted development
+
+  This file consolidates:
+  - 8-28 Publisher Signup CAPTCHA Bot Protection (ABORTED)
+  - 8-30 User vs Publisher Entity Separation (ABORTED)
+  - 8-32 Publisher Registration Email Verification (ABORTED)
+-->
+<story-context story-id="8-37" title="Unified Publisher Onboarding Flow">
+
+  <summary>
+    Single "Become a Publisher" flow replacing Clerk signup. Features Google reCAPTCHA v3,
+    email verification before admin visibility, manual admin approval, passwordless Clerk
+    magic link on approval, and intelligent handling of existing users.
+  </summary>
+
+  <design-decisions>
+    <decision id="1" title="No Clerk Signup">
+      The ONLY entry point to the system is "Become a Publisher". No separate user signup.
+      Users are created either when admin approves a publisher request (new email) or
+      linked to existing Clerk user (existing email with confirmation).
+    </decision>
+    <decision id="2" title="Google reCAPTCHA v3">
+      Using Google reCAPTCHA v3 (invisible, score-based) instead of Clerk's built-in
+      Cloudflare Turnstile because we're not using Clerk's signup flow.
+      Threshold: score < 0.5 = reject
+    </decision>
+    <decision id="3" title="Email Verification First">
+      Applications are NOT visible to admin until the applicant verifies their email.
+      This reduces spam and ensures real contact info before admin review.
+    </decision>
+    <decision id="4" title="Entity Separation">
+      Publisher = Organization (has contact_email for public inquiries)
+      User = Person (has email from Clerk for authentication)
+      Users belong to Publishers via user_publishers junction table with roles.
+    </decision>
+    <decision id="5" title="Silent Blocking">
+      Blocked emails appear to succeed but are silently ignored.
+      No error shown, no email sent - prevents attackers knowing they're blocked.
+    </decision>
+    <decision id="6" title="Existing User Confirmation">
+      When email exists in Clerk, verification page asks "Is this your account?"
+      - "Yes" = Link application to existing user
+      - "No" = Silent cancellation (security - no enumeration)
+    </decision>
+    <decision id="7" title="REMOVE User Signup Artifacts" priority="critical">
+      The /sign-up page and ALL user signup code must be REMOVED.
+      The ONLY way to enter the system is via "Become a Publisher".
+      Users are created when admin approves a publisher request.
+      Clerk dashboard must be set to "Restricted" mode (no public signup).
+    </decision>
+  </design-decisions>
+
+  <existing-implementation>
+    <file path="web/app/become-publisher/page.tsx" status="exists">
+      Current form with: name, email, website (optional), description
+      NEEDS: first_name, last_name fields, reCAPTCHA integration
+      NEEDS: Remove "Already have an account? Sign in" link (lines 264-271)
+    </file>
+    <file path="api/internal/handlers/publisher_requests.go" status="exists">
+      Current handlers: SubmitPublisherRequest, AdminGetPublisherRequests,
+      AdminApprovePublisherRequest, AdminRejectPublisherRequest
+      NEEDS: reCAPTCHA verification, blocked email check, verification flow
+    </file>
+    <file path="api/internal/db/queries/publisher_requests.sql" status="exists">
+      Current queries for legacy publisher_requests table
+      NEEDS: New queries for enhanced flow, blocked_emails table
+    </file>
+    <file path="api/internal/services/email_service.go" status="exists">
+      Already has TemplatePublisherRegistrationVerification template
+      NEEDS: Add method to send verification email, rejection email with message
+    </file>
+    <file path="db/migrations/00000000000012_publisher_registration_tokens.sql" status="exists">
+      Migration for publisher_registration_tokens table (from story 8-32)
+      NEEDS: Add first_name, last_name columns, blocked_emails table
+    </file>
+  </existing-implementation>
+
+  <artifacts-to-remove priority="critical">
+    <description>
+      The user signup flow must be completely removed. Only publisher signup exists.
+    </description>
+
+    <file-to-delete path="web/app/sign-up/[[...sign-up]]/page.tsx">
+      Clerk signup component - DELETE ENTIRE FILE
+    </file-to-delete>
+    <file-to-delete path="web/app/sign-up/">
+      Entire signup directory - DELETE
+    </file-to-delete>
+
+    <file-to-update path="web/app/accept-invitation/page.tsx" lines="69">
+      Change: router.push('/sign-up') → router.push('/become-publisher')
+      Reason: Redirect unauthenticated invitation users to publisher signup
+    </file-to-update>
+    <file-to-update path="web/app/become-publisher/page.tsx" lines="264-271">
+      Action: DELETE entire "Already have an account? Sign in" block
+      Reason: No user signup exists - only publisher signup
+    </file-to-update>
+    <file-to-update path="web/.env.example" lines="12">
+      Action: DELETE NEXT_PUBLIC_CLERK_SIGN_UP_URL comment
+      Reason: No signup URL exists
+    </file-to-update>
+    <file-to-update path="api/internal/services/clerk_service.go" lines="95">
+      Change: RedirectURL from "/sign-up" to "/publisher/dashboard"
+      Reason: SendInvitation should redirect to dashboard, not signup
+    </file-to-update>
+
+    <clerk-dashboard-config>
+      <setting name="Sign-up mode">Restricted</setting>
+      <setting name="Allow users to sign up">Disabled</setting>
+      <setting name="Require invitation or admin approval">Enabled</setting>
+    </clerk-dashboard-config>
+
+    <verification-commands>
+      # After implementation, verify:
+      curl -I http://localhost:3001/sign-up  # Should return 404
+      curl -I http://localhost:3001/sign-in  # Should return 200
+      grep -r "sign-up" web/app/ --include="*.tsx"  # Should return empty
+    </verification-commands>
+  </artifacts-to-remove>
+
+  <database-schema>
+    <table name="publisher_requests" status="legacy">
+      <description>Legacy table - simple requests without verification flow</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="email" type="TEXT" not-null="true"/>
+        <column name="name" type="TEXT" not-null="true"/>
+        <column name="organization" type="TEXT"/>
+        <column name="message" type="TEXT"/>
+        <column name="status_id" type="SMALLINT" not-null="true" fk="request_statuses.id"/>
+        <column name="reviewed_by" type="TEXT"/>
+        <column name="reviewed_at" type="TIMESTAMPTZ"/>
+        <column name="created_at" type="TIMESTAMPTZ" default="now()"/>
+      </columns>
+    </table>
+
+    <table name="publisher_registration_tokens" status="partial">
+      <description>Email verification tokens - needs enhancement for story 8-37</description>
+      <columns>
+        <column name="id" type="UUID" primary-key="true" default="gen_random_uuid()"/>
+        <column name="registrant_email" type="TEXT" not-null="true"/>
+        <column name="publisher_data" type="JSONB" not-null="true"/>
+        <column name="token" type="TEXT" not-null="true" unique="true"/>
+        <column name="status" type="TEXT" not-null="true" default="pending"/>
+        <column name="user_exists" type="BOOLEAN"/>
+        <column name="verified_at" type="TIMESTAMPTZ"/>
+        <column name="completed_at" type="TIMESTAMPTZ"/>
+        <column name="expires_at" type="TIMESTAMPTZ" not-null="true"/>
+        <column name="created_at" type="TIMESTAMPTZ" default="now()"/>
+      </columns>
+      <needed-columns>
+        <column name="first_name" type="TEXT" not-null="true"/>
+        <column name="last_name" type="TEXT" not-null="true"/>
+        <column name="existing_clerk_user_id" type="TEXT"/>
+        <column name="confirmed_existing_user" type="BOOLEAN" default="false"/>
+        <column name="reviewed_by" type="TEXT"/>
+        <column name="reviewed_at" type="TIMESTAMPTZ"/>
+        <column name="rejection_message" type="TEXT"/>
+        <column name="recaptcha_score" type="NUMERIC(3,2)"/>
+      </needed-columns>
+    </table>
+
+    <table name="blocked_emails" status="new">
+      <description>Permanently blocked email addresses</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="email" type="TEXT" not-null="true" unique="true"/>
+        <column name="blocked_by" type="TEXT" not-null="true"/>
+        <column name="blocked_at" type="TIMESTAMPTZ" default="now()"/>
+        <column name="reason" type="TEXT"/>
+      </columns>
+    </table>
+
+    <table name="user_publishers" status="exists">
+      <description>Junction table linking users to publishers</description>
+      <columns>
+        <column name="clerk_user_id" type="TEXT" not-null="true"/>
+        <column name="publisher_id" type="INTEGER" not-null="true" fk="publishers.id"/>
+        <column name="role" type="TEXT" not-null="true" comment="owner|admin|member"/>
+        <column name="created_at" type="TIMESTAMPTZ" default="now()"/>
+      </columns>
+    </table>
+  </database-schema>
+
+  <api-endpoints>
+    <endpoint-group name="Public (no auth)">
+      <endpoint method="POST" path="/api/v1/public/publisher-requests">
+        <description>Submit publisher application with reCAPTCHA</description>
+        <request>
+          <field name="first_name" type="string" required="true"/>
+          <field name="last_name" type="string" required="true"/>
+          <field name="email" type="string" required="true"/>
+          <field name="organization_name" type="string" required="true"/>
+          <field name="website" type="string" required="false"/>
+          <field name="description" type="string" required="true" min-length="10"/>
+          <field name="recaptcha_token" type="string" required="true"/>
+        </request>
+        <response status="201">
+          <note>ALWAYS returns same response regardless of email status (no enumeration)</note>
+          <field name="success" type="boolean" value="true"/>
+          <field name="message" type="string" value="Check your email to verify your application."/>
+        </response>
+      </endpoint>
+
+      <endpoint method="GET" path="/api/v1/public/publisher-requests/verify/{token}">
+        <description>Check verification token status</description>
+        <response status="200">
+          <field name="valid" type="boolean"/>
+          <field name="email_exists" type="boolean" comment="Only true if email found in Clerk"/>
+          <field name="user_name" type="string" optional="true" comment="Only if email_exists=true"/>
+          <field name="organization_name" type="string"/>
+        </response>
+        <response status="404">Token invalid or expired</response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/v1/public/publisher-requests/verify/{token}/confirm">
+        <description>Confirm verification (for existing users saying "Yes, that's me")</description>
+        <response status="200">
+          <field name="success" type="boolean" value="true"/>
+          <field name="message" type="string" value="Application submitted for review"/>
+        </response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/v1/public/publisher-requests/verify/{token}/cancel">
+        <description>Cancel verification (for "No, that's not me" - silent)</description>
+        <response status="200">
+          <field name="success" type="boolean" value="true"/>
+        </response>
+      </endpoint>
+    </endpoint-group>
+
+    <endpoint-group name="Admin (auth required)">
+      <endpoint method="GET" path="/api/v1/auth/admin/publisher-requests">
+        <description>List verified applications only</description>
+        <query-params>
+          <param name="status" default="verified" options="verified,approved,rejected"/>
+        </query-params>
+        <response>Array of applications with first_name, last_name, email, org_name, etc.</response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/v1/auth/admin/publisher-requests/{id}/approve">
+        <description>Approve and send Clerk magic link</description>
+        <response>
+          <field name="success" type="boolean"/>
+          <field name="message" type="string" value="Magic link sent to applicant"/>
+        </response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/v1/auth/admin/publisher-requests/{id}/reject">
+        <description>Reject with message, optionally block email</description>
+        <request>
+          <field name="message" type="string" required="true"/>
+          <field name="block_email" type="boolean" required="false" default="false"/>
+        </request>
+      </endpoint>
+    </endpoint-group>
+  </api-endpoints>
+
+  <frontend-pages>
+    <page path="/become-publisher" status="update">
+      <description>Public registration form</description>
+      <changes>
+        <change>Add First Name, Last Name fields</change>
+        <change>Integrate Google reCAPTCHA v3 (invisible)</change>
+        <change>Remove "Already have an account? Sign in" link</change>
+        <change>Update success message to "Check your email"</change>
+      </changes>
+    </page>
+
+    <page path="/register/verify/[token]" status="new">
+      <description>Email verification page</description>
+      <states>
+        <state name="loading">Validating token...</state>
+        <state name="invalid">Token expired or invalid</state>
+        <state name="new-user">
+          Email verified! Application submitted for review.
+          Shows organization_name, explains next steps.
+        </state>
+        <state name="existing-user">
+          "We found an existing account with this email (User Name)."
+          "Is this your account?"
+          Buttons: [Yes, that's me] [No, cancel]
+        </state>
+        <state name="confirmed">Application submitted for review</state>
+      </states>
+    </page>
+
+    <page path="/admin/publishers" status="update">
+      <description>Admin review queue</description>
+      <changes>
+        <change>Filter to show only verified applications by default</change>
+        <change>Show first_name, last_name in applicant info</change>
+        <change>Add "Block Email" checkbox to rejection dialog</change>
+        <change>Update approval confirmation to "Magic link sent"</change>
+      </changes>
+    </page>
+  </frontend-pages>
+
+  <integrations>
+    <integration name="Google reCAPTCHA v3">
+      <frontend>
+        <script src="https://www.google.com/recaptcha/api.js?render=SITE_KEY"/>
+        <usage>const token = await grecaptcha.execute(SITE_KEY, {action: 'publisher_registration'})</usage>
+      </frontend>
+      <backend>
+        <endpoint>POST https://www.google.com/recaptcha/api/siteverify</endpoint>
+        <params>secret=SECRET_KEY&amp;response=TOKEN</params>
+        <threshold>score &lt; 0.5 = reject</threshold>
+      </backend>
+      <env-vars>
+        <var name="NEXT_PUBLIC_RECAPTCHA_SITE_KEY" location="web/.env.local"/>
+        <var name="RECAPTCHA_SECRET_KEY" location="api/.env"/>
+        <var name="SSM" path="/zmanim/prod/recaptcha-site-key"/>
+        <var name="SSM" path="/zmanim/prod/recaptcha-secret-key"/>
+      </env-vars>
+    </integration>
+
+    <integration name="Clerk Magic Link">
+      <documentation>https://clerk.com/docs/custom-flows/magic-links</documentation>
+      <flow>
+        <step n="1">Admin approves application</step>
+        <step n="2">Backend calls Clerk API to create sign-in link</step>
+        <step n="3">Email sent to applicant with magic link</step>
+        <step n="4">User clicks link, Clerk authenticates</step>
+        <step n="5">Webhook or redirect handler creates publisher + user_publishers link</step>
+      </flow>
+      <clerk-api>
+        <create-user>POST /v1/users (for new users with skip_password_checks)</create-user>
+        <sign-in-link>POST /v1/sign_in_tokens (for magic link)</sign-in-link>
+      </clerk-api>
+    </integration>
+
+    <integration name="Resend Email">
+      <existing-template name="TemplatePublisherRegistrationVerification"/>
+      <needed-templates>
+        <template name="TemplatePublisherApprovalMagicLink">
+          Send when admin approves - contains Clerk magic link
+        </template>
+        <template name="TemplatePublisherRejectionWithMessage">
+          Enhance existing TemplatePublisherRejected to include admin's custom message
+          and note about reapplying
+        </template>
+      </needed-templates>
+    </integration>
+  </integrations>
+
+  <security-considerations>
+    <consideration priority="critical" title="No Email Enumeration">
+      Public endpoints must return identical responses regardless of whether
+      email exists, is blocked, or is new. The verification page is the ONLY
+      place where existing user status is revealed (after email verification).
+    </consideration>
+    <consideration priority="critical" title="Silent Blocking">
+      When admin blocks an email, future submissions appear to succeed but
+      are silently ignored. No error, no email sent, no database record
+      (or marked as auto-rejected immediately).
+    </consideration>
+    <consideration priority="high" title="Token Security">
+      Verification tokens: UUID + cryptographic signature, 7-day expiry,
+      single-use (invalidated after verification).
+    </consideration>
+    <consideration priority="high" title="reCAPTCHA Validation">
+      Always validate reCAPTCHA server-side. Never trust frontend-only validation.
+      Log suspicious scores (< 0.5) for monitoring.
+    </consideration>
+    <consideration priority="medium" title="Rate Limiting">
+      Consider rate limiting the registration endpoint to prevent
+      brute force attempts even with reCAPTCHA.
+    </consideration>
+  </security-considerations>
+
+  <testing-scenarios>
+    <scenario id="1" name="New User Complete Flow">
+      Submit form → Receive verification email → Click link →
+      See "under review" message → Admin approves →
+      Receive magic link → Click link → Land on dashboard
+    </scenario>
+    <scenario id="2" name="Existing User Yes Flow">
+      Submit form → Receive verification email → Click link →
+      See "Is this your account?" → Click "Yes" →
+      See "under review" message → Admin approves →
+      Receive magic link → Click link → Land on dashboard with new publisher
+    </scenario>
+    <scenario id="3" name="Existing User No Flow">
+      Submit form → Receive verification email → Click link →
+      See "Is this your account?" → Click "No" →
+      Application silently cancelled, no further action
+    </scenario>
+    <scenario id="4" name="Admin Rejection Flow">
+      Admin reviews verified application → Clicks Reject →
+      Enters message → Submits →
+      Applicant receives rejection email with message
+    </scenario>
+    <scenario id="5" name="Blocked Email Flow">
+      User with blocked email submits form →
+      Form appears to succeed ("Check your email") →
+      No email sent, no database record
+    </scenario>
+    <scenario id="6" name="Bot Detection Flow">
+      Bot submits form → reCAPTCHA score &lt; 0.5 →
+      Form shows friendly error, not submitted
+    </scenario>
+    <scenario id="7" name="Expired Token Flow">
+      User clicks verification link after 7 days →
+      See "Link expired" message with option to reapply
+    </scenario>
+  </testing-scenarios>
+
+  <references>
+    <reference type="coding-standards" path="docs/coding-standards.md"/>
+    <reference type="api-patterns" path="docs/api-reference.md"/>
+    <reference type="email-templates" path="api/internal/services/email_service.go"/>
+    <reference type="clerk-docs" url="https://clerk.com/docs/custom-flows/magic-links"/>
+    <reference type="recaptcha-docs" url="https://developers.google.com/recaptcha/docs/v3"/>
+  </references>
+
+</story-context>

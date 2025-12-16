@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-0-database-schema-aliases" epic="5" generated="2025-12-02">
+  <summary>
+    Database schema extensions for publisher zman aliases and enhanced zman registry requests.
+    First story of Epic 5 - no dependencies, enables all other Epic 5 features.
+  </summary>
+
+  <key-files>
+    <file path="db/migrations/" action="create">
+      New migration files for aliases and enhanced requests tables
+    </file>
+    <file path="api/internal/db/queries/aliases.sql" action="create">
+      SQLc query definitions for alias CRUD operations
+    </file>
+    <file path="api/internal/db/queries/zman_requests.sql" action="create">
+      SQLc query definitions for enhanced request operations
+    </file>
+    <file path="api/internal/db/sqlcgen/" action="regenerate">
+      Run sqlc generate after creating queries
+    </file>
+  </key-files>
+
+  <database-context>
+    <existing-tables>
+      <table name="publishers" note="FK reference for publisher_id"/>
+      <table name="publisher_zmanim" note="FK reference for publisher_zman_id"/>
+      <table name="zman_registry_requests" note="Enhance with new columns"/>
+      <table name="zman_tags" note="FK reference for tag_id"/>
+      <table name="master_zmanim_registry" note="Canonical zman names reference"/>
+    </existing-tables>
+
+    <new-tables>
+      <table name="publisher_zman_aliases">
+        <purpose>Custom display names for zmanim per publisher</purpose>
+        <columns>
+          <column name="id" type="UUID" pk="true"/>
+          <column name="publisher_id" type="UUID" fk="publishers.id"/>
+          <column name="publisher_zman_id" type="UUID" fk="publisher_zmanim.id"/>
+          <column name="custom_hebrew_name" type="TEXT" required="true"/>
+          <column name="custom_english_name" type="TEXT" required="true"/>
+          <column name="custom_transliteration" type="TEXT" nullable="true"/>
+          <column name="is_active" type="BOOLEAN" default="true"/>
+          <column name="created_at" type="TIMESTAMPTZ"/>
+          <column name="updated_at" type="TIMESTAMPTZ"/>
+        </columns>
+        <constraints>
+          <unique columns="publisher_id, publisher_zman_id"/>
+        </constraints>
+      </table>
+
+      <table name="zman_request_tags">
+        <purpose>Tags for zman registry requests (existing + new tag requests)</purpose>
+        <columns>
+          <column name="id" type="UUID" pk="true"/>
+          <column name="request_id" type="UUID" fk="zman_registry_requests.id"/>
+          <column name="tag_id" type="UUID" fk="zman_tags.id" nullable="true"/>
+          <column name="requested_tag_name" type="TEXT" nullable="true"/>
+          <column name="requested_tag_type" type="TEXT" check="event|timing|behavior|shita|method"/>
+          <column name="is_new_tag_request" type="BOOLEAN" default="false"/>
+        </columns>
+        <constraints>
+          <check name="tag_reference_check">Either tag_id OR requested_tag_name set, not both</check>
+        </constraints>
+      </table>
+    </new-tables>
+  </database-context>
+
+  <commands>
+    <command purpose="Run migrations">./scripts/migrate.sh</command>
+    <command purpose="Generate SQLc code">cd api && sqlc generate</command>
+    <command purpose="Verify compilation">cd api && go build ./...</command>
+    <command purpose="Restart services">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>publisher_zman_aliases table created with all columns</item>
+    <item>zman_registry_requests enhanced with new columns</item>
+    <item>zman_request_tags table created with CHECK constraint</item>
+    <item>SQLc queries generated for alias CRUD</item>
+    <item>All Go code compiles without errors</item>
+  </acceptance-checklist>
+</story-context>

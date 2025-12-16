@@ -1,0 +1,131 @@
+<story-context id="8-11-city-source-tracking-legacy-column-cleanup" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>11</storyId>
+    <title>City Source Tracking &amp; Legacy Column Cleanup</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-11-city-source-tracking-legacy-column-cleanup.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>platform operator</asA>
+    <iWant>proper source tracking on cities</iWant>
+    <soThat>we know where each city came from (WOF) and can remove legacy columns</soThat>
+    <tasks>
+      <task id="1">Add new source tracking columns (AC: 1, 2)</task>
+      <task id="2">Populate from existing wof_id (AC: 3)</task>
+      <task id="3">Drop legacy columns (AC: 4, 5)</task>
+      <task id="4">Update SQLc queries (AC: 4, 5)</task>
+      <task id="5">Update import scripts (AC: 6)</task>
+      <task id="6">Testing (AC: 1-6)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">source_type_id column added to geo_cities (references geo_data_sources)</criterion>
+    <criterion id="AC2">source_id column added to geo_cities (TEXT type for external ID)</criterion>
+    <criterion id="AC3">Migration populates source_type_id = WOF, source_id = wof_id for all cities</criterion>
+    <criterion id="AC4">Remove geonameid column (legacy, unused)</criterion>
+    <criterion id="AC5">Remove wof_id column (replaced by source_id)</criterion>
+    <criterion id="AC6">Import scripts updated to use new columns</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.11: City Source Tracking &amp; Legacy Column Cleanup</section>
+        <snippet>Replace legacy geonameid and wof_id with standardized source_type_id + source_id pattern.</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>Key Tables</section>
+        <snippet>geo_cities has ~163k cities with PostGIS geometry. Lookup tables include geo_data_sources.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/db/migrations/</path>
+        <kind>migration-directory</kind>
+        <reason>Location for new migration file</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/cities.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>Update queries referencing geonameid or wof_id</reason>
+      </artifact>
+      <artifact>
+        <path>scripts/seed-geodata/</path>
+        <kind>script-directory</kind>
+        <reason>Update import scripts to use new columns</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/jackc/pgx/v5</package>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>geo_data_sources lookup table must exist with 'wof' key</constraint>
+    <constraint>Migration must be idempotent (handle re-runs)</constraint>
+    <constraint>All cities must have source_type_id after migration</constraint>
+    <constraint>No data loss - wof_id values preserved in source_id</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Schema Changes</name>
+      <kind>database-migration</kind>
+      <signature>
+        -- Add new columns
+        ALTER TABLE geo_cities ADD COLUMN source_type_id INTEGER REFERENCES geo_data_sources(id);
+        ALTER TABLE geo_cities ADD COLUMN source_id TEXT;
+
+        -- Populate from existing
+        UPDATE geo_cities SET
+            source_type_id = (SELECT id FROM geo_data_sources WHERE key = 'wof'),
+            source_id = wof_id::TEXT
+        WHERE wof_id IS NOT NULL;
+
+        -- Drop legacy columns
+        ALTER TABLE geo_cities DROP COLUMN wof_id;
+        ALTER TABLE geo_cities DROP COLUMN geonameid;
+
+        -- Add index
+        CREATE INDEX idx_geo_cities_source ON geo_cities (source_type_id, source_id);
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+    <interface>
+      <name>geo_data_sources reference</name>
+      <kind>lookup-table</kind>
+      <signature>
+        SELECT id, key, name FROM geo_data_sources WHERE key = 'wof';
+        -- Expected: id=X, key='wof', name='Who''s On First'
+      </signature>
+      <path>api/internal/db/queries/</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Test migration idempotency. Verify no data loss. Test import scripts work.</standards>
+    <locations>
+      <location>api/internal/db/migrations/</location>
+      <location>scripts/seed-geodata/</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test source_type_id column exists after migration</idea>
+      <idea acRef="AC2">Test source_id column is TEXT type</idea>
+      <idea acRef="AC3">Verify all cities have source_type_id populated</idea>
+      <idea acRef="AC4">Verify geonameid column removed</idea>
+      <idea acRef="AC5">Verify wof_id column removed</idea>
+      <idea acRef="AC6">Test import scripts work with new columns</idea>
+    </ideas>
+  </tests>
+</story-context>

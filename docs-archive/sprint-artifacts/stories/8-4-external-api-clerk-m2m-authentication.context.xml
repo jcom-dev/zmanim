@@ -1,0 +1,143 @@
+<story-context id="8-4-external-api-clerk-m2m-authentication" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>4</storyId>
+    <title>External API - Clerk M2M Authentication</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-4-external-api-clerk-m2m-authentication.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer integrating with Shtetl Zmanim</asA>
+    <iWant>API key authentication via Clerk M2M tokens</iWant>
+    <soThat>my backend can securely access zmanim data</soThat>
+    <tasks>
+      <task id="1">Create M2M auth middleware (AC: 1, 4)</task>
+      <task id="2">Register middleware for external routes (AC: 2)</task>
+      <task id="3">Create rate limiting middleware (AC: 5)</task>
+      <task id="4">Add rate limit headers (AC: 5)</task>
+      <task id="5">Create documentation (AC: 3, 6)</task>
+      <task id="6">Testing (AC: 1-5)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Clerk M2M token validation middleware created</criterion>
+    <criterion id="AC2">/external/* routes protected by M2M auth middleware</criterion>
+    <criterion id="AC3">Tokens can be created in Clerk dashboard (documented)</criterion>
+    <criterion id="AC4">Token validation returns client_id for logging</criterion>
+    <criterion id="AC5">Rate limiting headers returned on all external API responses</criterion>
+    <criterion id="AC6">Documentation for obtaining and using M2M tokens</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.4: External API - Clerk M2M Authentication</section>
+        <snippet>Create M2M auth middleware using Clerk Go SDK. Verify M2M tokens are different from user JWTs. Set client_id in context.</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>API Path Structure</section>
+        <snippet>/external/* routes use M2M JWT authentication for machine-to-machine access.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/middleware/</path>
+        <kind>middleware-directory</kind>
+        <reason>Location for new m2m_auth.go and rate_limit.go</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/middleware/auth.go</path>
+        <kind>middleware</kind>
+        <symbol>AuthMiddleware</symbol>
+        <reason>Reference for existing auth patterns</reason>
+      </artifact>
+      <artifact>
+        <path>api/cmd/api/main.go</path>
+        <kind>entry-point</kind>
+        <symbol>router setup</symbol>
+        <reason>Add /external route group with M2M middleware</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/cache_service.go</path>
+        <kind>service</kind>
+        <symbol>CacheService, Redis client</symbol>
+        <reason>Redis connection for rate limit counters</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/clerk/clerk-sdk-go/v2</package>
+        <package>github.com/redis/go-redis/v9</package>
+        <package>github.com/go-chi/chi/v5</package>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>M2M tokens MUST be distinguished from user JWTs</constraint>
+    <constraint>Rate limit counters stored in Redis (existing Upstash connection)</constraint>
+    <constraint>Return 401 for invalid tokens, 429 for rate limit exceeded</constraint>
+    <constraint>client_id must be extractable from token for logging</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>M2M Auth Middleware</name>
+      <kind>HTTP middleware</kind>
+      <signature>
+        func M2MAuthMiddleware(next http.Handler) http.Handler
+        - Extracts Bearer token from Authorization header
+        - Validates token with Clerk SDK
+        - Verifies token is M2M (not user JWT)
+        - Sets client_id in context
+        - Returns 401 on failure
+      </signature>
+      <path>api/internal/middleware/m2m_auth.go</path>
+    </interface>
+    <interface>
+      <name>Rate Limit Headers</name>
+      <kind>HTTP headers</kind>
+      <signature>
+        X-RateLimit-Limit: 10
+        X-RateLimit-Remaining: 7
+        X-RateLimit-Reset: 1702200000 (Unix timestamp)
+      </signature>
+      <path>api/internal/middleware/rate_limit.go</path>
+    </interface>
+    <interface>
+      <name>429 Response</name>
+      <kind>JSON response</kind>
+      <signature>
+        {
+          "error": "rate_limit_exceeded",
+          "message": "Too many requests. Please wait 45 seconds.",
+          "retry_after": 45
+        }
+      </signature>
+      <path>api/internal/middleware/rate_limit.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Unit tests for middleware. Integration tests with mock Clerk tokens. Test rate limiting with Redis.</standards>
+    <locations>
+      <location>api/internal/middleware/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test valid M2M token passes middleware</idea>
+      <idea acRef="AC1">Test invalid token returns 401</idea>
+      <idea acRef="AC2">Test /external/* routes require M2M auth</idea>
+      <idea acRef="AC4">Test client_id extracted and set in context</idea>
+      <idea acRef="AC5">Test rate limit headers present on responses</idea>
+      <idea acRef="AC5">Test 429 returned when rate limit exceeded</idea>
+    </ideas>
+  </tests>
+</story-context>

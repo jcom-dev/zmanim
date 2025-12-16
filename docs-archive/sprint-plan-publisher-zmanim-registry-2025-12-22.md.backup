@@ -1,0 +1,1008 @@
+# Sprint Plan: Publisher Zmanim Registry Interface
+
+**Project:** Publisher Zmanim Registry Explorer
+**Planning Date:** 2025-12-22
+**Sprint Duration:** 2 weeks per sprint
+**Total Duration:** 8-10 weeks (4-5 sprints)
+**Team Velocity Assumption:** 20-25 story points per sprint
+
+---
+
+## Table of Contents
+
+1. [Sprint 0: Pre-Work (Documentation & Data Audit)](#sprint-0-pre-work-documentation--data-audit)
+2. [Sprint 1: Core Infrastructure](#sprint-1-core-infrastructure)
+3. [Sprint 2: Master Registry Browser](#sprint-2-master-registry-browser)
+4. [Sprint 3: Publisher Examples Browser](#sprint-3-publisher-examples-browser)
+5. [Sprint 4: Info Modals, Polish & Launch](#sprint-4-info-modals-polish--launch)
+6. [Release Criteria](#release-criteria)
+7. [Risk Management](#risk-management)
+
+---
+
+## Sprint 0: Pre-Work (Documentation & Data Audit)
+
+**Duration:** 1-2 weeks (before Sprint 1 begins)
+**Sprint Goal:** Complete all blocking documentation and data validation to ensure high-quality launch
+
+### Stories & Story Points
+
+#### Story 0.1: Master Registry Documentation Backfill (13 points)
+**Priority:** CRITICAL - BLOCKING
+**Description:** Populate all master zmanim entries with comprehensive documentation sourced from KosherJava research
+
+**Tasks:**
+- Extract documentation from `docs/README-KOSHERJAVA-RESEARCH.md` and related research files
+- Create migration script to populate documentation fields:
+  - `full_description` (REQUIRED)
+  - `halachic_source` (REQUIRED - e.g., "GRA", "MGA 72 min")
+  - `formula_explanation` (REQUIRED)
+  - `usage_context` (RECOMMENDED)
+  - `related_zmanim_ids` (NICE TO HAVE)
+- Validate 100% coverage of all master registry entries
+- Manual QA review of 20 sample entries for quality
+
+**Acceptance Criteria:**
+- Every master zman has `full_description`, `halachic_source`, and `formula_explanation`
+- Documentation is accurate, clear, and matches KosherJava research
+- No placeholder or empty documentation fields
+- Related zmanim IDs correctly reference existing master entries
+
+---
+
+#### Story 0.2: Publisher 1 (MH Zmanim) Data Integrity Audit (8 points)
+**Priority:** CRITICAL - BLOCKING
+**Description:** Audit all Publisher 1 zmanim to ensure correct master_zmanim_id linkages
+
+**Tasks:**
+- Query all Publisher 1 `publisher_zmanim` records
+- Compare publisher formulas against linked master registry formulas
+- Identify mismatches, incorrect linkages, and missing references
+- Generate audit report with findings and recommendations
+- Create SQL migration to fix incorrect `master_zmanim_id` values
+- Execute corrections and re-validate
+
+**Acceptance Criteria:**
+- Audit report documents all Publisher 1 zmanim reviewed
+- 100% of Publisher 1 zmanim have correct `master_zmanim_id` linkage
+- Zero formula mismatches between publisher and master
+- Correction migration script tested and applied
+- Approval from tech lead on audit results
+
+---
+
+#### Story 0.3: Database Schema Extensions (5 points)
+**Priority:** HIGH - BLOCKING
+**Description:** Add new fields to support registry filtering, documentation, and attribution
+
+**Tasks:**
+- Create migration for `master_zmanim_registry` new fields:
+  - `shita` (text) - Standardized shita code
+  - `category` (text) - Primary category
+  - `full_description` (text)
+  - `halachic_source` (text)
+  - `formula_explanation` (text)
+  - `usage_context` (text)
+  - `related_zmanim_ids` (int[])
+- Create migration for `publisher_zmanim` attribution fields:
+  - `copied_from_publisher_id` (nullable int)
+  - `linked_from_publisher_zman_id` (nullable int)
+- Add indexes on `publishers.status` and `publisher_zmanim.master_zmanim_id`
+- Add unique constraint: `(publisher_id, master_zmanim_id)` on `publisher_zmanim`
+- Update SQLc models
+
+**Acceptance Criteria:**
+- Migrations run successfully on dev/staging
+- All new fields are nullable or have defaults (non-breaking)
+- Indexes improve query performance (measured via EXPLAIN)
+- Unique constraint prevents duplicate master linkages per publisher
+- SQLc regenerated, models compile
+
+---
+
+**Sprint 0 Total:** 26 points
+
+### Sprint 0 Dependencies
+- Access to KosherJava research documentation
+- Database migration permissions
+- Publisher 1 data access for audit
+
+### Sprint 0 Risks & Mitigation
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Documentation quality inconsistent | High | Manual QA review of samples, iterate on content |
+| Publisher 1 audit reveals major issues | High | Budget extra time for corrections, involve domain expert |
+| Schema changes break existing code | Medium | Thorough testing, all fields nullable initially |
+
+### Sprint 0 Definition of Done
+- [ ] All master zmanim have complete documentation (3 required fields minimum)
+- [ ] Publisher 1 audit complete with 100% correct linkages
+- [ ] Database migrations deployed to dev/staging
+- [ ] No breaking changes to existing APIs or queries
+- [ ] Tech lead approval on audit report
+- [ ] Documentation quality spot-checked and approved
+
+---
+
+## Sprint 1: Core Infrastructure
+
+**Duration:** 2 weeks
+**Sprint Goal:** Build foundational API endpoints, queries, and basic UI scaffold for registry explorer
+
+### Stories & Story Points
+
+#### Story 1.1: Master Registry API - List with Preview Times (8 points)
+**Priority:** HIGH
+**Description:** Create API endpoint to list master zmanim with calculated preview times for location
+
+**Tasks:**
+- Create SQLc query: `ListMasterZmanimForRegistry`
+  - Include all master zmanim fields + documentation
+  - Join to check ownership status (current publisher already imported)
+  - Support pagination (50 per page)
+- Add handler: `GET /api/v1/publisher/registry/master?locality_id={id}&date={YYYY-MM-DD}&page={n}`
+- Integrate zmanim calculation engine to compute preview times
+- Add filters: category, shita, status (available/imported)
+- Return response with zmanim + ownership status + preview times
+- Write tests for handler and query
+
+**Acceptance Criteria:**
+- Endpoint returns paginated master zmanim
+- Each entry includes calculated preview time for location/date
+- Ownership status correctly shows if current publisher already imported
+- Filters work: category, shita, status
+- Response time < 500ms for 50 items
+- Unit tests pass, integration test with real calculation
+
+---
+
+#### Story 1.2: Publisher Examples API - List Validated Publishers (5 points)
+**Priority:** HIGH
+**Description:** Create endpoint to list all validated publishers for dropdown
+
+**Tasks:**
+- Create SQLc query: `ListValidatedPublishers`
+  - Filter: `status = 'approved' AND deleted_at IS NULL AND suspended_at IS NULL AND inactive_at IS NULL`
+  - Return: `id`, `name`, `display_name`, `created_at`
+- Add handler: `GET /api/v1/publisher/registry/publishers`
+- Add caching (validated publishers change infrequently)
+- Write tests
+
+**Acceptance Criteria:**
+- Endpoint returns only validated publishers
+- Response includes id, name, display_name
+- Results cached for 1 hour
+- Unit and integration tests pass
+
+---
+
+#### Story 1.3: Publisher Examples API - List Publisher Zmanim with Preview (8 points)
+**Priority:** HIGH
+**Description:** Create endpoint to list specific publisher's zmanim with preview times
+
+**Tasks:**
+- Create SQLc query: `ListPublisherZmanimForRegistry`
+  - Filter by target publisher ID
+  - Include master zman details (inherited shita, category)
+  - Check ownership status (current publisher already has this master zman)
+  - Support pagination
+- Add handler: `GET /api/v1/publisher/registry/publishers/{publisher_id}?locality_id={id}&date={YYYY-MM-DD}`
+- Validate locality is within target publisher's coverage
+- Calculate preview times for publisher's zmanim
+- Add filters: category, shita, status
+- Write tests
+
+**Acceptance Criteria:**
+- Endpoint returns target publisher's zmanim with preview times
+- Locality validation works (only covered areas allowed)
+- Ownership status shows if current publisher has same master zman
+- Filters work correctly
+- Response time < 500ms
+- Tests pass
+
+---
+
+#### Story 1.4: Coverage API - Get Publisher Coverage Localities (3 points)
+**Priority:** MEDIUM
+**Description:** Create endpoint to get localities covered by a publisher
+
+**Tasks:**
+- Create SQLc query: `GetPublisherCoverageLocalities`
+  - Query `publisher_coverage` for target publisher
+  - Return locality IDs and names
+- Add handler: `GET /api/v1/publisher/registry/coverage/{publisher_id}`
+- Add caching (coverage changes infrequently)
+- Write tests
+
+**Acceptance Criteria:**
+- Endpoint returns all localities covered by publisher
+- Response cached for 30 minutes
+- Tests pass
+
+---
+
+#### Story 1.5: Registry Page Scaffold & Navigation (5 points)
+**Priority:** HIGH
+**Description:** Create basic registry page structure with tab navigation
+
+**Tasks:**
+- Create route: `/publisher/registry`
+- Create page component: `app/publisher/registry/page.tsx`
+- Add tab navigation: "Master Registry" | "Publisher Examples"
+- Add header controls:
+  - Location picker (shared across tabs)
+  - Date selector (default: today)
+  - Location badge display
+- Add "Browse Registry" button to `/publisher/algorithm` header
+- Wire up basic navigation between pages
+- Add empty state placeholders for each tab
+
+**Acceptance Criteria:**
+- `/publisher/registry` route accessible to authenticated publishers
+- Tab switching works smoothly
+- Location and date pickers functional (state persists across tabs)
+- Navigation from algorithm page works
+- Mobile responsive layout
+- No content yet, just scaffold
+
+---
+
+**Sprint 1 Total:** 29 points
+
+### Sprint 1 Dependencies
+- Sprint 0 complete (schema migrations, documentation)
+- Zmanim calculation engine available
+- Existing location picker component
+
+### Sprint 1 Risks & Mitigation
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Calculation performance slow for 50 zmanim | Medium | Optimize calculations, consider caching, reduce page size if needed |
+| Coverage validation complex | Medium | Start simple (just check exists), iterate if needed |
+| Tab state management issues | Low | Use URL params for active tab, simplify state |
+
+### Sprint 1 Definition of Done
+- [ ] All API endpoints deployed to dev/staging
+- [ ] Endpoints return correct data with proper filtering
+- [ ] Page scaffold renders without errors
+- [ ] Navigation works between algorithm and registry pages
+- [ ] All unit and integration tests pass
+- [ ] API response times meet performance targets
+- [ ] Code review approved
+- [ ] Swagger docs updated
+
+---
+
+## Sprint 2: Master Registry Browser
+
+**Duration:** 2 weeks
+**Sprint Goal:** Complete Master Registry tab with full browsing, filtering, and import functionality
+
+### Stories & Story Points
+
+#### Story 2.1: Master Registry Table with Live Data (8 points)
+**Priority:** HIGH
+**Description:** Build master registry table displaying zmanim with all metadata and preview times
+
+**Tasks:**
+- Create `RegistryMasterBrowser.tsx` component
+- Integrate API: `GET /api/v1/publisher/registry/master`
+- Display table/card layout with columns:
+  - Zman name (Hebrew + English)
+  - DSL formula (syntax highlighted using CodeMirror)
+  - Preview time (formatted 12-hour AM/PM)
+  - Description (one-line summary)
+  - Category badge
+  - Shita badge (color-coded)
+  - Status indicator (Available / Imported)
+- Add pagination controls (50 per page)
+- Handle loading states and errors
+- Responsive design (table on desktop, cards on mobile)
+
+**Acceptance Criteria:**
+- Table displays all master zmanim with correct data
+- Preview times calculated and formatted correctly
+- Syntax highlighting works for DSL formulas
+- Status badges show correct ownership state
+- Pagination works smoothly
+- Mobile responsive
+- Loading and error states handled gracefully
+
+---
+
+#### Story 2.2: Master Registry Search & Filters (5 points)
+**Priority:** HIGH
+**Description:** Add comprehensive search and filtering for master registry
+
+**Tasks:**
+- Add filter panel (collapsible sidebar on desktop, drawer on mobile)
+- Implement filters:
+  - Text search (zman name Hebrew/English, formula keywords)
+  - Category multi-select dropdown
+  - Shita multi-select dropdown
+  - Status filter (Available / Imported)
+- Add "Clear all filters" button
+- Show active filter chips
+- Debounce text search
+- Update URL params with filter state
+
+**Acceptance Criteria:**
+- All filters work correctly and combine properly
+- Text search filters client-side (fast feedback)
+- Filter state persists in URL
+- Active filters shown as chips with remove option
+- Clear all resets to default state
+- Mobile drawer works smoothly
+
+---
+
+#### Story 2.3: Import Action & Duplicate Prevention (8 points)
+**Priority:** CRITICAL
+**Description:** Implement import functionality with smart duplicate prevention
+
+**Tasks:**
+- Create API endpoint: `POST /api/v1/publisher/registry/import`
+  - Body: `{ master_zmanim_id: number }`
+  - Create `publisher_zmanim` record linking to master
+  - Check for duplicates: current publisher already has this master_zmanim_id
+  - Return error if duplicate, success + new zman key if created
+- Add SQLc query: `CreatePublisherZmanFromMaster`
+- Frontend: Add "Import" button to each row
+  - Disable if already imported (show "Imported ✓" badge)
+  - Show loading state during import
+  - On success: redirect to `/publisher/algorithm?focus={zman_key}`
+  - On error: show toast with reason
+- Add tooltip explaining why button is disabled
+- Add confirmation dialog before import
+
+**Acceptance Criteria:**
+- Import creates correct publisher_zmanim record
+- Duplicate prevention works (DB constraint + API validation)
+- Button states reflect ownership correctly
+- Success redirects to algorithm page with focus param
+- Error handling shows clear messages
+- Confirmation dialog prevents accidental imports
+- Tests cover duplicate scenarios
+
+---
+
+#### Story 2.4: Request Addition Button & Workflow (3 points)
+**Priority:** MEDIUM
+**Description:** Add "Request Addition" button to trigger existing request modal
+
+**Tasks:**
+- Add "Request Addition" button to master registry header
+- Reuse existing `RequestZmanModal` component from algorithm page
+- Pre-populate source field: "registry_explorer_master"
+- Wire up modal open/close handlers
+- On success: show toast, do not navigate
+
+**Acceptance Criteria:**
+- Button opens request modal
+- Modal reuses existing component (no duplication)
+- Source field indicates request from registry
+- Success shows confirmation
+- No navigation away from registry
+
+---
+
+#### Story 2.5: Empty States & Visual Polish (3 points)
+**Priority:** LOW
+**Description:** Add empty states and polish visual design for master registry tab
+
+**Tasks:**
+- Add empty states:
+  - "No master zmanim match your filters"
+  - "Try adjusting your filters"
+- Add shita badge color coding (GRA=blue, MGA=green, etc.)
+- Add category badge styling
+- Polish table/card styling for consistency
+- Add hover states for rows
+- Add tooltips for DSL syntax (hover over formula)
+
+**Acceptance Criteria:**
+- Empty states show appropriate messages
+- Badges use consistent color scheme
+- Hover states provide visual feedback
+- Tooltips work on hover (DSL help)
+- Design matches existing publisher UI patterns
+
+---
+
+**Sprint 2 Total:** 27 points
+
+### Sprint 2 Dependencies
+- Sprint 1 complete (API endpoints, page scaffold)
+- Existing RequestZmanModal component
+- CodeMirror DSL setup from algorithm page
+
+### Sprint 2 Risks & Mitigation
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Syntax highlighting performance issues | Medium | Lazy load CodeMirror, limit visible rows |
+| Duplicate prevention edge cases | High | Comprehensive tests, DB constraint as backup |
+| Redirect with focus not working | Low | Test URL params thoroughly, fallback to simple redirect |
+
+### Sprint 2 Definition of Done
+- [ ] Master registry tab fully functional
+- [ ] All filters and search work correctly
+- [ ] Import creates publisher zmanim successfully
+- [ ] Duplicate prevention prevents errors
+- [ ] Request modal opens and submits
+- [ ] Empty states render appropriately
+- [ ] Visual design polished and consistent
+- [ ] All tests pass (unit, integration, E2E for import flow)
+- [ ] Code review approved
+- [ ] Deployed to staging for QA
+
+---
+
+## Sprint 3: Publisher Examples Browser
+
+**Duration:** 2 weeks
+**Sprint Goal:** Complete Publisher Examples tab with link/copy actions and coverage-aware location selection
+
+### Stories & Story Points
+
+#### Story 3.1: Publisher Search & Selection (5 points)
+**Priority:** HIGH
+**Description:** Build publisher search dropdown to select which publisher's catalog to view
+
+**Tasks:**
+- Create publisher search autocomplete dropdown
+- Integrate API: `GET /api/v1/publisher/registry/publishers`
+- Display: publisher name, display_name
+- On selection:
+  - Load selected publisher's coverage localities
+  - Clear location if current location not in coverage
+  - Fetch selected publisher's zmanim
+- Add "No publisher selected" empty state
+- Add loading state while fetching publishers
+
+**Acceptance Criteria:**
+- Dropdown shows all validated publishers
+- Search/autocomplete works smoothly
+- Selection triggers zmanim fetch
+- Coverage-aware location clearing works
+- Empty and loading states handled
+- Mobile friendly dropdown
+
+---
+
+#### Story 3.2: Publisher Zmanim Table with Live Data (8 points)
+**Priority:** HIGH
+**Description:** Display selected publisher's zmanim catalog with metadata and preview times
+
+**Tasks:**
+- Create `RegistryPublisherBrowser.tsx` component
+- Integrate API: `GET /api/v1/publisher/registry/publishers/{id}?locality_id=&date=`
+- Display table/card layout with columns:
+  - Zman name (may be customized by publisher)
+  - Publisher name (prominent attribution)
+  - DSL formula (syntax highlighted)
+  - Preview time (formatted)
+  - "Validated Publisher" badge
+  - Master registry name (inherited)
+  - Shita badge (inherited from master)
+  - Status indicator (Available / Already in Your Catalog)
+- Add pagination
+- Handle loading/error states
+- Responsive design
+
+**Acceptance Criteria:**
+- Table displays selected publisher's zmanim
+- Attribution shows clearly (publisher name)
+- Preview times accurate for selected location
+- Ownership status reflects current publisher's catalog
+- Pagination works
+- Mobile responsive
+- Loading and error states handled
+
+---
+
+#### Story 3.3: Coverage-Restricted Location Selection (5 points)
+**Priority:** HIGH
+**Description:** Restrict location dropdown to only show localities covered by selected publisher
+
+**Tasks:**
+- Integrate API: `GET /api/v1/publisher/registry/coverage/{publisher_id}`
+- Filter location dropdown options to coverage localities only
+- Show message: "This publisher only covers certain localities"
+- If selected location not in coverage: clear and show notification
+- Handle case where publisher has no coverage (show warning)
+- Share location state with Master Registry tab (cross-tab persistence)
+
+**Acceptance Criteria:**
+- Location dropdown only shows covered localities
+- Switching publishers clears location if not covered
+- Cross-tab location state works (same location in both tabs)
+- Coverage message displays when appropriate
+- No coverage warning shows clearly
+
+---
+
+#### Story 3.4: Publisher Examples Search & Filters (5 points)
+**Priority:** MEDIUM
+**Description:** Add filtering within selected publisher's catalog
+
+**Tasks:**
+- Add filter panel (same design as master registry)
+- Implement filters:
+  - Text search (zman name, formula keywords)
+  - Category multi-select
+  - Shita multi-select
+  - Status (Available / Already in Catalog)
+- Active filter chips
+- Clear all filters button
+- URL param persistence
+
+**Acceptance Criteria:**
+- All filters work correctly
+- Filters apply to selected publisher's catalog only
+- Filter state persists in URL
+- Clear all resets filters
+- Mobile drawer works
+
+---
+
+#### Story 3.5: Link Action with Duplicate Prevention (8 points)
+**Priority:** HIGH
+**Description:** Implement "Link" action to reference another publisher's zman
+
+**Tasks:**
+- Create API endpoint: `POST /api/v1/publisher/registry/link`
+  - Body: `{ publisher_zman_id: number }`
+  - Create `publisher_zmanim` record with:
+    - `master_zmanim_id` (from source zman)
+    - `linked_from_publisher_zman_id` (attribution)
+  - Check duplicate: current publisher already has this master_zmanim_id
+  - Return error if duplicate, success + zman key if created
+- Add SQLc query: `CreatePublisherZmanLink`
+- Frontend: Add "Link" button
+  - Disable if already in catalog (same master_zmanim_id check)
+  - Show loading state during link
+  - On success: redirect to `/publisher/algorithm?focus={zman_key}`
+  - On error: show toast
+- Add tooltip explaining link vs copy
+- Add confirmation dialog
+
+**Acceptance Criteria:**
+- Link creates correct publisher_zmanim with link attribution
+- Duplicate prevention works (same master_zmanim_id)
+- Button states reflect ownership
+- Success redirects to algorithm page
+- Error handling clear
+- Confirmation prevents accidents
+- Tests cover duplicate scenarios
+
+---
+
+#### Story 3.6: Copy Action with Duplicate Prevention (8 points)
+**Priority:** HIGH
+**Description:** Implement "Copy" action to duplicate formula as independent zman
+
+**Tasks:**
+- Create API endpoint: `POST /api/v1/publisher/registry/copy`
+  - Body: `{ publisher_zman_id: number }`
+  - Create `publisher_zmanim` record with:
+    - `master_zmanim_id` (from source)
+    - `copied_from_publisher_id` (attribution)
+  - Check duplicate: current publisher already has this master_zmanim_id
+  - Return error if duplicate, success + zman key if created
+- Add SQLc query: `CreatePublisherZmanCopy`
+- Frontend: Add "Copy" button
+  - Disable if already in catalog
+  - Show loading state
+  - On success: redirect to `/publisher/algorithm?focus={zman_key}`
+  - On error: show toast
+- Add tooltip explaining copy vs link
+- Add confirmation dialog
+
+**Acceptance Criteria:**
+- Copy creates independent publisher_zmanim with copy attribution
+- Duplicate prevention works
+- Button states correct
+- Success redirects to algorithm page
+- Error handling clear
+- Confirmation dialog shown
+- Tests cover scenarios
+
+---
+
+**Sprint 3 Total:** 39 points (may need to split into Sprint 3A and 3B)
+
+### Sprint 3 Dependencies
+- Sprint 2 complete (master registry working)
+- Coverage API from Sprint 1
+- Publisher search API from Sprint 1
+
+### Sprint 3 Risks & Mitigation
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Coverage restriction UX confusing | Medium | Clear messaging, tooltips, user testing |
+| Link vs Copy semantics unclear | Medium | Good tooltips, confirmation dialogs explaining difference |
+| Performance with large publisher catalogs | Low | Same pagination as master registry, should scale |
+
+### Sprint 3 Definition of Done
+- [ ] Publisher search and selection works
+- [ ] Publisher zmanim table displays correctly
+- [ ] Coverage-restricted location works
+- [ ] All filters functional
+- [ ] Link action creates correct records
+- [ ] Copy action creates correct records
+- [ ] Duplicate prevention works for both actions
+- [ ] Redirects to algorithm page with focus work
+- [ ] All tests pass (unit, integration, E2E for link/copy flows)
+- [ ] Code review approved
+- [ ] Deployed to staging for QA
+
+---
+
+## Sprint 4: Info Modals, Polish & Launch
+
+**Duration:** 2 weeks
+**Sprint Goal:** Complete info modals, remove algorithm page add functionality, polish, and launch
+
+### Stories & Story Points
+
+#### Story 4.1: Master Zman Detail Modal (8 points)
+**Priority:** HIGH
+**Description:** Build comprehensive documentation modal for master zmanim
+
+**Tasks:**
+- Create `MasterZmanDetailModal.tsx` component
+- Full-screen modal design (similar to existing zman detail view)
+- Sections:
+  - Header: Zman name (Hebrew + English), key
+  - Summary: Brief description
+  - DSL Formula: Syntax highlighted with copy button
+  - Scientific Explanation: Plain language
+  - Astronomical Definition: Technical details
+  - Algorithm: Calculation method
+  - Halachic Significance: Usage in halacha
+  - Halachic Sources: Expandable cards for each posek/opinion
+  - Practical Notes: When/where applicable
+  - Related Zmanim: Clickable links (opens their modal)
+- Add navigation between related zmanim within modal
+- Add close button and keyboard shortcuts (ESC)
+- Mobile responsive
+
+**Acceptance Criteria:**
+- Modal displays all documentation sections
+- Formula copy button works
+- Related zmanim links open correct modal
+- Navigation smooth, no page refresh
+- Mobile responsive and readable
+- ESC key closes modal
+- Accessible (keyboard navigation, ARIA labels)
+
+---
+
+#### Story 4.2: Publisher Zman Detail Modal (5 points)
+**Priority:** HIGH
+**Description:** Build modal showing publisher-specific fields + inherited master documentation
+
+**Tasks:**
+- Create `PublisherZmanDetailModal.tsx` component
+- Two-section layout:
+  - **Top Section: Publisher-Specific Fields**
+    - Zman name (may be customized)
+    - Publisher name (attribution)
+    - DSL formula (this publisher's version)
+    - Custom notes/overrides
+    - Attribution: "Copied from [Publisher]" or "Linked to [Publisher]"
+  - **Bottom Section: Master Zman Documentation**
+    - Reuse content/layout from `MasterZmanDetailModal`
+    - All inherited documentation
+- Add expandable "View Details" panel for metadata
+- Mobile responsive
+
+**Acceptance Criteria:**
+- Modal shows both publisher and master sections
+- Attribution displays correctly (copy/link source)
+- Master documentation inherited and displayed
+- Expandable details work
+- Mobile responsive
+- Accessible
+
+---
+
+#### Story 4.3: Info Buttons & Modal Triggers (3 points)
+**Priority:** MEDIUM
+**Description:** Wire up info buttons (ℹ️) to trigger detail modals
+
+**Tasks:**
+- Add info button to each row in master registry table
+- Add info button to each row in publisher examples table
+- Wire up click handlers to open appropriate modal
+- Pass correct zman data to modal
+- Handle modal open/close state
+- Add keyboard shortcuts (ESC to close)
+
+**Acceptance Criteria:**
+- Info buttons trigger correct modal
+- Modal receives correct data
+- Open/close animations smooth
+- ESC key works
+- Only one modal open at a time
+
+---
+
+#### Story 4.4: Remove Add Functionality from Algorithm Page (5 points)
+**Priority:** HIGH - GREENFIELD CLEANUP
+**Description:** Delete all zman addition UI from algorithm page (complete separation of concerns)
+
+**Tasks:**
+- Remove from `/app/publisher/algorithm/page.tsx`:
+  - "Add Zman" button and dialog (lines 959-1238)
+  - `MasterZmanPicker` component import and usage
+  - `PublisherZmanPicker` component import and usage
+  - `RequestZmanModal` import (moved to registry)
+  - State: `showAddZmanModeDialog`, `showZmanPicker`, `showPublisherZmanPicker`, `showRequestZmanModal`
+  - All "Add Zman Mode" handlers
+- Verify no other references to removed components
+- Update tests (remove tests for deleted functionality)
+- Test algorithm page still works for editing existing zmanim
+
+**Acceptance Criteria:**
+- All add zman UI removed from algorithm page
+- Algorithm page renders without errors
+- Editing existing zmanim still works
+- No console errors
+- Tests updated and passing
+- Code review confirms clean removal
+
+---
+
+#### Story 4.5: Algorithm Page Focus & Scroll Enhancement (3 points)
+**Priority:** MEDIUM
+**Description:** Add URL param handling to focus and scroll to specific zman
+
+**Tasks:**
+- Add URL param parsing: `?focus={zman_key}`
+- On page load with focus param:
+  - Find zman in list by key
+  - Scroll to zman (smooth scroll)
+  - Highlight zman (temporary highlight animation)
+  - Clear URL param after highlighting
+- Add visual highlight effect (fade out after 2 seconds)
+- Test with navigation from registry actions
+
+**Acceptance Criteria:**
+- Focus param triggers scroll to zman
+- Zman highlighted visually
+- Smooth scroll animation
+- Highlight fades after 2 seconds
+- Works from all registry actions (import, link, copy)
+- No errors if zman not found (graceful handling)
+
+---
+
+#### Story 4.6: Visual Polish & Final UX Refinements (5 points)
+**Priority:** MEDIUM
+**Description:** Final polish pass on entire registry interface
+
+**Tasks:**
+- Consistent spacing, typography, colors across tabs
+- Ensure all badges use same design system
+- Hover states polished for all interactive elements
+- Loading skeletons for data fetching
+- Smooth transitions between tabs
+- Empty states refined
+- Error messages user-friendly
+- Mobile testing and fixes
+- Accessibility audit (keyboard nav, screen reader)
+- Cross-browser testing (Chrome, Firefox, Safari)
+
+**Acceptance Criteria:**
+- Visual consistency across all pages
+- Smooth animations and transitions
+- Loading states provide good feedback
+- Empty states helpful and clear
+- Error messages actionable
+- Mobile experience polished
+- Keyboard navigation works throughout
+- No accessibility violations
+- Works in all major browsers
+
+---
+
+#### Story 4.7: E2E Testing & QA (5 points)
+**Priority:** HIGH
+**Description:** Comprehensive end-to-end testing of all registry workflows
+
+**Tasks:**
+- Write E2E tests for:
+  - Master registry import flow
+  - Publisher examples link flow
+  - Publisher examples copy flow
+  - Duplicate prevention scenarios
+  - Filter and search
+  - Modal opening and navigation
+  - Cross-tab location persistence
+- Manual QA checklist:
+  - All user journeys from product brief
+  - Edge cases (no coverage, no publishers, etc.)
+  - Mobile and desktop
+  - Different publisher accounts
+- Performance testing (50 zmanim load time)
+- Create bug list and prioritize fixes
+
+**Acceptance Criteria:**
+- All E2E tests pass
+- Manual QA checklist 100% complete
+- Critical bugs fixed before launch
+- Performance targets met (< 500ms API, < 2s page load)
+- No console errors in production build
+
+---
+
+**Sprint 4 Total:** 34 points
+
+### Sprint 4 Dependencies
+- Sprint 3 complete (both tabs working)
+- Master documentation populated (Sprint 0)
+- QA environment available
+
+### Sprint 4 Risks & Mitigation
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Modal complexity causes performance issues | Medium | Lazy load modals, optimize renders |
+| Algorithm page removal breaks something | High | Comprehensive testing, staged rollout |
+| E2E tests brittle | Low | Use stable selectors, good test design |
+
+### Sprint 4 Definition of Done
+- [ ] Both info modals fully functional
+- [ ] Info buttons trigger correct modals
+- [ ] Algorithm page add functionality removed cleanly
+- [ ] Focus/scroll enhancement works
+- [ ] Visual polish complete
+- [ ] E2E tests passing
+- [ ] Manual QA complete
+- [ ] All critical bugs fixed
+- [ ] Performance targets met
+- [ ] Accessibility compliant
+- [ ] Code review approved
+- [ ] Deployed to production
+- [ ] Release notes published
+
+---
+
+## Release Criteria
+
+### Pre-Launch Checklist
+- [ ] Sprint 0 complete (documentation backfill, Publisher 1 audit, schema)
+- [ ] All story acceptance criteria met
+- [ ] All tests passing (unit, integration, E2E)
+- [ ] Performance targets met:
+  - API response < 500ms for 50 items
+  - Page load < 2 seconds
+  - No memory leaks
+- [ ] Accessibility audit passed
+- [ ] Cross-browser testing complete
+- [ ] Mobile responsive on iOS and Android
+- [ ] Security review complete (PublisherResolver, duplicate prevention)
+- [ ] Documentation updated:
+  - API docs (Swagger)
+  - User guide for registry
+  - Developer onboarding updated
+- [ ] Monitoring and analytics in place:
+  - Track registry page views
+  - Track import/link/copy actions
+  - Track modal opens
+  - Error tracking configured
+
+### Launch Day Tasks
+- [ ] Deploy to production
+- [ ] Run smoke tests on production
+- [ ] Monitor error rates and performance
+- [ ] Notify all publishers of new feature (email announcement)
+- [ ] Update help docs and FAQs
+- [ ] Monitor support tickets for issues
+
+### Post-Launch (Week 1)
+- [ ] Review analytics:
+  - % of publishers who visited registry
+  - Import/link/copy rates
+  - Most viewed master zmanim
+- [ ] Collect user feedback
+- [ ] Fix critical bugs
+- [ ] Iterate on UX based on feedback
+
+### MVP Success Metrics (30 days post-launch)
+- [ ] 70%+ of new publishers browse registry within first week
+- [ ] 50%+ of new publishers import at least 1 master zman
+- [ ] 30%+ explore publisher examples view
+- [ ] Zero duplicate zmanim created (prevention works)
+- [ ] < 5% of "Request Addition" submissions are duplicates
+- [ ] Reduction in support questions about DSL
+
+---
+
+## Risk Management
+
+### Overall Project Risks
+
+| Risk | Probability | Impact | Mitigation Strategy | Owner |
+|------|-------------|--------|---------------------|-------|
+| **Documentation quality inconsistent** | Medium | High | Manual QA review, iterate content, domain expert review | Tech Lead |
+| **Publisher 1 audit reveals major data issues** | Medium | High | Budget extra time, involve domain expert, phased corrections | Backend Dev |
+| **Calculation performance slow with 50 zmanim** | Low | Medium | Optimize calculations, caching, pagination, load testing | Backend Dev |
+| **Duplicate prevention has edge cases** | Medium | High | Comprehensive tests, DB constraint backup, code review | Backend Dev |
+| **Coverage restriction UX confusing to users** | Medium | Medium | User testing, clear messaging, tooltips, iterate based on feedback | Frontend Dev |
+| **Modal complexity causes performance issues** | Low | Medium | Lazy loading, optimize renders, performance profiling | Frontend Dev |
+| **Algorithm page removal breaks existing workflows** | Medium | High | Thorough testing, staged rollout, rollback plan | Full Stack Dev |
+| **Launch delayed by Sprint 0 blocking work** | Low | High | Start Sprint 0 ASAP, parallel work where possible | PM |
+| **Privacy concerns from publishers** | Low | Medium | Only show approved publishers, add opt-out for future, clear communication | Product |
+
+### Sprint-Specific Risks
+
+Detailed in each sprint section above.
+
+### Contingency Plans
+
+**If Sprint 0 runs long:**
+- Sprint 1 can start on infrastructure while documentation finalizes
+- Publisher 1 audit MUST complete before Sprint 3 (examples browser)
+
+**If performance issues arise:**
+- Reduce page size from 50 to 25
+- Add server-side caching for master registry
+- Defer calculation to background job if needed
+
+**If duplicate prevention fails:**
+- DB constraint will catch errors
+- Add admin tool to clean up duplicates
+- Improve client-side checks
+
+**If user adoption low:**
+- Add onboarding tour
+- Email campaign highlighting benefits
+- In-app prompts to explore registry
+
+---
+
+## Summary
+
+| Sprint | Duration | Focus | Story Points |
+|--------|----------|-------|--------------|
+| **Sprint 0** | 1-2 weeks | Documentation & Data Audit (BLOCKING) | 26 |
+| **Sprint 1** | 2 weeks | Core Infrastructure (APIs, scaffold) | 29 |
+| **Sprint 2** | 2 weeks | Master Registry Browser + Import | 27 |
+| **Sprint 3** | 2 weeks | Publisher Examples Browser + Link/Copy | 39 (split if needed) |
+| **Sprint 4** | 2 weeks | Info Modals, Greenfield Cleanup, Polish | 34 |
+| **TOTAL** | **9-10 weeks** | **Complete Registry Explorer** | **155 points** |
+
+### Key Dependencies Flow
+```
+Sprint 0 (BLOCKING)
+    ↓
+Sprint 1 (Infrastructure)
+    ↓
+Sprint 2 (Master Registry)
+    ↓
+Sprint 3 (Publisher Examples)
+    ↓
+Sprint 4 (Polish & Launch)
+```
+
+### Critical Path Items
+1. Sprint 0 documentation backfill (blocks quality)
+2. Sprint 0 Publisher 1 audit (blocks examples browser)
+3. Sprint 1 API endpoints (blocks all UI work)
+4. Sprint 2 import action (core value delivery)
+5. Sprint 3 link/copy actions (core value delivery)
+6. Sprint 4 greenfield cleanup (required for launch)
+
+---
+
+**Next Steps:**
+1. Review and approve sprint plan
+2. Schedule Sprint 0 kickoff
+3. Assign stories to team members
+4. Set up tracking (Jira, GitHub Projects, etc.)
+5. Begin Sprint 0 work immediately
+
+---
+
+_This sprint plan translates the Product Brief into actionable, time-boxed work with clear dependencies, risks, and success criteria. Each sprint delivers incremental value while building toward the complete Publisher Zmanim Registry Explorer._

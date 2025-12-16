@@ -1,0 +1,137 @@
+<story-context id="8-1-wire-algorithm-version-history-routes" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>1</storyId>
+    <title>Wire Algorithm Version History Routes</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-1-wire-algorithm-version-history-routes.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>working version history with diff and rollback</iWant>
+    <soThat>I can track and revert algorithm changes</soThat>
+    <tasks>
+      <task id="1">Register 5 routes in main.go (AC: 1-5)
+        <subtask>1.1 Add GET /publisher/algorithm/history route</subtask>
+        <subtask>1.2 Add GET /publisher/algorithm/history/{version} route</subtask>
+        <subtask>1.3 Add GET /publisher/algorithm/diff route</subtask>
+        <subtask>1.4 Add POST /publisher/algorithm/rollback route</subtask>
+        <subtask>1.5 Add POST /publisher/algorithm/snapshot route</subtask>
+      </task>
+      <task id="2">Test each endpoint manually (AC: 1-5)</task>
+      <task id="3">Verify frontend integration (AC: 6)</task>
+      <task id="4">Write E2E tests (AC: 7)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">GET /publisher/algorithm/history returns version list</criterion>
+    <criterion id="AC2">GET /publisher/algorithm/history/{version} returns version detail</criterion>
+    <criterion id="AC3">GET /publisher/algorithm/diff?v1=X&amp;v2=Y returns diff</criterion>
+    <criterion id="AC4">POST /publisher/algorithm/rollback creates new version from old</criterion>
+    <criterion id="AC5">POST /publisher/algorithm/snapshot saves current state</criterion>
+    <criterion id="AC6">Frontend version history dialog works with all endpoints</criterion>
+    <criterion id="AC7">E2E test verifies: create versions, compare, rollback</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.1: Wire Algorithm Version History Routes</section>
+        <snippet>Backend handlers, queries, and frontend components ALL exist. Just need to wire 5 routes in main.go. This is a wiring-only story.</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>PublisherResolver Pattern</section>
+        <snippet>REQUIRED: pc := h.publisherResolver.MustResolve(w, r). Manual X-Publisher-Id extraction is FORBIDDEN.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/cmd/api/main.go</path>
+        <kind>entry-point</kind>
+        <symbol>main, router setup</symbol>
+        <lines>publisher route group</lines>
+        <reason>Add 5 new routes to the /publisher/algorithm route group</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/algorithm_version.go</path>
+        <kind>handler</kind>
+        <symbol>GetAlgorithmHistory, GetAlgorithmVersion, GetAlgorithmDiff, RollbackAlgorithm, SnapshotAlgorithm</symbol>
+        <reason>Existing handlers that need to be wired to routes</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/algorithm_versions.sql</path>
+        <kind>sqlc-query</kind>
+        <symbol>GetAlgorithmVersions, GetAlgorithmVersionByID</symbol>
+        <reason>SQLc queries for version history - already exist</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/publisher/VersionHistoryDialog.tsx</path>
+        <kind>component</kind>
+        <symbol>VersionHistoryDialog</symbol>
+        <reason>Frontend component for version history - already exists, verify it works</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/publisher/</path>
+        <kind>test-directory</kind>
+        <reason>Location for new E2E test file version-history.spec.ts</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/go-chi/chi/v5</package>
+        <package>github.com/jackc/pgx/v5</package>
+      </go>
+      <node>
+        <package>@playwright/test</package>
+        <package>react-query</package>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use PublisherResolver pattern - NEVER extract X-Publisher-Id manually</constraint>
+    <constraint>Follow 6-step handler pattern: resolve, params, body, validate, query, respond</constraint>
+    <constraint>Routes must be added to existing /publisher/algorithm route group</constraint>
+    <constraint>This is WIRING ONLY - do not modify existing handlers or queries</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Algorithm History Routes</name>
+      <kind>REST endpoints</kind>
+      <signature>
+        GET /publisher/algorithm/history
+        GET /publisher/algorithm/history/{version}
+        GET /publisher/algorithm/diff?v1=X&amp;v2=Y
+        POST /publisher/algorithm/rollback
+        POST /publisher/algorithm/snapshot
+      </signature>
+      <path>api/cmd/api/main.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Use Playwright for E2E tests. Use shared publisher fixtures (getSharedPublisher). Tests should be isolated and can run in parallel.</standards>
+    <locations>
+      <location>tests/e2e/publisher/</location>
+      <location>api/internal/handlers/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test GET /publisher/algorithm/history returns array of versions</idea>
+      <idea acRef="AC2">Test GET /publisher/algorithm/history/{id} returns version details</idea>
+      <idea acRef="AC3">Test GET /publisher/algorithm/diff returns diff between two versions</idea>
+      <idea acRef="AC4">Test POST /publisher/algorithm/rollback creates new version from old</idea>
+      <idea acRef="AC5">Test POST /publisher/algorithm/snapshot saves current state</idea>
+      <idea acRef="AC6">E2E: Open version history dialog, verify versions display</idea>
+      <idea acRef="AC7">E2E: Create version, compare, rollback - full flow</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.10" title="Email Service Integration for Invitations">
+  <summary>
+    This context file provides all information needed to implement email notifications for the
+    invitation system. The current implementation has TODOs for email sending and user-publisher linking.
+  </summary>
+
+  <current-state>
+    <description>
+      The invitation system creates database records but sends no emails. Users must be notified
+      out-of-band about invitations. User-publisher linking is also not implemented.
+    </description>
+
+    <source-todos>
+      <todo file="api/internal/handlers/invitations.go" line="201">
+        // 10. Send email (TODO: Implement email sending)
+      </todo>
+      <todo file="api/internal/handlers/invitations.go" line="453">
+        // 5. TODO: Link user to publisher via user_publishers table
+      </todo>
+    </source-todos>
+  </current-state>
+
+  <target-state>
+    <description>
+      - Email service configured (Resend, SendGrid, or AWS SES)
+      - Invitation emails sent automatically with secure accept links
+      - Confirmation emails on acceptance
+      - Users linked to publishers via user_publishers table
+    </description>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/api/internal/handlers/invitations.go" relevance="primary">
+      <description>
+        Main handler file with TODO placeholders. Contains CreateInvitation and AcceptInvitation
+        functions that need email integration.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/cmd/api/main.go" relevance="secondary">
+      <description>
+        Application entry point. Email service will be initialized here and passed to handlers.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/db/migrations/" relevance="secondary">
+      <description>
+        Migration directory. May need migration for user_publishers table if not exists.
+      </description>
+    </file>
+  </files>
+
+  <files-to-create>
+    <file path="api/internal/email/email.go">
+      <purpose>Email service interface definition</purpose>
+    </file>
+    <file path="api/internal/email/resend.go">
+      <purpose>Resend email provider implementation</purpose>
+    </file>
+    <file path="api/internal/email/templates/invitation.html">
+      <purpose>HTML email template for invitations</purpose>
+    </file>
+    <file path="api/internal/email/templates/welcome.html">
+      <purpose>HTML email template for acceptance confirmation</purpose>
+    </file>
+  </files-to-create>
+
+  <environment-variables>
+    <variable name="EMAIL_PROVIDER" example="resend" description="Email provider: resend, sendgrid, or ses" />
+    <variable name="EMAIL_API_KEY" example="re_xxx" description="API key for chosen email provider" />
+    <variable name="EMAIL_FROM_ADDRESS" example="noreply@shtetl.io" description="Sender email address" />
+    <variable name="EMAIL_FROM_NAME" example="Shtetl Zmanim" description="Sender display name" />
+  </environment-variables>
+
+  <implementation-guide>
+    <step n="1">
+      <task>Create email service interface</task>
+      <code>
+type EmailService interface {
+    SendInvitation(ctx context.Context, email InvitationEmail) error
+    SendWelcome(ctx context.Context, email WelcomeEmail) error
+    SendNotification(ctx context.Context, email NotificationEmail) error
+}
+      </code>
+    </step>
+    <step n="2">
+      <task>Implement Resend provider (recommended)</task>
+      <code>
+import "github.com/resend/resend-go/v2"
+
+type ResendService struct {
+    client *resend.Client
+    from   string
+}
+
+func (s *ResendService) SendInvitation(ctx context.Context, email InvitationEmail) error {
+    params := &resend.SendEmailRequest{
+        From:    s.from,
+        To:      []string{email.To},
+        Subject: fmt.Sprintf("You've been invited to join %s", email.PublisherName),
+        Html:    renderTemplate("invitation", email),
+    }
+    _, err := s.client.Emails.Send(params)
+    return err
+}
+      </code>
+    </step>
+    <step n="3">
+      <task>Integrate with invitations handler</task>
+      <code>
+// In CreateInvitation, replace TODO:
+if err := h.emailService.SendInvitation(ctx, email.InvitationEmail{
+    To:           req.Email,
+    InviterName:  inviterName,
+    PublisherName: publisher.Name,
+    AcceptURL:    acceptURL,
+    ExpiresAt:    invite.ExpiresAt,
+}); err != nil {
+    slog.Error("failed to send invitation email", "error", err)
+}
+      </code>
+    </step>
+    <step n="4">
+      <task>Create user_publishers linking</task>
+      <code>
+-- SQLc query:
+-- name: LinkUserToPublisher :exec
+INSERT INTO user_publishers (user_id, publisher_id, role)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id, publisher_id) DO NOTHING;
+      </code>
+    </step>
+  </implementation-guide>
+
+  <testing>
+    <test-case name="Email sending">
+      <description>Verify invitation emails are sent on creation</description>
+      <approach>Mock email service, verify SendInvitation called with correct params</approach>
+    </test-case>
+    <test-case name="User-publisher linking">
+      <description>Verify user linked to publisher on acceptance</description>
+      <approach>Create invitation, accept it, verify user_publishers record exists</approach>
+    </test-case>
+    <test-case name="Email failure handling">
+      <description>Verify invitation created even if email fails</description>
+      <approach>Mock email service to return error, verify invitation still created</approach>
+    </test-case>
+  </testing>
+</story-context>

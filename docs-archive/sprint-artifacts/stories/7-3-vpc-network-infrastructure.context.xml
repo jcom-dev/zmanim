@@ -1,0 +1,627 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.3</storyId>
+    <title>VPC Network Infrastructure</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-3-vpc-network-infrastructure.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a secure VPC with public subnet</iWant>
+    <soThat>EC2 can serve traffic without NAT Gateway costs</soThat>
+
+    <tasks>
+      <task id="1" acceptanceCriteria="AC1">
+        <description>Create VPC</description>
+        <subtasks>
+          <subtask id="1.1">Define VPC in lib/network-stack.ts</subtask>
+          <subtask id="1.2">Configure CIDR block 10.0.0.0/16</subtask>
+          <subtask id="1.3">Create public subnet in eu-west-1a</subtask>
+          <subtask id="1.4">Enable DNS hostnames and resolution</subtask>
+        </subtasks>
+      </task>
+
+      <task id="2" acceptanceCriteria="AC2">
+        <description>Internet Gateway</description>
+        <subtasks>
+          <subtask id="2.1">Create Internet Gateway construct</subtask>
+          <subtask id="2.2">Attach to VPC</subtask>
+          <subtask id="2.3">Configure route table with 0.0.0.0/0 → IGW</subtask>
+        </subtasks>
+      </task>
+
+      <task id="3" acceptanceCriteria="AC3">
+        <description>S3 Gateway Endpoint</description>
+        <subtasks>
+          <subtask id="3.1">Create VPC Gateway Endpoint for S3</subtask>
+          <subtask id="3.2">Associate with public subnet route table</subtask>
+          <subtask id="3.3">Document cost savings (free vs NAT Gateway)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="4" acceptanceCriteria="AC4">
+        <description>Security Groups</description>
+        <subtasks>
+          <subtask id="4.1">Create EC2 security group</subtask>
+          <subtask id="4.2">Add ingress rule: 443/tcp from CloudFront Prefix List</subtask>
+          <subtask id="4.3">Add ingress rule: 22/tcp from admin CIDR (configurable)</subtask>
+          <subtask id="4.4">Add ingress rule: 8080/tcp from API Gateway (internal)</subtask>
+          <subtask id="4.5">Configure egress: all traffic (S3 via Gateway Endpoint)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="5" acceptanceCriteria="AC5">
+        <description>Verify No NAT Gateway</description>
+        <subtasks>
+          <subtask id="5.1">Ensure natGateways: 0 in VPC config</subtask>
+          <subtask id="5.2">Document that Packer AMI pre-installs all packages</subtask>
+          <subtask id="5.3">Verify S3 access works via Gateway Endpoint</subtask>
+        </subtasks>
+      </task>
+
+      <task id="6" acceptanceCriteria="AC1-5">
+        <description>Testing</description>
+        <subtasks>
+          <subtask id="6.1">Run cdk synth to verify CloudFormation output</subtask>
+          <subtask id="6.2">Deploy to staging account</subtask>
+          <subtask id="6.3">Verify VPC connectivity</subtask>
+          <subtask id="6.4">Test S3 access from within VPC</subtask>
+          <subtask id="6.5">Document network architecture diagram</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">
+      <description>VPC created in eu-west-1 with public subnet</description>
+      <verificationMethod>CDK synth shows VPC with 10.0.0.0/16 CIDR, public subnet in eu-west-1a</verificationMethod>
+    </criterion>
+
+    <criterion id="AC2">
+      <description>Internet Gateway attached</description>
+      <verificationMethod>CDK synth shows IGW resource attached to VPC, route table has 0.0.0.0/0 → IGW</verificationMethod>
+    </criterion>
+
+    <criterion id="AC3">
+      <description>S3 VPC Gateway Endpoint configured (free)</description>
+      <verificationMethod>CDK synth shows S3 Gateway Endpoint resource associated with public subnet route table</verificationMethod>
+    </criterion>
+
+    <criterion id="AC4">
+      <description>Security group allows 443 from CloudFront, 22 from admin IPs</description>
+      <verificationMethod>CDK synth shows security group with ingress rules: 443/tcp from CloudFront Prefix List, 22/tcp from admin CIDR, 8080/tcp from API Gateway</verificationMethod>
+    </criterion>
+
+    <criterion id="AC5">
+      <description>No NAT Gateway (Packer AMI handles dependencies)</description>
+      <verificationMethod>CDK synth shows natGateways: 0, documentation confirms Packer AMI pre-installs packages</verificationMethod>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <documentation>
+      <reference path="docs/sprint-artifacts/epic-7-aws-migration.md">
+        <section>Story 7.3</section>
+        <section>Architecture Overview</section>
+        <section>Infrastructure Components - Networking</section>
+        <section>Cost Breakdown</section>
+      </reference>
+
+      <reference path="docs/sprint-artifacts/tech-spec-epic-7.md">
+        <section>Story 7.3: VPC & Network Infrastructure</section>
+        <section>Architecture Decisions - Why Packer AMI</section>
+        <section>Security - Security Group Rules</section>
+        <section>Dependencies and Integrations</section>
+      </reference>
+
+      <reference path="docs/coding-standards.md">
+        <section>Security - Secrets Management</section>
+        <section>Development Workflow</section>
+      </reference>
+    </documentation>
+
+    <code>
+      <existing>
+        <file path=".github/workflows/*.yml" relevance="CI/CD deployment workflow patterns</file>
+      </existing>
+
+      <toCreate>
+        <file path="infrastructure/lib/network-stack.ts">
+          <purpose>AWS CDK stack for VPC, Internet Gateway, S3 Endpoint, Security Groups</purpose>
+          <exports>
+            <export>NetworkStack class extending cdk.Stack</export>
+            <export>vpc: ec2.Vpc</export>
+            <export>securityGroup: ec2.SecurityGroup</export>
+          </exports>
+        </file>
+
+        <file path="infrastructure/cdk.json">
+          <purpose>CDK configuration for app entry point, context values, feature flags</purpose>
+        </file>
+
+        <file path="infrastructure/bin/infrastructure.ts">
+          <purpose>CDK app entry point instantiating NetworkStack</purpose>
+        </file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <upstream>
+        <story id="7.1" title="AWS CDK Project Setup">
+          <reason>NetworkStack requires CDK project scaffolding and AWS credentials</reason>
+          <status>pending</status>
+        </story>
+      </upstream>
+
+      <downstream>
+        <story id="7.2" title="Packer AMI Build Pipeline">
+          <reason>Packer builds AMI in the VPC subnet</reason>
+          <status>drafted</status>
+        </story>
+
+        <story id="7.4" title="EC2 Instance & EBS Storage">
+          <reason>EC2 instance launches in the VPC subnet with security group</reason>
+          <status>drafted</status>
+        </story>
+
+        <story id="7.5" title="S3 Buckets & Restic Backup">
+          <reason>S3 buckets accessed via VPC Gateway Endpoint</reason>
+          <status>drafted</status>
+        </story>
+      </downstream>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint>
+        <name>Public Subnet Only</name>
+        <description>No private subnets to eliminate NAT Gateway costs (~$32/month savings)</description>
+        <rationale>Packer AMI pre-bakes all dependencies at build time, eliminating runtime package installation</rationale>
+      </constraint>
+
+      <constraint>
+        <name>Single Availability Zone</name>
+        <description>Resources deployed in eu-west-1a only</description>
+        <rationale>Single EC2 architecture does not require multi-AZ redundancy</rationale>
+      </constraint>
+
+      <constraint>
+        <name>Region eu-west-1</name>
+        <description>All resources deployed to Ireland region</description>
+        <rationale>Best balance for US + Israel users via CloudFront edge locations, most complete service availability</rationale>
+      </constraint>
+
+      <constraint>
+        <name>CDK L2/L3 Constructs</name>
+        <description>Use high-level CDK constructs (ec2.Vpc, not CfnVPC)</description>
+        <rationale>Better developer experience, automatic best practices, easier maintenance</rationale>
+      </constraint>
+    </architectural>
+
+    <security>
+      <constraint>
+        <name>Security Group Ingress</name>
+        <description>Only allow traffic from CloudFront (443), admin IPs (22), and API Gateway (8080)</description>
+        <rationale>Minimize attack surface, restrict access to known sources</rationale>
+      </constraint>
+
+      <constraint>
+        <name>Admin CIDR</name>
+        <description>SSH access restricted to configurable admin CIDR (VPN or bastion host)</description>
+        <rationale>Prevent unauthorized SSH access, require explicit whitelisting</rationale>
+      </constraint>
+
+      <constraint>
+        <name>No Hardcoded IPs</name>
+        <description>Use CloudFront Prefix List (AWS-managed) for CloudFront source IPs</description>
+        <rationale>AWS maintains prefix list automatically as CloudFront IPs change</rationale>
+      </constraint>
+
+      <constraint>
+        <name>Secrets in SSM</name>
+        <description>No secrets in CDK code or CloudFormation output</description>
+        <rationale>Secrets managed in SSM Parameter Store (Story 7.9)</rationale>
+      </constraint>
+    </security>
+
+    <cost>
+      <constraint>
+        <name>Zero NAT Gateway Cost</name>
+        <description>No NAT Gateway deployed (would cost ~$32/month)</description>
+        <rationale>S3 Gateway Endpoint provides free S3 access from VPC</rationale>
+      </constraint>
+
+      <constraint>
+        <name>Free S3 Gateway Endpoint</name>
+        <description>Use Gateway Endpoint (free) instead of Interface Endpoint (~$7/month)</description>
+        <rationale>Gateway endpoints for S3 have no hourly charge or data processing charge</rationale>
+      </constraint>
+
+      <constraint>
+        <name>Minimal Resources</name>
+        <description>Single VPC, single subnet, single security group</description>
+        <rationale>VPC and security groups are free; minimize complexity</rationale>
+      </constraint>
+    </cost>
+  </constraints>
+
+  <interfaces>
+    <inputs>
+      <input>
+        <name>AWS Account ID</name>
+        <source>GitHub Secrets (AWS_ACCOUNT_ID)</source>
+        <format>12-digit AWS account number</format>
+        <validation>Must match target deployment account</validation>
+      </input>
+
+      <input>
+        <name>AWS Region</name>
+        <source>CDK context (hardcoded: eu-west-1)</source>
+        <format>AWS region code</format>
+        <validation>Must be eu-west-1 for this architecture</validation>
+      </input>
+
+      <input>
+        <name>Admin CIDR</name>
+        <source>CDK context or parameter (e.g., VPN IP range)</source>
+        <format>CIDR notation (e.g., 203.0.113.0/24)</format>
+        <validation>Must be valid CIDR block</validation>
+      </input>
+
+      <input>
+        <name>Environment</name>
+        <source>CDK context (prod)</source>
+        <format>String: prod | staging</format>
+        <validation>Determines stack naming and tagging</validation>
+      </input>
+    </inputs>
+
+    <outputs>
+      <output>
+        <name>VPC ID</name>
+        <destination>CloudFormation exports, consumed by ComputeStack</destination>
+        <format>vpc-xxxxxxxxxxxxxxxxx</format>
+        <usage>EC2 instance launch, Packer AMI builds</usage>
+      </output>
+
+      <output>
+        <name>Public Subnet ID</name>
+        <destination>CloudFormation exports, consumed by ComputeStack</destination>
+        <format>subnet-xxxxxxxxxxxxxxxxx</format>
+        <usage>EC2 instance launch, Packer AMI builds</usage>
+      </output>
+
+      <output>
+        <name>Security Group ID</name>
+        <destination>CloudFormation exports, consumed by ComputeStack</destination>
+        <format>sg-xxxxxxxxxxxxxxxxx</format>
+        <usage>EC2 instance security group attachment</usage>
+      </output>
+
+      <output>
+        <name>S3 Gateway Endpoint ID</name>
+        <destination>CloudFormation outputs (for reference)</destination>
+        <format>vpce-xxxxxxxxxxxxxxxxx</format>
+        <usage>Documentation and verification only</usage>
+      </output>
+    </outputs>
+
+    <integrations>
+      <integration>
+        <name>CloudFront Prefix List</name>
+        <type>AWS-managed resource</type>
+        <purpose>Security group ingress source for CloudFront IPs</purpose>
+        <reference>com.amazonaws.global.cloudfront.origin-facing</reference>
+      </integration>
+
+      <integration>
+        <name>S3 Gateway Endpoint</name>
+        <type>VPC endpoint</type>
+        <purpose>Free S3 access from VPC without internet gateway transit</purpose>
+        <service>com.amazonaws.eu-west-1.s3</service>
+      </integration>
+
+      <integration>
+        <name>GitHub Actions</name>
+        <type>CI/CD</type>
+        <purpose>Deploy NetworkStack via cdk deploy</purpose>
+        <workflow>.github/workflows/deploy-infrastructure.yml</workflow>
+      </integration>
+    </integrations>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard>All infrastructure changes deployed to staging account first</standard>
+      <standard>cdk synth must succeed without errors</standard>
+      <standard>CloudFormation template output must be valid JSON</standard>
+      <standard>Network connectivity verified from within VPC</standard>
+      <standard>S3 access tested via Gateway Endpoint (not internet)</standard>
+    </standards>
+
+    <locations>
+      <location path="infrastructure/test/network-stack.test.ts">
+        <purpose>CDK assertions for NetworkStack synthesis</purpose>
+      </location>
+    </locations>
+
+    <ideas>
+      <testCase id="TC-7.3.1">
+        <name>VPC Synthesis</name>
+        <approach>CDK assertions verify VPC resource with correct CIDR block</approach>
+        <expectedOutcome>Template contains AWS::EC2::VPC with CidrBlock: 10.0.0.0/16</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.2">
+        <name>Internet Gateway Attachment</name>
+        <approach>CDK assertions verify IGW and VPCGatewayAttachment resources</approach>
+        <expectedOutcome>Template contains AWS::EC2::InternetGateway and AWS::EC2::VPCGatewayAttachment</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.3">
+        <name>S3 Gateway Endpoint</name>
+        <approach>CDK assertions verify VPCEndpoint with ServiceName: com.amazonaws.eu-west-1.s3</approach>
+        <expectedOutcome>Template contains AWS::EC2::VPCEndpoint with GatewayEndpoint type</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.4">
+        <name>Security Group Rules</name>
+        <approach>CDK assertions verify SecurityGroupIngress resources with correct ports and sources</approach>
+        <expectedOutcome>Template contains ingress rules for 443, 22, 8080 with correct CIDRs/prefix lists</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.5">
+        <name>No NAT Gateway</name>
+        <approach>CDK assertions verify no NatGateway resources in template</approach>
+        <expectedOutcome>Template does not contain AWS::EC2::NatGateway</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.6">
+        <name>VPC Connectivity</name>
+        <approach>Deploy to staging, launch test EC2, verify internet access and S3 access</approach>
+        <expectedOutcome>Test EC2 can reach internet via IGW and S3 via Gateway Endpoint</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.7">
+        <name>S3 Access via Endpoint</name>
+        <approach>From test EC2, run aws s3 ls and verify no charges for data transfer</approach>
+        <expectedOutcome>S3 access works, CloudWatch Logs show endpoint usage (not IGW)</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.8">
+        <name>Security Group Ingress Validation</name>
+        <approach>Test SSH from admin IP (success), SSH from non-admin IP (blocked)</approach>
+        <expectedOutcome>Security group correctly restricts access based on source IP</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.9">
+        <name>CloudFront Prefix List Validation</name>
+        <approach>Verify security group uses managed prefix list, not hardcoded IPs</approach>
+        <expectedOutcome>Security group ingress uses PrefixListId, not CidrIp for CloudFront</expectedOutcome>
+      </testCase>
+
+      <testCase id="TC-7.3.10">
+        <name>DNS Configuration</name>
+        <approach>CDK assertions verify VPC has EnableDnsHostnames and EnableDnsSupport</approach>
+        <expectedOutcome>Template shows VPC with EnableDnsHostnames: true, EnableDnsSupport: true</expectedOutcome>
+      </testCase>
+    </ideas>
+  </tests>
+
+  <architecture>
+    <networkDiagram>
+      <![CDATA[
+┌─────────────────────────────────────────────────────────┐
+│ VPC: 10.0.0.0/16                                        │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Public Subnet: 10.0.1.0/24 (eu-west-1a)             │ │
+│ │                                                      │ │
+│ │   ┌─────────────┐                                   │ │
+│ │   │ EC2 Instance │                                  │ │
+│ │   │ (Elastic IP) │                                  │ │
+│ │   └──────┬──────┘                                   │ │
+│ │          │                                          │ │
+│ └──────────│──────────────────────────────────────────┘ │
+│            │                                            │
+│   ┌────────┴────────┐  ┌────────────────────────────┐  │
+│   │ Internet Gateway │  │ S3 Gateway Endpoint (free) │  │
+│   └────────┬────────┘  └────────────────────────────┘  │
+└────────────│────────────────────────────────────────────┘
+             │
+    ┌────────┴────────┐
+    │    Internet      │
+    │ (CloudFront/API) │
+    └─────────────────┘
+      ]]>
+    </networkDiagram>
+
+    <securityGroupRules>
+      <![CDATA[
+| Direction | Protocol | Port | Source/Dest              | Purpose                  |
+|-----------|----------|------|--------------------------|--------------------------|
+| Ingress   | TCP      | 443  | CloudFront Prefix List   | HTTPS from CDN           |
+| Ingress   | TCP      | 22   | Admin CIDR               | SSH access               |
+| Ingress   | TCP      | 8080 | API Gateway              | Internal API traffic     |
+| Egress    | All      | All  | 0.0.0.0/0                | Outbound (S3 via endpoint)|
+      ]]>
+    </securityGroupRules>
+
+    <costSavings>
+      <![CDATA[
+NAT Gateway Cost (avoided):
+  - Hourly charge: $0.045/hour = ~$32.40/month
+  - Data processing: $0.045/GB (variable)
+  - Total savings: ~$32-50/month
+
+S3 Gateway Endpoint (used instead):
+  - Hourly charge: $0.00
+  - Data processing: $0.00
+  - Cost: FREE
+
+Decision Impact: ~$384-600/year savings by using Packer AMI + S3 Gateway Endpoint
+      ]]>
+    </costSavings>
+
+    <packerIntegration>
+      <![CDATA[
+Packer AMI builds in the same VPC:
+1. Packer launches temporary EC2 in public subnet
+2. Installs PostgreSQL, Redis, Go binary via Internet Gateway
+3. No NAT Gateway needed (public subnet has IGW access)
+4. Creates AMI from configured instance
+5. Story 7.4 launches production EC2 from this AMI
+      ]]>
+    </packerIntegration>
+  </architecture>
+
+  <implementation>
+    <cdkPattern>
+      <![CDATA[
+// lib/network-stack.ts
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import { Construct } from 'constructs';
+
+export class NetworkStack extends cdk.Stack {
+  public readonly vpc: ec2.Vpc;
+  public readonly securityGroup: ec2.SecurityGroup;
+
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // VPC with public subnet only (no NAT Gateway)
+    this.vpc = new ec2.Vpc(this, 'ZmanimVpc', {
+      maxAzs: 1,  // Single AZ: eu-west-1a
+      natGateways: 0,  // CRITICAL: No NAT Gateway
+      subnetConfiguration: [{
+        name: 'Public',
+        subnetType: ec2.SubnetType.PUBLIC,
+        cidrMask: 24,  // 10.0.1.0/24
+      }],
+      enableDnsHostnames: true,
+      enableDnsSupport: true,
+    });
+
+    // S3 Gateway Endpoint (free)
+    this.vpc.addGatewayEndpoint('S3Endpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+    });
+
+    // Security Group for EC2
+    this.securityGroup = new ec2.SecurityGroup(this, 'ZmanimEC2SG', {
+      vpc: this.vpc,
+      description: 'Security group for Zmanim EC2 instance',
+      allowAllOutbound: true,
+    });
+
+    // Ingress: HTTPS from CloudFront
+    this.securityGroup.addIngressRule(
+      ec2.Peer.prefixList('pl-4fa04526'),  // CloudFront prefix list (managed by AWS)
+      ec2.Port.tcp(443),
+      'HTTPS from CloudFront'
+    );
+
+    // Ingress: SSH from admin IP (parameterized)
+    const adminCidr = this.node.tryGetContext('adminCidr') || '0.0.0.0/0';  // CONFIGURE THIS
+    this.securityGroup.addIngressRule(
+      ec2.Peer.ipv4(adminCidr),
+      ec2.Port.tcp(22),
+      'SSH from admin'
+    );
+
+    // Ingress: API from API Gateway (will be restricted to API Gateway IPs in Story 7.7)
+    this.securityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),  // TODO: Restrict to API Gateway in Story 7.7
+      ec2.Port.tcp(8080),
+      'API from API Gateway'
+    );
+
+    // Outputs for other stacks
+    new cdk.CfnOutput(this, 'VpcId', {
+      value: this.vpc.vpcId,
+      exportName: 'ZmanimVpcId',
+    });
+
+    new cdk.CfnOutput(this, 'PublicSubnetId', {
+      value: this.vpc.publicSubnets[0].subnetId,
+      exportName: 'ZmanimPublicSubnetId',
+    });
+
+    new cdk.CfnOutput(this, 'SecurityGroupId', {
+      value: this.securityGroup.securityGroupId,
+      exportName: 'ZmanimSecurityGroupId',
+    });
+  }
+}
+      ]]>
+    </cdkPattern>
+
+    <verificationSteps>
+      <step>1. Run: cd infrastructure && cdk synth</step>
+      <step>2. Verify output contains VPC with CIDR 10.0.0.0/16</step>
+      <step>3. Verify output contains InternetGateway resource</step>
+      <step>4. Verify output contains VPCEndpoint with ServiceName: com.amazonaws.eu-west-1.s3</step>
+      <step>5. Verify output contains SecurityGroup with ingress rules for 443, 22, 8080</step>
+      <step>6. Verify output does NOT contain NatGateway resource</step>
+      <step>7. Run: cdk deploy NetworkStack --require-approval never (staging account)</step>
+      <step>8. Verify VPC created in eu-west-1 via AWS Console</step>
+      <step>9. Launch test EC2, verify internet access and S3 access</step>
+      <step>10. Document network architecture in Story 7.3</step>
+    </verificationSteps>
+  </implementation>
+
+  <risks>
+    <risk severity="low">
+      <description>CloudFront Prefix List ID may change or vary by region</description>
+      <mitigation>Use CDK construct to lookup prefix list dynamically: ec2.Peer.prefixList(ec2.PrefixList.CLOUDFRONT_ORIGIN_FACING)</mitigation>
+    </risk>
+
+    <risk severity="medium">
+      <description>Admin CIDR not configured, SSH open to 0.0.0.0/0</description>
+      <mitigation>Require adminCidr context parameter before production deployment, fail stack creation if not provided</mitigation>
+    </risk>
+
+    <risk severity="low">
+      <description>S3 Gateway Endpoint not used, traffic goes via IGW</description>
+      <mitigation>Verify with VPC Flow Logs or CloudWatch that S3 traffic uses endpoint (eni-xxx)</mitigation>
+    </risk>
+
+    <risk severity="low">
+      <description>VPC CIDR conflicts with existing networks</description>
+      <mitigation>10.0.0.0/16 is standard private range, unlikely to conflict; document for VPN setup</mitigation>
+    </risk>
+  </risks>
+
+  <notes>
+    <note>
+      <title>Why Public Subnet Only</title>
+      <content>Private subnets require NAT Gateway (~$32/month) for outbound internet access. Since Packer AMI pre-installs all packages at build time, production EC2 does not need runtime package installation. S3 Gateway Endpoint provides free S3 access without internet transit.</content>
+    </note>
+
+    <note>
+      <title>CloudFront Prefix List</title>
+      <content>AWS maintains the CloudFront prefix list (pl-4fa04526 for origin-facing) automatically. This is preferred over hardcoding IP ranges that change frequently. CDK can lookup the prefix list dynamically.</content>
+    </note>
+
+    <note>
+      <title>API Gateway Integration</title>
+      <content>Story 7.7 will configure API Gateway to proxy requests to EC2:8080. Security group port 8080 ingress will be tightened to API Gateway IPs only (currently allows 0.0.0.0/0 for testing).</content>
+    </note>
+
+    <note>
+      <title>Single AZ Design</title>
+      <content>This architecture uses a single EC2 instance in one AZ (eu-west-1a). Multi-AZ redundancy is out of scope for Epic 7 but documented in future scaling path. RTO for instance failure is ~30 minutes (launch new instance from AMI, attach data volume).</content>
+    </note>
+
+    <note>
+      <title>Cost Optimization</title>
+      <content>This VPC design saves ~$32-50/month compared to NAT Gateway approach. VPC, subnets, IGW, and security groups are free. S3 Gateway Endpoint is free (vs Interface Endpoint at ~$7/month).</content>
+    </note>
+  </notes>
+</storyContext>

@@ -1,0 +1,1247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.3" title="Correction Request Endpoint Consolidation">
+
+  <summary>
+    This context file provides all technical details for consolidating duplicate correction request
+    endpoints into unified, role-based handlers. It includes current publisher and admin handlers,
+    middleware patterns for role detection, SQL queries, frontend components, and route definitions.
+    The goal is to eliminate duplication by creating single endpoints that serve both roles with
+    internal role-based filtering.
+  </summary>
+
+  <current-architecture>
+    <endpoints>
+      <publisher-endpoints>
+        <endpoint method="GET" path="/publisher/correction-requests" handler="GetPublisherCorrectionRequests" />
+        <endpoint method="POST" path="/publisher/correction-requests" handler="CreateCorrectionRequest" />
+        <endpoint method="GET" path="/publisher/correction-requests/{id}" handler="GetCorrectionRequestByID" />
+      </publisher-endpoints>
+
+      <admin-endpoints>
+        <endpoint method="GET" path="/admin/correction-requests" handler="AdminGetAllCorrectionRequests" />
+        <endpoint method="POST" path="/admin/correction-requests/{id}/approve" handler="AdminApproveCorrectionRequest" />
+        <endpoint method="POST" path="/admin/correction-requests/{id}/reject" handler="AdminRejectCorrectionRequest" />
+        <endpoint method="PUT" path="/admin/cities/{cityId}" handler="AdminUpdateCity" />
+      </admin-endpoints>
+    </endpoints>
+
+    <duplication-analysis>
+      <issue>
+        Separate handlers for publisher and admin perform similar tasks:
+        - GetPublisherCorrectionRequests filters by publisher_id from context
+        - AdminGetAllCorrectionRequests returns all requests (optionally filtered by status)
+        - Approve/Reject handlers could be unified into a single status update endpoint
+      </issue>
+
+      <solution>
+        Create unified handlers that detect user role internally:
+        - GET /correction-requests - Returns filtered list based on role
+        - PUT /correction-requests/{id}/status - Unified approve/reject (admin only)
+        - POST /correction-requests - Keep as-is (publisher create)
+      </solution>
+    </duplication-analysis>
+  </current-architecture>
+
+  <files>
+    <file path="api/internal/handlers/correction_requests.go" relevance="primary">
+      <description>Current publisher correction request handlers - will be extended with unified handlers</description>
+      <content><![CDATA[
+// File: correction_requests.go
+// Purpose: Publisher correction request handlers
+// Pattern: 6-step handler pattern
+// Story: 6.5 - Public Correction Requests
+
+package handlers
+
+import (
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/middleware"
+)
+
+// CreateCorrectionRequest creates a new city correction request
+// POST /api/v1/publisher/correction-requests
+func (h *Handlers) CreateCorrectionRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 1. Resolve publisher context
+	pc := h.publisherResolver.MustResolve(w, r)
+	if pc == nil {
+		return
+	}
+
+	// 2. URL params - none for POST
+
+	// 3. Parse body
+	var req struct {
+		CityID           int64    `json:"city_id"`
+		ProposedLatitude *float64 `json:"proposed_latitude"`
+		ProposedLong     *float64 `json:"proposed_longitude"`
+		ProposedElev     *int32   `json:"proposed_elevation"`
+		Reason           string   `json:"correction_reason"`
+		EvidenceURLs     []string `json:"evidence_urls"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, r, "Invalid request body")
+		return
+	}
+
+	// 4. Validate
+	if req.CityID == 0 {
+		RespondValidationError(w, r, "City ID is required", map[string]string{"city_id": "City ID is required"})
+		return
+	}
+
+	// At least one proposed value must be provided
+	if req.ProposedLatitude == nil && req.ProposedLong == nil && req.ProposedElev == nil {
+		RespondValidationError(w, r, "At least one correction must be proposed", map[string]string{
+			"proposed_values": "At least one of latitude, longitude, or elevation must be provided",
+		})
+		return
+	}
+
+	// Reason is required and must be at least 20 characters
+	if len(req.Reason) < 20 {
+		RespondValidationError(w, r, "Correction reason must be at least 20 characters", map[string]string{
+			"correction_reason": "Reason must be at least 20 characters",
+		})
+		return
+	}
+
+	// Validate latitude/longitude ranges
+	if req.ProposedLatitude != nil && (*req.ProposedLatitude < -90 || *req.ProposedLatitude > 90) {
+		RespondValidationError(w, r, "Latitude must be between -90 and 90", map[string]string{
+			"proposed_latitude": "Latitude must be between -90 and 90",
+		})
+		return
+	}
+
+	if req.ProposedLong != nil && (*req.ProposedLong < -180 || *req.ProposedLong > 180) {
+		RespondValidationError(w, r, "Longitude must be between -180 and 180", map[string]string{
+			"proposed_longitude": "Longitude must be between -180 and 180",
+		})
+		return
+	}
+
+	// Get requester info from Clerk
+	userID := middleware.GetUserID(ctx)
+	var requesterEmail string
+	var requesterName *string
+
+	if h.clerkService != nil && userID != "" {
+		user, err := h.clerkService.GetUser(ctx, userID)
+		if err == nil {
+			if len(user.EmailAddresses) > 0 {
+				requesterEmail = user.EmailAddresses[0].EmailAddress
+			}
+			if user.FirstName != nil && user.LastName != nil {
+				fullName := *user.FirstName + " " + *user.LastName
+				requesterName = &fullName
+			} else if user.FirstName != nil {
+				requesterName = user.FirstName
+			}
+		}
+	}
+
+	if requesterEmail == "" {
+		RespondInternalError(w, r, "Unable to determine requester email")
+		return
+	}
+
+	// 5. SQLc query
+	publisherID, err := strconv.ParseInt(pc.PublisherID, 10, 32)
+	if err != nil {
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+	publisherIDInt32 := int32(publisherID)
+	result, err := h.db.Queries.CreateCorrectionRequest(ctx, sqlcgen.CreateCorrectionRequestParams{
+		CityID:            req.CityID,
+		PublisherID:       &publisherIDInt32,
+		RequesterEmail:    requesterEmail,
+		RequesterName:     requesterName,
+		ProposedLatitude:  req.ProposedLatitude,
+		ProposedLongitude: req.ProposedLong,
+		ProposedElevation: req.ProposedElev,
+		CorrectionReason:  req.Reason,
+		EvidenceUrls:      req.EvidenceURLs,
+	})
+
+	if err != nil {
+		slog.Error("failed to create correction request",
+			"error", err,
+			"publisher_id", pc.PublisherID,
+			"city_id", req.CityID)
+		RespondInternalError(w, r, "Failed to create correction request")
+		return
+	}
+
+	slog.Info("correction request created",
+		"request_id", result.ID,
+		"publisher_id", pc.PublisherID,
+		"city_id", req.CityID,
+		"requester_email", requesterEmail)
+
+	// 6. Respond
+	RespondJSON(w, r, http.StatusCreated, result)
+}
+
+// GetPublisherCorrectionRequests returns all correction requests from the current publisher
+// GET /api/v1/publisher/correction-requests
+func (h *Handlers) GetPublisherCorrectionRequests(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 1. Resolve publisher context
+	pc := h.publisherResolver.MustResolve(w, r)
+	if pc == nil {
+		return
+	}
+
+	// 2. URL params - none
+
+	// 3. Parse body - none for GET
+
+	// 4. Validate - none
+
+	// 5. SQLc query
+	publisherID, err := strconv.ParseInt(pc.PublisherID, 10, 32)
+	if err != nil {
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+	publisherIDInt32 := int32(publisherID)
+	requests, err := h.db.Queries.GetPublisherCorrectionRequests(ctx, &publisherIDInt32)
+	if err != nil {
+		slog.Error("failed to get publisher correction requests",
+			"error", err,
+			"publisher_id", pc.PublisherID)
+		RespondInternalError(w, r, "Failed to retrieve correction requests")
+		return
+	}
+
+	// 6. Respond
+	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+		"requests": requests,
+		"total":    len(requests),
+	})
+}
+
+// GetCorrectionRequestByID returns a single correction request by ID
+// GET /api/v1/publisher/correction-requests/{id}
+func (h *Handlers) GetCorrectionRequestByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 1. Resolve publisher context
+	pc := h.publisherResolver.MustResolve(w, r)
+	if pc == nil {
+		return
+	}
+
+	// 2. URL params
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid request ID")
+		return
+	}
+
+	// 3. Parse body - none for GET
+
+	// 4. Validate - none
+
+	// 5. SQLc query
+	request, err := h.db.Queries.GetCorrectionRequestByID(ctx, int32(id))
+	if err != nil {
+		slog.Error("failed to get correction request",
+			"error", err,
+			"request_id", id,
+			"publisher_id", pc.PublisherID)
+		RespondNotFound(w, r, "Correction request not found")
+		return
+	}
+
+	// Verify the request belongs to this publisher
+	publisherID, err := strconv.ParseInt(pc.PublisherID, 10, 32)
+	if err != nil {
+		RespondInternalError(w, r, "Invalid publisher ID")
+		return
+	}
+	if request.PublisherID == nil || *request.PublisherID != int32(publisherID) {
+		RespondForbidden(w, r, "You do not have access to this correction request")
+		return
+	}
+
+	// 6. Respond
+	RespondJSON(w, r, http.StatusOK, request)
+}
+      ]]></content>
+    </file>
+
+    <file path="api/internal/handlers/admin_corrections.go" relevance="primary">
+      <description>Current admin correction request handlers - logic will be consolidated</description>
+      <content><![CDATA[
+// File: admin_corrections.go
+// Purpose: Admin correction request handlers
+// Pattern: 6-step handler pattern
+// Story: 6.5 - Public Correction Requests
+
+package handlers
+
+import (
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/middleware"
+)
+
+// AdminGetAllCorrectionRequests returns all correction requests (optionally filtered by status)
+// GET /api/v1/admin/correction-requests?status=pending
+func (h *Handlers) AdminGetAllCorrectionRequests(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 1. Admin context (no resolver needed - middleware handles auth)
+
+	// 2. URL params
+	statusFilter := r.URL.Query().Get("status")
+	var statusPtr *string
+	if statusFilter != "" {
+		statusPtr = &statusFilter
+	}
+
+	// 3. Parse body - none for GET
+
+	// 4. Validate
+	if statusFilter != "" && statusFilter != "pending" && statusFilter != "approved" && statusFilter != "rejected" {
+		RespondValidationError(w, r, "Invalid status filter", map[string]string{
+			"status": "Status must be one of: pending, approved, rejected",
+		})
+		return
+	}
+
+	// 5. SQLc query
+	requests, err := h.db.Queries.GetAllCorrectionRequests(ctx, statusPtr)
+	if err != nil {
+		slog.Error("failed to get correction requests", "error", err)
+		RespondInternalError(w, r, "Failed to retrieve correction requests")
+		return
+	}
+
+	// 6. Respond
+	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+		"requests": requests,
+		"total":    len(requests),
+	})
+}
+
+// AdminApproveCorrectionRequest approves a correction request and updates the city data
+// POST /api/v1/admin/correction-requests/{id}/approve
+func (h *Handlers) AdminApproveCorrectionRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 1. Admin context
+	adminUserID := middleware.GetUserID(ctx)
+	if adminUserID == "" {
+		RespondUnauthorized(w, r, "Admin authentication required")
+		return
+	}
+
+	// 2. URL params
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid request ID")
+		return
+	}
+
+	// 3. Parse body
+	var req struct {
+		ReviewNotes string `json:"review_notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Body is optional, continue without review notes
+		req.ReviewNotes = ""
+	}
+
+	// 4. Validate - get the correction request
+	correctionReq, err := h.db.Queries.GetCorrectionRequestByID(ctx, int32(id))
+	if err != nil {
+		slog.Error("failed to get correction request",
+			"error", err,
+			"request_id", id)
+		RespondNotFound(w, r, "Correction request not found")
+		return
+	}
+
+	// Check if already processed
+	if correctionReq.Status != "pending" {
+		RespondValidationError(w, r, "Request has already been processed", map[string]string{
+			"status": "This request has already been " + correctionReq.Status,
+		})
+		return
+	}
+
+	// 5. Apply correction to geo_cities
+	err = h.db.Queries.ApplyCityCorrection(ctx, sqlcgen.ApplyCityCorrectionParams{
+		ID:                correctionReq.CityID,
+		ProposedLatitude:  correctionReq.ProposedLatitude,
+		ProposedLongitude: correctionReq.ProposedLongitude,
+		ProposedElevation: correctionReq.ProposedElevation,
+	})
+	if err != nil {
+		slog.Error("failed to apply city correction",
+			"error", err,
+			"request_id", id,
+			"city_id", correctionReq.CityID)
+		RespondInternalError(w, r, "Failed to apply correction")
+		return
+	}
+
+	// Update request status
+	err = h.db.Queries.UpdateCorrectionRequestStatus(ctx, sqlcgen.UpdateCorrectionRequestStatusParams{
+		ID:          int32(id),
+		Status:      "approved",
+		ReviewedBy:  &adminUserID,
+		ReviewNotes: &req.ReviewNotes,
+	})
+	if err != nil {
+		slog.Error("failed to update correction request status",
+			"error", err,
+			"request_id", id)
+		RespondInternalError(w, r, "Failed to update request status")
+		return
+	}
+
+	slog.Info("correction request approved",
+		"request_id", id,
+		"city_id", correctionReq.CityID,
+		"admin_id", adminUserID)
+
+	// Send approval email in background
+	if h.emailService != nil && h.emailService.IsEnabled() {
+		go func() {
+			city, err := h.db.Queries.GetCityByID(ctx, int32(correctionReq.CityID))
+			if err != nil {
+				slog.Error("failed to get city for email", "error", err, "city_id", correctionReq.CityID)
+				return
+			}
+
+			err = h.emailService.SendCorrectionApproved(
+				correctionReq.RequesterEmail,
+				city.Name,
+				req.ReviewNotes,
+			)
+			if err != nil {
+				slog.Error("failed to send approval email", "error", err, "to", correctionReq.RequesterEmail)
+			}
+		}()
+	}
+
+	// 6. Respond
+	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+		"status":  "approved",
+		"message": "Correction request approved and city data updated",
+	})
+}
+
+// AdminRejectCorrectionRequest rejects a correction request
+// POST /api/v1/admin/correction-requests/{id}/reject
+func (h *Handlers) AdminRejectCorrectionRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// 1. Admin context
+	adminUserID := middleware.GetUserID(ctx)
+	if adminUserID == "" {
+		RespondUnauthorized(w, r, "Admin authentication required")
+		return
+	}
+
+	// 2. URL params
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid request ID")
+		return
+	}
+
+	// 3. Parse body
+	var req struct {
+		ReviewNotes string `json:"review_notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, r, "Invalid request body")
+		return
+	}
+
+	// 4. Validate
+	if req.ReviewNotes == "" {
+		RespondValidationError(w, r, "Review notes are required for rejection", map[string]string{
+			"review_notes": "Please provide a reason for rejection",
+		})
+		return
+	}
+
+	// Get the correction request
+	correctionReq, err := h.db.Queries.GetCorrectionRequestByID(ctx, int32(id))
+	if err != nil {
+		slog.Error("failed to get correction request",
+			"error", err,
+			"request_id", id)
+		RespondNotFound(w, r, "Correction request not found")
+		return
+	}
+
+	// Check if already processed
+	if correctionReq.Status != "pending" {
+		RespondValidationError(w, r, "Request has already been processed", map[string]string{
+			"status": "This request has already been " + correctionReq.Status,
+		})
+		return
+	}
+
+	// 5. Update request status (no city update for rejection)
+	err = h.db.Queries.UpdateCorrectionRequestStatus(ctx, sqlcgen.UpdateCorrectionRequestStatusParams{
+		ID:          int32(id),
+		Status:      "rejected",
+		ReviewedBy:  &adminUserID,
+		ReviewNotes: &req.ReviewNotes,
+	})
+	if err != nil {
+		slog.Error("failed to update correction request status",
+			"error", err,
+			"request_id", id)
+		RespondInternalError(w, r, "Failed to update request status")
+		return
+	}
+
+	slog.Info("correction request rejected",
+		"request_id", id,
+		"city_id", correctionReq.CityID,
+		"admin_id", adminUserID)
+
+	// Send rejection email in background
+	if h.emailService != nil && h.emailService.IsEnabled() {
+		go func() {
+			city, err := h.db.Queries.GetCityByID(ctx, int32(correctionReq.CityID))
+			if err != nil {
+				slog.Error("failed to get city for email", "error", err, "city_id", correctionReq.CityID)
+				return
+			}
+
+			err = h.emailService.SendCorrectionRejected(
+				correctionReq.RequesterEmail,
+				city.Name,
+				req.ReviewNotes,
+			)
+			if err != nil {
+				slog.Error("failed to send rejection email", "error", err, "to", correctionReq.RequesterEmail)
+			}
+		}()
+	}
+
+	// 6. Respond
+	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+		"status":  "rejected",
+		"message": "Correction request rejected",
+	})
+}
+      ]]></content>
+    </file>
+
+    <file path="api/internal/middleware/auth.go" relevance="secondary">
+      <description>Authentication middleware with GetUserRole function for role detection</description>
+      <key-functions>
+        <function name="GetUserRole" signature="GetUserRole(ctx context.Context) string">
+          Returns user role from context ("admin", "publisher", or "")
+        </function>
+        <function name="GetUserID" signature="GetUserID(ctx context.Context) string">
+          Returns authenticated user ID from context
+        </function>
+        <function name="RequireRole" signature="RequireRole(role string) func(http.Handler) http.Handler">
+          Middleware that enforces a specific role requirement
+        </function>
+      </key-functions>
+      <excerpt><![CDATA[
+// GetUserID retrieves the user ID from the request context
+func GetUserID(ctx context.Context) string {
+	if id, ok := ctx.Value(UserIDKey).(string); ok {
+		return id
+	}
+	return ""
+}
+
+// GetUserRole retrieves the user role from the request context
+func GetUserRole(ctx context.Context) string {
+	if role, ok := ctx.Value(UserRoleKey).(string); ok {
+		return role
+	}
+	return ""
+}
+
+// RequireRole returns a middleware that requires a specific role
+func (am *AuthMiddleware) RequireRole(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, err := am.validateToken(r)
+			if err != nil {
+				slog.Warn("authentication failed", "error", err, "path", r.URL.Path)
+				respondAuthError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or missing authentication token")
+				return
+			}
+
+			// Check role in metadata (supports both legacy metadata and public_metadata)
+			userRole := getRoleFromClaims(claims)
+			slog.Info("role check", "required", role, "actual", userRole, "user_id", claims.Subject, "path", r.URL.Path)
+			if userRole != role && userRole != "admin" { // admin has access to all roles
+				slog.Warn("insufficient permissions", "required", role, "actual", userRole, "user_id", claims.Subject)
+				respondAuthError(w, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("Role '%s' is required", role))
+				return
+			}
+
+			// Add user info to context
+			ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+			ctx = context.WithValue(ctx, UserRoleKey, userRole)
+
+			// Add publisher info to context (from JWT claims)
+			if primaryPubID := getPrimaryPublisherIDFromClaims(claims); primaryPubID != "" {
+				ctx = context.WithValue(ctx, PrimaryPublisherIDKey, primaryPubID)
+			}
+			if accessList := getPublisherAccessListFromClaims(claims); len(accessList) > 0 {
+				ctx = context.WithValue(ctx, PublisherAccessListKey, accessList)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+      ]]></excerpt>
+    </file>
+
+    <file path="api/internal/handlers/publisher_context.go" relevance="secondary">
+      <description>Publisher resolver for extracting publisher ID from context/headers</description>
+      <key-functions>
+        <function name="MustResolve" signature="MustResolve(w http.ResponseWriter, r *http.Request) *PublisherContext">
+          Resolves publisher context from X-Publisher-Id header or DB lookup, returns nil if fails
+        </function>
+        <function name="Resolve" signature="Resolve(ctx context.Context, r *http.Request) (*PublisherContext, error)">
+          Resolves publisher context, returns error if publisher cannot be resolved
+        </function>
+      </key-functions>
+      <excerpt><![CDATA[
+// PublisherContext contains resolved publisher information for a request
+type PublisherContext struct {
+	PublisherID string
+	UserID      string
+	UserRole    string
+	IsAdmin     bool
+}
+
+// Resolve extracts and resolves publisher context from a request
+// Returns PublisherContext if successful, or an error if publisher cannot be resolved
+func (pr *PublisherResolver) Resolve(ctx context.Context, r *http.Request) (*PublisherContext, error) {
+	userID := middleware.GetUserID(ctx)
+	userRole := middleware.GetUserRole(ctx)
+	isAdmin := userRole == "admin"
+
+	pc := &PublisherContext{
+		UserID:   userID,
+		UserRole: userRole,
+		IsAdmin:  isAdmin,
+	}
+
+	// 1. Try X-Publisher-Id header first
+	publisherID := r.Header.Get("X-Publisher-Id")
+	if publisherID != "" {
+		pc.PublisherID = publisherID
+		return pc, nil
+	}
+
+	// 2. Try publisher_id query parameter
+	publisherID = r.URL.Query().Get("publisher_id")
+	if publisherID != "" {
+		pc.PublisherID = publisherID
+		return pc, nil
+	}
+
+	// 3. Fall back to database lookup by clerk_user_id
+	if userID == "" {
+		return nil, fmt.Errorf("no user ID in context")
+	}
+
+	publisherIDInt, err := pr.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
+	if err != nil {
+		return nil, fmt.Errorf("publisher not found for user %s: %w", userID, err)
+	}
+
+	pc.PublisherID = int32ToString(publisherIDInt)
+	return pc, nil
+}
+      ]]></excerpt>
+    </file>
+  </files>
+
+  <sql-queries>
+    <query name="GetAllCorrectionRequests">
+      <sql><![CDATA[
+-- name: GetAllCorrectionRequests :many
+SELECT
+  ccr.*,
+  c.name as city_name,
+  c.latitude as current_latitude,
+  c.longitude as current_longitude,
+  c.elevation_m as current_elevation,
+  p.name as publisher_name
+FROM city_correction_requests ccr
+JOIN geo_cities c ON ccr.city_id = c.id
+LEFT JOIN publishers p ON ccr.publisher_id = p.id
+WHERE (sqlc.narg('status')::text IS NULL OR ccr.status = sqlc.narg('status'))
+ORDER BY ccr.created_at DESC;
+      ]]></sql>
+      <signature>func (q *Queries) GetAllCorrectionRequests(ctx context.Context, status *string) ([]GetAllCorrectionRequestsRow, error)</signature>
+      <returns>GetAllCorrectionRequestsRow with city and publisher details</returns>
+      <usage>Admin viewing all requests, optionally filtered by status</usage>
+    </query>
+
+    <query name="GetPublisherCorrectionRequests">
+      <sql><![CDATA[
+-- name: GetPublisherCorrectionRequests :many
+SELECT
+  ccr.*,
+  c.name as city_name,
+  c.latitude as current_latitude,
+  c.longitude as current_longitude,
+  c.elevation_m as current_elevation
+FROM city_correction_requests ccr
+JOIN geo_cities c ON ccr.city_id = c.id
+WHERE ccr.publisher_id = $1
+ORDER BY ccr.created_at DESC;
+      ]]></sql>
+      <signature>func (q *Queries) GetPublisherCorrectionRequests(ctx context.Context, publisherID *int32) ([]GetPublisherCorrectionRequestsRow, error)</signature>
+      <returns>GetPublisherCorrectionRequestsRow with city details</returns>
+      <usage>Publisher viewing their own requests</usage>
+    </query>
+
+    <query name="UpdateCorrectionRequestStatus">
+      <sql><![CDATA[
+-- name: UpdateCorrectionRequestStatus :exec
+UPDATE city_correction_requests
+SET
+  status = $2,
+  reviewed_by = $3,
+  reviewed_at = now(),
+  review_notes = $4,
+  updated_at = now()
+WHERE id = $1;
+      ]]></sql>
+      <signature>func (q *Queries) UpdateCorrectionRequestStatus(ctx context.Context, arg UpdateCorrectionRequestStatusParams) error</signature>
+      <params>
+        - ID: int32
+        - Status: string ("approved" or "rejected")
+        - ReviewedBy: *string (admin user ID)
+        - ReviewNotes: *string
+      </params>
+      <usage>Admin approving or rejecting a correction request</usage>
+    </query>
+
+    <query name="ApplyCityCorrection">
+      <sql><![CDATA[
+-- name: ApplyCityCorrection :exec
+UPDATE geo_cities
+SET
+  latitude = COALESCE(sqlc.narg('proposed_latitude')::double precision, latitude),
+  longitude = COALESCE(sqlc.narg('proposed_longitude')::double precision, longitude),
+  elevation_m = COALESCE(sqlc.narg('proposed_elevation')::integer, elevation_m),
+  updated_at = now()
+WHERE id = sqlc.arg('id')::bigint;
+      ]]></sql>
+      <signature>func (q *Queries) ApplyCityCorrection(ctx context.Context, arg ApplyCityCorrectionParams) error</signature>
+      <params>
+        - ID: int64 (city ID)
+        - ProposedLatitude: *float64
+        - ProposedLongitude: *float64
+        - ProposedElevation: *int32
+      </params>
+      <usage>Apply approved correction to city data (called before UpdateCorrectionRequestStatus when approving)</usage>
+    </query>
+
+    <query name="GetCorrectionRequestByID">
+      <sql><![CDATA[
+-- name: GetCorrectionRequestByID :one
+SELECT
+  ccr.*,
+  c.name as city_name,
+  c.latitude as current_latitude,
+  c.longitude as current_longitude,
+  c.elevation_m as current_elevation,
+  p.name as publisher_name
+FROM city_correction_requests ccr
+JOIN geo_cities c ON ccr.city_id = c.id
+LEFT JOIN publishers p ON ccr.publisher_id = p.id
+WHERE ccr.id = $1;
+      ]]></sql>
+      <signature>func (q *Queries) GetCorrectionRequestByID(ctx context.Context, id int32) (GetCorrectionRequestByIDRow, error)</signature>
+      <usage>Fetch single request for validation and email notifications</usage>
+    </query>
+
+    <query name="GetCityByID">
+      <sql>SELECT * FROM geo_cities WHERE id = $1</sql>
+      <signature>func (q *Queries) GetCityByID(ctx context.Context, id int32) (GeoCity, error)</signature>
+      <usage>Get city name for email notifications</usage>
+    </query>
+  </sql-queries>
+
+  <frontend-components>
+    <file path="web/app/publisher/correction-requests/page.tsx">
+      <current-api-call>
+        <endpoint>GET /publisher/correction-requests</endpoint>
+        <code>const data = await api.get&lt;CorrectionRequestsResponse&gt;('/publisher/correction-requests');</code>
+      </current-api-call>
+      <target-api-call>
+        <endpoint>GET /correction-requests</endpoint>
+        <code>const data = await api.get&lt;CorrectionRequestsResponse&gt;('/correction-requests');</code>
+      </target-api-call>
+      <changes>
+        - Line 67: Change endpoint from '/publisher/correction-requests' to '/correction-requests'
+        - No other changes needed (role-based filtering handled by backend)
+      </changes>
+    </file>
+
+    <file path="web/app/admin/correction-requests/page.tsx">
+      <current-api-calls>
+        <list>
+          <call>GET /admin/correction-requests?status=pending</call>
+          <call>POST /admin/correction-requests/{id}/approve</call>
+          <call>POST /admin/correction-requests/{id}/reject</call>
+        </list>
+      </current-api-calls>
+      <target-api-calls>
+        <list>
+          <call>GET /correction-requests?status=pending</call>
+          <call>PUT /correction-requests/{id}/status (body: {status: "approved", review_notes: "..."})</call>
+          <call>PUT /correction-requests/{id}/status (body: {status: "rejected", review_notes: "..."})</call>
+        </list>
+      </target-api-calls>
+      <changes>
+        - Line 85: Change endpoint from '/admin/correction-requests?status=pending' to '/correction-requests?status=pending'
+        - Line 162: Change from POST /admin/correction-requests/{id}/approve to PUT /correction-requests/{id}/status
+        - Line 162: Change body from {review_notes} to {status: actionType, review_notes}
+        - actionType variable already contains "approve" or "reject" - needs to map to "approved" or "rejected"
+      </changes>
+    </file>
+  </frontend-components>
+
+  <route-definitions>
+    <file path="api/cmd/api/main.go">
+      <current-routes>
+        <publisher-routes line="436-438">
+r.Get("/correction-requests", h.GetPublisherCorrectionRequests)
+r.Post("/correction-requests", h.CreateCorrectionRequest)
+r.Get("/correction-requests/{id}", h.GetCorrectionRequestByID)
+        </publisher-routes>
+        <admin-routes line="515-518">
+r.Get("/correction-requests", h.AdminGetAllCorrectionRequests)
+r.Post("/correction-requests/{id}/approve", h.AdminApproveCorrectionRequest)
+r.Post("/correction-requests/{id}/reject", h.AdminRejectCorrectionRequest)
+r.Put("/cities/{cityId}", h.AdminUpdateCity)
+        </admin-routes>
+      </current-routes>
+
+      <target-routes>
+        <unified-routes>
+// Unified correction request endpoints (no role middleware - handler checks internally)
+r.Get("/correction-requests", h.GetCorrectionRequests)           // NEW: Unified GET
+r.Post("/correction-requests", h.CreateCorrectionRequest)        // KEEP: Publisher create
+r.Put("/correction-requests/{id}/status", h.UpdateCorrectionRequestStatus)  // NEW: Unified status update
+
+// Deprecated routes (301 redirects)
+r.Get("/publisher/correction-requests", h.DeprecatedGetPublisherCorrectionRequests)
+r.Get("/admin/correction-requests", h.DeprecatedAdminGetAllCorrectionRequests)
+r.Post("/admin/correction-requests/{id}/approve", h.DeprecatedAdminApproveCorrectionRequest)
+r.Post("/admin/correction-requests/{id}/reject", h.DeprecatedAdminRejectCorrectionRequest)
+        </unified-routes>
+      </target-routes>
+    </file>
+  </route-definitions>
+
+  <implementation-notes>
+    <unified-get-handler>
+      <pattern>
+1. Get user role from context using middleware.GetUserRole(ctx)
+2. If role == "admin":
+   - Parse query params: status, publisher_id
+   - Call GetAllCorrectionRequests with optional status filter
+3. If role == "publisher":
+   - Resolve publisher ID from context (X-Publisher-Id header or DB lookup)
+   - Call GetPublisherCorrectionRequests with publisher ID
+4. If role == "" (no valid role):
+   - Return 401 Unauthorized
+5. Return results in standard format: {requests: [], total: N}
+      </pattern>
+
+      <code-template><![CDATA[
+func (h *Handlers) GetCorrectionRequests(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    role := middleware.GetUserRole(ctx)
+
+    if role == "admin" {
+        // Admin: get all with optional filters
+        statusFilter := r.URL.Query().Get("status")
+        var statusPtr *string
+        if statusFilter != "" {
+            statusPtr = &statusFilter
+        }
+
+        requests, err := h.db.Queries.GetAllCorrectionRequests(ctx, statusPtr)
+        if err != nil {
+            RespondInternalError(w, r, "Failed to retrieve correction requests")
+            return
+        }
+
+        RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+            "requests": requests,
+            "total":    len(requests),
+        })
+    } else if role == "publisher" {
+        // Publisher: get only their own
+        pc, err := h.publisherResolver.Resolve(ctx, r)
+        if err != nil {
+            RespondNotFound(w, r, "Publisher not found")
+            return
+        }
+
+        publisherID, err := strconv.ParseInt(pc.PublisherID, 10, 32)
+        if err != nil {
+            RespondInternalError(w, r, "Invalid publisher ID")
+            return
+        }
+        publisherIDInt32 := int32(publisherID)
+
+        requests, err := h.db.Queries.GetPublisherCorrectionRequests(ctx, &publisherIDInt32)
+        if err != nil {
+            RespondInternalError(w, r, "Failed to retrieve correction requests")
+            return
+        }
+
+        RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+            "requests": requests,
+            "total":    len(requests),
+        })
+    } else {
+        RespondUnauthorized(w, r, "Authentication required")
+    }
+}
+      ]]></code-template>
+    </unified-get-handler>
+
+    <unified-put-handler>
+      <pattern>
+1. Check role is "admin" using middleware.GetUserRole(ctx)
+   - If not admin, return 403 Forbidden
+2. Parse ID from URL params
+3. Parse body: {status: "approved|rejected", review_notes: "..."}
+4. Validate status is either "approved" or "rejected"
+5. Get correction request by ID to validate it exists and is pending
+6. If status == "approved":
+   - Call ApplyCityCorrection first
+   - Then call UpdateCorrectionRequestStatus
+7. If status == "rejected":
+   - Validate review_notes is not empty
+   - Call UpdateCorrectionRequestStatus only
+8. Send email notification in background goroutine
+9. Return success response
+      </pattern>
+
+      <code-template><![CDATA[
+func (h *Handlers) UpdateCorrectionRequestStatus(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+
+    // 1. Require admin role
+    if middleware.GetUserRole(ctx) != "admin" {
+        RespondForbidden(w, r, "Admin role required")
+        return
+    }
+
+    // 2. Parse ID from URL
+    idStr := chi.URLParam(r, "id")
+    id, err := strconv.ParseInt(idStr, 10, 32)
+    if err != nil {
+        RespondBadRequest(w, r, "Invalid request ID")
+        return
+    }
+
+    // 3. Parse body
+    var req struct {
+        Status      string `json:"status"`
+        ReviewNotes string `json:"review_notes"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        RespondBadRequest(w, r, "Invalid request body")
+        return
+    }
+
+    // 4. Validate status
+    if req.Status != "approved" && req.Status != "rejected" {
+        RespondValidationError(w, r, "Invalid status", map[string]string{
+            "status": "Status must be 'approved' or 'rejected'",
+        })
+        return
+    }
+
+    // Validate rejection requires notes
+    if req.Status == "rejected" && req.ReviewNotes == "" {
+        RespondValidationError(w, r, "Review notes required for rejection", map[string]string{
+            "review_notes": "Please provide a reason for rejection",
+        })
+        return
+    }
+
+    // 5. Get correction request
+    correctionReq, err := h.db.Queries.GetCorrectionRequestByID(ctx, int32(id))
+    if err != nil {
+        RespondNotFound(w, r, "Correction request not found")
+        return
+    }
+
+    if correctionReq.Status != "pending" {
+        RespondValidationError(w, r, "Request already processed", map[string]string{
+            "status": "This request has already been " + correctionReq.Status,
+        })
+        return
+    }
+
+    // 6. Apply correction if approved
+    if req.Status == "approved" {
+        err = h.db.Queries.ApplyCityCorrection(ctx, sqlcgen.ApplyCityCorrectionParams{
+            ID:                correctionReq.CityID,
+            ProposedLatitude:  correctionReq.ProposedLatitude,
+            ProposedLongitude: correctionReq.ProposedLongitude,
+            ProposedElevation: correctionReq.ProposedElevation,
+        })
+        if err != nil {
+            RespondInternalError(w, r, "Failed to apply correction")
+            return
+        }
+    }
+
+    // 7. Update status
+    adminUserID := middleware.GetUserID(ctx)
+    err = h.db.Queries.UpdateCorrectionRequestStatus(ctx, sqlcgen.UpdateCorrectionRequestStatusParams{
+        ID:          int32(id),
+        Status:      req.Status,
+        ReviewedBy:  &adminUserID,
+        ReviewNotes: &req.ReviewNotes,
+    })
+    if err != nil {
+        RespondInternalError(w, r, "Failed to update request status")
+        return
+    }
+
+    // 8. Send email notification in background
+    if h.emailService != nil && h.emailService.IsEnabled() {
+        go func() {
+            // Email sending logic (copy from existing handlers)
+        }()
+    }
+
+    // 9. Respond
+    RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+        "status":  req.Status,
+        "message": "Correction request " + req.Status,
+    })
+}
+      ]]></code-template>
+    </unified-put-handler>
+
+    <deprecation-redirect-pattern>
+      <pattern>
+1. Set deprecation headers:
+   - Deprecation: true
+   - Sunset: Sun, 15 Jun 2025 00:00:00 GMT (6 months from now)
+   - Link: &lt;new-endpoint&gt;; rel="successor-version"
+2. Return 301 redirect with Location header pointing to new endpoint
+3. Preserve query parameters if applicable
+      </pattern>
+
+      <code-template><![CDATA[
+func (h *Handlers) DeprecatedGetPublisherCorrectionRequests(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Deprecation", "true")
+    w.Header().Set("Sunset", "Sun, 15 Jun 2025 00:00:00 GMT")
+    w.Header().Set("Link", "</correction-requests>; rel=\"successor-version\"")
+
+    // Preserve query params if any
+    newURL := "/correction-requests"
+    if r.URL.RawQuery != "" {
+        newURL += "?" + r.URL.RawQuery
+    }
+
+    http.Redirect(w, r, newURL, http.StatusMovedPermanently)
+}
+
+func (h *Handlers) DeprecatedAdminGetAllCorrectionRequests(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Deprecation", "true")
+    w.Header().Set("Sunset", "Sun, 15 Jun 2025 00:00:00 GMT")
+    w.Header().Set("Link", "</correction-requests>; rel=\"successor-version\"")
+
+    newURL := "/correction-requests"
+    if r.URL.RawQuery != "" {
+        newURL += "?" + r.URL.RawQuery
+    }
+
+    http.Redirect(w, r, newURL, http.StatusMovedPermanently)
+}
+
+func (h *Handlers) DeprecatedAdminApproveCorrectionRequest(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+
+    w.Header().Set("Deprecation", "true")
+    w.Header().Set("Sunset", "Sun, 15 Jun 2025 00:00:00 GMT")
+    w.Header().Set("Link", "</correction-requests/" + id + "/status>; rel=\"successor-version\"")
+
+    http.Redirect(w, r, "/correction-requests/" + id + "/status", http.StatusMovedPermanently)
+}
+
+func (h *Handlers) DeprecatedAdminRejectCorrectionRequest(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+
+    w.Header().Set("Deprecation", "true")
+    w.Header().Set("Sunset", "Sun, 15 Jun 2025 00:00:00 GMT")
+    w.Header().Set("Link", "</correction-requests/" + id + "/status>; rel=\"successor-version\"")
+
+    http.Redirect(w, r, "/correction-requests/" + id + "/status", http.StatusMovedPermanently)
+}
+      ]]></code-template>
+    </deprecation-redirect-pattern>
+
+    <role-detection-pattern>
+      <description>
+        Use middleware.GetUserRole(ctx) which returns:
+        - "admin" - for admin users
+        - "publisher" - for publisher users
+        - "" - for unauthenticated or no role
+
+        Admin users have access to all endpoints. Publisher users need publisher context.
+      </description>
+      <example><![CDATA[
+role := middleware.GetUserRole(ctx)
+
+switch role {
+case "admin":
+    // Admin logic - full access
+case "publisher":
+    // Publisher logic - filtered by publisher_id
+default:
+    // No valid role - return 401
+    RespondUnauthorized(w, r, "Authentication required")
+}
+      ]]></example>
+    </role-detection-pattern>
+
+    <frontend-api-changes>
+      <publisher-page>
+        <file>web/app/publisher/correction-requests/page.tsx</file>
+        <changes>
+          <change line="67">
+            FROM: const data = await api.get&lt;CorrectionRequestsResponse&gt;('/publisher/correction-requests');
+            TO:   const data = await api.get&lt;CorrectionRequestsResponse&gt;('/correction-requests');
+          </change>
+        </changes>
+      </publisher-page>
+
+      <admin-page>
+        <file>web/app/admin/correction-requests/page.tsx</file>
+        <changes>
+          <change line="85">
+            FROM: const data = await api.get&lt;CorrectionRequestsResponse&gt;('/admin/correction-requests?status=pending');
+            TO:   const data = await api.get&lt;CorrectionRequestsResponse&gt;('/correction-requests?status=pending');
+          </change>
+          <change line="162">
+            FROM: await api.post(`/admin/correction-requests/${selectedRequest.id}/${actionType}`, { body: JSON.stringify({ review_notes: reviewNotes.trim() }) });
+            TO:   await api.put(`/correction-requests/${selectedRequest.id}/status`, { body: JSON.stringify({ status: actionType === 'approve' ? 'approved' : 'rejected', review_notes: reviewNotes.trim() }) });
+          </change>
+        </changes>
+      </admin-page>
+    </frontend-api-changes>
+
+    <testing-checklist>
+      <backend>
+        - Test unified GET endpoint as admin (should see all requests)
+        - Test unified GET endpoint as publisher (should see only own requests)
+        - Test unified GET endpoint without auth (should return 401)
+        - Test unified PUT endpoint as admin (should succeed)
+        - Test unified PUT endpoint as publisher (should return 403)
+        - Test approve flow (correction applied + status updated + email sent)
+        - Test reject flow (status updated + email sent, no city change)
+        - Test deprecation redirects return 301 with proper headers
+        - Test status validation (only "approved" or "rejected" allowed)
+        - Test rejection requires review_notes
+      </backend>
+
+      <frontend>
+        - Test publisher page loads correction requests
+        - Test admin page loads correction requests
+        - Test admin can approve request
+        - Test admin can reject request
+        - Test error handling for API failures
+      </frontend>
+
+      <e2e>
+        - Publisher creates correction request
+        - Admin sees request in list
+        - Admin approves request
+        - City data is updated
+        - Email notification is sent
+        - Request status changes to "approved"
+        - Publisher sees updated status
+      </e2e>
+    </testing-checklist>
+  </implementation-notes>
+
+  <email-service-integration>
+    <description>
+      Both approve and reject handlers send email notifications in background goroutines.
+      The emailService is optional (checked with != nil and IsEnabled()).
+      Email methods used:
+      - SendCorrectionApproved(requesterEmail, cityName, reviewNotes)
+      - SendCorrectionRejected(requesterEmail, cityName, reviewNotes)
+    </description>
+    <pattern><![CDATA[
+if h.emailService != nil && h.emailService.IsEnabled() {
+    go func() {
+        city, err := h.db.Queries.GetCityByID(ctx, int32(correctionReq.CityID))
+        if err != nil {
+            slog.Error("failed to get city for email", "error", err, "city_id", correctionReq.CityID)
+            return
+        }
+
+        if req.Status == "approved" {
+            err = h.emailService.SendCorrectionApproved(
+                correctionReq.RequesterEmail,
+                city.Name,
+                req.ReviewNotes,
+            )
+        } else {
+            err = h.emailService.SendCorrectionRejected(
+                correctionReq.RequesterEmail,
+                city.Name,
+                req.ReviewNotes,
+            )
+        }
+
+        if err != nil {
+            slog.Error("failed to send notification email", "error", err, "to", correctionReq.RequesterEmail)
+        }
+    }()
+}
+    ]]></pattern>
+  </email-service-integration>
+
+</story-context>

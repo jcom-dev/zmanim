@@ -1,0 +1,95 @@
+<story-context id="8-26-publisher-access-validation-security-fix" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>26</storyId>
+    <title>Publisher Access Validation Security Fix</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>platform operator</asA>
+    <iWant>the X-Publisher-Id header to be validated against the user's authorized publisher list</iWant>
+    <soThat>users cannot access or modify data belonging to other publishers</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">X-Publisher-Id header is validated against user's publisher_access_list from JWT claims</criterion>
+    <criterion id="AC2">Admin users can access any publisher via X-Publisher-Id (existing behavior preserved)</criterion>
+    <criterion id="AC3">Non-admin users receive 403 Forbidden when requesting unauthorized publisher</criterion>
+    <criterion id="AC4">Query parameter publisher_id follows same validation rules</criterion>
+    <criterion id="AC5">Database fallback (lookup by clerk_user_id) remains unchanged (already secure)</criterion>
+    <criterion id="AC6">All existing E2E tests pass</criterion>
+    <criterion id="AC7">New tests verify unauthorized access is blocked</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/publisher_context.go</path>
+        <kind>handler</kind>
+        <symbol>PublisherResolver.Resolve</symbol>
+        <reason>CRITICAL: Main fix location - currently accepts any X-Publisher-Id without validation (lines 54-59)</reason>
+        <currentBehavior>Returns immediately without validating user has access to requested publisher</currentBehavior>
+        <requiredChange>Add validation using middleware.GetPublisherAccessList() before returning</requiredChange>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publisher_context.go</path>
+        <kind>handler</kind>
+        <symbol>PublisherResolver.MustResolve</symbol>
+        <reason>Should return 403 Forbidden (not 404) for unauthorized access attempts</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/middleware/auth.go</path>
+        <kind>middleware</kind>
+        <symbol>GetValidatedPublisherID</symbol>
+        <reason>Reference implementation - already validates access correctly but not used in PublisherResolver</reason>
+        <lineRef>200-230</lineRef>
+      </artifact>
+      <artifact>
+        <path>api/internal/middleware/auth.go</path>
+        <kind>middleware</kind>
+        <symbol>GetPublisherAccessList</symbol>
+        <reason>Helper function to retrieve access list from context - should be called in Resolve()</reason>
+        <lineRef>189-195</lineRef>
+      </artifact>
+      <artifact>
+        <path>api/internal/middleware/auth.go</path>
+        <kind>middleware</kind>
+        <symbol>RequireRole</symbol>
+        <reason>Sets PublisherAccessListKey in context from JWT claims (lines 280-281)</reason>
+      </artifact>
+    </code>
+    <tests>
+      <artifact>
+        <path>api/internal/handlers/publisher_context_test.go</path>
+        <kind>test</kind>
+        <reason>New test file needed for security validation scenarios</reason>
+        <exists>false</exists>
+      </artifact>
+    </tests>
+  </artifacts>
+
+  <securityContext>
+    <vulnerability>
+      <type>IDOR (Insecure Direct Object Reference)</type>
+      <severity>CRITICAL</severity>
+      <attackVector>User A authenticates, sends X-Publisher-Id header with Publisher B's ID, gains full access to Publisher B's data</attackVector>
+      <affectedRoutes>All 50+ /api/v1/auth/publisher/* routes using MustResolve()</affectedRoutes>
+    </vulnerability>
+    <jwtClaimsStructure>
+      <field name="sub">Clerk user ID</field>
+      <field name="metadata.role">admin | publisher | user</field>
+      <field name="metadata.primary_publisher_id">Default publisher ID</field>
+      <field name="metadata.publisher_access_list">Array of authorized publisher IDs</field>
+    </jwtClaimsStructure>
+  </securityContext>
+
+  <constraints>
+    <constraint>Admin users must retain ability to access any publisher</constraint>
+    <constraint>Database fallback lookup must remain unchanged (already secure)</constraint>
+    <constraint>Return 403 Forbidden (not 404) for unauthorized access</constraint>
+    <constraint>Log unauthorized access attempts with user_id and requested_publisher_id</constraint>
+  </constraints>
+</story-context>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-1-human-friendly-errors" epic="5" generated="2025-12-02">
+  <summary>
+    Transform cryptic DSL validation errors into plain language messages with actionable suggestions.
+    Target user: Non-technical publisher who knows halacha but not programming.
+  </summary>
+
+  <key-files>
+    <file path="web/lib/error-humanizer.ts" action="create">
+      Error pattern matching and transformation logic
+    </file>
+    <file path="web/components/editor/HumanErrorDisplay.tsx" action="create">
+      UI component for displaying friendly errors with suggestions
+    </file>
+    <file path="web/components/editor/CodeMirrorDSLEditor.tsx" action="modify">
+      Integration point - replace raw error display
+    </file>
+    <file path="docs/ux-dsl-editor-inline-guidance.md" action="reference">
+      UX specification for error message design
+    </file>
+  </key-files>
+
+  <error-mappings>
+    <mapping backend="unexpected token after expression: X"
+             headline="Oops! `X` needs parentheses to work."
+             suggestion="Try: X(...)"
+             example="solar(16.1, before_sunrise)"/>
+    <mapping backend="X() requires N arguments, got M"
+             headline="Almost there! `X()` needs N things."
+             suggestion="Show parameter breakdown"/>
+    <mapping backend="degrees must be between 0 and 90, got N"
+             headline="N° is too high."
+             suggestion="Common values: 8.5° (tzeis), 16.1° (alos), 18° (astronomical)"/>
+    <mapping backend="unknown primitive: X"
+             headline="I don't recognize 'X'."
+             suggestion="Did you mean: [fuzzy matches]?"/>
+    <mapping backend="invalid direction: X"
+             headline="'X' isn't a recognized direction."
+             suggestion="Choose: before_sunrise, after_sunset, before_noon, after_noon"/>
+    <mapping backend="undefined reference: @X"
+             headline="Can't find '@X' in your zmanim."
+             suggestion="Check available zman keys"/>
+    <mapping backend="circular reference"
+             headline="This formula references itself!"
+             suggestion="Use a primitive or different reference"/>
+  </error-mappings>
+
+  <component-interface>
+    <typescript>
+interface HumanError {
+  headline: string;
+  explanation?: string;
+  suggestion: string;
+  exampleCode?: string;
+  referenceLink?: string;
+  highlightRange?: { start: number; end: number };
+}
+
+interface HumanErrorDisplayProps {
+  error: HumanError;
+  onInsertExample: (code: string) => void;
+  onNavigateToReference: (section: string) => void;
+}
+    </typescript>
+  </component-interface>
+
+  <styling-notes>
+    <note>Use amber color scheme (bg-amber-50, border-amber-200, text-amber-900)</note>
+    <note>AlertCircle icon from lucide-react</note>
+    <note>Use design tokens, NO hardcoded colors</note>
+    <note>Include "Insert this example" and "Learn more" buttons</note>
+  </styling-notes>
+
+  <commands>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Restart services">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>error-humanizer.ts created with all mappings</item>
+    <item>HumanErrorDisplay component styled and functional</item>
+    <item>Integration with CodeMirrorDSLEditor complete</item>
+    <item>Fuzzy matching for typo suggestions works</item>
+    <item>"Insert this example" button inserts code</item>
+    <item>Mobile responsive</item>
+  </acceptance-checklist>
+</story-context>

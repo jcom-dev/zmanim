@@ -1,0 +1,166 @@
+<story-context id="4-4-guided-formula-builder" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.4</storyId>
+    <title>Guided Formula Builder</title>
+    <status>ready-for-dev</status>
+    <storyPoints>13</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-4-guided-formula-builder.md</sourceStoryPath>
+    <dependencies>Story 4.2 (DSL Parser), Story 4.3 (Bilingual Naming)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>a visual, guided formula builder using shadcn/ui components</iWant>
+    <soThat>I can construct valid DSL formulas without needing to learn syntax</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.4.1" title="Formula Builder Layout">
+      <item>Split-screen layout: formula builder on left, live preview on right</item>
+      <item>Responsive: stacks vertically on mobile</item>
+      <item>Preview updates in real-time as formula changes (debounced 300ms)</item>
+    </criterion>
+    <criterion id="AC-4.4.2" title="Base Time Selection">
+      <item>Dropdown to select base time primitive (sunrise, sunset, solar_noon, etc.)</item>
+      <item>Options grouped logically (Dawn, Day, Dusk, Night)</item>
+      <item>Selection immediately updates formula</item>
+    </criterion>
+    <criterion id="AC-4.4.3" title="Method Cards">
+      <item>Three method cards: Solar Angle, Fixed Offset, Proportional Hours</item>
+      <item>Visual icons for each method type</item>
+      <item>Only one method selectable at a time</item>
+      <item>Selection reveals method-specific parameters</item>
+    </criterion>
+    <criterion id="AC-4.4.4" title="Solar Angle Method">
+      <item>Slider for degrees (0.5° - 26°)</item>
+      <item>Presets: 16.1° (common), 18° (astronomical), 19.8° (90 min equivalent)</item>
+      <item>Direction toggle: "before sunrise" / "after sunset"</item>
+      <item>Generated formula preview: solar(16.1, before_sunrise)</item>
+    </criterion>
+    <criterion id="AC-4.4.5" title="Fixed Offset Method">
+      <item>Number input for minutes (or hours + minutes)</item>
+      <item>Direction selector: "before" / "after"</item>
+      <item>Base time selector (which primitive to offset from)</item>
+      <item>Generated formula preview: sunrise - 72min</item>
+    </criterion>
+    <criterion id="AC-4.4.6" title="Proportional Hours Method">
+      <item>Slider for hours (0.5 - 12 in 0.25 increments)</item>
+      <item>Base system selector: GRA, MGA, Custom</item>
+      <item>If Custom: ability to select start/end references</item>
+      <item>Visual day arc diagram showing proportional division</item>
+      <item>Generated formula preview: shaos(3, gra)</item>
+    </criterion>
+    <criterion id="AC-4.4.7" title="Formula Preview">
+      <item>Shows generated DSL formula as user builds</item>
+      <item>Syntax highlighted</item>
+      <item>Validation status indicator (green check / red X)</item>
+      <item>Error messages displayed inline</item>
+    </criterion>
+    <criterion id="AC-4.4.8" title="Live Calculation Preview">
+      <item>Shows calculated time for today's date</item>
+      <item>Shows calculated time for user's selected location</item>
+      <item>Updates in real-time as formula changes</item>
+      <item>Loading state while calculating</item>
+    </criterion>
+    <criterion id="AC-4.4.9" title="Save and Apply">
+      <item>"Save" button to save formula to zman definition</item>
+      <item>"Copy to Advanced" button to switch to code editor with formula</item>
+      <item>Confirmation dialog before overwriting existing formula</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>UI/UX Design, Story 4.4</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-ui-wireframes.md</path>
+        <section>Guided Mode Wireframe, Split-Screen Layout</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>web/app/publisher/algorithm/page.tsx</path>
+        <kind>page</kind>
+        <reason>Existing algorithm editor to integrate formula builder</reason>
+      </file>
+      <file>
+        <path>web/components/publisher/ZmanConfigModal.tsx</path>
+        <kind>component</kind>
+        <reason>Existing modal to enhance with formula builder</reason>
+      </file>
+      <file>
+        <path>web/components/MethodCard.tsx</path>
+        <kind>component</kind>
+        <reason>Existing method card component to leverage</reason>
+      </file>
+      <file>
+        <path>web/components/ui/</path>
+        <kind>directory</kind>
+        <reason>shadcn/ui components (Slider, Select, Card, etc.)</reason>
+      </file>
+    </code>
+  </artifacts>
+
+  <componentStructure>
+    <directory path="web/components/formula-builder/">
+      <file>FormulaBuilder.tsx</file>
+      <file>BaseTimeSelector.tsx</file>
+      <file>MethodSelector.tsx</file>
+      <file>MethodCard.tsx</file>
+      <directory path="methods/">
+        <file>SolarAngleForm.tsx</file>
+        <file>FixedOffsetForm.tsx</file>
+        <file>ProportionalHoursForm.tsx</file>
+      </directory>
+      <directory path="preview/">
+        <file>FormulaPreview.tsx</file>
+        <file>CalculationPreview.tsx</file>
+        <file>DayArcDiagram.tsx</file>
+      </directory>
+    </directory>
+  </componentStructure>
+
+  <stateManagement>
+    <interface name="FormulaBuilderState">
+      <field name="baseTime" type="string" description="'sunrise', 'sunset', etc."/>
+      <field name="method" type="'solar' | 'fixed' | 'proportional' | null"/>
+      <field name="solarDegrees" type="number"/>
+      <field name="solarDirection" type="'before_sunrise' | 'after_sunset'"/>
+      <field name="offsetMinutes" type="number"/>
+      <field name="offsetDirection" type="'before' | 'after'"/>
+      <field name="offsetBase" type="string"/>
+      <field name="shaosHours" type="number"/>
+      <field name="shaosBase" type="'gra' | 'mga' | 'custom'"/>
+      <field name="customStart" type="string" optional="true"/>
+      <field name="customEnd" type="string" optional="true"/>
+      <field name="generatedFormula" type="string"/>
+      <field name="validationErrors" type="string[]"/>
+    </interface>
+  </stateManagement>
+
+  <apiIntegration>
+    <endpoint method="POST" path="/api/dsl/validate">
+      <description>Validate DSL formula</description>
+      <request>{ "formula": "sunrise + shaos(3, gra)" }</request>
+      <response>{ "valid": true, "errors": [], "dependencies": ["sunrise"] }</response>
+    </endpoint>
+    <endpoint method="POST" path="/api/dsl/preview">
+      <description>Calculate formula result</description>
+      <request>{ "formula": "...", "date": "2025-11-28", "latitude": 40.7, "longitude": -74.0, "timezone": "America/New_York" }</request>
+      <response>{ "result": "09:37:00", "breakdown": [...] }</response>
+    </endpoint>
+  </apiIntegration>
+
+  <constraints>
+    <constraint type="ux">Split-screen 60/40 builder/preview ratio</constraint>
+    <constraint type="ux">300ms debounce on preview updates</constraint>
+    <constraint type="accessibility">All controls keyboard navigable</constraint>
+    <constraint type="accessibility">ARIA labels on interactive elements</constraint>
+  </constraints>
+</story-context>

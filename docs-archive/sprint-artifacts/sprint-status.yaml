@@ -1,0 +1,277 @@
+# Sprint Status - Shtetl Zmanim
+# generated: 2025-12-15
+# project: zmanim
+# tracking_system: file-system
+# story_location: docs/sprint-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic exists in epic file but not contexted
+#   - contexted: Epic tech context created (required before drafting stories)
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - drafted: Story file created in stories folder
+#   - ready-for-dev: Draft approved and story context created
+#   - in-progress: Developer actively working on implementation
+#   - review: Under SM review (via code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - completed: Retrospective has been done
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epics should be 'contexted' before stories can be 'drafted'
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically drafts next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', SM reviews, then Dev moves to 'done'
+
+generated: 2025-12-15
+project: zmanim
+tracking_system: file-system
+story_location: docs/sprint-artifacts
+
+development_status:
+  # Epic 1: Shtetl Zmanim MVP (11 stories, 42 FRs) - COMPLETED
+  epic-1: done
+  1-1-coder-development-environment: done
+  1-2-foundation-authentication: done
+  1-3-admin-publisher-management: done
+  1-4-publisher-profile: done
+  1-5-global-location-system: done
+  1-6-publisher-coverage: done
+  1-7-calculation-engine-caching: done
+  1-8-algorithm-editor: done
+  1-9-algorithm-publishing: done
+  1-10-zmanim-user-experience: done
+  1-11-formula-reveal: done
+  epic-1-retrospective: done  # Combined with Epic 2 retro on 2025-11-27
+
+  # Epic 2: Publisher User Management & Dashboard (13 stories, 24 new FRs) - COMPLETED
+  # Code reviewed 2025-11-26: All ACs met, implementation solid, patterns established
+  epic-2: done
+  2-0-code-review-refactor: done  # Refactored Clerk service, separated concerns
+  2-1-publisher-user-invitation: done  # Admin can invite users to publishers
+  2-2-multi-publisher-switcher: done  # PublisherContext, switcher component
+  2-3-admin-impersonation-mode: done  # sessionStorage-based impersonation
+  2-4-dynamic-home-navigation: done  # RoleNavigation component
+  2-5-enhanced-coverage-management: done  # Country/region/city coverage levels
+  2-6-publisher-dashboard-hub: done  # Dashboard summary API + cards
+  2-7-publisher-analytics-simple: done  # Stats cards (calc logging deferred)
+  2-8-publisher-activity-log: done  # Activity UI ready (logging deferred)
+
+  # Sprint Change Additions (2025-11-26) - FR55-FR66
+  2-11-email-service-resend: done      # Foundation - email service with 5 templates
+  2-9-publisher-registration-request: done   # Self-service publisher onboarding flow
+  2-10-publisher-member-invitation: done     # Publishers invite own team members
+  2-12-user-profile-dropdown: done           # User profile dropdown with role badge
+  epic-2-retrospective: done  # Combined retro 2025-11-27: epic-1-2-retro-2025-11-27.md
+
+  # Epic 3: Consolidation & Quality - COMPLETED 2025-11-27
+  # Focus: Testing infrastructure, E2E coverage, codebase audit, coding standards, refactor
+  # Epic defined: docs/epic-3-consolidation-quality.md
+  epic-3: done
+  3-0-testing-infrastructure: done  # Clerk auth helpers, test fixtures - COMPLETED 2025-11-27
+  3-1-comprehensive-e2e-test-suite: done  # 130+ E2E scenarios - COMPLETED 2025-11-27
+  3-2-codebase-audit-documentation: done  # Pattern inventory, debt list - COMPLETED 2025-11-27
+  3-3-coding-standards-architecture: done  # Formalize patterns - COMPLETED 2025-11-27
+  3-4-refactor-to-standards: done  # Apply standards, cleanup - COMPLETED 2025-11-27
+  epic-3-retrospective: optional
+
+  # Epic 4: Intuitive Zmanim Algorithm Editor with AI-Powered DSL (14 stories) - COMPLETED 2025-12-02
+  # Focus: Apple-quality UX, DSL for calculations, AI formula generation, Hebrew calendar
+  # Epic defined: docs/epic-4-algorithm-editor-ux.md
+  # Tech spec: docs/sprint-artifacts/tech-spec-epic-4.md
+  epic-4: done
+  4-0-postgres-pgvector-image: done  # Infrastructure: PostgreSQL 17 + PostGIS + pgvector
+  4-1-zmanim-dsl-design: done        # DSL spec APPROVED by code-review 2025-11-28
+  4-2-zmanim-dsl-parser: done        # Executor, API endpoints, tests
+  4-3-bilingual-naming: done         # Mandatory Hebrew + English names
+  4-4-guided-formula-builder: done   # shadcn/ui visual formula construction
+  4-5-halachic-documentation: done   # Comments field with Hebrew/Markdown
+  4-6-advanced-mode-editor: done     # CodeMirror 6 with DSL support
+  4-7-ai-context-system-rag: done    # pgvector-based retrieval for AI
+  4-8-ai-formula-service: done       # Claude API for NL→formula
+  4-9-ai-explanation-generator: done # Human-readable formula explanations
+  4-10-weekly-preview-hebrew: done   # hebcal-go, 44 Jewish events, bilingual dates
+  4-11-publisher-onboarding: done    # First-time setup wizard
+  4-12-algorithm-collaboration: done # Copy/fork from other publishers
+  4-13-formula-version-history: done # Visual diff and rollback
+  epic-4-retrospective: optional
+
+  # Epic 5: DSL Editor Experience & Zman Management (17 stories) - CURRENT SPRINT
+  # Focus: Hand-holding DSL editor UX, publisher zman aliases, new zman requests, technical debt
+  # Epic defined: docs/epics.md (Epic 5 section)
+  # FRs: FR96-FR119
+  #
+  # Epic 5 DoD Policy:
+  #   - Only run NEW tests created for the story (not full regression suite)
+  #   - If API/web not working: run ./restart.sh from project root
+  #   - Full E2E regression only required at epic completion, not per-story
+  epic-5: contexted
+  # Stories 5.0-5.10: Feature stories - COMPLETED 2025-12-02
+  5-0-database-schema-aliases: done                 # Schema for publisher aliases & zman requests
+  5-1-human-friendly-errors: done                   # Plain language validation error messages
+  5-2-contextual-tooltips: done                     # Cursor-position-aware hints in DSL editor
+  5-3-smart-placeholders: done                      # Real examples instead of abstract placeholders
+  5-4-publisher-alias-api: done                     # API for publisher zman custom naming
+  5-5-publisher-alias-ui: done                      # UI for renaming zmanim in Advanced mode
+  5-6-request-zman-api: done                        # API for requesting new zmanim + email
+  5-7-request-zman-ui: done                         # Multi-step form for new zman requests
+  5-8-admin-zman-review: done                       # Admin page for reviewing zman requests
+  5-9-reference-panel-enhancements: done            # Contextual highlighting in reference panel
+  5-10-publisher-logo-editor: done                  # Mandatory logo with crop/zoom editor
+  # Stories 5.11-5.17: Technical debt stories - COMPLETED 2025-12-02
+  5-11-frontend-useapi-migration: done              # Migrate 73 raw fetch() to useApi hook
+  5-12-backend-slog-migration: done                 # Migrate ~100 log.Printf to slog
+  5-13-e2e-deterministic-waits: done                # Replace 52 waitForTimeout with proper waits
+  5-14-e2e-parallel-mode: done                      # Add parallel mode to 23 test files
+  5-15-api-response-standardization: done           # Fix ~80 double-wrapped API responses
+  5-16-ci-quality-gates: done                       # Pre-commit hooks and CI standards checks
+  5-17-publisher-schema-refactor: done              # Remove organization field, mandatory logo with AI generation
+  # Remaining stories
+  5-18-publisher-zman-field-ownership: done           # Publisher owns copy of description, transliteration, formula with diff/revert
+  5-19-zman-request-review-workflow: done            # Unified review form, tag approval pipeline, email notifications
+  epic-5-retrospective: optional
+
+  # Epic 6: Code Cleanup, Consolidation & Publisher Data Overrides (6 stories, 47 points)
+  # Focus: 34% Cleanup, 55% Features, 11% Performance
+  # Epic defined: docs/sprint-artifacts/epic-6-cleanup-and-overrides.md
+  # Stories: 6.1-6.6 - COMPLETED 2025-12-08
+  epic-6: done
+  6-1-consolidate-type-definitions: done       # Central TypeScript types for geography - COMPLETED 2025-12-08
+  6-2-extract-shared-hooks: done               # Shared React hooks (useLocationSearch, useMapPreview, errorHandler) - COMPLETED 2025-12-08
+  6-3-unified-tag-manager: done                # Tag negation, registry tracking, revert functionality, filtering logic - COMPLETED 2025-12-08
+  6-4-publisher-location-overrides: done       # Override city lat/lon/elevation/timezone + inline map view - COMPLETED 2025-12-08
+  6-5-public-correction-requests: done         # Request corrections + admin edit + email notifications - COMPLETED 2025-12-08
+  6-6-database-query-optimization: done        # Indexes, EXPLAIN ANALYZE, performance tests - COMPLETED 2025-12-08
+  epic-6-retrospective: completed  # Marked complete 2025-12-10
+
+  # Epic 7: AWS Migration & Infrastructure (10 stories, 44 points)
+  # Focus: Migrate from Fly.io/Vercel/Xata/Upstash to unified AWS infrastructure
+  # Epic defined: docs/sprint-artifacts/epic-7-aws-migration.md
+  # Target: Zero cold starts, ~$44/month, eu-west-1 region
+  epic-7: contexted
+  7-1-aws-cdk-project-setup: done               # CDK project, stacks, GitHub Actions - COMPLETED 2025-12-10
+  7-2-packer-ami-build-pipeline: review           # Amazon Linux 2023 ARM64, PostgreSQL, Redis, Go API - IMPLEMENTED 2025-12-10
+  7-3-vpc-network-infrastructure: review           # VPC, S3 Endpoint, security groups - IMPLEMENTED 2025-12-10
+  7-4-ec2-instance-ebs-storage: review            # m7g.medium, root + data EBS volumes - IMPLEMENTED 2025-12-10
+  7-5-s3-buckets-restic-backup: review           # S3 buckets, Restic backup - IMPLEMENTED 2025-12-10
+  7-6-cloudfront-distribution: review           # CDN, Origin Shield, cache policies - IMPLEMENTED 2025-12-10
+  7-7-api-gateway-configuration: review             # HTTP API, JWT authorizer, throttling - IMPLEMENTED 2025-12-10
+  7-8-route53-ssl-certificates: done             # DNS, ACM certificate, health check - COMPLETED 2025-12-10
+  7-9-ssm-parameter-store-configuration: review  # Secrets management (free tier) - IMPLEMENTED 2025-12-10
+  7-10-data-migration-go-live: done             # NEW deployment (no Xata migration), API responding on EC2 - COMPLETED 2025-12-11
+  epic-7-retrospective: optional
+
+  # Epic 8: Finalize Features, External API & Performance (37 stories) - COMPLETED 2025-12-15
+  # Focus: Dashboard features, External API, Search improvements, Bug fixes, UX enhancements
+  # Epic defined: docs/sprint-artifacts/epic-8-finalize-and-external-api.md
+  #
+  # Verification completed 2025-12-15: 29/33 stories done, 3 deferred to Epic 9, 3 consolidated
+  epic-8: done
+
+  # Core Feature Stories (8.1-8.7) - Dashboard & External API - ALL DONE
+  8-1-wire-algorithm-version-history-routes: done    # Fixed: Routes wired in main.go
+  8-2-implement-calculation-logging: done            # Fixed: Bulk logging added
+  8-3-activate-audit-trail: done                     # Fixed: Full handler integration
+  8-4-external-api-clerk-m2m-authentication: done    # Verified working
+  8-5-external-api-list-publisher-zmanim: done       # Fixed: SQL query bug
+  8-6-external-api-bulk-zmanim-calculation: done     # Verified working
+  8-7-rate-limiting-for-external-api: done           # Fixed: Rate limiter wired
+
+  # Geo & Search Stories (8.8-8.14) - ALL DONE
+  8-8-geo-alternative-names-foreign-names-tables: done  # Infrastructure complete
+  8-9-ultra-fast-geo-search-index: done                 # Fixed: Missing indexes added
+  8-10-smart-search-api-with-context-parsing: done      # Fixed: Route registered
+  8-11-city-source-tracking-legacy-column-cleanup: done # Verified working
+  8-12-geographic-hierarchy-completion: done            # 92%+ hierarchy complete
+  8-13-e2e-testing-search-geo-features: done            # Fixed: Schema references
+  8-14-unified-location-search-api-frontend-migration: done  # Fixed: Frontend migrated
+
+  # Bug Fix Stories (8.15-8.16) - ALL DONE
+  8-15-react-query-cache-invalidation-bug-fixes: done   # Fixed: Mutation hooks added
+  8-16-redis-cache-invalidation-bug-fixes: done         # Fixed: Cache invalidation added
+
+  # API Cleanup Stories (8.17-8.25) - 6 DONE, 3 DEFERRED TO EPIC 9
+  8-17-api-path-restructuring-gateway-authentication: deferred  # → Epic 9.1 (major restructuring)
+  8-18-global-coding-standards-documentation-cleanup: done      # Verified working
+  8-19-api-route-consolidation-deduplication: done              # Fixed: Country keywords deduplicated
+  8-20-api-route-cleanup-phase-2: deferred                      # → Epic 9.2 (rescoped)
+  8-21-backend-deployment-migration-automation: done            # Verified working
+  8-22-version-history-pattern-standardization: done            # Fixed: PublisherResolver pattern
+  8-23-correction-request-endpoint-consolidation: deferred      # → Epic 9.3 (needs implementation)
+  8-24-soft-delete-pattern-documentation: done                  # Fixed: Docs added
+  8-25-master-registry-auth-aware-consolidation: done           # Fixed: Handlers consolidated
+
+  # Security & Auth Stories (8.26-8.32) - ALL DONE
+  8-26-publisher-access-validation-security-fix: done           # Verified working
+  8-27-multi-publisher-switcher-with-cookie-persistence: done   # Fixed: Endpoint added
+  8-28-publisher-signup-captcha-bot-protection: consolidated    # → 8.37
+  8-29-unified-user-preferences-cookie-persistence: done        # Verified working
+  8-30-user-publisher-entity-separation: consolidated           # → 8.37
+  8-31-secure-user-invitation-flow: done                        # Verified working
+  8-32-publisher-registration-email-verification: consolidated  # → 8.37
+
+  # UX Enhancement Stories (8.33-8.37) - ALL DONE
+  8-33-ai-explanation-rag-validation-enriched-context: done     # Verified working
+  8-34-seconds-display-toggle-with-rounding: done               # Fixed: RoundingModeToggle added
+  8-35-zman-card-time-preview: done                             # Verified working
+  8-36-extended-display-preferences-persistence: done           # Verified working
+  8-37-unified-publisher-onboarding-flow: done                  # Completed 2025-12-14
+
+  epic-8-retrospective: optional
+
+  # Epic 9: API Restructuring & Endpoint Cleanup (15 stories, 68 points) - SUPERSEDED
+  # Status: SUPERSEDED by Epic 10 (Overture Geographic Data Migration)
+  # Reason: Epic 10 includes major schema restructure that makes Epic 9 API changes obsolete.
+  #         Stories 9.1-9.15 will be re-evaluated after Epic 10 completes.
+  #         Many Epic 9 goals (API cleanup, security hardening) will be addressed as part of
+  #         the Overture migration which provides a clean slate for geographic endpoints.
+  # Decision Date: 2025-12-16
+  # Epic defined: docs/sprint-artifacts/epic-9-api-restructuring-and-cleanup.md
+  epic-9: superseded
+
+  # All Epic 9 stories deferred - to be re-evaluated after Epic 10
+  9-1-api-gateway-path-configuration: deferred
+  9-2-api-route-documentation-cleanup: deferred
+  9-3-correction-request-endpoint-consolidation: deferred
+  9-4-api-security-audit-authorization-hardening: deferred
+  9-5-frontend-api-audit-deprecated-code-removal: deferred
+  9-6-database-sqlc-ui-sync-audit: deferred
+  9-7-e2e-test-suite-refresh: deferred
+  9-8-local-test-environment-parity: deferred
+  9-9-github-actions-ci-validation: deferred
+  9-10-email-service-integration-invitations: deferred
+  9-11-clerk-api-integration-user-verification: deferred
+  9-12-hebrew-calendar-yom-tov-integration: deferred
+  9-13-external-api-caching-implementation: deferred
+  9-14-status-lookup-table-integration: deferred
+  9-15-publisher-coverage-db-level-filtering: deferred
+
+  # Epic 10: Overture Geographic Data Migration (6 stories, 55 points)
+  # Focus: Replace WOF with Overture Maps, restructure geo schema, unified search, UI unification
+  # Epic defined: docs/sprint-artifacts/epic-10-overture-geographic-migration.md
+  # Tech spec: docs/sprint-artifacts/epic-10-tech-spec.md
+  # Reference: docs/refactoring/import-from-overture.md
+  #
+  # Story Execution Order: 10.1 → 10.2 → 10.3 → 10.4 → 10.5 → 10.6
+  # Epic DoD: Story 10.6 is the gating story - epic cannot close without it
+  epic-10: contexted
+
+  # Database & Infrastructure Stories
+  10-1-database-schema-migration: drafted              # 8 pts - New schema for Overture data
+  10-2-import-overture-cli-command: drafted            # 13 pts - CLI to import Overture Parquet data
+
+  # Search & Backend Stories
+  10-3-search-index-implementation: drafted            # 8 pts - Tiered search with multi-language support
+  10-4-backend-code-updates: drafted                   # 8 pts - SQLc queries, handlers, commands
+
+  # Frontend Stories
+  10-5-frontend-locality-picker-unification: drafted   # 10 pts - Unified LocalityPicker, delete 3 old components
+
+  # Epic Completion (GATING)
+  10-6-performance-cleanup-and-epic-dod: drafted       # 8 pts - Performance validation, cleanup, drop old tables

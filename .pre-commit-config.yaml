@@ -1,0 +1,126 @@
+# Pre-commit hooks for Shtetl Zmanim
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Local hooks (custom compliance checks)
+  - repo: local
+    hooks:
+      # Backend compliance checks
+      - id: no-raw-sql-handlers
+        name: No raw SQL in handlers
+        entry: bash -c 'if grep -rE "db\.Pool\.Query|db\.Pool\.Exec" api/internal/handlers/ --include="*.go" 2>/dev/null | grep -v "^Binary"; then echo "ERROR: Raw SQL found in handlers - use SQLc"; exit 1; fi'
+        language: system
+        files: ^api/internal/handlers/.*\.go$
+        pass_filenames: false
+
+      - id: no-fmt-printf
+        name: No fmt.Printf/log.Printf (use slog)
+        entry: bash -c 'if grep -rE "fmt\.Printf|log\.Printf|fmt\.Println|log\.Println" api/internal/handlers/ api/internal/services/ --include="*.go" 2>/dev/null | grep -v "^Binary"; then echo "ERROR: fmt.Printf/log.Printf found - use slog"; exit 1; fi'
+        language: system
+        files: ^api/internal/(handlers|services)/.*\.go$
+        pass_filenames: false
+
+      - id: check-publisher-resolver
+        name: Publisher endpoints use PublisherResolver
+        entry: bash -c 'if grep -l "func.*Handler.*w http.ResponseWriter" api/internal/handlers/publisher_*.go | xargs grep -L "publisherResolver" 2>/dev/null | grep -v "^Binary"; then echo "WARNING: Publisher handler missing PublisherResolver"; fi'
+        language: system
+        files: ^api/internal/handlers/publisher_.*\.go$
+        pass_filenames: false
+
+      # Frontend compliance checks
+      - id: no-raw-fetch
+        name: No raw fetch() calls (use useApi)
+        entry: bash -c 'if grep -r "await fetch\(" web/app web/components --include="*.tsx" --include="*.ts" --exclude="api-client.ts" 2>/dev/null | grep -v "^Binary"; then echo "ERROR: Raw fetch() found - use useApi hook"; exit 1; fi'
+        language: system
+        files: ^web/(app|components)/.*\.(tsx|ts)$
+        pass_filenames: false
+
+      - id: no-hardcoded-colors
+        name: No hardcoded colors (use design tokens)
+        entry: bash -c 'if grep -rE "className=.*text-\[#|bg-\[#|border-\[#" web/app web/components --include="*.tsx" 2>/dev/null | grep -v "^Binary"; then echo "ERROR: Hardcoded colors found - use design tokens"; exit 1; fi'
+        language: system
+        files: ^web/(app|components)/.*\.tsx$
+        pass_filenames: false
+
+      - id: check-clerk-isloaded
+        name: Check Clerk isLoaded before access
+        entry: bash -c 'files=$(grep -l "useUser()" web/app web/components --include="*.tsx" 2>/dev/null); if [ ! -z "$files" ]; then for file in $files; do if ! grep -q "if (!isLoaded)" "$file" && ! grep -q "if (!.*isLoaded)" "$file"; then echo "WARNING: $file uses useUser() but may not check isLoaded"; fi; done; fi'
+        language: system
+        files: ^web/(app|components)/.*\.tsx$
+        pass_filenames: false
+
+      # Database schema compliance
+      - id: check-lookup-table-pattern
+        name: Lookup tables follow id + key pattern
+        entry: bash -c 'if grep -E "CREATE TABLE.*(_types|_statuses|_levels|_sources|_roles|_categories)" db/migrations/*.sql 2>/dev/null | grep -v "^Binary" | while read line; do file=$(echo "$line" | cut -d: -f1); table=$(echo "$line" | grep -oP "CREATE TABLE.*\K[a-z_]+"); if ! grep -A10 "CREATE TABLE.*$table" "$file" | grep -q "key.*character varying.*UNIQUE"; then echo "WARNING: Lookup table $table missing key column pattern"; fi; done; then true; fi'
+        language: system
+        files: ^db/migrations/.*\.sql$
+        pass_filenames: false
+
+      # Documentation checks
+      - id: check-adr-references
+        name: Critical patterns reference ADRs
+        entry: bash -c 'if grep -l "SQLc" api/internal/handlers/*.go 2>/dev/null | head -5 | xargs grep -L "docs/adr" 2>/dev/null | grep -v "^Binary"; then echo "INFO: Consider adding ADR reference in file header"; fi'
+        language: system
+        files: ^api/internal/handlers/.*\.go$
+        pass_filenames: false
+        verbose: true
+
+  # Go formatting and linting
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.55.2
+    hooks:
+      - id: golangci-lint
+        args: [--timeout=5m]
+        files: ^api/
+
+  # TypeScript/JavaScript linting
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.56.0
+    hooks:
+      - id: eslint
+        files: ^web/.*\.(ts|tsx)$
+        types: [file]
+        additional_dependencies:
+          - eslint@8.56.0
+          - eslint-config-next@14.0.4
+          - typescript@5.3.3
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(.*\.md|.*\.svg)$
+      - id: end-of-file-fixer
+        exclude: ^(.*\.svg)$
+      - id: check-yaml
+        exclude: ^\.github/workflows/
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # SQL formatting (optional - uncomment if sqlfluff installed)
+  # - repo: https://github.com/sqlfluff/sqlfluff
+  #   rev: 2.3.5
+  #   hooks:
+  #     - id: sqlfluff-lint
+  #       files: ^db/migrations/.*\.sql$
+  #       additional_dependencies: [sqlfluff-templater-jinja]
+
+# Configuration
+fail_fast: false
+default_stages: [commit]
+
+# Exclude generated files
+exclude: |
+  (?x)^(
+    api/internal/db/sqlcgen/.*|
+    web/\.next/.*|
+    web/node_modules/.*|
+    .*\.min\.(js|css)
+  )$

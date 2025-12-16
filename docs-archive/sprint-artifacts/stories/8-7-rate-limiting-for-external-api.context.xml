@@ -1,0 +1,144 @@
+<story-context id="8-7-rate-limiting-for-external-api" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>7</storyId>
+    <title>Rate Limiting for External API</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-7-rate-limiting-for-external-api.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>platform operator</asA>
+    <iWant>rate limiting on external API</iWant>
+    <soThat>the system isn't overwhelmed by bulk requests</soThat>
+    <tasks>
+      <task id="1">Implement token bucket rate limiter (AC: 1)</task>
+      <task id="2">Store counters in Redis (AC: 5)</task>
+      <task id="3">Create rate limit middleware (AC: 1, 2)</task>
+      <task id="4">Add headers to responses (AC: 3)</task>
+      <task id="5">Create admin endpoint for limit adjustment (AC: 6)</task>
+      <task id="6">Documentation (AC: 1-4)</task>
+      <task id="7">Testing (AC: 1-5)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Token bucket rate limiter implemented per client_id</criterion>
+    <criterion id="AC2">Limits: 10 requests/minute, 100 requests/hour enforced</criterion>
+    <criterion id="AC3">Rate limit headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset on all responses</criterion>
+    <criterion id="AC4">429 response returned when limit exceeded with retry_after</criterion>
+    <criterion id="AC5">Limits stored in Redis for distributed enforcement</criterion>
+    <criterion id="AC6">Admin can adjust limits per client (stretch goal)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.7: Rate Limiting for External API</section>
+        <snippet>Token bucket per client_id. 10 req/min, 100 req/hour. Redis counters with TTL.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/services/</path>
+        <kind>service-directory</kind>
+        <reason>Location for new rate_limiter.go</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/middleware/</path>
+        <kind>middleware-directory</kind>
+        <reason>Location for new rate_limit_external.go</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/cache_service.go</path>
+        <kind>service</kind>
+        <symbol>CacheService, Redis client</symbol>
+        <reason>Existing Redis connection for rate limit counters</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/admin.go</path>
+        <kind>handler</kind>
+        <reason>Add endpoint for admin rate limit adjustment</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/redis/go-redis/v9</package>
+        <package>github.com/go-chi/chi/v5</package>
+        <package>time</package>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use atomic Redis operations (INCR + EXPIRE)</constraint>
+    <constraint>Handle Redis connection failures gracefully (allow request if Redis down)</constraint>
+    <constraint>Rate limit checks must be fast (&lt;5ms)</constraint>
+    <constraint>Two windows: minute (60s TTL) and hour (3600s TTL)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>RateLimiter Service</name>
+      <kind>Go service</kind>
+      <signature>
+        type RateLimiter struct { redis *redis.Client }
+        type Limit struct { Requests int; Window time.Duration }
+        type RateLimitResult struct { MinuteRemaining, HourRemaining int; MinuteReset, HourReset int64; Allowed bool }
+        func (r *RateLimiter) Check(ctx context.Context, clientID string) (*RateLimitResult, error)
+      </signature>
+      <path>api/internal/services/rate_limiter.go</path>
+    </interface>
+    <interface>
+      <name>Rate Limit Headers</name>
+      <kind>HTTP headers</kind>
+      <signature>
+        X-RateLimit-Limit: 10
+        X-RateLimit-Remaining: 7
+        X-RateLimit-Reset: 1702200000
+      </signature>
+      <path>api/internal/middleware/rate_limit_external.go</path>
+    </interface>
+    <interface>
+      <name>429 Response</name>
+      <kind>JSON response</kind>
+      <signature>
+        {
+          "error": "rate_limit_exceeded",
+          "message": "Too many requests. Please wait 45 seconds.",
+          "retry_after": 45
+        }
+      </signature>
+      <path>api/internal/middleware/rate_limit_external.go</path>
+    </interface>
+    <interface>
+      <name>Redis Key Pattern</name>
+      <kind>cache-key</kind>
+      <signature>
+        ratelimit:{client_id}:minute -> TTL 60s
+        ratelimit:{client_id}:hour -> TTL 3600s
+      </signature>
+      <path>api/internal/services/rate_limiter.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Unit tests for rate limiter service. Integration tests with Redis. Test edge cases (TTL expiry, concurrent requests).</standards>
+    <locations>
+      <location>api/internal/services/*_test.go</location>
+      <location>api/internal/middleware/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test rate limiter tracks per client_id</idea>
+      <idea acRef="AC2">Test 11th request in minute returns 429</idea>
+      <idea acRef="AC2">Test 101st request in hour returns 429</idea>
+      <idea acRef="AC3">Test X-RateLimit-* headers present on all responses</idea>
+      <idea acRef="AC4">Test 429 response includes retry_after</idea>
+      <idea acRef="AC5">Test counters persist in Redis across requests</idea>
+    </ideas>
+  </tests>
+</story-context>

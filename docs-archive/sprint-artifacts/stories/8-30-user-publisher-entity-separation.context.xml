@@ -1,0 +1,107 @@
+<story-context id="8-30-user-publisher-entity-separation" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>30</storyId>
+    <title>User vs Publisher Entity Separation</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>platform architect</asA>
+    <iWant>clear separation between User and Publisher entities in the data model and UI</iWant>
+    <soThat>the system correctly represents that publishers are organizations (not people) and users are people who can belong to multiple publishers</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Database schema clearly separates User and Publisher entities</criterion>
+    <criterion id="AC2">publishers table has contact_email (not email) - for public contact only</criterion>
+    <criterion id="AC3">user_publishers junction table links users to publishers with roles</criterion>
+    <criterion id="AC4">UI labels correctly distinguish "Publisher" (org) from "User" (person)</criterion>
+    <criterion id="AC5">Admin UI shows "Publisher Contact Email" not "Publisher Email"</criterion>
+    <criterion id="AC6">Invitation flows clearly state "Invite User to Publisher"</criterion>
+    <criterion id="AC7">Public publisher profile shows contact email as "Contact" not personal email</criterion>
+    <criterion id="AC8">Documentation updated to reflect entity separation</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/db/queries/publishers.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>Current schema has 'email' field - audit if this is contact_email or user email</reason>
+        <observation>Field named 'email' (line 5) - should clarify purpose or rename to contact_email</observation>
+      </artifact>
+      <artifact>
+        <path>db/migrations/00000000000001_schema.sql</path>
+        <kind>migration</kind>
+        <reason>Check current publishers table definition</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/admin/publishers/page.tsx</path>
+        <kind>page</kind>
+        <reason>Admin publisher list - update labels to "Contact Email"</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/publisher/profile/page.tsx</path>
+        <kind>page</kind>
+        <reason>Publisher profile form - update labels</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <domainModel>
+    <entity name="User (Person)">
+      <description>Authenticated individual who can access the system</description>
+      <attributes>
+        <attr name="email" source="Clerk">Unique login email</attr>
+        <attr name="first_name" source="Clerk">Personal name</attr>
+        <attr name="last_name" source="Clerk">Personal name</attr>
+        <attr name="clerk_user_id" source="Clerk">Authentication identifier</attr>
+      </attributes>
+      <notes>Users authenticate via Clerk, not via publishers table</notes>
+    </entity>
+    <entity name="Publisher (Organization)">
+      <description>Rabbinic authority or organization that publishes zmanim</description>
+      <attributes>
+        <attr name="name">Organization name (e.g., "Orthodox Union")</attr>
+        <attr name="contact_email">Public inquiries email (NOT login)</attr>
+        <attr name="logo_url">Organization branding</attr>
+        <attr name="description">About the organization</attr>
+        <attr name="website_url">Organization website</attr>
+        <attr name="status">pending | active | suspended</attr>
+      </attributes>
+      <notes>Publishers do NOT have login credentials - users log in and access publishers</notes>
+    </entity>
+    <entity name="user_publishers (Junction)">
+      <description>Many-to-many relationship between users and publishers</description>
+      <attributes>
+        <attr name="user_id">Clerk user ID (FK)</attr>
+        <attr name="publisher_id">Publisher ID (FK)</attr>
+        <attr name="role">owner | admin | member</attr>
+        <attr name="is_primary">Default publisher for this user</attr>
+      </attributes>
+    </entity>
+  </domainModel>
+
+  <currentConfusion>
+    <issue>publishers table has clerk_user_id suggesting 1:1 user-publisher relationship</issue>
+    <issue>GetPublisherByClerkUserID query implies user IS publisher</issue>
+    <issue>UI uses "Publisher Email" which could mean contact or login</issue>
+    <issue>Invitation flows unclear about what's being invited</issue>
+  </currentConfusion>
+
+  <labelCorrections>
+    <correction from="Publisher Email" to="Contact Email" />
+    <correction from="Invite Publisher" to="Invite User to Publisher" />
+    <correction from="Publisher Account" to="Publisher Organization" />
+    <correction from="Your Email (in publisher form)" to="Contact Email (public)" />
+  </labelCorrections>
+
+  <constraints>
+    <constraint>Must not break existing functionality during transition</constraint>
+    <constraint>Migration may require data transformation for existing publishers</constraint>
+    <constraint>Clerk metadata (primary_publisher_id, publisher_access_list) represents user-publisher relationships</constraint>
+  </constraints>
+</story-context>

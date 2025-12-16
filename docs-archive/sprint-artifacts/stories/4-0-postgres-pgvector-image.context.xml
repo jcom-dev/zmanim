@@ -1,0 +1,207 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.0</storyId>
+    <title>PostgreSQL 17 with PostGIS + pgvector Docker Image</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-27</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/4-0-postgres-pgvector-image.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a custom PostgreSQL Docker image with PostGIS and pgvector extensions</iWant>
+    <soThat>our local development environment matches Supabase production capabilities and supports vector embeddings for AI features</soThat>
+    <tasks>
+      Task 1: Create custom PostgreSQL Dockerfile (AC: 1, 2, 3)
+      - 1.1 Create `.coder/docker/Dockerfile.postgres` based on `postgis/postgis:17-3.5`
+      - 1.2 Install pgvector build dependencies (build-essential, git, postgresql-server-dev-17)
+      - 1.3 Clone and build pgvector v0.8.0 from source
+      - 1.4 Clean up build dependencies to minimize image size
+      - 1.5 Create `.coder/docker/init-extensions.sql` to auto-enable extensions
+
+      Task 2: Update Coder workspace Terraform (AC: 4)
+      - 2.1 Modify `.coder/zmanim-workspace.tf` to use custom image
+      - 2.2 Update image reference to `zmanim-postgres:17-postgis-pgvector`
+      - 2.3 Ensure container mounts init script
+
+      Task 3: Update build/push scripts (AC: 1)
+      - 3.1 Update `.coder/push-template.sh` to build custom postgres image
+      - 3.2 Add image tagging for local registry
+
+      Task 4: Update docker-compose for E2E tests (AC: 5)
+      - 4.1 Modify `docker-compose.yml` postgres-test service to build from custom Dockerfile
+
+      Task 5: Verification testing (AC: 6, 7, 10)
+      - 5.1 Verify PostgreSQL version is 17.x
+      - 5.2 Verify pgvector extension creation works
+      - 5.3 Verify PostGIS extension creation works
+      - 5.4 Run all existing migrations
+      - 5.5 Run E2E test suite
+
+      Task 6: API key configuration and verification (AC: 8, 9)
+      - 6.1 Update Terraform for OPENAI_API_KEY env var
+      - 6.2 Update Terraform for ANTHROPIC_API_KEY env var
+      - 6.3 Update push-template.sh to read from .env.openai and .env.claude
+      - 6.4 Create verification script for API connectivity
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    AC-4.0.1: Custom Docker image builds successfully with PostgreSQL 17, PostGIS 3.5+, and pgvector 0.8.0
+    AC-4.0.2: `CREATE EXTENSION vector;` succeeds on database initialization without manual intervention
+    AC-4.0.3: `CREATE EXTENSION postgis;` succeeds on database initialization
+    AC-4.0.4: Coder workspace Terraform uses the custom image for PostgreSQL container
+    AC-4.0.5: E2E tests pass with pgvector-enabled database (docker-compose)
+    AC-4.0.6: PostgreSQL version check shows 17.x (`SELECT version();`)
+    AC-4.0.7: Existing migrations run successfully on the new image
+    AC-4.0.8: Valid OpenAI API key configured and verified (for embeddings in Stories 4.7+)
+    AC-4.0.9: Valid Anthropic API key configured and verified (for AI features in Stories 4.8+)
+    AC-4.0.10: All tests pass (unit, integration, E2E) before marking ready for review
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Infrastructure Requirements</section>
+        <snippet>PostgreSQL 17 with pgvector extension required for RAG (Story 4.7). Custom Docker image based on postgis/postgis:17-3.5 with pgvector 0.8.0 compiled from source.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Database Layer</section>
+        <snippet>PostgreSQL with PostGIS for geospatial data. This story adds pgvector for AI embedding storage and vector similarity search.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/4-0-postgres-pgvector-image.md</path>
+        <title>Story 4.0 Specification</title>
+        <section>Dev Notes - Dockerfile Structure</section>
+        <snippet>Dockerfile based on postgis/postgis:17-3.5, installs build dependencies, compiles pgvector v0.8.0, cleans up, adds init-extensions.sql.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>.coder/zmanim-workspace.tf</path>
+        <kind>terraform-config</kind>
+        <symbol>docker_container.postgres</symbol>
+        <lines>127-155</lines>
+        <reason>Existing PostgreSQL container definition to modify - change image reference to custom pgvector-enabled image</reason>
+      </artifact>
+      <artifact>
+        <path>.coder/push-template.sh</path>
+        <kind>build-script</kind>
+        <symbol>push-template</symbol>
+        <lines>all</lines>
+        <reason>Build script to update - add Docker image build step for custom postgres and source AI env files</reason>
+      </artifact>
+      <artifact>
+        <path>docker-compose.yml</path>
+        <kind>docker-config</kind>
+        <symbol>postgres-test service</symbol>
+        <lines>all</lines>
+        <reason>E2E test database configuration - update to use pgvector-enabled image</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/database/migrations/</path>
+        <kind>migrations</kind>
+        <symbol>All migrations</symbol>
+        <lines>all</lines>
+        <reason>Existing migrations must run successfully on new PostgreSQL 17 image</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <infrastructure>
+        <item name="PostgreSQL 17" version="17.x" usage="Database server with vector extension support" />
+        <item name="PostGIS" version="3.5+" usage="Geospatial extension (existing)" />
+        <item name="pgvector" version="0.8.0" usage="Vector similarity search for RAG embeddings" />
+        <item name="Docker" usage="Container runtime for custom image" />
+      </infrastructure>
+      <external>
+        <item name="OpenAI API" key="OPENAI_API_KEY" usage="Embeddings for RAG (text-embedding-3-small)" />
+        <item name="Anthropic API" key="ANTHROPIC_API_KEY" usage="Claude AI for formula generation" />
+      </external>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - INFRASTRUCTURE STORY: Must complete before AI stories (4.7, 4.8, 4.9) can start
+    - PostgreSQL version must be 17.x (not 16) for pgvector compatibility
+    - Image must include BOTH PostGIS and pgvector extensions
+    - Build dependencies cleaned up to minimize image size
+    - Extensions auto-enabled via init script (no manual CREATE EXTENSION)
+    - E2E tests must pass before marking done (Story 3.1 test suite)
+    - API keys are sensitive - never commit to git, use Coder parameters
+    - Existing migrations must remain compatible - no breaking changes
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>PostgreSQL Extensions</name>
+      <kind>SQL</kind>
+      <signature>
+        CREATE EXTENSION IF NOT EXISTS postgis;
+        CREATE EXTENSION IF NOT EXISTS vector;
+      </signature>
+      <path>.coder/docker/init-extensions.sql</path>
+    </interface>
+    <interface>
+      <name>Terraform Container Resource</name>
+      <kind>Terraform</kind>
+      <signature>
+        resource "docker_container" "postgres" {
+          image = "zmanim-postgres:17-postgis-pgvector"
+          ...
+        }
+      </signature>
+      <path>.coder/zmanim-workspace.tf</path>
+    </interface>
+    <interface>
+      <name>API Key Environment Variables</name>
+      <kind>Environment</kind>
+      <signature>
+        OPENAI_API_KEY=${var.openai_api_key}
+        ANTHROPIC_API_KEY=${var.anthropic_api_key}
+      </signature>
+      <path>.coder/zmanim-workspace.tf</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Infrastructure story - primary verification via manual testing and existing E2E suite.
+
+      CRITICAL: All 130+ E2E tests from Story 3.1 must pass after infrastructure change.
+
+      Verification steps:
+      1. Build Docker image successfully
+      2. Coder workspace starts with new image
+      3. SELECT version() shows PostgreSQL 17.x
+      4. CREATE EXTENSION vector; succeeds
+      5. Run full E2E suite: npm run test:suite
+    </standards>
+    <locations>
+      tests/e2e/**/*.spec.ts - E2E test suite (130+ tests)
+      .coder/docker/ - New Dockerfile and init script
+    </locations>
+    <ideas>
+      AC-4.0.1 Docker Build: Build image locally, verify layers include pgvector
+
+      AC-4.0.2 pgvector Extension: Connect to DB, run CREATE EXTENSION vector; verify success
+
+      AC-4.0.3 PostGIS Extension: Verify SELECT PostGIS_Version() returns valid version
+
+      AC-4.0.4 Terraform: Apply terraform, verify postgres container uses new image
+
+      AC-4.0.5 E2E Tests: npm run test:suite passes completely
+
+      AC-4.0.6 Version Check: SELECT version() returns PostgreSQL 17.x
+
+      AC-4.0.7 Migrations: Run all migrations successfully
+
+      AC-4.0.8/9 API Keys: curl OpenAI/Anthropic endpoints to verify keys work
+    </ideas>
+  </tests>
+</story-context>

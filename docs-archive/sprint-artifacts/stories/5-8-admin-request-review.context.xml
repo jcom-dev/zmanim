@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-8-admin-request-review" epic="5" generated="2025-12-02">
+  <summary>
+    Admin page for reviewing and acting on zman registry requests.
+    Approve adds to master registry, reject with feedback to publisher.
+  </summary>
+
+  <key-files>
+    <file path="web/app/admin/zmanim/requests/page.tsx" action="create">
+      Admin request list page with filters
+    </file>
+    <file path="web/app/admin/zmanim/requests/[id]/page.tsx" action="create">
+      Individual request review page
+    </file>
+    <file path="web/components/admin/ZmanRequestReviewForm.tsx" action="create">
+      Form for approve/reject actions with notes
+    </file>
+    <file path="api/internal/handlers/admin_zman_requests.go" action="create">
+      Admin handler for request review actions
+    </file>
+    <file path="api/internal/db/queries/admin_zman_requests.sql" action="create">
+      SQLc queries for admin request operations
+    </file>
+  </key-files>
+
+  <admin-endpoints>
+    <endpoint method="GET" path="/api/v1/admin/zmanim/requests">
+      <purpose>List all pending requests (admin only)</purpose>
+      <params>status=pending|approved|rejected, page, limit</params>
+      <response>Paginated list with publisher info</response>
+    </endpoint>
+
+    <endpoint method="GET" path="/api/v1/admin/zmanim/requests/{id}">
+      <purpose>Get full request details for review</purpose>
+      <response>Complete request with tags, formula, publisher info</response>
+    </endpoint>
+
+    <endpoint method="POST" path="/api/v1/admin/zmanim/requests/{id}/approve">
+      <purpose>Approve request and add to master registry</purpose>
+      <request>{ "reviewer_notes": "string", "assigned_zman_key": "string" }</request>
+      <actions>
+        <action>Create entry in master_zmanim_registry</action>
+        <action>If auto_add_on_approval, add to publisher's zmanim</action>
+        <action>Create requested new tags if any</action>
+        <action>Send approval email to publisher</action>
+        <action>Update request status to 'approved'</action>
+      </actions>
+    </endpoint>
+
+    <endpoint method="POST" path="/api/v1/admin/zmanim/requests/{id}/reject">
+      <purpose>Reject request with feedback</purpose>
+      <request>{ "reviewer_notes": "string (required)" }</request>
+      <actions>
+        <action>Update request status to 'rejected'</action>
+        <action>Send rejection email with notes to publisher</action>
+      </actions>
+    </endpoint>
+  </admin-endpoints>
+
+  <list-page-features>
+    <feature>Filter by status: All, Pending, Approved, Rejected</feature>
+    <feature>Sort by date submitted</feature>
+    <feature>Show publisher name, zman name, submission date</feature>
+    <feature>Status badges (pending=yellow, approved=green, rejected=red)</feature>
+    <feature>Click row to open review page</feature>
+  </list-page-features>
+
+  <review-page-sections>
+    <section name="Request Details">
+      Hebrew name, English name, transliteration, time category
+    </section>
+    <section name="Justification">
+      Justification text, halachic source, halachic notes
+    </section>
+    <section name="Formula">
+      DSL formula (if provided), validation status
+      Show validation error if invalid
+    </section>
+    <section name="Tags">
+      Existing tags selected, new tags requested
+    </section>
+    <section name="Publisher Info">
+      Publisher name, email, submission date
+    </section>
+    <section name="Actions">
+      <action name="Approve">
+        Zman key input (auto-generated suggestion: english_name_snake_case)
+        Reviewer notes (optional)
+        Approve button
+      </action>
+      <action name="Reject">
+        Reviewer notes (required)
+        Reject button
+      </action>
+    </section>
+  </review-page-sections>
+
+  <email-notifications>
+    <template name="zman-request-approved">
+      To: Publisher
+      Subject: "Zman Request Approved: {zmanName}"
+      Body: Approval confirmation, reviewer notes, zman key assigned
+    </template>
+    <template name="zman-request-rejected">
+      To: Publisher
+      Subject: "Zman Request Update: {zmanName}"
+      Body: Rejection feedback, reviewer notes, how to resubmit
+    </template>
+  </email-notifications>
+
+  <authorization>
+    <note>Admin-only endpoints (RequireRole("admin") middleware)</note>
+    <note>Use api.admin.get() / api.admin.post() on frontend</note>
+  </authorization>
+
+  <commands>
+    <command purpose="Generate SQLc">cd api && sqlc generate</command>
+    <command purpose="Build">cd api && go build ./...</command>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Restart">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Admin list page shows all requests with filters</item>
+    <item>Review page shows full request details</item>
+    <item>Approve creates master registry entry</item>
+    <item>Approve auto-adds to publisher if requested</item>
+    <item>Approve creates new tags if any</item>
+    <item>Reject requires reviewer notes</item>
+    <item>Email sent to publisher on approve/reject</item>
+    <item>Status badges show correctly</item>
+    <item>Admin authorization enforced</item>
+    <item>Uses api.admin methods (not raw fetch)</item>
+  </acceptance-checklist>
+</story-context>

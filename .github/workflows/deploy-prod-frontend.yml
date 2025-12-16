@@ -1,0 +1,155 @@
+name: Deploy Prod Frontend
+
+# Builds Next.js with OpenNext and deploys to Lambda + CloudFront
+# OpenNext converts Next.js to Lambda-compatible format for SSR
+# Triggers on web/ changes to main branch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-1
+  NODE_VERSION: '24'
+  STATIC_BUCKET: zmanim-static-prod
+  LAMBDA_BUCKET: zmanim-releases-prod
+  CLOUDFRONT_DISTRIBUTION_ID: E2DUJGW9G9NUQC
+  SERVER_FUNCTION_NAME: zmanim-server-prod
+  IMAGE_FUNCTION_NAME: zmanim-image-prod
+
+# Required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+# Prevent concurrent deployments
+concurrency:
+  group: prod-frontend-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Build with OpenNext
+        run: npm run build:open-next
+        working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: https://zmanim.shtetl.io
+          NEXT_PUBLIC_ENV_MODE: prod
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-frontend-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: Deploy static assets to S3
+        run: |
+          # Upload static assets with long cache (immutable hashed files)
+          aws s3 sync web/.open-next/assets/_next s3://${{ env.STATIC_BUCKET }}/_next \
+            --cache-control "public, max-age=31536000, immutable" \
+            --delete
+
+          # Upload non-hashed assets with shorter cache
+          aws s3 sync web/.open-next/assets s3://${{ env.STATIC_BUCKET }} \
+            --exclude "_next/*" \
+            --cache-control "public, max-age=0, must-revalidate" \
+            --delete
+
+          # Upload cache assets for ISR
+          aws s3 sync web/.open-next/cache s3://${{ env.STATIC_BUCKET }}/_cache \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Package and deploy Lambda functions
+        run: |
+          COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          # Package server function
+          echo "Packaging server function..."
+          cd web/.open-next/server-functions/default
+          zip -r ../../../../server-function.zip .
+          cd ../../../../
+
+          # Package image optimization function
+          echo "Packaging image optimization function..."
+          cd web/.open-next/image-optimization-function
+          zip -r ../../../image-function.zip .
+          cd ../../../
+
+          # Upload to S3
+          echo "Uploading Lambda packages to S3..."
+          aws s3 cp server-function.zip s3://${{ env.LAMBDA_BUCKET }}/frontend/${SHORT_SHA}/server-function.zip
+          aws s3 cp image-function.zip s3://${{ env.LAMBDA_BUCKET }}/frontend/${SHORT_SHA}/image-function.zip
+
+          # Update server Lambda function
+          echo "Updating server Lambda function..."
+          aws lambda update-function-code \
+            --function-name ${{ env.SERVER_FUNCTION_NAME }} \
+            --s3-bucket ${{ env.LAMBDA_BUCKET }} \
+            --s3-key frontend/${SHORT_SHA}/server-function.zip
+
+          # Wait for server function update
+          aws lambda wait function-updated --function-name ${{ env.SERVER_FUNCTION_NAME }}
+
+          # Update image Lambda function
+          echo "Updating image optimization Lambda function..."
+          aws lambda update-function-code \
+            --function-name ${{ env.IMAGE_FUNCTION_NAME }} \
+            --s3-bucket ${{ env.LAMBDA_BUCKET }} \
+            --s3-key frontend/${SHORT_SHA}/image-function.zip
+
+          # Wait for image function update
+          aws lambda wait function-updated --function-name ${{ env.IMAGE_FUNCTION_NAME }}
+
+          echo "Lambda functions updated successfully"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "## Frontend Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Components:" >> $GITHUB_STEP_SUMMARY
+          echo "- Static assets: s3://${{ env.STATIC_BUCKET }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Server Lambda: ${{ env.SERVER_FUNCTION_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Image Lambda: ${{ env.IMAGE_FUNCTION_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudFront: ${{ env.CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- Site: https://zmanim.shtetl.io" >> $GITHUB_STEP_SUMMARY
+          echo "- API Health: https://zmanim.shtetl.io/api/health" >> $GITHUB_STEP_SUMMARY

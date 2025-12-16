@@ -1,0 +1,669 @@
+<story-context id="6-5-public-correction-requests" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>5</storyId>
+    <title>Public Correction Requests (Minimal Admin)</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/6-5-public-correction-requests.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>to request corrections to city data that affect all users (not just my publisher)</iWant>
+    <soThat>everyone benefits from accurate location data and I can help improve the global dataset</soThat>
+
+    <asA>admin</asA>
+    <iWant>to review and approve/reject correction requests with evidence links and reasoning</iWant>
+    <soThat>data quality is maintained while allowing community contributions</soThat>
+
+    <tasks>
+      <task id="1" status="pending">
+        <description>Database Schema (AC: 6.5.1)</description>
+        <subtasks>
+          <subtask>1.1 Create migration file</subtask>
+          <subtask>1.2 Define table schema</subtask>
+          <subtask>1.3 Add constraints and indexes</subtask>
+          <subtask>1.4 Run migration</subtask>
+          <subtask>1.5 Verify schema</subtask>
+        </subtasks>
+      </task>
+
+      <task id="2" status="pending">
+        <description>SQLc Queries (AC: 6.5.2)</description>
+        <subtasks>
+          <subtask>2.1 Create correction_requests.sql</subtask>
+          <subtask>2.2 Write CreateCorrectionRequest query</subtask>
+          <subtask>2.3 Write GetPublisherCorrectionRequests query</subtask>
+          <subtask>2.4 Write GetPendingCorrectionRequests query</subtask>
+          <subtask>2.5 Write UpdateCorrectionRequestStatus query</subtask>
+          <subtask>2.6 Write ApplyCityCorrection query</subtask>
+          <subtask>2.7 Run sqlc generate</subtask>
+        </subtasks>
+      </task>
+
+      <task id="3" status="pending">
+        <description>Publisher API (AC: 6.5.3)</description>
+        <subtasks>
+          <subtask>3.1 Create handler file</subtask>
+          <subtask>3.2 Implement CreateCorrectionRequest handler</subtask>
+          <subtask>3.3 Implement GetPublisherRequests handler</subtask>
+          <subtask>3.4 Add routes to router</subtask>
+          <subtask>3.5 Test endpoints</subtask>
+        </subtasks>
+      </task>
+
+      <task id="4" status="pending">
+        <description>Admin API (AC: 6.5.4)</description>
+        <subtasks>
+          <subtask>4.1 Create admin handler file</subtask>
+          <subtask>4.2 Implement GetPendingRequests handler</subtask>
+          <subtask>4.3 Implement ApproveRequest handler</subtask>
+          <subtask>4.4 Implement RejectRequest handler</subtask>
+          <subtask>4.5 Add routes to router</subtask>
+          <subtask>4.6 Test endpoints</subtask>
+        </subtasks>
+      </task>
+
+      <task id="5" status="pending">
+        <description>Publisher Dialog Component (AC: 6.5.5)</description>
+        <subtasks>
+          <subtask>5.1 Create CorrectionRequestDialog.tsx</subtask>
+          <subtask>5.2 Show current city data (read-only)</subtask>
+          <subtask>5.3 Add proposed value fields</subtask>
+          <subtask>5.4 Add reason textarea (required, min 20 chars)</subtask>
+          <subtask>5.5 Add evidence URLs input (optional, multi-input)</subtask>
+          <subtask>5.6 Validate inputs</subtask>
+          <subtask>5.7 Handle submit</subtask>
+        </subtasks>
+      </task>
+
+      <task id="6" status="pending">
+        <description>Publisher Requests Page (AC: 6.5.6)</description>
+        <subtasks>
+          <subtask>6.1 Create page file</subtask>
+          <subtask>6.2 Fetch publisher's requests</subtask>
+          <subtask>6.3 Show table with status badges</subtask>
+          <subtask>6.4 Add "Request Correction" button in coverage page</subtask>
+          <subtask>6.5 Open dialog on button click</subtask>
+        </subtasks>
+      </task>
+
+      <task id="7" status="pending">
+        <description>Admin Requests Page (AC: 6.5.7)</description>
+        <subtasks>
+          <subtask>7.1 Create page file</subtask>
+          <subtask>7.2 Fetch pending requests</subtask>
+          <subtask>7.3 Show table with diff view</subtask>
+          <subtask>7.4 Add approve button with confirmation</subtask>
+          <subtask>7.5 Add reject button with reason dialog</subtask>
+          <subtask>7.6 Handle approve action</subtask>
+          <subtask>7.7 Handle reject action</subtask>
+          <subtask>7.8 Refresh list after action</subtask>
+        </subtasks>
+      </task>
+
+      <task id="8" status="pending">
+        <description>Approval Logic (AC: 6.5.8)</description>
+        <subtasks>
+          <subtask>8.1 Update ApproveRequest handler to call ApplyCityCorrection</subtask>
+          <subtask>8.2 Apply only non-null proposed values</subtask>
+          <subtask>8.3 Update request status to 'approved'</subtask>
+          <subtask>8.4 Add logging</subtask>
+          <subtask>8.5 Test approval flow</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-6.5.1" priority="must">
+      <title>Create Database Schema</title>
+      <description>
+        - Create migration 00000000000027_city_correction_requests.sql
+        - Create table city_correction_requests with fields: id (UUID), city_id (BIGINT), publisher_id (UUID),
+          requester_email, requester_name, proposed_latitude, proposed_longitude, proposed_elevation,
+          proposed_timezone (all nullable), correction_reason (TEXT, required), evidence_urls (TEXT array),
+          status (pending/approved/rejected), reviewed_by, reviewed_at, review_notes, created_at, updated_at
+        - Add indexes on status, city_id, publisher_id
+        - Add constraint requiring at least one proposed value to be non-null
+      </description>
+    </criterion>
+
+    <criterion id="AC-6.5.2" priority="must">
+      <title>Create SQLc Queries</title>
+      <description>
+        - Create api/internal/db/queries/correction_requests.sql
+        - Add query: CreateCorrectionRequest
+        - Add query: GetPublisherCorrectionRequests
+        - Add query: GetPendingCorrectionRequests (admin)
+        - Add query: GetCorrectionRequestByID
+        - Add query: UpdateCorrectionRequestStatus
+        - Add query: ApplyCityCorrection (update geo_cities)
+        - Run sqlc generate
+      </description>
+    </criterion>
+
+    <criterion id="AC-6.5.3" priority="must">
+      <title>Create Publisher API Endpoints</title>
+      <description>
+        - Create handler api/internal/handlers/correction_requests.go
+        - Implement POST /api/v1/publisher/correction-requests
+        - Implement GET /api/v1/publisher/correction-requests
+        - Add routes to router in main.go
+      </description>
+    </criterion>
+
+    <criterion id="AC-6.5.4" priority="must">
+      <title>Create Admin API Endpoints</title>
+      <description>
+        - Create handler api/internal/handlers/admin_corrections.go
+        - Implement GET /api/v1/admin/correction-requests?status=pending
+        - Implement POST /api/v1/admin/correction-requests/{id}/approve
+        - Implement POST /api/v1/admin/correction-requests/{id}/reject
+        - Add routes to admin router in main.go
+      </description>
+    </criterion>
+
+    <criterion id="AC-6.5.5" priority="must">
+      <title>Create Publisher UI Component</title>
+      <description>
+        - Create web/components/publisher/CorrectionRequestDialog.tsx
+        - Dialog shows: current city data (read-only) + proposed values (editable)
+        - Fields: latitude, longitude, elevation, timezone, reason, evidence URLs
+        - Validate: all proposed values are optional, but at least one must be provided
+        - Reason is required (min 20 characters)
+        - Evidence URLs are optional but validated if provided
+        - Handle submit action
+      </description>
+    </criterion>
+
+    <criterion id="AC-6.5.6" priority="must">
+      <title>Create Publisher Correction Requests Page</title>
+      <description>
+        - Create web/app/publisher/correction-requests/page.tsx
+        - Show table of publisher's correction requests
+        - Columns: city, proposed changes, status, submission date
+        - Status badges: pending (blue), approved (green), rejected (red)
+        - Click row to see details
+        - Link from coverage page: "Request Public Correction"
+      </description>
+    </criterion>
+
+    <criterion id="AC-6.5.7" priority="must">
+      <title>Create Admin Correction Requests Page</title>
+      <description>
+        - Create web/app/admin/correction-requests/page.tsx
+        - Show table of all pending correction requests
+        - Columns: city, publisher, proposed changes, submission date, actions
+        - Show diff view: current vs proposed values
+        - Show reason, evidence URLs, requester info
+        - Approve button opens confirmation dialog with review notes field
+        - Reject button opens dialog requiring reason
+        - After action: update status, refresh list
+      </description>
+    </criterion>
+
+    <criterion id="AC-6.5.8" priority="must">
+      <title>Approval Logic Updates Global Data</title>
+      <description>
+        - On approve: call ApplyCityCorrection to update geo_cities table
+        - Only update fields that have proposed values
+        - Log changes in admin audit log (if exists)
+        - Send email notification to requester (future enhancement)
+      </description>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/coding-standards.md" relevance="critical">
+        Coding standards that must be followed:
+        - Backend: 6-step handler pattern, PublisherResolver for publisher endpoints, AdminResolver for admin, SQLc for all queries, slog for logging
+        - Frontend: useApi for publisher endpoints, useAdminApi for admin endpoints, Tailwind design tokens, input validation
+        - Database: Integer IDs (SERIAL/BIGSERIAL), lookup tables with id + key pattern, no VARCHAR FKs, migration pattern
+        - Testing: Parallel execution required, shared fixtures, proper selectors
+      </doc>
+
+      <doc path="docs/sprint-artifacts/stories/5-6-request-zman-api.md" relevance="high">
+        Similar request pattern from Story 5.6:
+        - Database schema for requests with status workflow
+        - SQLc queries for create, get, list, approve, reject
+        - Handler pattern with 6 steps
+        - Email notifications on submit
+        - Admin review workflow
+      </doc>
+
+      <doc path="docs/sprint-artifacts/stories/5-7-request-zman-ui.md" relevance="high">
+        Similar UI pattern from Story 5.7:
+        - Multi-step form with validation
+        - Request list page with status badges
+        - Review dialog for admin
+        - useApi hook for API calls
+        - Tailwind design tokens
+      </doc>
+    </docs>
+
+    <code>
+      <file path="api/internal/handlers/admin_users.go" type="reference" purpose="admin-handler-pattern">
+        Example admin handler showing:
+        - Admin endpoint pattern (no PublisherResolver)
+        - Using middleware.GetUserID for current user
+        - Proper error handling with RespondError helpers
+        - slog for logging
+        - Email notifications in goroutines
+      </file>
+
+      <file path="web/app/admin/zman-requests/page.tsx" type="reference" purpose="admin-page-pattern">
+        Example admin page showing:
+        - useAdminApi hook usage
+        - Table with filters and search
+        - Status badges (pending/approved/rejected)
+        - Review dialog with form
+        - Approve/reject actions with confirmation
+        - Error handling and loading states
+      </file>
+
+      <file path="api/internal/db/queries/zman_requests.sql" type="reference" purpose="request-queries-pattern">
+        Example SQLc queries showing:
+        - CreateRequest with status lookup via request_statuses table
+        - GetPublisherRequests filtered by publisher_id
+        - GetAllRequests with optional status filter
+        - ApproveRequest/RejectRequest updating status via lookup
+        - Proper JOINs for status and time_category lookups
+      </file>
+
+      <file path="db/migrations/00000000000001_schema.sql" type="reference" purpose="migration-pattern">
+        Migration pattern showing:
+        - Extension setup (PostGIS, pg_trgm, vector)
+        - Function definitions
+        - Table creation with proper constraints
+        - Index creation
+      </file>
+
+      <file path="api/cmd/api/main.go" type="modify" purpose="router-registration">
+        Router registration location:
+        - Publisher routes: r.Route("/publisher", ...) around line 291
+        - Admin routes: r.Route("/admin", ...) around line 384
+        - Pattern: r.Get/Post/Put/Delete(path, h.HandlerName)
+      </file>
+    </code>
+
+    <dependencies>
+      <story id="6-1" title="Type Definitions" status="drafted">
+        Provides central TypeScript types for geography that may be reused
+      </story>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <ux-design-requirement>
+      <mandate>For ALL frontend/UI work, use the frontend_design skill for distinctive, production-grade interfaces</mandate>
+      <file>.claude/skills/frontend_design.md</file>
+      <guidance>Avoid generic AI aesthetics - choose bold aesthetic direction and execute with precision</guidance>
+    </ux-design-requirement>
+    <critical-requirement>
+      <mandate>MUST follow ALL standards in docs/coding-standards.md</mandate>
+      <file>docs/coding-standards.md</file>
+      <enforcement>PR blocker - violations block merges</enforcement>
+    </critical-requirement>
+    <constraint type="technical" priority="critical">
+      MANDATORY: Follow 6-step handler pattern for all backend handlers
+      1. Resolve context (PublisherResolver for publisher, AdminResolver/middleware.GetUserID for admin)
+      2. Extract URL params
+      3. Parse request body
+      4. Validate inputs
+      5. Execute SQLc query (NO raw SQL)
+      6. Respond with JSON
+    </constraint>
+
+    <constraint type="technical" priority="critical">
+      MANDATORY: Use lookup tables for status field
+      - Create request_statuses lookup if not exists
+      - Use status_id (smallint) foreign key, not VARCHAR status
+      - Seed with keys: 'pending', 'approved', 'rejected'
+      - Query using: WHERE rs.key = 'pending'
+    </constraint>
+
+    <constraint type="technical" priority="critical">
+      MANDATORY: Use integer IDs for all entity references
+      - city_id: BIGINT (references geo_cities.id)
+      - publisher_id: UUID (references publishers.id) - nullable for anonymous requests
+      - reviewed_by: UUID (references users table via Clerk)
+    </constraint>
+
+    <constraint type="technical" priority="critical">
+      MANDATORY: Frontend must use useApi() and useAdminApi() hooks
+      - Publisher pages: const api = useApi();
+      - Admin pages: const api = useAdminApi();
+      - NO raw fetch() calls
+      - Proper error handling with try/catch
+    </constraint>
+
+    <constraint type="technical" priority="critical">
+      MANDATORY: Use Tailwind design tokens for all colors
+      - Status badges: text-amber-600, bg-green-600, variant="destructive"
+      - NO hardcoded colors like #1e3a5f
+      - Dark mode support via design tokens
+    </constraint>
+
+    <constraint type="security" priority="critical">
+      MANDATORY: Validate all inputs
+      - At least one proposed value must be non-null (database constraint)
+      - Reason is required, minimum 20 characters
+      - Evidence URLs validated if provided (URL format)
+      - Latitude: -90 to 90, Longitude: -180 to 180
+      - Timezone: valid IANA timezone string
+    </constraint>
+
+    <constraint type="business" priority="high">
+      Approval workflow:
+      - Only admins can approve/reject requests
+      - Approval updates geo_cities table (affects all users)
+      - Only non-null proposed values are applied
+      - Log all changes with admin user ID and timestamp
+    </constraint>
+
+    <constraint type="ux" priority="high">
+      UI requirements:
+      - Diff view must clearly show: current → proposed
+      - Evidence URLs displayed as clickable links
+      - Reason field prominently displayed
+      - Confirmation required before approve/reject
+      - Success/error messages after actions
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <api>
+      <endpoint method="POST" path="/api/v1/publisher/correction-requests">
+        <description>Create a new correction request for a city</description>
+        <auth>Publisher role required, PublisherResolver</auth>
+        <request>
+          {
+            "city_id": 293397,
+            "proposed_latitude": 31.7683,
+            "proposed_longitude": 35.2137,
+            "proposed_elevation": 754,
+            "proposed_timezone": "Asia/Jerusalem",
+            "correction_reason": "Official survey data shows coordinates are off by 200m",
+            "evidence_urls": ["https://example.com/survey-2024"]
+          }
+        </request>
+        <response status="201">
+          {
+            "id": "uuid",
+            "city_id": 293397,
+            "publisher_id": "uuid",
+            "requester_email": "user@example.com",
+            "requester_name": "John Doe",
+            "proposed_latitude": 31.7683,
+            "proposed_longitude": 35.2137,
+            "proposed_elevation": 754,
+            "proposed_timezone": "Asia/Jerusalem",
+            "correction_reason": "...",
+            "evidence_urls": ["..."],
+            "status": "pending",
+            "created_at": "2025-12-08T10:00:00Z"
+          }
+        </response>
+      </endpoint>
+
+      <endpoint method="GET" path="/api/v1/publisher/correction-requests">
+        <description>List all correction requests from this publisher</description>
+        <auth>Publisher role required, PublisherResolver</auth>
+        <response status="200">
+          {
+            "requests": [
+              {
+                "id": "uuid",
+                "city_id": 293397,
+                "city_name": "Jerusalem",
+                "proposed_changes": {
+                  "latitude": { "current": 31.7683, "proposed": 31.7690 },
+                  "elevation": { "current": 750, "proposed": 754 }
+                },
+                "status": "pending",
+                "created_at": "2025-12-08T10:00:00Z"
+              }
+            ],
+            "total": 1
+          }
+        </response>
+      </endpoint>
+
+      <endpoint method="GET" path="/api/v1/admin/correction-requests">
+        <description>List correction requests (admin view)</description>
+        <auth>Admin role required</auth>
+        <query>?status=pending</query>
+        <response status="200">
+          {
+            "requests": [
+              {
+                "id": "uuid",
+                "city_id": 293397,
+                "city_name": "Jerusalem",
+                "publisher_id": "uuid",
+                "publisher_name": "OU",
+                "requester_email": "user@example.com",
+                "requester_name": "John Doe",
+                "proposed_changes": {...},
+                "correction_reason": "...",
+                "evidence_urls": ["..."],
+                "status": "pending",
+                "created_at": "2025-12-08T10:00:00Z"
+              }
+            ],
+            "total": 1
+          }
+        </response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/v1/admin/correction-requests/{id}/approve">
+        <description>Approve a correction request and update global data</description>
+        <auth>Admin role required</auth>
+        <request>
+          {
+            "review_notes": "Verified with official sources"
+          }
+        </request>
+        <response status="200">
+          {
+            "status": "approved",
+            "updated_city": {
+              "id": 293397,
+              "name": "Jerusalem",
+              "latitude": 31.7690,
+              "elevation": 754
+            }
+          }
+        </response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/v1/admin/correction-requests/{id}/reject">
+        <description>Reject a correction request</description>
+        <auth>Admin role required</auth>
+        <request>
+          {
+            "review_notes": "Evidence does not support proposed changes"
+          }
+        </request>
+        <response status="200">
+          {
+            "status": "rejected"
+          }
+        </response>
+      </endpoint>
+    </api>
+
+    <database>
+      <table name="city_correction_requests">
+        <description>Community-submitted corrections to global city data</description>
+        <schema>
+          CREATE TABLE city_correction_requests (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            city_id BIGINT NOT NULL REFERENCES geo_cities(id) ON DELETE CASCADE,
+            publisher_id UUID REFERENCES publishers(id) ON DELETE SET NULL,
+            requester_email TEXT NOT NULL,
+            requester_name TEXT,
+            proposed_latitude DOUBLE PRECISION,
+            proposed_longitude DOUBLE PRECISION,
+            proposed_elevation INTEGER,
+            proposed_timezone TEXT,
+            correction_reason TEXT NOT NULL,
+            evidence_urls TEXT[],
+            status TEXT NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'approved', 'rejected')),
+            reviewed_by UUID REFERENCES users(id),
+            reviewed_at TIMESTAMPTZ,
+            review_notes TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT at_least_one_proposed_value CHECK (
+              proposed_latitude IS NOT NULL OR
+              proposed_longitude IS NOT NULL OR
+              proposed_elevation IS NOT NULL OR
+              proposed_timezone IS NOT NULL
+            )
+          );
+
+          CREATE INDEX idx_correction_requests_status ON city_correction_requests(status);
+          CREATE INDEX idx_correction_requests_city ON city_correction_requests(city_id);
+          CREATE INDEX idx_correction_requests_publisher ON city_correction_requests(publisher_id);
+        </schema>
+      </table>
+
+      <query name="ApplyCityCorrection">
+        <description>Update geo_cities with approved corrections (uses COALESCE to only update non-null proposed values)</description>
+        <sql>
+          UPDATE geo_cities
+          SET
+            latitude = COALESCE($2, latitude),
+            longitude = COALESCE($3, longitude),
+            elevation = COALESCE($4, elevation),
+            timezone = COALESCE($5, timezone),
+            updated_at = now()
+          WHERE id = $1;
+        </sql>
+      </query>
+    </database>
+
+    <ui>
+      <component name="CorrectionRequestDialog" path="web/components/publisher/CorrectionRequestDialog.tsx">
+        <description>Dialog for submitting correction requests</description>
+        <props>
+          - cityId: number (required)
+          - currentData: { latitude, longitude, elevation, timezone }
+          - open: boolean
+          - onClose: () => void
+          - onSubmit: (data) => Promise<void>
+        </props>
+        <sections>
+          - Current Data (read-only, grey background)
+          - Proposed Values (editable, optional fields)
+          - Reason (textarea, required, min 20 chars)
+          - Evidence URLs (dynamic add/remove, URL validation)
+          - Actions (Cancel, Submit)
+        </sections>
+      </component>
+
+      <page name="PublisherCorrectionRequests" path="web/app/publisher/correction-requests/page.tsx">
+        <description>List of publisher's correction requests</description>
+        <features>
+          - Table with columns: City, Proposed Changes, Status, Date
+          - Status badges with colors
+          - Click to view details
+          - Loading/error states
+        </features>
+      </page>
+
+      <page name="AdminCorrectionRequests" path="web/app/admin/correction-requests/page.tsx">
+        <description>Admin review page for correction requests</description>
+        <features>
+          - Filter by status (pending/approved/rejected)
+          - Search by city name, publisher
+          - Stats cards (total, pending, approved, rejected)
+          - Table with: City, Publisher, Changes, Date, Actions
+          - Diff view: current → proposed
+          - Evidence URLs as links
+          - Approve/reject buttons with confirmation
+          - Review notes field
+        </features>
+      </page>
+    </ui>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Per docs/coding-standards.md:
+      - All E2E tests MUST use parallel mode: test.describe.configure({ mode: 'parallel' })
+      - Use shared fixtures from tests/utils/fixtures.ts: getSharedPublisher('verified-1')
+      - Proper waits: await page.waitForLoadState('networkidle') before assertions
+      - Role/text selectors preferred: page.getByRole('button', { name: 'Submit' })
+      - NO waitForTimeout - use proper waitFor methods
+      - Test isolation: each test should be independent
+    </standards>
+
+    <locations>
+      - Unit tests: Not required for this story (focus on integration)
+      - Integration tests: api/internal/handlers/*_test.go (if time permits)
+      - E2E tests: tests/e2e/correction-requests.spec.ts
+    </locations>
+
+    <ideas>
+      E2E Test Scenarios:
+
+      1. Publisher submits correction request
+         - Login as publisher
+         - Navigate to coverage page
+         - Click "Request Public Correction" on a city
+         - Fill in proposed values (latitude, longitude)
+         - Enter reason (min 20 chars)
+         - Add evidence URL
+         - Submit and verify success message
+         - Verify request appears in publisher's requests list
+
+      2. Validation errors shown properly
+         - Try to submit with no proposed values → error
+         - Try to submit with reason < 20 chars → error
+         - Try to submit with invalid URL → error
+         - Try to submit with invalid coordinates → error
+
+      3. Admin reviews and approves request
+         - Login as admin
+         - Navigate to correction requests page
+         - Verify pending request appears
+         - Click "Review" button
+         - See diff view (current vs proposed)
+         - See reason and evidence URLs
+         - Click "Approve" button
+         - Enter review notes
+         - Confirm approval
+         - Verify request status changes to "approved"
+         - Verify global city data was updated
+
+      4. Admin rejects request
+         - Login as admin
+         - Review a pending request
+         - Click "Reject" button
+         - Enter rejection reason
+         - Confirm rejection
+         - Verify request status changes to "rejected"
+         - Verify global city data was NOT changed
+
+      5. Publisher sees request status updates
+         - Submit a request
+         - Have admin approve it
+         - Refresh publisher's requests page
+         - Verify status shows "approved"
+         - Verify review notes are visible
+
+      6. Partial corrections applied correctly
+         - Submit request with only elevation change (not lat/lon)
+         - Admin approves
+         - Verify only elevation was updated in geo_cities
+         - Verify lat/lon remain unchanged
+    </ideas>
+  </tests>
+</story-context>

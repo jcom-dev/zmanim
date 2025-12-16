@@ -1,0 +1,48 @@
+# Custom PostgreSQL image with PostGIS and pgvector extensions
+# Base: PostGIS 3.5 on PostgreSQL 17
+# Adds: pgvector 0.8.0 for vector similarity search (RAG)
+#
+# Build: docker build -f Dockerfile.postgres -t zmanim-postgres:17-postgis-pgvector .
+# Push to registry if needed: docker tag ... && docker push ...
+
+FROM postgis/postgis:17-3.5
+
+# Install build dependencies for pgvector
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    postgresql-server-dev-17 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pgvector v0.8.0
+RUN git clone --branch v0.8.0 --depth 1 https://github.com/pgvector/pgvector.git /tmp/pgvector \
+    && cd /tmp/pgvector \
+    && make \
+    && make install \
+    && rm -rf /tmp/pgvector
+
+# Clean up build dependencies to minimize image size
+RUN apt-get purge -y --auto-remove \
+    build-essential \
+    git \
+    postgresql-server-dev-17 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Add initialization script to enable extensions on database creation
+COPY init-extensions.sql /docker-entrypoint-initdb.d/00-init-extensions.sql
+
+# Set default environment variables
+ENV POSTGRES_DB=postgres
+ENV POSTGRES_USER=postgres
+
+# Enable slow query logging (queries > 100ms) and pg_stat_statements
+# View logs: docker logs <postgres-container-name>
+CMD ["postgres", \
+     "-c", "shared_preload_libraries=pg_stat_statements", \
+     "-c", "pg_stat_statements.track=all", \
+     "-c", "pg_stat_statements.max=10000", \
+     "-c", "log_min_duration_statement=100", \
+     "-c", "log_statement=none", \
+     "-c", "log_line_prefix=%t [%p] %u@%d "]

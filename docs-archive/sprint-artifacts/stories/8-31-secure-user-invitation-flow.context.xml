@@ -1,0 +1,127 @@
+<story-context id="8-31-secure-user-invitation-flow" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>31</storyId>
+    <title>Secure User Invitation Flow with Email Verification</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>admin or publisher owner</asA>
+    <iWant>to invite users to a publisher by email with proper security</iWant>
+    <soThat>existing users are linked seamlessly while new users are onboarded securely without leaking whether an email exists in the system</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Admin/Publisher invitation form only asks for email initially</criterion>
+    <criterion id="AC2">System does NOT reveal whether email exists when sending invitation</criterion>
+    <criterion id="AC3">Invitation email is always sent (success message: "Invitation sent to [email]")</criterion>
+    <criterion id="AC4">Email content differs based on user existence (but admin doesn't see this)</criterion>
+    <criterion id="AC5">Existing users see: "Link to your existing account" flow</criterion>
+    <criterion id="AC6">New users see: "Create account" flow with first/last name fields</criterion>
+    <criterion id="AC7">Invitation tokens expire after 7 days</criterion>
+    <criterion id="AC8">Invitation can be resent (invalidates previous token)</criterion>
+    <criterion id="AC9">Admin can see invitation status: pending, accepted, expired</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/db/queries/publishers.sql</path>
+        <kind>sqlc-query</kind>
+        <symbol>ListPendingInvitationsByPublisher</symbol>
+        <reason>Existing query for listing invitations (lines 182-184)</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/publishers.sql</path>
+        <kind>sqlc-query</kind>
+        <symbol>GetInvitationForResend</symbol>
+        <reason>Existing query for resending invitations (lines 186-189)</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/publishers.sql</path>
+        <kind>sqlc-query</kind>
+        <symbol>DeletePendingInvitation</symbol>
+        <reason>Existing query for canceling invitations (lines 191-193)</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publishers.go</path>
+        <kind>handler</kind>
+        <reason>New endpoints: POST /auth/publisher/invite, GET /auth/publisher/invitations, etc.</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/invite/[token]/page.tsx</path>
+        <kind>page</kind>
+        <reason>New page - invitation acceptance flow</reason>
+        <exists>false</exists>
+      </artifact>
+    </code>
+    <database>
+      <artifact>
+        <path>db/migrations/000000000000XX_publisher_invitations.sql</path>
+        <kind>migration</kind>
+        <reason>May need to enhance existing publisher_invitations table</reason>
+        <schema><![CDATA[
+CREATE TABLE publisher_invitations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    publisher_id INT NOT NULL REFERENCES publishers(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    role TEXT NOT NULL DEFAULT 'member',
+    invited_by TEXT NOT NULL,  -- Clerk user ID
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending, accepted, expired, cancelled
+    expires_at TIMESTAMPTZ NOT NULL,
+    accepted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(publisher_id, email)
+);
+        ]]></schema>
+      </artifact>
+    </database>
+  </artifacts>
+
+  <securityConsiderations>
+    <principle name="No User Enumeration">Admin UI never reveals if email exists in system</principle>
+    <principle name="Token Security">UUID + HMAC signature, single-use tokens</principle>
+    <principle name="Rate Limiting">Max 10 invitations per hour per publisher</principle>
+    <principle name="Email Verification">Clicking link proves email ownership</principle>
+    <principle name="Expiration">7-day window limits exposure</principle>
+  </securityConsiderations>
+
+  <apiDesign>
+    <endpoint method="POST" path="/auth/publisher/invite">
+      <request>{"email": "user@example.com", "role": "member"}</request>
+      <response>{"success": true, "message": "Invitation sent to user@example.com"}</response>
+      <notes>Response is ALWAYS the same - never reveals if user exists</notes>
+    </endpoint>
+    <endpoint method="GET" path="/auth/publisher/invitations">
+      <response>List of pending invitations with id, email, status, expires_at</response>
+    </endpoint>
+    <endpoint method="POST" path="/public/invitations/{token}/accept">
+      <notes>Public endpoint - validates token and handles acceptance</notes>
+    </endpoint>
+  </apiDesign>
+
+  <emailTemplates>
+    <template name="existing_user">
+      <subject>You've been invited to join [Publisher Name] on Shtetl Zmanim</subject>
+      <emphasis>Account linking - "add to your existing account"</emphasis>
+    </template>
+    <template name="new_user">
+      <subject>You've been invited to join [Publisher Name] on Shtetl Zmanim</subject>
+      <emphasis>Account creation - "create your account and join"</emphasis>
+    </template>
+  </emailTemplates>
+
+  <constraints>
+    <constraint>API response must be identical whether user exists or not</constraint>
+    <constraint>Only server knows which email template to send</constraint>
+    <constraint>Token must be invalidated after successful use</constraint>
+  </constraints>
+
+  <dependencies>
+    <dependency storyId="8-30" required="true">User vs Publisher Entity Separation (conceptual foundation)</dependency>
+  </dependencies>
+</story-context>

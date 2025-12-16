@@ -1,0 +1,929 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>11.4</story-id>
+    <story-name>Publisher Zman Documentation Modal</story-name>
+    <epic>Epic 11 - Publisher Zmanim Registry Interface</epic>
+    <status>todo</status>
+    <priority>P1</priority>
+    <story-points>3</story-points>
+    <dependencies>
+      <dependency>Story 11.2 - Master Zman Documentation Modal</dependency>
+      <dependency>Story 11.3 - Publisher Examples Browser</dependency>
+    </dependencies>
+    <frs>FR28-FR29 (Publisher Zman Documentation)</frs>
+    <generated-date>2025-12-22</generated-date>
+  </metadata>
+
+  <!-- ============================================ -->
+  <!-- STORY OVERVIEW -->
+  <!-- ============================================ -->
+  <story-overview>
+    <user-story>
+      As a publisher,
+      I want to view documentation for publisher zmanim showing both their custom implementation AND the inherited master documentation,
+      So that I can understand how a specific publisher adapted the formula while still seeing the canonical halachic basis.
+    </user-story>
+
+    <business-value>
+      This modal enables publishers to learn from real-world examples by showing:
+      1. How other publishers customized/adapted a master zman formula
+      2. Attribution (linked vs copied vs direct import)
+      3. Custom notes from the source publisher
+      4. The complete halachic foundation from the master registry
+
+      This accelerates onboarding and builds confidence in DSL usage.
+    </business-value>
+
+    <technical-summary>
+      Create PublisherZmanDetailModal.tsx that displays publisher-specific customizations
+      in the top section and reuses the MasterDocumentationContent component (from Story 11.2)
+      in the bottom section. Extract shared master documentation rendering logic into a
+      reusable component to maintain DRY principle.
+    </technical-summary>
+  </story-overview>
+
+  <!-- ============================================ -->
+  <!-- ACCEPTANCE CRITERIA -->
+  <!-- ============================================ -->
+  <acceptance-criteria>
+    <criterion id="AC-11.4.1">
+      <title>Modal Trigger</title>
+      <given>I am viewing a publisher zman card</given>
+      <when>I click the Info button (ℹ️)</when>
+      <then>A documentation modal opens with two distinct sections</then>
+    </criterion>
+
+    <criterion id="AC-11.4.2">
+      <title>Publisher-Specific Section (Top)</title>
+      <requirements>
+        <requirement>Modal displays header with publisher name + "Validated Publisher" badge</requirement>
+        <requirement>Zman name shown (may be customized by publisher)</requirement>
+        <requirement>Publisher DSL formula displayed with syntax highlighting (CodeMirror)</requirement>
+        <requirement>"Copy to Clipboard" button functional for publisher formula</requirement>
+        <requirement>Master registry reference shown: "Based on: [Master Zman Name]"</requirement>
+        <requirement>Custom notes displayed (if publisher added any)</requirement>
+        <requirement>Attribution displayed based on type:
+          - If linked: "Linked from [Source Publisher Name]"
+          - If copied: "Copied from [Source Publisher Name]"
+          - If direct master import: (no attribution shown)
+        </requirement>
+      </requirements>
+    </criterion>
+
+    <criterion id="AC-11.4.3">
+      <title>Master Documentation Section (Bottom)</title>
+      <requirements>
+        <requirement>Divider with text: "Master Zman Documentation"</requirement>
+        <requirement>Inherited master documentation displayed with all sections:
+          - Summary
+          - Formula explanation
+          - Scientific explanation
+          - Astronomical definition
+          - Algorithm
+          - Halachic significance
+          - Halachic sources (expandable cards)
+          - Practical notes
+          - Related zmanim (clickable links)
+        </requirement>
+      </requirements>
+    </criterion>
+
+    <criterion id="AC-11.4.4">
+      <title>Related Zmanim Navigation</title>
+      <given>The publisher zman modal is open</given>
+      <when>I click a related zman link in the master documentation section</when>
+      <then>The modal is replaced with that master zman's full documentation modal</then>
+      <and>I can navigate back using browser back button or close modal</and>
+    </criterion>
+
+    <criterion id="AC-11.4.5">
+      <title>Copy to Clipboard Functionality</title>
+      <given>The publisher zman modal is open</given>
+      <when>I click "Copy to Clipboard" in the publisher formula section</when>
+      <then>The publisher's DSL formula is copied (not the master formula)</then>
+      <and>Button text temporarily changes to "Copied ✓" for 2 seconds</and>
+    </criterion>
+
+    <criterion id="AC-11.4.6">
+      <title>Conditional Custom Notes Display</title>
+      <given>The publisher zman has no custom notes</given>
+      <when>That section would be displayed</when>
+      <then>The "Custom Notes" section is hidden (not shown)</then>
+    </criterion>
+
+    <criterion id="AC-11.4.7">
+      <title>Modal Close Behavior</title>
+      <given>The publisher zman modal is open</given>
+      <when>I press Escape key OR click outside modal (on overlay)</when>
+      <then>The modal closes</then>
+    </criterion>
+
+    <criterion id="AC-11.4.8">
+      <title>Responsive Design</title>
+      <requirements>
+        <requirement>Desktop: Modal max width 800px, centered</requirement>
+        <requirement>Tablet: Modal max width 90vw</requirement>
+        <requirement>Mobile: Modal full screen</requirement>
+      </requirements>
+    </criterion>
+
+    <criterion id="AC-11.4.9">
+      <title>Accessibility</title>
+      <requirements>
+        <requirement>Focus trapped in modal when open</requirement>
+        <requirement>Semantic HTML used (header, section, nav)</requirement>
+        <requirement>ARIA labels on all interactive elements</requirement>
+        <requirement>Focus returns to Info button after modal closes</requirement>
+        <requirement>Keyboard navigation: Tab through elements, Escape to close</requirement>
+      </requirements>
+    </criterion>
+  </acceptance-criteria>
+
+  <!-- ============================================ -->
+  <!-- ARCHITECTURE DECISIONS -->
+  <!-- ============================================ -->
+  <architecture>
+    <decision-reference>
+      <document>docs/architecture.md</document>
+      <relevant-sections>
+        <section>Frontend Stack: Next.js 16, TypeScript, shadcn/ui, TanStack Query</section>
+        <section>Design Tokens: 100% compliance required</section>
+        <section>Component Patterns: Hook ordering, state management, early returns</section>
+        <section>Modal Pattern: Use shadcn/ui Dialog component</section>
+      </relevant-sections>
+    </decision-reference>
+
+    <coding-standards>
+      <document>docs/coding-standards.md</document>
+      <mandatory-patterns>
+        <pattern>Frontend Component Structure: Hooks first, effects, early returns, content</pattern>
+        <pattern>Design Tokens: Use text-foreground, bg-card, text-primary, text-muted-foreground</pattern>
+        <pattern>API Client: useApi() hook for all API calls</pattern>
+        <pattern>Component Reusability: Extract shared logic into reusable components</pattern>
+        <pattern>Time Formatting: 12-hour format only (formatTime, formatTimeShort)</pattern>
+        <pattern>Responsive Design: Desktop (max-w-[800px]), Tablet (max-w-[90vw]), Mobile (max-w-full h-full)</pattern>
+      </mandatory-patterns>
+    </coding-standards>
+
+    <component-reusability-strategy>
+      <before>
+        MasterZmanDetailModal.tsx contains all master documentation sections inline
+      </before>
+      <after>
+        MasterDocumentationContent.tsx (SHARED component)
+        - Summary, Formula explanation, Scientific explanation
+        - Astronomical definition, Algorithm
+        - Halachic significance, Halachic sources
+        - Practical notes, Related zmanim
+        - Accepts onRelatedZmanClick callback
+
+        MasterZmanDetailModal.tsx
+        - Uses MasterDocumentationContent component
+
+        PublisherZmanDetailModal.tsx
+        - Publisher-specific section (top)
+        - Uses MasterDocumentationContent component (bottom)
+      </after>
+    </component-reusability-strategy>
+  </architecture>
+
+  <!-- ============================================ -->
+  <!-- DATABASE SCHEMA -->
+  <!-- ============================================ -->
+  <database-schema>
+    <note>
+      As of 2025-12-22, the actual table names in the production database may differ
+      from the story documentation. Based on available queries and handlers, the key tables are:
+      - publisher_zmanim (publisher's zman catalog)
+      - master_zmanim_registry (canonical master zmanim)
+
+      The Story 11.0 migration will add fields:
+      - linked_from_publisher_zman_id
+      - copied_from_publisher_id
+      - custom_notes
+    </note>
+
+    <table name="publisher_zmanim">
+      <purpose>Publisher's customized zman catalog with links to master registry</purpose>
+      <relevant-columns>
+        <column name="id" type="SERIAL PRIMARY KEY" description="Unique identifier" />
+        <column name="publisher_id" type="INTEGER" description="Foreign key to publishers table" />
+        <column name="master_zmanim_id" type="INTEGER" description="Foreign key to master_zmanim_registry" />
+        <column name="linked_from_publisher_zman_id" type="INTEGER" description="Source publisher_zman if linked (Story 11.0)" />
+        <column name="copied_from_publisher_id" type="INTEGER" description="Source publisher if copied (Story 11.0)" />
+        <column name="zman_key" type="VARCHAR" description="Unique key within publisher (e.g., 'alos_16_1')" />
+        <column name="hebrew_name" type="TEXT" description="Hebrew display name" />
+        <column name="english_name" type="TEXT" description="English display name" />
+        <column name="formula_dsl" type="TEXT" description="DSL formula for calculation" />
+        <column name="description" type="TEXT" description="Brief description" />
+        <column name="custom_notes" type="TEXT" description="Publisher's custom notes (Story 11.0)" />
+        <column name="is_enabled" type="BOOLEAN" description="Whether zman is enabled" />
+        <column name="is_published" type="BOOLEAN" description="Whether zman is published" />
+        <column name="deleted_at" type="TIMESTAMPTZ" description="Soft delete timestamp" />
+        <column name="created_at" type="TIMESTAMPTZ" description="Creation timestamp" />
+        <column name="updated_at" type="TIMESTAMPTZ" description="Last update timestamp" />
+      </relevant-columns>
+    </table>
+
+    <table name="master_zmanim_registry">
+      <purpose>Canonical master zman definitions with full documentation</purpose>
+      <relevant-columns>
+        <column name="id" type="SERIAL PRIMARY KEY" description="Unique identifier" />
+        <column name="zman_key" type="VARCHAR UNIQUE" description="Canonical key (e.g., 'alos_hashachar_16_1')" />
+        <column name="hebrew_name" type="TEXT" description="Hebrew canonical name" />
+        <column name="english_name" type="TEXT" description="English canonical name" />
+        <column name="formula_dsl" type="TEXT" description="Canonical DSL formula" />
+        <column name="full_description" type="TEXT" description="Comprehensive description (Story 11.0)" />
+        <column name="halachic_source" type="TEXT" description="Halachic sources and significance (Story 11.0)" />
+        <column name="formula_explanation" type="TEXT" description="Plain-language formula explanation (Story 11.0)" />
+        <column name="usage_context" type="TEXT" description="When and how to use (Story 11.0)" />
+        <column name="related_zmanim_ids" type="INTEGER[]" description="Related master zmanim IDs (Story 11.0)" />
+        <column name="shita" type="VARCHAR" description="Halachic opinion (GRA, MGA, etc.) (Story 11.0)" />
+        <column name="category" type="VARCHAR" description="Time category (ALOS, SHEMA, etc.) (Story 11.0)" />
+        <column name="created_at" type="TIMESTAMPTZ" description="Creation timestamp" />
+        <column name="updated_at" type="TIMESTAMPTZ" description="Last update timestamp" />
+      </relevant-columns>
+      <note>Story 11.0 will backfill all documentation fields from KosherJava research</note>
+    </table>
+
+    <table name="publishers">
+      <purpose>Publisher accounts</purpose>
+      <relevant-columns>
+        <column name="id" type="SERIAL PRIMARY KEY" description="Unique identifier" />
+        <column name="name" type="TEXT" description="Publisher name" />
+        <column name="organization" type="TEXT" description="Organization name" />
+        <column name="logo_url" type="TEXT" description="Logo image URL" />
+        <column name="status_id" type="SMALLINT" description="FK to publisher_statuses" />
+      </relevant-columns>
+    </table>
+  </database-schema>
+
+  <!-- ============================================ -->
+  <!-- EXISTING CODE PATTERNS -->
+  <!-- ============================================ -->
+  <existing-code-patterns>
+    <modal-pattern>
+      <file>web/components/ui/dialog.tsx</file>
+      <description>shadcn/ui Dialog component foundation</description>
+      <usage>
+        <![CDATA[
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+<Dialog open={isOpen} onOpenChange={setIsOpen}>
+  <DialogContent className="max-w-[800px]">
+    <DialogHeader>
+      <DialogTitle>Title</DialogTitle>
+    </DialogHeader>
+    {/* Content */}
+  </DialogContent>
+</Dialog>
+        ]]>
+      </usage>
+      <responsive-classes>
+        max-w-[800px] desktop:max-w-[800px] tablet:max-w-[90vw] mobile:max-w-full mobile:h-full
+      </responsive-classes>
+    </modal-pattern>
+
+    <codemirror-pattern>
+      <file>web/components/editor/CodeMirrorDSLEditor.tsx</file>
+      <description>Syntax-highlighted DSL editor with read-only mode</description>
+      <usage>
+        <![CDATA[
+import { CodeMirrorDSLEditor } from '@/components/editor/CodeMirrorDSLEditor';
+
+<CodeMirrorDSLEditor
+  value={publisherZman.formula_dsl}
+  onChange={() => {}} // No-op for read-only
+  disabled={true}
+  className="min-h-[100px]"
+/>
+        ]]>
+      </usage>
+      <features>
+        - Syntax highlighting for DSL primitives, functions, keywords
+        - Autocomplete (disabled in read-only mode)
+        - Bracket matching
+        - Line numbers (configurable)
+      </features>
+    </codemirror-pattern>
+
+    <api-client-pattern>
+      <file>web/lib/api-client.ts</file>
+      <description>Unified API client with authentication</description>
+      <usage>
+        <![CDATA[
+const api = useApi();
+
+// Fetch publisher zman with master documentation
+const publisherZman = await api.get<PublisherZmanWithMaster>(
+  `/publisher/registry/publishers/${publisherId}/zmanim/${zmanId}`
+);
+
+// OR if master doc separate:
+const masterDoc = await api.get<MasterZman>(
+  `/publisher/registry/master/${publisherZman.master_zmanim_id}/documentation`
+);
+        ]]>
+      </usage>
+    </api-client-pattern>
+
+    <copy-to-clipboard-pattern>
+      <file>web/components/publisher/RequestZmanModal.tsx (line ~200)</file>
+      <description>Copy to clipboard with temporary feedback</description>
+      <usage>
+        <![CDATA[
+const [copied, setCopied] = useState(false);
+
+const handleCopy = async () => {
+  await navigator.clipboard.writeText(formula);
+  setCopied(true);
+  setTimeout(() => setCopied(false), 2000);
+};
+
+<Button onClick={handleCopy}>
+  {copied ? 'Copied ✓' : 'Copy to Clipboard'}
+</Button>
+        ]]>
+      </usage>
+    </copy-to-clipboard-pattern>
+
+    <modal-example>
+      <file>web/components/publisher/RequestZmanModal.tsx</file>
+      <description>Complex modal with form state, validation, and API integration</description>
+      <key-patterns>
+        - State management for form fields
+        - API calls using useApi()
+        - Dialog with DialogHeader, DialogContent, DialogFooter
+        - Controlled mode (open/onOpenChange props)
+        - Form validation with error states
+        - Loading states with Loader2 icon
+      </key-patterns>
+    </modal-example>
+  </existing-code-patterns>
+
+  <!-- ============================================ -->
+  <!-- COMPONENT ARCHITECTURE -->
+  <!-- ============================================ -->
+  <component-architecture>
+    <component name="MasterDocumentationContent.tsx">
+      <path>web/components/registry/MasterDocumentationContent.tsx</path>
+      <action>CREATE</action>
+      <purpose>Shared master documentation rendering (extracted from MasterZmanDetailModal)</purpose>
+      <props>
+        <![CDATA[
+interface MasterDocumentationContentProps {
+  masterZman: MasterZman;
+  onRelatedZmanClick?: (masterZmanId: number) => void;
+}
+
+interface MasterZman {
+  id: number;
+  zman_key: string;
+  hebrew_name: string;
+  english_name: string;
+  formula_dsl: string;
+  full_description: string;
+  halachic_source: string;
+  formula_explanation: string;
+  scientific_explanation?: string;
+  astronomical_definition?: string;
+  algorithm?: string;
+  halachic_significance?: string;
+  practical_notes?: string;
+  related_zmanim_ids?: number[];
+  usage_context?: string;
+}
+        ]]>
+      </props>
+      <sections>
+        1. Summary (full_description)
+        2. Formula explanation (formula_explanation)
+        3. Scientific explanation (scientific_explanation)
+        4. Astronomical definition (astronomical_definition)
+        5. Algorithm (algorithm)
+        6. Halachic significance (halachic_significance)
+        7. Halachic sources (expandable cards from halachic_source)
+        8. Practical notes (practical_notes)
+        9. Related zmanim (related_zmanim_ids with clickable links)
+      </sections>
+      <styling>
+        - Use design tokens: text-foreground, text-muted-foreground, bg-card
+        - Section headers: text-lg font-semibold
+        - Expandable cards: shadcn/ui Accordion component
+        - Related zmanim: Badge components with onClick handlers
+      </styling>
+    </component>
+
+    <component name="PublisherZmanDetailModal.tsx">
+      <path>web/components/registry/PublisherZmanDetailModal.tsx</path>
+      <action>CREATE</action>
+      <purpose>Publisher zman documentation modal with two sections</purpose>
+      <props>
+        <![CDATA[
+interface PublisherZmanDetailModalProps {
+  publisherZman: PublisherZman;
+  masterZman: MasterZman;
+  isOpen: boolean;
+  onClose: () => void;
+  onNavigateToMasterZman?: (masterZmanId: number) => void;
+}
+
+interface PublisherZman {
+  id: number;
+  publisher_id: number;
+  publisher_name: string;
+  master_zmanim_id: number;
+  linked_from_publisher_zman_id?: number;
+  linked_from_publisher_name?: string;
+  copied_from_publisher_id?: number;
+  copied_from_publisher_name?: string;
+  zman_key: string;
+  hebrew_name: string;
+  english_name: string;
+  formula_dsl: string;
+  description?: string;
+  custom_notes?: string;
+}
+        ]]>
+      </props>
+      <structure>
+        <![CDATA[
+<Dialog open={isOpen} onOpenChange={() => onClose()}>
+  <DialogContent className="max-w-[800px] desktop:max-w-[800px] tablet:max-w-[90vw] mobile:max-w-full mobile:h-full">
+
+    {/* Top Section: Publisher-Specific */}
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        {publisherZman.publisher_name}
+        <Badge variant="secondary">Validated Publisher</Badge>
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      {/* Zman Name */}
+      <div>
+        <h3 className="text-lg font-semibold">
+          {publisherZman.hebrew_name} - {publisherZman.english_name}
+        </h3>
+      </div>
+
+      {/* Publisher Formula */}
+      <div>
+        <Label>Publisher DSL Formula</Label>
+        <CodeMirrorDSLEditor
+          value={publisherZman.formula_dsl}
+          onChange={() => {}}
+          disabled={true}
+          className="mt-2"
+        />
+        <Button onClick={handleCopy} className="mt-2">
+          {copied ? 'Copied ✓' : 'Copy to Clipboard'}
+        </Button>
+      </div>
+
+      {/* Master Reference */}
+      <div>
+        <p className="text-sm text-muted-foreground">
+          Based on: <span className="font-medium">{masterZman.english_name}</span>
+        </p>
+      </div>
+
+      {/* Custom Notes (conditional) */}
+      {publisherZman.custom_notes && (
+        <div>
+          <Label>Custom Notes</Label>
+          <p className="text-sm">{publisherZman.custom_notes}</p>
+        </div>
+      )}
+
+      {/* Attribution */}
+      {publisherZman.linked_from_publisher_name && (
+        <p className="text-sm text-muted-foreground">
+          Linked from {publisherZman.linked_from_publisher_name}
+        </p>
+      )}
+      {publisherZman.copied_from_publisher_name && (
+        <p className="text-sm text-muted-foreground">
+          Copied from {publisherZman.copied_from_publisher_name}
+        </p>
+      )}
+    </div>
+
+    {/* Divider */}
+    <div className="border-t border-border pt-4">
+      <h2 className="text-xl font-semibold mb-4">Master Zman Documentation</h2>
+    </div>
+
+    {/* Bottom Section: Master Documentation */}
+    <MasterDocumentationContent
+      masterZman={masterZman}
+      onRelatedZmanClick={onNavigateToMasterZman}
+    />
+
+  </DialogContent>
+</Dialog>
+        ]]>
+      </structure>
+    </component>
+
+    <component name="MasterZmanDetailModal.tsx">
+      <path>web/components/registry/MasterZmanDetailModal.tsx</path>
+      <action>MODIFY</action>
+      <purpose>Refactor to use shared MasterDocumentationContent component</purpose>
+      <changes>
+        1. Extract master documentation sections into MasterDocumentationContent.tsx
+        2. Import and use MasterDocumentationContent component
+        3. Pass onRelatedZmanClick callback
+        4. Test to ensure no regression (all sections still render)
+      </changes>
+    </component>
+
+    <component name="RegistryPublisherBrowser.tsx">
+      <path>web/components/registry/RegistryPublisherBrowser.tsx</path>
+      <action>MODIFY</action>
+      <purpose>Integrate PublisherZmanDetailModal</purpose>
+      <changes>
+        1. Import PublisherZmanDetailModal
+        2. Add state for selected publisher zman and modal open
+        3. Wire Info button click to open modal
+        4. Handle navigation to master zman modal (cross-modal navigation)
+        5. Pass publisherZman and masterZman data to modal
+      </changes>
+    </component>
+  </component-architecture>
+
+  <!-- ============================================ -->
+  <!-- API ENDPOINTS -->
+  <!-- ============================================ -->
+  <api-endpoints>
+    <endpoint>
+      <path>/api/v1/publisher/registry/publishers/{publisher_id}/zmanim/{zman_id}</path>
+      <method>GET</method>
+      <auth>Publisher (uses PublisherResolver)</auth>
+      <purpose>Get single publisher zman with master documentation</purpose>
+      <response>
+        <![CDATA[
+{
+  "data": {
+    "publisher_zman": {
+      "id": 123,
+      "publisher_id": 2,
+      "publisher_name": "MH Zmanim",
+      "master_zmanim_id": 45,
+      "linked_from_publisher_zman_id": null,
+      "linked_from_publisher_name": null,
+      "copied_from_publisher_id": null,
+      "copied_from_publisher_name": null,
+      "zman_key": "alos_16_1",
+      "hebrew_name": "עלות השחר",
+      "english_name": "Alos Hashachar (16.1°)",
+      "formula_dsl": "solar(-16.1)",
+      "description": "Dawn at 16.1° solar depression",
+      "custom_notes": "We follow the GRA opinion"
+    },
+    "master_zman": {
+      "id": 45,
+      "zman_key": "alos_hashachar_16_1",
+      "hebrew_name": "עלות השחר",
+      "english_name": "Alos Hashachar (16.1°)",
+      "formula_dsl": "solar(-16.1)",
+      "full_description": "Dawn when the sun is 16.1° below the horizon",
+      "halachic_source": "Based on GRA opinion...",
+      "formula_explanation": "Calculated using solar depression angle",
+      "scientific_explanation": "...",
+      "astronomical_definition": "...",
+      "algorithm": "NOAA Solar Calculator",
+      "halachic_significance": "...",
+      "practical_notes": "...",
+      "related_zmanim_ids": [46, 47]
+    }
+  }
+}
+        ]]>
+      </response>
+      <handler>
+        <file>api/internal/handlers/publisher_registry.go</file>
+        <function>GetPublisherZmanWithMaster</function>
+        <pattern>6-step handler pattern with PublisherResolver</pattern>
+      </handler>
+      <sqlc-query>
+        <file>api/internal/db/queries/registry.sql</file>
+        <query>GetPublisherZmanWithMaster</query>
+      </sqlc-query>
+    </endpoint>
+
+    <endpoint>
+      <path>/api/v1/publisher/registry/master/{id}/documentation</path>
+      <method>GET</method>
+      <auth>Publisher</auth>
+      <purpose>Get master zman full documentation (if separate from list)</purpose>
+      <response>
+        <![CDATA[
+{
+  "data": {
+    "id": 45,
+    "zman_key": "alos_hashachar_16_1",
+    "hebrew_name": "עלות השחר",
+    "english_name": "Alos Hashachar (16.1°)",
+    "formula_dsl": "solar(-16.1)",
+    "full_description": "...",
+    "halachic_source": "...",
+    "formula_explanation": "...",
+    // ... all documentation fields
+  }
+}
+        ]]>
+      </response>
+      <note>This endpoint may not be needed if master documentation is included in publisher zman response</note>
+    </endpoint>
+  </api-endpoints>
+
+  <!-- ============================================ -->
+  <!-- TESTING PATTERNS -->
+  <!-- ============================================ -->
+  <testing-patterns>
+    <e2e-test>
+      <file>tests/e2e/publisher/registry.spec.ts</file>
+      <test-case>
+        <name>Publisher Zman Modal - Linked Attribution</name>
+        <steps>
+          1. Navigate to /publisher/registry
+          2. Switch to Publisher Examples tab
+          3. Select publisher with linked zmanim
+          4. Click Info button on linked zman
+          5. Verify modal shows "Linked from [Source Publisher Name]"
+          6. Verify master documentation section displays
+          7. Close modal
+        </steps>
+      </test-case>
+      <test-case>
+        <name>Publisher Zman Modal - Copied Attribution</name>
+        <steps>
+          1. Navigate to /publisher/registry
+          2. Switch to Publisher Examples tab
+          3. Select publisher with copied zmanim
+          4. Click Info button on copied zman
+          5. Verify modal shows "Copied from [Source Publisher Name]"
+          6. Close modal
+        </steps>
+      </test-case>
+      <test-case>
+        <name>Copy to Clipboard</name>
+        <steps>
+          1. Open publisher zman modal
+          2. Click "Copy to Clipboard" button
+          3. Verify button text changes to "Copied ✓"
+          4. Wait 2 seconds
+          5. Verify button text reverts to "Copy to Clipboard"
+        </steps>
+      </test-case>
+      <test-case>
+        <name>Related Zman Navigation</name>
+        <steps>
+          1. Open publisher zman modal
+          2. Scroll to master documentation section
+          3. Click related zman link
+          4. Verify modal switches to master zman documentation modal
+          5. Close modal
+        </steps>
+      </test-case>
+    </e2e-test>
+
+    <playwright-pattern>
+      <![CDATA[
+import { test, expect } from '@playwright/test';
+
+test.describe('Publisher Zman Documentation Modal', () => {
+  test('shows publisher-specific section and master documentation', async ({ page }) => {
+    await page.goto('/publisher/registry');
+    await page.getByRole('tab', { name: 'Publisher Examples' }).click();
+
+    // Select publisher
+    await page.getByPlaceholder('Search for a publisher').fill('MH');
+    await page.getByRole('option', { name: 'MH Zmanim' }).click();
+
+    // Open modal
+    await page.getByRole('button', { name: 'Info' }).first().click();
+
+    // Verify publisher section
+    await expect(page.getByText('MH Zmanim')).toBeVisible();
+    await expect(page.getByText('Validated Publisher')).toBeVisible();
+    await expect(page.getByText('Based on:')).toBeVisible();
+
+    // Verify master documentation section
+    await expect(page.getByText('Master Zman Documentation')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Summary' })).toBeVisible();
+
+    // Close modal
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+  });
+});
+      ]]>
+    </playwright-pattern>
+  </testing-patterns>
+
+  <!-- ============================================ -->
+  <!-- IMPLEMENTATION TASKS -->
+  <!-- ============================================ -->
+  <implementation-tasks>
+    <task id="1" title="Extract Shared Master Documentation Component">
+      <subtasks>
+        <subtask id="1.1">Create web/components/registry/MasterDocumentationContent.tsx</subtask>
+        <subtask id="1.2">Extract master documentation sections from MasterZmanDetailModal.tsx</subtask>
+        <subtask id="1.3">Add onRelatedZmanClick callback prop</subtask>
+        <subtask id="1.4">Test with master modal to ensure no regression</subtask>
+      </subtasks>
+    </task>
+
+    <task id="2" title="Create Publisher Zman Modal Component">
+      <subtasks>
+        <subtask id="2.1">Create web/components/registry/PublisherZmanDetailModal.tsx</subtask>
+        <subtask id="2.2">Implement publisher-specific top section layout</subtask>
+        <subtask id="2.3">Add publisher name + "Validated Publisher" badge</subtask>
+        <subtask id="2.4">Integrate CodeMirror for formula display (read-only)</subtask>
+        <subtask id="2.5">Add "Copy to Clipboard" button with state management</subtask>
+        <subtask id="2.6">Display master reference link</subtask>
+        <subtask id="2.7">Conditionally render custom notes section</subtask>
+        <subtask id="2.8">Implement attribution logic (linked/copied/direct)</subtask>
+      </subtasks>
+    </task>
+
+    <task id="3" title="Integrate Master Documentation Section">
+      <subtasks>
+        <subtask id="3.1">Add divider with "Master Zman Documentation" label</subtask>
+        <subtask id="3.2">Import and render MasterDocumentationContent component</subtask>
+        <subtask id="3.3">Pass master zman data from publisher zman object</subtask>
+        <subtask id="3.4">Wire up related zman navigation callback</subtask>
+      </subtasks>
+    </task>
+
+    <task id="4" title="Modal Behavior &amp; Accessibility">
+      <subtasks>
+        <subtask id="4.1">Implement Escape key handler</subtask>
+        <subtask id="4.2">Implement click-outside-to-close</subtask>
+        <subtask id="4.3">Add focus trap using shadcn/ui Dialog</subtask>
+        <subtask id="4.4">Ensure focus returns to Info button on close</subtask>
+        <subtask id="4.5">Add ARIA labels for all interactive elements</subtask>
+        <subtask id="4.6">Test keyboard navigation (Tab, Escape)</subtask>
+      </subtasks>
+    </task>
+
+    <task id="5" title="Responsive Design">
+      <subtasks>
+        <subtask id="5.1">Test modal on desktop (800px max width)</subtask>
+        <subtask id="5.2">Test modal on tablet (90vw max width)</subtask>
+        <subtask id="5.3">Test modal on mobile (full screen)</subtask>
+        <subtask id="5.4">Verify scrolling behavior with long content</subtask>
+        <subtask id="5.5">Test formula syntax highlighting on small screens</subtask>
+      </subtasks>
+    </task>
+
+    <task id="6" title="Integration with Publisher Browser">
+      <subtasks>
+        <subtask id="6.1">Import PublisherZmanDetailModal in RegistryPublisherBrowser.tsx</subtask>
+        <subtask id="6.2">Add state for selected publisher zman and modal open</subtask>
+        <subtask id="6.3">Wire Info button click to open modal</subtask>
+        <subtask id="6.4">Handle navigation to master zman modal (cross-modal navigation)</subtask>
+        <subtask id="6.5">Test end-to-end flow from publisher card to modal</subtask>
+      </subtasks>
+    </task>
+
+    <task id="7" title="Testing">
+      <subtasks>
+        <subtask id="7.1">Test with linked publisher zman (verify attribution)</subtask>
+        <subtask id="7.2">Test with copied publisher zman (verify attribution)</subtask>
+        <subtask id="7.3">Test with direct master import (no attribution)</subtask>
+        <subtask id="7.4">Test with custom notes present</subtask>
+        <subtask id="7.5">Test with no custom notes (section hidden)</subtask>
+        <subtask id="7.6">Test copy to clipboard functionality</subtask>
+        <subtask id="7.7">Test related zman navigation</subtask>
+        <subtask id="7.8">Test modal close (Escape, click outside, X button)</subtask>
+      </subtasks>
+    </task>
+  </implementation-tasks>
+
+  <!-- ============================================ -->
+  <!-- FILES TO CREATE/MODIFY -->
+  <!-- ============================================ -->
+  <files>
+    <file action="CREATE">
+      <path>web/components/registry/MasterDocumentationContent.tsx</path>
+      <purpose>Shared master documentation rendering</purpose>
+      <estimated-lines>300-400</estimated-lines>
+    </file>
+
+    <file action="CREATE">
+      <path>web/components/registry/PublisherZmanDetailModal.tsx</path>
+      <purpose>Publisher zman modal component</purpose>
+      <estimated-lines>200-300</estimated-lines>
+    </file>
+
+    <file action="MODIFY">
+      <path>web/components/registry/MasterZmanDetailModal.tsx</path>
+      <purpose>Extract shared content, use new shared component</purpose>
+      <changes>Replace inline master documentation with MasterDocumentationContent component</changes>
+    </file>
+
+    <file action="MODIFY">
+      <path>web/components/registry/RegistryPublisherBrowser.tsx</path>
+      <purpose>Integrate publisher modal</purpose>
+      <changes>Add modal state, wire Info button, handle navigation</changes>
+    </file>
+  </files>
+
+  <!-- ============================================ -->
+  <!-- DEFINITION OF DONE -->
+  <!-- ============================================ -->
+  <definition-of-done>
+    <requirement>MasterDocumentationContent.tsx extracted and tested with master modal (no regression)</requirement>
+    <requirement>PublisherZmanDetailModal.tsx created and functional</requirement>
+    <requirement>Publisher-specific section displays all required fields</requirement>
+    <requirement>Master documentation section displays using shared component</requirement>
+    <requirement>Copy to clipboard works for publisher formula</requirement>
+    <requirement>Attribution logic correctly handles linked/copied/direct cases</requirement>
+    <requirement>Custom notes section conditionally rendered</requirement>
+    <requirement>Related zman navigation functional</requirement>
+    <requirement>Modal close behavior works (Escape, click outside)</requirement>
+    <requirement>Responsive design tested on desktop, tablet, mobile</requirement>
+    <requirement>Accessibility requirements met (focus trap, ARIA labels, keyboard nav)</requirement>
+    <requirement>Integration tested with publisher browser</requirement>
+    <requirement>Manual testing completed with all publisher zman types</requirement>
+  </definition-of-done>
+
+  <!-- ============================================ -->
+  <!-- RELATED DOCUMENTATION -->
+  <!-- ============================================ -->
+  <related-documentation>
+    <document>
+      <path>docs/epic-11-publisher-zmanim-registry.md</path>
+      <sections>Story 11.4 (lines 446-514)</sections>
+    </document>
+    <document>
+      <path>docs/architecture.md</path>
+      <sections>Frontend Stack, Component Patterns, Modal Pattern</sections>
+    </document>
+    <document>
+      <path>docs/coding-standards.md</path>
+      <sections>Frontend Standards, Design Tokens, Component Reusability, Accessibility</sections>
+    </document>
+    <document>
+      <path>web/components/INDEX.md</path>
+      <sections>Component Registry, Shared Components, Modal Examples</sections>
+    </document>
+    <document>
+      <path>api/internal/handlers/INDEX.md</path>
+      <sections>Publisher Management, API Patterns</sections>
+    </document>
+    <document>
+      <path>api/internal/db/queries/INDEX.md</path>
+      <sections>Query Patterns, Soft Delete, Lookup Table Joins</sections>
+    </document>
+  </related-documentation>
+
+  <!-- ============================================ -->
+  <!-- DEPENDENCIES -->
+  <!-- ============================================ -->
+  <dependencies>
+    <frontend>
+      <package name="@radix-ui/react-dialog">shadcn/ui Dialog primitive</package>
+      <package name="@codemirror/view">CodeMirror editor core</package>
+      <package name="lucide-react">Icons (Info, Copy, X)</package>
+      <package name="tailwindcss">Styling with design tokens</package>
+    </frontend>
+    <backend>
+      <note>Backend endpoints will be created in Story 11.3 (Publisher Examples Browser)</note>
+      <note>This story (11.4) focuses on frontend modal component</note>
+    </backend>
+  </dependencies>
+
+  <!-- ============================================ -->
+  <!-- NOTES -->
+  <!-- ============================================ -->
+  <notes>
+    <note type="important">
+      This story depends on Story 11.2 (Master Zman Documentation Modal) being complete,
+      as it will extract and reuse the master documentation rendering logic.
+    </note>
+    <note type="important">
+      This story also depends on Story 11.3 (Publisher Examples Browser) for the
+      API endpoints that return publisher zmanim with master documentation.
+    </note>
+    <note type="design">
+      The two-section modal design (publisher-specific top, master documentation bottom)
+      reinforces the learning model: "See how this publisher adapted the canonical formula,
+      then understand the canonical halachic foundation."
+    </note>
+    <note type="technical">
+      Attribution logic (linked vs copied vs direct) is tracked via database fields:
+      - linked_from_publisher_zman_id (if set, show "Linked from...")
+      - copied_from_publisher_id (if set, show "Copied from...")
+      - Both NULL = direct master import (no attribution)
+    </note>
+    <note type="accessibility">
+      Keyboard navigation must allow tabbing through all interactive elements:
+      Info button → Copy button → Related zman links → Close button → Escape to close
+    </note>
+  </notes>
+</story-context>

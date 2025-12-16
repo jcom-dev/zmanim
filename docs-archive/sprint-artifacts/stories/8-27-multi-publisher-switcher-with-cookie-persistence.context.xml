@@ -1,0 +1,103 @@
+<story-context id="8-27-multi-publisher-switcher-with-cookie-persistence" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>27</storyId>
+    <title>Multi-Publisher Switcher with Cookie Persistence</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>user with access to multiple publishers</asA>
+    <iWant>to stay logged into my last-selected publisher and have a UI to switch between publishers</iWant>
+    <soThat>I don't have to re-select my publisher on every visit and can easily manage multiple organizations</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Last-selected publisher ID stored in httpOnly cookie (zmanim_publisher_id)</criterion>
+    <criterion id="AC2">Cookie persists for 30 days (or until logout)</criterion>
+    <criterion id="AC3">On page load, if cookie exists and user has access, auto-select that publisher</criterion>
+    <criterion id="AC4">If cookie references inaccessible publisher, fall back to primary_publisher_id</criterion>
+    <criterion id="AC5">Publisher switcher component shows in header for multi-publisher users</criterion>
+    <criterion id="AC6">Single-publisher users don't see the switcher (clean UX)</criterion>
+    <criterion id="AC7">Admin impersonation overrides cookie selection (existing behavior preserved)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>web/components/publisher/PublisherSwitcher.tsx</path>
+        <kind>component</kind>
+        <symbol>PublisherSwitcher</symbol>
+        <reason>Existing component - needs cookie integration and enhanced UX</reason>
+        <currentBehavior>Uses localStorage via PublisherContext, basic select dropdown</currentBehavior>
+        <requiredChange>Integrate with cookie-based persistence, add logo display</requiredChange>
+      </artifact>
+      <artifact>
+        <path>web/providers/PublisherContext.tsx</path>
+        <kind>context</kind>
+        <symbol>PublisherProvider</symbol>
+        <reason>Main state management - currently uses localStorage (line 119), needs cookie migration</reason>
+        <currentBehavior>Stores selectedPublisherId in localStorage, fetches from /publisher/accessible</currentBehavior>
+        <requiredChange>Read/write httpOnly cookie via API endpoint, handle SSR hydration</requiredChange>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publishers.go</path>
+        <kind>handler</kind>
+        <reason>New endpoints needed: POST /auth/publisher/select, GET /auth/publisher/current</reason>
+        <exists>true</exists>
+        <requiredChange>Add cookie management endpoints</requiredChange>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/publishers.sql</path>
+        <kind>sqlc-query</kind>
+        <symbol>GetAccessiblePublishersByIDs</symbol>
+        <reason>Existing query for fetching publisher details by IDs (lines 248-253)</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <existingPatterns>
+    <pattern name="PublisherContext">
+      <description>React context managing publisher selection state with Clerk integration</description>
+      <file>web/providers/PublisherContext.tsx</file>
+      <features>
+        <feature>Impersonation support (sessionStorage)</feature>
+        <feature>localStorage persistence (selectedPublisherId)</feature>
+        <feature>URL param support (?p=id)</feature>
+        <feature>Primary publisher fallback from Clerk metadata</feature>
+      </features>
+    </pattern>
+    <pattern name="ClerkMetadata">
+      <description>User metadata from Clerk JWT containing publisher access info</description>
+      <fields>
+        <field>primary_publisher_id</field>
+        <field>publisher_access_list</field>
+        <field>role</field>
+      </fields>
+    </pattern>
+  </existingPatterns>
+
+  <cookieSpec>
+    <cookie name="zmanim_publisher_id">
+      <value>publisher_id (string)</value>
+      <httpOnly>true</httpOnly>
+      <secure>true (production)</secure>
+      <sameSite>Lax</sameSite>
+      <path>/</path>
+      <maxAge>2592000 (30 days)</maxAge>
+    </cookie>
+  </cookieSpec>
+
+  <constraints>
+    <constraint>httpOnly cookie must be set via backend API (not JavaScript)</constraint>
+    <constraint>Admin impersonation (sessionStorage) takes precedence over cookie</constraint>
+    <constraint>Must validate publisher ID against access list before setting cookie</constraint>
+    <constraint>Story 8.26 (security fix) must be completed first</constraint>
+  </constraints>
+
+  <dependencies>
+    <dependency storyId="8-26" required="true">Publisher Access Validation Security Fix</dependency>
+  </dependencies>
+</story-context>

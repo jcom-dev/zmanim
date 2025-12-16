@@ -1,0 +1,154 @@
+# Shtetl Zmanim Development Environment
+# This image includes all dependencies pre-installed to speed up Coder workspace startup
+FROM codercom/enterprise-base:ubuntu
+
+USER root
+
+# Install system dependencies
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    gnupg \
+    build-essential \
+    nano \
+    vim \
+    tmux \
+    jq \
+    tree \
+    htop \
+    ncdu \
+    iproute2 \
+    iputils-ping \
+    dnsutils \
+    telnet \
+    net-tools \
+    lsof \
+    procps \
+    psmisc \
+    strace \
+    zstd \
+    libgdal-dev \
+    gdal-bin \
+    file \
+    sudo \
+    redis-tools \
+    unzip \
+    zip \
+    sqlite3
+
+# Install PostgreSQL 17 client from official PGDG repository
+RUN install -d /usr/share/postgresql-common/pgdg && \
+    curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+    . /etc/os-release && \
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && \
+    apt-get install -y postgresql-client-17 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Go 1.25.4
+RUN wget -q https://go.dev/dl/go1.25.4.linux-amd64.tar.gz && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf go1.25.4.linux-amd64.tar.gz && \
+    rm go1.25.4.linux-amd64.tar.gz
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Install Node.js 24.x LTS
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install GH CLI
+RUN sudo mkdir -p -m 755 /etc/apt/keyrings \
+	&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+	&& cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+	&& sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+	&& sudo mkdir -p -m 755 /etc/apt/sources.list.d \
+	&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+	&& sudo apt update \
+	&& sudo apt install gh -y
+
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws
+
+# Install Packer and Terraform
+RUN wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list && \
+    sudo apt update && sudo apt install packer terraform -y
+
+# Switch to coder user for installations
+USER coder
+WORKDIR /home/coder
+
+# Set up Go path
+ENV GOPATH="/home/coder/go"
+ENV PATH="${GOPATH}/bin:${PATH}"
+
+# Install sqlc
+RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+# Configure npm global directory
+RUN mkdir -p /home/coder/.npm-global && \
+    npm config set prefix /home/coder/.npm-global
+
+ENV PATH="/home/coder/.npm-global/bin:${PATH}"
+
+# Install Jest globally
+RUN npm install -g jest
+
+# Install Fly.io CLI
+RUN curl -L https://fly.io/install.sh | sh
+ENV FLYCTL_INSTALL="/home/coder/.fly"
+ENV PATH="${FLYCTL_INSTALL}/bin:${PATH}"
+
+# Install uv (Python package manager)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/home/coder/.local/bin:${PATH}"
+
+# Install Claude Code CLI
+RUN curl -fsSL https://claude.ai/install.sh | bash
+ENV PATH="/home/coder/.claude/bin:${PATH}"
+
+# Clone zmanim repository
+WORKDIR /home/coder/workspace
+RUN git clone https://github.com/jcom-dev/zmanim.git
+
+# Install Go dependencies
+WORKDIR /home/coder/workspace/zmanim/api
+RUN go mod download
+
+# Install Node.js dependencies
+WORKDIR /home/coder/workspace/zmanim/web
+RUN npm ci
+
+# Install Playwright browsers
+RUN npx playwright install --with-deps chromium
+
+# Configure Claude MCP for Playwright
+RUN claude mcp add --scope user playwright npx '@playwright/mcp@latest --isolated' || true
+
+# Set up bash configuration
+WORKDIR /home/coder
+RUN echo 'export PATH="/home/coder/.npm-global/bin:${PATH}"' >> /home/coder/.bashrc && \
+    echo 'export PATH="${GOPATH}/bin:${PATH}"' >> /home/coder/.bashrc && \
+    echo 'export PATH="/home/coder/.local/bin:${PATH}"' >> /home/coder/.bashrc && \
+    echo 'export PATH="/home/coder/.claude/bin:${PATH}"' >> /home/coder/.bashrc && \
+    echo 'export PATH="${FLYCTL_INSTALL}/bin:${PATH}"' >> /home/coder/.bashrc && \
+    echo 'alias claude="claude --dangerously-skip-permissions"' >> /home/coder/.bashrc
+
+# Set working directory
+WORKDIR /home/coder/workspace/zmanim
+
+# Add GitHub to known hosts
+RUN mkdir -p /home/coder/.ssh && \
+    ssh-keyscan -t ed25519 github.com >> /home/coder/.ssh/known_hosts 2>/dev/null
+
+# Labels for metadata
+LABEL org.opencontainers.image.source="https://github.com/jcom-dev/zmanim"
+LABEL org.opencontainers.image.description="Shtetl Zmanim development environment with all dependencies pre-installed"
+LABEL org.opencontainers.image.version="latest"

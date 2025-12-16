@@ -1,0 +1,1029 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>11.2</story-id>
+    <story-name>Master Zman Comprehensive Documentation Modal</story-name>
+    <epic-id>11</epic-id>
+    <epic-name>Publisher Zmanim Registry Interface</epic-name>
+    <generated-date>2025-12-22</generated-date>
+    <priority>HIGH</priority>
+    <story-points>5</story-points>
+  </metadata>
+
+  <!-- ============================================================ -->
+  <!-- STORY OVERVIEW -->
+  <!-- ============================================================ -->
+  <story-overview>
+    <user-story>
+      <as-a>publisher</as-a>
+      <i-want>to view full documentation for any master zman including halachic sources, scientific explanations, and related zmanim</i-want>
+      <so-that>I can understand the calculation method and halachic basis before importing</so-that>
+    </user-story>
+
+    <background>
+      <description>
+        This story implements the comprehensive documentation modal for master zmanim in the Publisher Registry interface.
+        When publishers click the Info button (ℹ️) on any master zman card, they will see a full-screen modal displaying:
+        - Complete halachic sources and significance
+        - Scientific and astronomical explanations
+        - DSL formula with syntax highlighting
+        - Related zmanim for exploration
+        - Practical usage notes
+
+        This modal is critical for publisher education and confidence. It transforms the master registry from a simple
+        catalog into a comprehensive learning tool that empowers publishers to understand the halachic and astronomical
+        foundations of each calculation.
+      </description>
+
+      <context-dependencies>
+        <dependency type="prerequisite" story-id="11.1">Master Registry Browser - provides the card layout and info button</dependency>
+        <dependency type="prerequisite" story-id="11.0">Data Foundation - master zman documentation fields populated</dependency>
+        <dependency type="reuse" story-id="11.4">Publisher Zman Documentation Modal - will reuse MasterDocumentationContent component</dependency>
+      </context-dependencies>
+    </background>
+
+    <key-features>
+      <feature>Full-screen modal with comprehensive documentation sections</feature>
+      <feature>DSL formula with syntax highlighting and copy-to-clipboard</feature>
+      <feature>Halachic sources as expandable accordion cards</feature>
+      <feature>Related zmanim navigation with cycle detection</feature>
+      <feature>Keyboard accessible with focus management</feature>
+      <feature>Responsive design (desktop/tablet/mobile)</feature>
+    </key-features>
+  </story-overview>
+
+  <!-- ============================================================ -->
+  <!-- ACCEPTANCE CRITERIA SUMMARY -->
+  <!-- ============================================================ -->
+  <acceptance-criteria-summary>
+    <section name="SECTION 1: MODAL STRUCTURE AND DISPLAY">
+      <criterion id="AC1.1">Modal Opens from Info Button - Info button triggers modal within 200ms with focus trap</criterion>
+      <criterion id="AC1.2">Modal Header Section - Displays zman name (Hebrew + English), zman_key, and close button</criterion>
+    </section>
+
+    <section name="SECTION 2: DOCUMENTATION CONTENT SECTIONS">
+      <criterion id="AC2.1">Summary Section - Brief one-line description with readable typography</criterion>
+      <criterion id="AC2.2">DSL Formula Section - Syntax-highlighted formula with copy button</criterion>
+      <criterion id="AC2.3">Scientific Explanation Section - Plain language explanation from formula_explanation field</criterion>
+      <criterion id="AC2.4">Astronomical Definition Section - Technical astronomical details (optional)</criterion>
+      <criterion id="AC2.5">Algorithm Section - Calculation method and source attribution (optional)</criterion>
+      <criterion id="AC2.6">Halachic Significance Section - How zman is used in halacha from usage_context field</criterion>
+      <criterion id="AC2.7">Halachic Sources Section - Expandable accordion cards for each posek/opinion</criterion>
+      <criterion id="AC2.8">Practical Notes Section - Usage context and real-world examples (optional)</criterion>
+      <criterion id="AC2.9">Related Zmanim Section - Clickable chips/links derived from related_zmanim_ids array</criterion>
+    </section>
+
+    <section name="SECTION 3: INTERACTIVE FEATURES">
+      <criterion id="AC3.1">Copy to Clipboard - Copies DSL formula with "Copied ✓" feedback for 2 seconds</criterion>
+      <criterion id="AC3.2">Related Zman Navigation - Clicking related zman replaces modal content with URL update</criterion>
+      <criterion id="AC3.3">Cycle Detection and Breadcrumbs - Shows navigation path, warns on cycles, limits depth to 5</criterion>
+      <criterion id="AC3.4">Keyboard Navigation - Escape closes modal, Tab cycles elements, focus returns to trigger</criterion>
+      <criterion id="AC3.5">Click Outside to Close - Overlay click closes modal, content click does not</criterion>
+    </section>
+
+    <section name="SECTION 4: MISSING DATA HANDLING">
+      <criterion id="AC4.1">Optional Fields Show Placeholders - "No additional information available" for null fields</criterion>
+      <criterion id="AC4.2">Required Fields Always Present - Show error modal if full_description, halachic_source, or formula_explanation is null</criterion>
+    </section>
+
+    <section name="SECTION 5: RESPONSIVE DESIGN AND ACCESSIBILITY">
+      <criterion id="AC5.1">Desktop Layout - Max width 800px, centered, scrollable content</criterion>
+      <criterion id="AC5.2">Tablet Layout - Max width 90vw, stacked sections, readable fonts (14px min)</criterion>
+      <criterion id="AC5.3">Mobile Layout - Full screen (100vw x 100vh), sticky header, 16px minimum font</criterion>
+      <criterion id="AC5.4">Accessibility - Semantic HTML - Uses dialog, header, section, nav tags with ARIA</criterion>
+      <criterion id="AC5.5">Accessibility - ARIA Labels - All interactive elements have descriptive ARIA labels</criterion>
+      <criterion id="AC5.6">Accessibility - Focus Management - Focus trap in modal, returns to trigger on close</criterion>
+      <criterion id="AC5.7">Accessibility - Color Contrast - WCAG AA compliance (4.5:1 text, 3:1 UI elements)</criterion>
+    </section>
+
+    <section name="SECTION 6: PERFORMANCE">
+      <criterion id="AC6.1">Modal Render Performance - Opens in &lt;200ms, fully rendered in &lt;500ms, CLS score = 0</criterion>
+      <criterion id="AC6.2">Related Zman Navigation Performance - Updates content in &lt;300ms with smooth transition</criterion>
+      <criterion id="AC6.3">Copy to Clipboard Performance - Copy action completes in &lt;50ms with instant button state change</criterion>
+    </section>
+  </acceptance-criteria-summary>
+
+  <!-- ============================================================ -->
+  <!-- ARCHITECTURE AND DESIGN DECISIONS -->
+  <!-- ============================================================ -->
+  <architecture>
+    <architectural-decisions>
+      <decision id="ARCH-001">
+        <title>Use shadcn/ui Dialog for Modal Foundation</title>
+        <rationale>
+          - Consistent with existing modal patterns (RequestZmanModal, PublisherSelectionModal)
+          - Built on Radix UI with excellent accessibility (focus trap, ARIA, keyboard navigation)
+          - Design token compliant with dark mode support
+          - Portal-based rendering prevents z-index conflicts
+        </rationale>
+        <reference>web/components/ui/dialog.tsx</reference>
+      </decision>
+
+      <decision id="ARCH-002">
+        <title>Reuse CodeMirror DSL Editor for Syntax Highlighting</title>
+        <rationale>
+          - Consistent syntax highlighting with algorithm editor
+          - Read-only mode available
+          - Color scheme already defined (primitives: blue, functions: green, operators: gray)
+          - No need to duplicate syntax highlighting logic
+        </rationale>
+        <reference>web/components/editor/CodeMirrorDSLEditor.tsx</reference>
+      </decision>
+
+      <decision id="ARCH-003">
+        <title>Extract Master Documentation Content into Shared Component</title>
+        <rationale>
+          - Story 11.4 (Publisher Zman Documentation Modal) needs same master doc rendering
+          - DRY principle - single source of truth for master documentation layout
+          - Component: MasterDocumentationContent.tsx
+          - Props: masterZman object, onRelatedClick callback
+        </rationale>
+        <reference>Story 11.2 Technical Implementation, Story 11.4 Dependencies</reference>
+      </decision>
+
+      <decision id="ARCH-004">
+        <title>Use Accordion for Halachic Sources (shadcn/ui)</title>
+        <rationale>
+          - Multiple sources need to be collapsible for readability
+          - Radix Accordion supports "multiple" mode (multiple items open at once)
+          - Accessible with keyboard (Space/Enter to toggle, Arrow keys to navigate)
+          - Consistent with existing UI patterns
+        </rationale>
+        <reference>web/components/ui/accordion.tsx</reference>
+      </decision>
+
+      <decision id="ARCH-005">
+        <title>Cycle Detection via Breadcrumb State Array</title>
+        <rationale>
+          - Related zmanim links can form cycles (A → B → C → A)
+          - Track navigation path as array of zman names: ["Alos 16.1°", "Alos 72 min"]
+          - Depth limit: 5 levels prevents infinite loops
+          - Warning shown if visiting already-viewed zman
+          - Browser back button support via URL param (future enhancement)
+        </rationale>
+        <reference>Story 11.2 AC3.3</reference>
+      </decision>
+
+      <decision id="ARCH-006">
+        <title>Inline Documentation Data in Master Registry List Response (No Separate Endpoint)</title>
+        <rationale>
+          - Documentation data is lightweight (text fields, no binary data)
+          - Avoids extra API round-trip on modal open
+          - Master registry list response already fetches master_zmanim_registry records
+          - Related zmanim can be joined or fetched separately if needed
+          - Alternative: Lazy-load via GET /api/v1/publisher/registry/master/:id/documentation (optional)
+        </rationale>
+        <reference>Story 11.2 Technical Implementation - API Integration</reference>
+      </decision>
+    </architectural-decisions>
+
+    <component-structure>
+      <file path="web/components/registry/MasterZmanDetailModal.tsx">
+        <purpose>Main documentation modal component</purpose>
+        <props>
+          <prop name="masterZman" type="MasterZman | null" required="true">Master zman object with all documentation fields</prop>
+          <prop name="isOpen" type="boolean" required="true">Modal open state</prop>
+          <prop name="onClose" type="() => void" required="true">Close callback</prop>
+          <prop name="onNavigateToRelated" type="(relatedZmanId: number) => void" required="true">Related zman navigation callback</prop>
+        </props>
+        <state>
+          <state-var name="copiedState" type="boolean">Track copy button feedback state</state-var>
+          <state-var name="breadcrumbs" type="string[]">Navigation path for cycle detection</state-var>
+          <state-var name="previousFocusRef" type="React.MutableRefObject&lt;HTMLElement | null&gt;">Store trigger element for focus return</state-var>
+        </state>
+        <dependencies>
+          <dependency>shadcn/ui Dialog, DialogContent, DialogHeader, DialogTitle</dependency>
+          <dependency>CodeMirrorDSLEditor (read-only mode)</dependency>
+          <dependency>shadcn/ui Button, Badge, Accordion</dependency>
+          <dependency>navigator.clipboard.writeText for copy functionality</dependency>
+        </dependencies>
+      </file>
+
+      <file path="web/components/registry/MasterDocumentationContent.tsx" status="to-create">
+        <purpose>Shared master documentation rendering component (extracted for reuse in Story 11.4)</purpose>
+        <props>
+          <prop name="masterZman" type="MasterZman" required="true">Master zman with documentation</prop>
+          <prop name="onCopyFormula" type="() => void" required="false">Optional copy handler override</prop>
+          <prop name="onRelatedClick" type="(relatedZmanId: number, relatedZmanName: string) => void" required="false">Related zman navigation</prop>
+        </props>
+        <sections>
+          <section name="Summary">Renders full_description</section>
+          <section name="DSL Formula">CodeMirror with copy button</section>
+          <section name="Scientific Explanation">Renders formula_explanation</section>
+          <section name="Astronomical Definition">Renders astronomical_definition (optional)</section>
+          <section name="Algorithm">Renders algorithm (optional)</section>
+          <section name="Halachic Significance">Renders usage_context (optional)</section>
+          <section name="Halachic Sources">Accordion with parsed halachic_source JSON/text</section>
+          <section name="Practical Notes">Renders practical_notes (optional)</section>
+          <section name="Related Zmanim">Clickable chips from related_zmanim array</section>
+        </sections>
+      </file>
+    </component-structure>
+  </architecture>
+
+  <!-- ============================================================ -->
+  <!-- DATABASE SCHEMA -->
+  <!-- ============================================================ -->
+  <database-schema>
+    <note>
+      The master_zmanim_registry table does not currently exist in the database.
+      Story 11.0 (Data Foundation) will create this table with migration and populate documentation.
+      Below is the EXPECTED schema after Story 11.0 migration.
+    </note>
+
+    <table name="master_zmanim_registry" status="to-create-in-story-11.0">
+      <description>Canonical master registry of all zmanim calculations with comprehensive documentation</description>
+
+      <columns>
+        <column name="id" type="SERIAL PRIMARY KEY">Unique identifier</column>
+        <column name="zman_key" type="VARCHAR(100) UNIQUE NOT NULL">Programmatic key (e.g., 'alos_16_1')</column>
+        <column name="hebrew_name" type="TEXT NOT NULL">Hebrew name (e.g., 'עלות השחר')</column>
+        <column name="english_name" type="TEXT NOT NULL">English name (e.g., 'Alos Hashachar (16.1°)')</column>
+
+        <!-- Documentation Fields (populated by Story 11.0) -->
+        <column name="full_description" type="TEXT NOT NULL">Brief one-line summary (REQUIRED for AC2.1, AC4.2)</column>
+        <column name="formula_dsl" type="TEXT NOT NULL">DSL formula (e.g., 'solar(-16.1)')</column>
+        <column name="formula_explanation" type="TEXT NOT NULL">Plain-language explanation (REQUIRED for AC2.3, AC4.2)</column>
+        <column name="astronomical_definition" type="TEXT">Technical astronomical details (optional for AC2.4)</column>
+        <column name="algorithm" type="TEXT">Calculation method and source (optional for AC2.5)</column>
+        <column name="halachic_source" type="TEXT NOT NULL">Halachic sources as JSON or structured text (REQUIRED for AC2.7, AC4.2)</column>
+        <column name="usage_context" type="TEXT">How used in halacha, which opinions (optional for AC2.6)</column>
+        <column name="practical_notes" type="TEXT">Usage context, real-world examples (optional for AC2.8)</column>
+
+        <!-- Categorization -->
+        <column name="shita" type="VARCHAR(50)">E.g., 'GRA', 'MGA', 'BAAL_HATANYA'</column>
+        <column name="category" type="VARCHAR(50)">E.g., 'ALOS', 'SHEMA', 'TZAIS'</column>
+
+        <!-- Related Zmanim -->
+        <column name="related_zmanim_ids" type="INTEGER[]">Array of master_zmanim_registry IDs for related zmanim (AC2.9)</column>
+
+        <!-- Audit -->
+        <column name="created_at" type="TIMESTAMPTZ DEFAULT now()">Creation timestamp</column>
+        <column name="updated_at" type="TIMESTAMPTZ DEFAULT now()">Last update timestamp</column>
+        <column name="deleted_at" type="TIMESTAMPTZ DEFAULT NULL">Soft delete timestamp</column>
+      </columns>
+
+      <indexes>
+        <index name="idx_master_zmanim_shita" columns="shita" condition="WHERE shita IS NOT NULL">Filter by shita</index>
+        <index name="idx_master_zmanim_category" columns="category" condition="WHERE category IS NOT NULL">Filter by category</index>
+        <index name="idx_master_zmanim_active" columns="id" condition="WHERE deleted_at IS NULL">Active records only</index>
+      </indexes>
+
+      <sample-data>
+        <row>
+          <id>1</id>
+          <zman_key>alos_16_1</zman_key>
+          <hebrew_name>עלות השחר</hebrew_name>
+          <english_name>Alos Hashachar (16.1°)</english_name>
+          <full_description>Dawn begins when the sun is 16.1° below the horizon</full_description>
+          <formula_dsl>solar(-16.1)</formula_dsl>
+          <formula_explanation>Calculates the time when the sun is 16.1 degrees below the eastern horizon, marking the beginning of halachic dawn</formula_explanation>
+          <astronomical_definition>Solar depression angle of 16.1° below the horizon, calculated using spherical trigonometry and accounting for atmospheric refraction</astronomical_definition>
+          <algorithm>NOAA Solar Position Algorithm based on Jean Meeus 'Astronomical Algorithms'</algorithm>
+          <halachic_source>[{"posek": "GRA", "explanation": "The Vilna Gaon holds that dawn begins at 16.1° depression angle", "reference": "Mishnah Berurah 89:1"}]</halachic_source>
+          <usage_context>Used for determining the earliest time for morning prayers and certain mitzvot</usage_context>
+          <practical_notes>This calculation is widely accepted for urban areas. For polar regions, see conditional formulas.</practical_notes>
+          <shita>GRA</shita>
+          <category>ALOS</category>
+          <related_zmanim_ids>[2, 3, 4]</related_zmanim_ids>
+        </row>
+      </sample-data>
+    </table>
+
+    <validation-queries>
+      <query name="All Required Fields Populated" critical="true">
+        <sql>
+          SELECT COUNT(*) FROM master_zmanim_registry
+          WHERE full_description IS NULL
+             OR halachic_source IS NULL
+             OR formula_explanation IS NULL;
+        </sql>
+        <expected-result>0 rows (AC4.2)</expected-result>
+      </query>
+
+      <query name="Related Zmanim IDs Valid">
+        <sql>
+          SELECT mzr.id, mzr.zman_key, unnest(mzr.related_zmanim_ids) AS related_id
+          FROM master_zmanim_registry mzr
+          WHERE NOT EXISTS (
+            SELECT 1 FROM master_zmanim_registry mzr2
+            WHERE mzr2.id = unnest(mzr.related_zmanim_ids)
+          );
+        </sql>
+        <expected-result>0 rows (data integrity)</expected-result>
+      </query>
+    </validation-queries>
+  </database-schema>
+
+  <!-- ============================================================ -->
+  <!-- API PATTERNS -->
+  <!-- ============================================================ -->
+  <api-patterns>
+    <endpoint-decision>
+      <option-1>
+        <approach>Inline documentation in master registry list response (RECOMMENDED)</approach>
+        <endpoint>GET /api/v1/publisher/registry/master</endpoint>
+        <response-includes>
+          - Master zman records with ALL documentation fields
+          - Related zmanim details (joined or separate query)
+          - Ownership status (already_imported flag)
+        </response-includes>
+        <advantages>
+          - No extra API call on modal open
+          - Documentation data is lightweight
+          - Simplifies frontend logic
+        </advantages>
+      </option-1>
+
+      <option-2>
+        <approach>Separate documentation endpoint (OPTIONAL)</approach>
+        <endpoint>GET /api/v1/publisher/registry/master/:id/documentation</endpoint>
+        <when-to-use>If documentation data becomes too large or needs lazy loading</when-to-use>
+        <response-format>
+          {
+            "master_zman": { /* full master_zmanim_registry record */ },
+            "related_zmanim": [
+              { "id": 2, "zman_key": "alos_72", "hebrew_name": "...", "english_name": "..." }
+            ]
+          }
+        </response-format>
+      </option-2>
+    </endpoint-decision>
+
+    <backend-handler-pattern>
+      <file>api/internal/handlers/publisher_registry.go (to create in Story 11.1)</file>
+      <function-signature>func (h *RegistryHandler) GetMasterZmanDocumentation(w http.ResponseWriter, r *http.Request)</function-signature>
+
+      <steps>
+        <step number="1">Resolve publisher (authentication) - h.publisherResolver.MustResolve(w, r)</step>
+        <step number="2">Extract URL params - chi.URLParam(r, "id"), convert to int64</step>
+        <step number="3">No body to parse</step>
+        <step number="4">Validate - ID greater than 0</step>
+        <step number="5">SQLc query - h.db.Queries.GetMasterZmanDocumentation(ctx, masterZmanID)</step>
+        <step number="6">Fetch related zmanim details if related_zmanim_ids is not empty</step>
+        <step number="7">Respond with RespondJSON(w, r, http.StatusOK, response)</step>
+      </steps>
+
+      <error-handling>
+        <case condition="masterZmanID &lt;= 0">400 Bad Request - "Invalid master zman ID"</case>
+        <case condition="sql.ErrNoRows">404 Not Found - "Master zman not found"</case>
+        <case condition="other database error">500 Internal Server Error - "Failed to retrieve documentation" (log error with slog)</case>
+      </error-handling>
+    </backend-handler-pattern>
+
+    <sqlc-queries>
+      <query name="GetMasterZmanDocumentation" file="api/internal/db/queries/master_registry.sql">
+        <sql>
+-- name: GetMasterZmanDocumentation :one
+SELECT
+  id,
+  zman_key,
+  hebrew_name,
+  english_name,
+  full_description,
+  formula_dsl,
+  formula_explanation,
+  astronomical_definition,
+  algorithm,
+  halachic_source,
+  usage_context,
+  practical_notes,
+  related_zmanim_ids,
+  shita,
+  category
+FROM master_zmanim_registry
+WHERE id = $1
+  AND deleted_at IS NULL;
+        </sql>
+      </query>
+
+      <query name="GetRelatedZmanimDetails" file="api/internal/db/queries/master_registry.sql">
+        <sql>
+-- name: GetRelatedZmanimDetails :many
+SELECT
+  id,
+  zman_key,
+  hebrew_name,
+  english_name
+FROM master_zmanim_registry
+WHERE id = ANY($1::bigint[])
+  AND deleted_at IS NULL
+ORDER BY english_name ASC;
+        </sql>
+      </query>
+    </sqlc-queries>
+  </api-patterns>
+
+  <!-- ============================================================ -->
+  <!-- EXISTING CODE PATTERNS TO REFERENCE -->
+  <!-- ============================================================ -->
+  <existing-code-patterns>
+    <modal-pattern>
+      <reference-file>web/components/publisher/RequestZmanModal.tsx</reference-file>
+      <pattern-description>
+        - Uses shadcn/ui Dialog with controlled/uncontrolled mode support
+        - Props: open, onOpenChange for controlled mode; trigger for uncontrolled
+        - State management: useState for form data, useApi hook for API calls
+        - Keyboard navigation: Escape key closes modal
+        - Focus management: Focus returns to trigger after close
+        - Multi-step wizard with progress indicator (can be simplified for single-screen modal)
+      </pattern-description>
+      <key-imports>
+        import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+        import { Button } from '@/components/ui/button';
+        import { Badge } from '@/components/ui/badge';
+        import { useApi } from '@/lib/api-client';
+      </key-imports>
+    </modal-pattern>
+
+    <codemirror-pattern>
+      <reference-file>web/components/editor/CodeMirrorDSLEditor.tsx</reference-file>
+      <pattern-description>
+        - Syntax highlighting for DSL primitives (blue), functions (green), operators (gray)
+        - Read-only mode available via readOnly prop
+        - Monospace font (font-mono class)
+        - Can be embedded in any container
+      </pattern-description>
+      <usage-example>
+        <![CDATA[
+<CodeMirrorDSLEditor
+  value={masterZman.formula_dsl}
+  readOnly={true}
+  className="font-mono"
+/>
+        ]]>
+      </usage-example>
+    </codemirror-pattern>
+
+    <accordion-pattern>
+      <reference-file>web/components/ui/accordion.tsx</reference-file>
+      <pattern-description>
+        - Radix Accordion with shadcn/ui styling
+        - Supports "single" mode (one open) or "multiple" mode (multiple open)
+        - AccordionItem, AccordionTrigger, AccordionContent components
+        - Keyboard accessible (Space/Enter to toggle, Arrow keys to navigate)
+      </pattern-description>
+      <usage-example>
+        <![CDATA[
+<Accordion type="multiple">
+  {parsedHalachicSources.map((source, index) => (
+    <AccordionItem key={index} value={`source-${index}`}>
+      <AccordionTrigger>{source.posek}</AccordionTrigger>
+      <AccordionContent>
+        <p><strong>Explanation:</strong> {source.explanation}</p>
+        <p className="text-sm text-muted-foreground"><strong>Source:</strong> {source.reference}</p>
+      </AccordionContent>
+    </AccordionItem>
+  ))}
+</Accordion>
+        ]]>
+      </usage-example>
+    </accordion-pattern>
+
+    <copy-to-clipboard-pattern>
+      <implementation>
+        <![CDATA[
+const [copiedState, setCopiedState] = useState(false);
+
+const handleCopy = async () => {
+  if (!masterZman?.formula_dsl) return;
+  await navigator.clipboard.writeText(masterZman.formula_dsl);
+  setCopiedState(true);
+  setTimeout(() => setCopiedState(false), 2000);
+};
+
+<Button onClick={handleCopy} variant="outline" size="sm">
+  {copiedState ? 'Copied ✓' : 'Copy to Clipboard'}
+</Button>
+        ]]>
+      </implementation>
+      <accessibility>Add aria-label="Copy DSL formula to clipboard"</accessibility>
+    </copy-to-clipboard-pattern>
+
+    <responsive-modal-styling>
+      <desktop>
+        <![CDATA[
+className="max-w-[800px] max-h-[90vh] overflow-y-auto"
+        ]]>
+      </desktop>
+      <tablet>
+        <![CDATA[
+className="max-w-[90vw] max-h-[90vh] overflow-y-auto"
+        ]]>
+      </tablet>
+      <mobile>
+        <![CDATA[
+className="w-screen h-screen max-w-none max-h-none overflow-y-auto"
+        ]]>
+      </mobile>
+    </responsive-modal-styling>
+  </existing-code-patterns>
+
+  <!-- ============================================================ -->
+  <!-- TESTING PATTERNS -->
+  <!-- ============================================================ -->
+  <testing-patterns>
+    <unit-tests>
+      <file>web/components/registry/MasterZmanDetailModal.test.tsx</file>
+      <test-cases>
+        <test-case>Modal opens when isOpen is true</test-case>
+        <test-case>Modal closes when onClose is called</test-case>
+        <test-case>All required sections render with populated data</test-case>
+        <test-case>Optional sections show placeholders when data is null</test-case>
+        <test-case>Copy button copies formula to clipboard</test-case>
+        <test-case>Copy button shows "Copied ✓" feedback for 2 seconds</test-case>
+        <test-case>Related zman link calls onNavigateToRelated with correct ID</test-case>
+        <test-case>Breadcrumb trail updates on related zman navigation</test-case>
+        <test-case>Warning shown when visiting already-viewed zman</test-case>
+        <test-case>Depth limit enforced (max 5 levels)</test-case>
+      </test-cases>
+    </unit-tests>
+
+    <integration-tests>
+      <file>tests/e2e/publisher/registry-documentation.spec.ts</file>
+      <test-scenarios>
+        <scenario name="Open master documentation modal">
+          1. Navigate to /publisher/registry
+          2. Click Info (ℹ️) button on first master zman card
+          3. Verify modal opens with all sections
+          4. Verify header shows Hebrew + English name
+          5. Verify DSL formula is syntax-highlighted
+          6. Verify halachic sources are expandable
+        </scenario>
+
+        <scenario name="Copy formula to clipboard">
+          1. Open master documentation modal
+          2. Click "Copy to Clipboard" button
+          3. Verify button text changes to "Copied ✓"
+          4. Wait 2 seconds
+          5. Verify button text returns to "Copy to Clipboard"
+          6. Verify clipboard contains formula (using Playwright clipboard API)
+        </scenario>
+
+        <scenario name="Navigate related zmanim">
+          1. Open master documentation modal for "Alos 16.1°"
+          2. Verify Related Zmanim section shows links
+          3. Click related zman "Alos 72 min"
+          4. Verify modal content switches to Alos 72 min
+          5. Verify breadcrumb trail shows "Alos 16.1° > Alos 72 min"
+          6. Click browser back button
+          7. Verify modal shows Alos 16.1° again (future enhancement)
+        </scenario>
+
+        <scenario name="Keyboard navigation">
+          1. Open master documentation modal
+          2. Press Tab key
+          3. Verify focus cycles through Copy button, related links, close button
+          4. Press Escape key
+          5. Verify modal closes
+          6. Verify focus returns to Info button
+        </scenario>
+
+        <scenario name="Click outside to close">
+          1. Open master documentation modal
+          2. Click on modal overlay (outside content)
+          3. Verify modal closes
+          4. Click Info button again to reopen
+          5. Click inside modal content
+          6. Verify modal does NOT close
+        </scenario>
+      </test-scenarios>
+    </integration-tests>
+
+    <accessibility-tests>
+      <axe-core-integration>
+        <file>tests/e2e/publisher/registry-documentation-a11y.spec.ts</file>
+        <checks>
+          <check>Color contrast meets WCAG AA (4.5:1 for text, 3:1 for UI)</check>
+          <check>All interactive elements have ARIA labels</check>
+          <check>Modal has role="dialog" or uses dialog element</check>
+          <check>Focus trap prevents tabbing outside modal</check>
+          <check>Keyboard navigation works without mouse</check>
+          <check>Screen reader announces modal content correctly</check>
+        </checks>
+      </axe-core-integration>
+    </accessibility-tests>
+
+    <performance-tests>
+      <file>tests/e2e/publisher/registry-performance.spec.ts</file>
+      <metrics>
+        <metric name="Modal Open Time" target="&lt;200ms">
+          Measure from button click to modal first paint
+        </metric>
+        <metric name="Full Render Time" target="&lt;500ms">
+          Measure from modal open to all content rendered
+        </metric>
+        <metric name="Related Zman Navigation" target="&lt;300ms">
+          Measure from related link click to new content displayed
+        </metric>
+        <metric name="Cumulative Layout Shift (CLS)" target="0">
+          No layout shifts during modal render or content update
+        </metric>
+      </metrics>
+    </performance-tests>
+  </testing-patterns>
+
+  <!-- ============================================================ -->
+  <!-- CONFIGURATION AND ENVIRONMENT -->
+  <!-- ============================================================ -->
+  <configuration>
+    <frontend-dependencies>
+      <dependency name="@radix-ui/react-dialog" version="latest">Dialog primitives for modal</dependency>
+      <dependency name="@radix-ui/react-accordion" version="latest">Accordion for halachic sources</dependency>
+      <dependency name="@codemirror/view" version="latest">CodeMirror for syntax highlighting</dependency>
+      <dependency name="lucide-react" version="latest">Icons (X for close button, etc.)</dependency>
+    </frontend-dependencies>
+
+    <backend-dependencies>
+      <dependency name="github.com/go-chi/chi/v5" version="v5.x">URL routing (chi.URLParam)</dependency>
+      <dependency name="database/sql" version="stdlib">Database queries</dependency>
+      <dependency name="log/slog" version="stdlib">Structured logging</dependency>
+    </backend-dependencies>
+
+    <environment-variables>
+      <none-required>All data from database, no external APIs for Story 11.2</none-required>
+    </environment-variables>
+  </configuration>
+
+  <!-- ============================================================ -->
+  <!-- DESIGN TOKENS AND STYLING -->
+  <!-- ============================================================ -->
+  <design-tokens>
+    <color-palette>
+      <token name="foreground">Primary text color</token>
+      <token name="background">Page background</token>
+      <token name="card">Card background</token>
+      <token name="card-foreground">Text on card background</token>
+      <token name="primary">Primary brand color (CTAs, links)</token>
+      <token name="primary-foreground">Text on primary background</token>
+      <token name="muted">Muted background (disabled, secondary)</token>
+      <token name="muted-foreground">Muted text color (placeholders, hints)</token>
+      <token name="border">Border color</token>
+      <token name="ring">Focus ring color</token>
+    </color-palette>
+
+    <category-badges>
+      <badge category="ALOS" color="indigo">Dawn/morning calculations</badge>
+      <badge category="SHEMA" color="blue">Shema time calculations</badge>
+      <badge category="CHATZOS" color="yellow">Midday calculations</badge>
+      <badge category="MINCHA" color="orange">Afternoon calculations</badge>
+      <badge category="TZAIS" color="purple">Nightfall calculations</badge>
+    </category-badges>
+
+    <shita-badges>
+      <badge shita="GRA" color="blue">Vilna Gaon</badge>
+      <badge shita="MGA" color="green">Magen Avraham</badge>
+      <badge shita="BAAL_HATANYA" color="purple">Baal HaTanya</badge>
+    </shita-badges>
+
+    <syntax-highlighting-colors>
+      <color type="primitive" hex="#3B82F6">Blue for primitives (sunrise, sunset)</color>
+      <color type="function" hex="#10B981">Green for functions (coalesce, min, max)</color>
+      <color type="operator" hex="#6B7280">Gray for operators (+, -, *)</color>
+      <color type="number" hex="#F59E0B">Orange for numeric values</color>
+    </syntax-highlighting-colors>
+
+    <typography>
+      <font-family name="headers">Bold, sans-serif (Inter, Helvetica)</font-family>
+      <font-family name="body">Regular, sans-serif</font-family>
+      <font-family name="code">Monospace (JetBrains Mono, Courier)</font-family>
+      <font-family name="hebrew">Frank Ruehl CLM, Taamey Frank</font-family>
+
+      <font-sizes>
+        <size name="modal-title" value="text-lg (18px)" weight="font-semibold">Modal header title</size>
+        <size name="section-heading" value="text-lg (18px)" weight="font-semibold">Section headings</size>
+        <size name="body" value="text-base (16px)" weight="font-normal">Body text (minimum for mobile AC5.3)</size>
+        <size name="small" value="text-sm (14px)" weight="font-normal">Small text (references, metadata)</size>
+      </font-sizes>
+    </typography>
+  </design-tokens>
+
+  <!-- ============================================================ -->
+  <!-- IMPLEMENTATION CHECKLIST -->
+  <!-- ============================================================ -->
+  <implementation-checklist>
+    <phase name="PHASE 1: Component Structure">
+      <task>Create MasterZmanDetailModal.tsx with Dialog wrapper</task>
+      <task>Implement modal header (Hebrew + English name, zman_key, close button)</task>
+      <task>Add breadcrumb navigation state and display</task>
+      <task>Implement focus management (useRef for previous focus, useEffect for focus trap)</task>
+      <task>Add keyboard event handlers (Escape to close, Tab cycling)</task>
+    </phase>
+
+    <phase name="PHASE 2: Documentation Sections">
+      <task>Implement Summary section (full_description)</task>
+      <task>Implement DSL Formula section (CodeMirror with copy button)</task>
+      <task>Implement Scientific Explanation section (formula_explanation)</task>
+      <task>Implement Astronomical Definition section (optional, show only if data exists)</task>
+      <task>Implement Algorithm section (optional, show only if data exists)</task>
+      <task>Implement Halachic Significance section (usage_context with placeholder)</task>
+      <task>Implement Halachic Sources section (Accordion with parsed JSON/text)</task>
+      <task>Implement Practical Notes section (optional with placeholder)</task>
+      <task>Implement Related Zmanim section (clickable chips from related_zmanim array)</task>
+    </phase>
+
+    <phase name="PHASE 3: Interactive Features">
+      <task>Implement copy-to-clipboard handler (navigator.clipboard.writeText)</task>
+      <task>Add "Copied ✓" feedback with 2-second timeout</task>
+      <task>Implement related zman navigation (onNavigateToRelated callback)</task>
+      <task>Add cycle detection logic (breadcrumbs array, depth limit 5)</task>
+      <task>Show warning toast when visiting already-viewed zman</task>
+      <task>Implement click-outside-to-close (Dialog overlay click)</task>
+    </phase>
+
+    <phase name="PHASE 4: Responsive Design">
+      <task>Add desktop styling (max-w-[800px], centered)</task>
+      <task>Add tablet styling (max-w-[90vw], stacked sections)</task>
+      <task>Add mobile styling (full screen, sticky header, 16px minimum font)</task>
+      <task>Test on various screen sizes (375px, 768px, 1024px, 1440px)</task>
+    </phase>
+
+    <phase name="PHASE 5: Accessibility">
+      <task>Add semantic HTML (dialog, header, section, nav tags)</task>
+      <task>Add ARIA labels to all interactive elements</task>
+      <task>Add aria-labelledby to modal pointing to title</task>
+      <task>Test keyboard navigation (Tab, Escape, Space/Enter)</task>
+      <task>Test with screen reader (NVDA, VoiceOver)</task>
+      <task>Run axe-core accessibility audit</task>
+      <task>Verify color contrast (4.5:1 text, 3:1 UI)</task>
+    </phase>
+
+    <phase name="PHASE 6: Backend Integration (if separate endpoint)">
+      <task>Create SQLc query: GetMasterZmanDocumentation</task>
+      <task>Create SQLc query: GetRelatedZmanimDetails</task>
+      <task>Create handler: GetMasterZmanDocumentation (6-step pattern)</task>
+      <task>Add route: GET /api/v1/publisher/registry/master/:id/documentation</task>
+      <task>Run `sqlc generate` after adding queries</task>
+      <task>Test endpoint with curl/Postman</task>
+    </phase>
+
+    <phase name="PHASE 7: Testing">
+      <task>Write unit tests for MasterZmanDetailModal component</task>
+      <task>Write E2E test: Open modal from Info button</task>
+      <task>Write E2E test: Copy formula to clipboard</task>
+      <task>Write E2E test: Navigate related zmanim</task>
+      <task>Write E2E test: Keyboard navigation</task>
+      <task>Write E2E test: Click outside to close</task>
+      <task>Write E2E test: Missing data placeholders</task>
+      <task>Write performance test: Modal render time &lt;200ms</task>
+      <task>Write performance test: Related zman navigation &lt;300ms</task>
+      <task>Write accessibility test: axe-core audit</task>
+    </phase>
+
+    <phase name="PHASE 8: Documentation and Cleanup">
+      <task>Update web/components/INDEX.md with MasterZmanDetailModal entry</task>
+      <task>Add JSDoc comments to component props and functions</task>
+      <task>Create usage examples in component comments</task>
+      <task>Test with actual KosherJava-populated data (from Story 11.0)</task>
+      <task>Verify Hebrew text rendering with appropriate fonts</task>
+      <task>Run ESLint and fix warnings</task>
+      <task>Run type check: npm run type-check</task>
+    </phase>
+  </implementation-checklist>
+
+  <!-- ============================================================ -->
+  <!-- RISKS AND MITIGATIONS -->
+  <!-- ============================================================ -->
+  <risks-and-mitigations>
+    <risk severity="MEDIUM">
+      <description>Related zmanim cycles could cause infinite loops or stack overflow</description>
+      <mitigation>
+        - Implement depth limit (max 5 levels)
+        - Track visited zmanim in breadcrumb array
+        - Show warning when revisiting a zman
+        - Prevent navigation if depth limit reached
+        - Test with intentionally cyclic data
+      </mitigation>
+    </risk>
+
+    <risk severity="LOW">
+      <description>Large halachic_source text could cause modal to be too long or unreadable</description>
+      <mitigation>
+        - Use accordion for collapsible sections
+        - Limit initial display to summary, expand for full text
+        - Add max-height with scroll for very long content
+        - Test with longest halachic sources from KosherJava data
+      </mitigation>
+    </risk>
+
+    <risk severity="LOW">
+      <description>Hebrew text may not render correctly in all browsers/fonts</description>
+      <mitigation>
+        - Use web-safe Hebrew fonts (Frank Ruehl CLM, Taamey Frank)
+        - Fallback to system Hebrew fonts
+        - Test on Chrome, Firefox, Safari, Edge
+        - Test on macOS, Windows, Linux
+      </mitigation>
+    </risk>
+
+    <risk severity="LOW">
+      <description>Copy to clipboard may not work in all browsers or HTTPS contexts</description>
+      <mitigation>
+        - Check for navigator.clipboard API availability
+        - Provide fallback error message if unsupported
+        - Ensure HTTPS in production (required for clipboard API)
+        - Test on all major browsers
+      </mitigation>
+    </risk>
+
+    <risk severity="VERY_LOW">
+      <description>Modal performance may degrade with very large documentation (10+ sections, 100+ related zmanim)</description>
+      <mitigation>
+        - Use virtualization for related zmanim if &gt;20 items
+        - Lazy-load accordion content (render on expand)
+        - Profile with React DevTools Profiler
+        - Optimize re-renders with React.memo if needed
+      </mitigation>
+    </risk>
+  </risks-and-mitigations>
+
+  <!-- ============================================================ -->
+  <!-- RELATED STORIES AND DEPENDENCIES -->
+  <!-- ============================================================ -->
+  <related-stories>
+    <prerequisite story-id="11.0" title="Data Foundation & Integrity Audit">
+      <dependency-type>Data</dependency-type>
+      <description>
+        Story 11.0 creates the master_zmanim_registry table and populates all documentation fields.
+        Story 11.2 CANNOT be implemented until Story 11.0 is complete and documentation is backfilled.
+      </description>
+      <validation>
+        Run validation query: SELECT COUNT(*) FROM master_zmanim_registry WHERE full_description IS NULL;
+        Expected: 0 rows
+      </validation>
+    </prerequisite>
+
+    <prerequisite story-id="11.1" title="Master Registry Browser & Import Flow">
+      <dependency-type>UI/Integration</dependency-type>
+      <description>
+        Story 11.1 creates the master registry page with zman cards and Info buttons.
+        Story 11.2 adds the modal that opens when Info button is clicked.
+      </description>
+      <integration-point>
+        ZmanCard component (Story 11.1) has Info button that sets selectedMasterZman state.
+        MasterZmanDetailModal (Story 11.2) receives selectedMasterZman as prop.
+      </integration-point>
+    </prerequisite>
+
+    <dependent story-id="11.4" title="Publisher Zman Documentation Modal">
+      <dependency-type>Code Reuse</dependency-type>
+      <description>
+        Story 11.4 reuses the master documentation rendering component created in Story 11.2.
+        Extract MasterDocumentationContent.tsx from MasterZmanDetailModal.tsx for shared use.
+      </description>
+      <shared-component>web/components/registry/MasterDocumentationContent.tsx</shared-component>
+    </dependent>
+  </related-stories>
+
+  <!-- ============================================================ -->
+  <!-- DEFINITION OF DONE -->
+  <!-- ============================================================ -->
+  <definition-of-done>
+    <functionality>
+      <item checked="false">All 6 content sections implemented (Summary, DSL Formula, Scientific, Astronomical, Algorithm, Halachic Significance, Halachic Sources, Practical Notes, Related Zmanim)</item>
+      <item checked="false">Copy to clipboard works on all browsers (Chrome, Firefox, Safari, Edge)</item>
+      <item checked="false">Related zman navigation works with cycle detection and breadcrumbs</item>
+      <item checked="false">Keyboard navigation works (Escape closes, Tab cycles, Enter/Space activates)</item>
+      <item checked="false">Click outside to close works</item>
+      <item checked="false">Missing data shows placeholders (not blank sections)</item>
+    </functionality>
+
+    <design>
+      <item checked="false">Responsive layout (desktop 800px, tablet 90vw, mobile 100%)</item>
+      <item checked="false">Syntax highlighting matches algorithm editor (blue/green/gray color scheme)</item>
+      <item checked="false">Typography readable (16px minimum body text)</item>
+      <item checked="false">Visual hierarchy clear (header &gt; section headings &gt; body text)</item>
+      <item checked="false">Category and shita badges color-coded</item>
+    </design>
+
+    <accessibility>
+      <item checked="false">Semantic HTML (dialog, header, section, nav tags)</item>
+      <item checked="false">ARIA labels on all interactive elements</item>
+      <item checked="false">Focus trap and focus management working</item>
+      <item checked="false">Keyboard accessible (no mouse required for all interactions)</item>
+      <item checked="false">Color contrast meets WCAG AA (4.5:1 text, 3:1 UI)</item>
+      <item checked="false">Screen reader tested (NVDA or VoiceOver)</item>
+    </accessibility>
+
+    <performance>
+      <item checked="false">Modal opens in &lt;200ms (measured with Playwright)</item>
+      <item checked="false">Content fully renders in &lt;500ms</item>
+      <item checked="false">No layout shifts (CLS score = 0)</item>
+      <item checked="false">Related zman navigation &lt;300ms</item>
+    </performance>
+
+    <testing>
+      <item checked="false">Unit tests for component logic passing</item>
+      <item checked="false">Integration tests for modal interactions passing</item>
+      <item checked="false">E2E tests for full workflow passing (5 test scenarios)</item>
+      <item checked="false">Accessibility tests (axe-core) passing with zero violations</item>
+      <item checked="false">Performance tests meet targets</item>
+    </testing>
+
+    <documentation>
+      <item checked="false">Component documented in web/components/INDEX.md</item>
+      <item checked="false">Props interface documented with JSDoc comments</item>
+      <item checked="false">Usage examples added to component file comments</item>
+      <item checked="false">README updated with new modal feature (if applicable)</item>
+    </documentation>
+
+    <code-quality>
+      <item checked="false">No TODO/FIXME markers in code</item>
+      <item checked="false">No hardcoded colors (all use design tokens)</item>
+      <item checked="false">TypeScript types for all props and state (no 'any')</item>
+      <item checked="false">ESLint passes with no warnings</item>
+      <item checked="false">Type check passes: npm run type-check</item>
+    </code-quality>
+
+    <commit-requirements>
+      <item checked="false">Commit message: "feat(registry): add master zman documentation modal (Story 11.2)"</item>
+      <item checked="false">Code reviewed and approved by at least one reviewer</item>
+      <item checked="false">All CI checks passing (lint, type check, tests)</item>
+      <item checked="false">PR merged to dev branch</item>
+    </commit-requirements>
+  </definition-of-done>
+
+  <!-- ============================================================ -->
+  <!-- NOTES AND CONSIDERATIONS -->
+  <!-- ============================================================ -->
+  <notes>
+    <note priority="HIGH">
+      <title>Extract Shared Component for Story 11.4</title>
+      <description>
+        The master documentation rendering logic (sections 2-10) should be extracted into a shared component:
+        MasterDocumentationContent.tsx
+
+        This component will be imported by both:
+        - MasterZmanDetailModal.tsx (Story 11.2)
+        - PublisherZmanDetailModal.tsx (Story 11.4)
+
+        Props: masterZman object, onCopyFormula callback (optional), onRelatedClick callback (optional)
+      </description>
+    </note>
+
+    <note priority="MEDIUM">
+      <title>Halachic Source JSON Parsing</title>
+      <description>
+        The halachic_source field stores JSON as text. Parse it to render accordion cards:
+
+        Expected format (from Story 11.0 migration):
+        [
+          {
+            "posek": "GRA",
+            "explanation": "The Vilna Gaon holds that...",
+            "reference": "Mishnah Berurah 89:1"
+          },
+          ...
+        ]
+
+        Fallback: If parsing fails, display raw text with warning.
+      </description>
+    </note>
+
+    <note priority="MEDIUM">
+      <title>Related Zmanim Array Fetching</title>
+      <description>
+        The related_zmanim_ids field is an INTEGER[] array. Two options for fetching details:
+
+        Option 1 (RECOMMENDED): Join in initial query
+        - Use LATERAL join or array_agg to fetch related zman names
+        - Inline in master registry list response
+
+        Option 2: Separate query
+        - GetRelatedZmanimDetails :many query with ANY($1::bigint[])
+        - Fetch after main query if related_zmanim_ids is not empty
+      </description>
+    </note>
+
+    <note priority="LOW">
+      <title>Browser Back Button Support (Future Enhancement)</title>
+      <description>
+        Currently, navigating related zmanim updates modal content but NOT the URL.
+        Future enhancement: Use URL params (?modal=master&amp;id=123) to support browser back button.
+
+        This requires:
+        - URL state management (useSearchParams)
+        - Popstate event listener
+        - Sync modal state with URL
+
+        Defer to future story if time permits.
+      </description>
+    </note>
+
+    <note priority="LOW">
+      <title>Hebrew Font Rendering</title>
+      <description>
+        Test Hebrew text rendering on all platforms:
+        - macOS: System Hebrew fonts (good support)
+        - Windows: May need web font (Frank Ruehl CLM)
+        - Linux: Install Hebrew fonts or use web fonts
+
+        Add @font-face rule in global CSS if needed:
+        @font-face {
+          font-family: 'Frank Ruehl CLM';
+          src: url('/fonts/FrankRuehlCLM-Medium.woff2') format('woff2');
+        }
+      </description>
+    </note>
+  </notes>
+</story-context>

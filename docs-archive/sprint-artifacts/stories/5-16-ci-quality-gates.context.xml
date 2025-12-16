@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-16-ci-quality-gates" epic="5" generated="2025-12-02">
+  <summary>
+    Implement pre-commit hooks and CI workflow to enforce coding standards.
+    Prevents new violations from being merged.
+  </summary>
+
+  <dependency>Stories 5.11-5.15 should be completed first (fix existing violations)</dependency>
+
+  <key-files>
+    <file path=".husky/pre-commit" action="create">
+      Pre-commit hook script with standards checks
+    </file>
+    <file path=".github/workflows/standards.yml" action="create">
+      CI workflow for PR checks
+    </file>
+    <file path="package.json" action="modify">
+      Add husky and prepare script
+    </file>
+    <file path="docs/coding-standards.md" action="modify">
+      Add enforcement section
+    </file>
+    <file path="CLAUDE.md" action="modify">
+      Mention quality gates
+    </file>
+  </key-files>
+
+  <checks-to-implement>
+    <check name="Raw fetch()" scope="web/app, web/components" blocker="yes">
+      <pattern>await fetch(</pattern>
+      <message>Use the useApi() hook instead</message>
+      <docs>docs/coding-standards.md#3-duplicated-fetch-logic</docs>
+    </check>
+    <check name="log.Printf" scope="api/internal/handlers, api/internal/services" blocker="yes">
+      <pattern>log\.Printf|fmt\.Printf|fmt\.Println</pattern>
+      <message>Use slog instead</message>
+      <docs>docs/coding-standards.md#logging-slog</docs>
+    </check>
+    <check name="waitForTimeout" scope="tests/e2e" blocker="yes">
+      <pattern>waitForTimeout</pattern>
+      <message>Use deterministic waits instead</message>
+      <docs>docs/coding-standards.md#assertions</docs>
+    </check>
+    <check name="Hardcoded colors" scope="web/**/*.tsx" blocker="no">
+      <pattern>text-\[#|bg-\[#|border-\[#</pattern>
+      <message>Consider using design tokens</message>
+    </check>
+  </checks-to-implement>
+
+  <pre-commit-hook>
+    <purpose>Block commits with violations locally</purpose>
+    <bypass>git commit --no-verify (for emergencies)</bypass>
+    <code>
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "Running coding standards checks..."
+
+# Check 1: No raw fetch in components (CRITICAL)
+FETCH_COUNT=$(grep -r "await fetch(" web/app web/components --include="*.tsx" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$FETCH_COUNT" -gt 0 ]; then
+  echo "ERROR: Found $FETCH_COUNT raw fetch() calls"
+  grep -rn "await fetch(" web/app web/components --include="*.tsx" | head -10
+  exit 1
+fi
+
+# Check 2: No log.Printf in handlers/services (CRITICAL)
+LOG_COUNT=$(grep -rE "log\.Printf|fmt\.Printf|fmt\.Println" api/internal/handlers api/internal/services --include="*.go" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$LOG_COUNT" -gt 0 ]; then
+  echo "ERROR: Found $LOG_COUNT log.Printf calls"
+  exit 1
+fi
+
+# Check 3: No waitForTimeout in tests (CRITICAL)
+WAIT_COUNT=$(grep -r "waitForTimeout" tests/e2e --include="*.ts" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$WAIT_COUNT" -gt 0 ]; then
+  echo "ERROR: Found $WAIT_COUNT waitForTimeout() calls"
+  exit 1
+fi
+
+echo "Coding standards check passed"
+    </code>
+  </pre-commit-hook>
+
+  <ci-workflow>
+    <purpose>Block PRs with violations in CI</purpose>
+    <trigger>pull_request to main</trigger>
+    <file>.github/workflows/standards.yml</file>
+    <steps>
+      <step>Check for raw fetch() in components</step>
+      <step>Check for log.Printf in handlers</step>
+      <step>Check for waitForTimeout in tests</step>
+      <step>Check for hardcoded colors (warning only)</step>
+    </steps>
+  </ci-workflow>
+
+  <husky-setup>
+    <command>npm install husky --save-dev</command>
+    <command>npx husky install</command>
+    <command>npx husky add .husky/pre-commit "sh .husky/pre-commit"</command>
+    <package-json-script>"prepare": "husky install"</package-json-script>
+  </husky-setup>
+
+  <commands>
+    <command purpose="Install husky">npm install husky --save-dev</command>
+    <command purpose="Initialize husky">npx husky install</command>
+    <command purpose="Test pre-commit locally">git add . && git commit -m "test"</command>
+    <command purpose="Test CI workflow">Create test branch, add violation, push PR</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Pre-commit hooks installed and working</item>
+    <item>Hooks install automatically via npm install (prepare script)</item>
+    <item>CI workflow blocks PRs with violations</item>
+    <item>All checks have clear, actionable error messages</item>
+    <item>Error messages include file:line and docs link</item>
+    <item>Non-blocking warnings shown but don't fail build</item>
+    <item>Documentation updated with enforcement info</item>
+    <item>Fresh npm install installs hooks automatically</item>
+  </acceptance-checklist>
+</story-context>

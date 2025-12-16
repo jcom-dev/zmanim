@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-3-smart-placeholders" epic="5" generated="2025-12-02">
+  <summary>
+    Replace abstract parameter names with real, working examples that teach by showing.
+    Tab-to-next-parameter navigation for efficient editing.
+  </summary>
+
+  <key-files>
+    <file path="web/lib/dsl-reference-data.ts" action="modify">
+      Add realWorldExample, defaultValue, commonValues to reference items
+    </file>
+    <file path="web/components/editor/QuickInsertChip.tsx" action="create">
+      Clickable chip component for common values
+    </file>
+    <file path="web/components/editor/DSLReferencePanel.tsx" action="modify">
+      Show quick insert section with chips
+    </file>
+    <file path="web/components/editor/CodeMirrorDSLEditor.tsx" action="modify">
+      Tab navigation between parameters
+    </file>
+  </key-files>
+
+  <example-mappings>
+    <mapping function="solar()"
+             abstract="solar(degrees, direction)"
+             real="solar(16.1, before_sunrise)"/>
+    <mapping function="proportional_hours()"
+             abstract="proportional_hours(hours, base)"
+             real="proportional_hours(4, gra)"/>
+    <mapping function="midpoint()"
+             abstract="midpoint(a, b)"
+             real="midpoint(sunrise, sunset)"/>
+    <mapping function="fixed_offset()"
+             abstract="fixed_offset(base, minutes)"
+             real="fixed_offset(sunset, 72)"/>
+  </example-mappings>
+
+  <reference-data-structure>
+    <typescript>
+interface ReferenceItem {
+  name: string;
+  syntax: string;
+  description: string;
+  parameters?: ParameterInfo[];
+  realWorldExample: string;  // NEW
+  quickInsertChips?: QuickInsertChip[];  // NEW
+}
+
+interface ParameterInfo {
+  name: string;
+  type: string;
+  description: string;
+  defaultValue: string;  // NEW
+  commonValues?: { value: string; label: string; description: string }[];  // NEW
+}
+    </typescript>
+  </reference-data-structure>
+
+  <insertion-flow>
+    <step n="1">User clicks "solar()" in reference panel</step>
+    <step n="2">Editor inserts: solar(16.1, before_sunrise) with first param selected</step>
+    <step n="3">Contextual tooltip appears showing degrees options</step>
+    <step n="4">User types "8.5" → solar(8.5, before_sunrise)</step>
+    <step n="5">User presses Tab → cursor moves to direction</step>
+    <step n="6">Tooltip updates to show direction options</step>
+    <step n="7">User clicks or types value</step>
+    <step n="8">Result: solar(8.5, after_sunset) ✓</step>
+  </insertion-flow>
+
+  <accessibility-note>
+    Tab-to-next behavior must NOT break standard accessibility:
+    - Use Escape to exit snippet mode and restore standard Tab
+    - Consider Ctrl+Tab or different key for snippet navigation
+    - Standard Tab should work for form focus when not in snippet mode
+  </accessibility-note>
+
+  <quick-insert-chips>
+    <chip-group function="solar" parameter="degrees">
+      <chip value="8.5" label="8.5°" description="Tzeis"/>
+      <chip value="11" label="11°" description="Misheyakir"/>
+      <chip value="16.1" label="16.1°" description="Alos (MGA)"/>
+      <chip value="18" label="18°" description="Astronomical"/>
+    </chip-group>
+    <chip-group function="proportional_hours" parameter="hours">
+      <chip value="3" label="3" description="Sof Zman Shema"/>
+      <chip value="4" label="4" description="Sof Zman Tefila"/>
+      <chip value="6" label="6" description="Chatzos"/>
+      <chip value="9.5" label="9.5" description="Mincha Ketana"/>
+      <chip value="10.75" label="10.75" description="Plag HaMincha"/>
+    </chip-group>
+  </quick-insert-chips>
+
+  <commands>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Restart services">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>All functions insert real examples, not abstract placeholders</item>
+    <item>First parameter is selected/highlighted after insertion</item>
+    <item>Tab navigation works between parameters</item>
+    <item>Escape exits snippet mode, restores standard Tab</item>
+    <item>Quick insert chips appear in reference panel</item>
+    <item>Clicking chip inserts value at cursor</item>
+    <item>Contextual tooltips appear on tab advance</item>
+    <item>Mobile tested</item>
+  </acceptance-checklist>
+</story-context>

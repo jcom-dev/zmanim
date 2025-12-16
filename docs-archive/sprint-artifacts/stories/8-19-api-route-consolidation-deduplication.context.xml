@@ -1,0 +1,73 @@
+<story-context id="8-19-api-route-consolidation-deduplication" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>19</storyId>
+    <title>API Route Consolidation &amp; Deduplication (Phase 1)</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-19-api-route-consolidation-deduplication.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>platform maintainer</asA>
+    <iWant>minimal, well-structured API with no route duplication</iWant>
+    <soThat>we reduce maintenance burden</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Master registry unified: single /registry/zmanim serves public/admin based on auth</criterion>
+    <criterion id="AC2">Location search unified: /locations/search replaces /cities + /coverage/search</criterion>
+    <criterion id="AC3">Point lookup unified: /geo/boundaries/at-point handles both simple and zoom-aware</criterion>
+    <criterion id="AC4">Publisher retrieval: /publishers with ?verified=true&amp;accessible=true filters</criterion>
+    <criterion id="AC5">Boundary endpoints: /geo/boundaries/{type} pattern</criterion>
+    <criterion id="AC6">Metadata unified: /registry/metadata?types=tags,day-types,categories</criterion>
+    <criterion id="AC7">Duplicate code removed</criterion>
+    <criterion id="AC8">Legacy routes return 301 redirect</criterion>
+    <criterion id="AC9">Swagger documentation updated</criterion>
+    <criterion id="AC10">Frontend updated</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/</path>
+        <kind>handler-directory</kind>
+        <reason>Consolidate handlers</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/utils.go</path>
+        <kind>utility</kind>
+        <reason>New shared utility functions</reason>
+      </artifact>
+      <artifact>
+        <path>api/cmd/api/main.go</path>
+        <kind>entry-point</kind>
+        <reason>Update route registrations</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>Parameters over endpoints - use query params instead of new routes</constraint>
+    <constraint>Auth-aware responses - single endpoint serves public/admin</constraint>
+    <constraint>RESTful consistency - predictable patterns</constraint>
+    <constraint>DRY handlers - consolidate duplicate logic</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Phase 1 Route Savings</name>
+      <kind>summary</kind>
+      <signature>
+        Master registry: 10 routes → 5 routes (-5)
+        City + coverage search: 2 routes → 1 route (-1)
+        Point lookups: 2 routes → 1 route (-1)
+        Publisher retrieval: 4 routes → 2 routes (-2)
+        Boundary GeoJSON: 6 routes → 3 routes (-3)
+        Metadata: 9 routes → 4 routes (-5)
+        Total: 33 routes → 16 routes (-17)
+      </signature>
+    </interface>
+  </interfaces>
+</story-context>

@@ -1,0 +1,112 @@
+<story-context id="4-13-formula-version-history" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.13</storyId>
+    <title>Formula Version History</title>
+    <status>ready-for-dev</status>
+    <storyPoints>5</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-13-formula-version-history.md</sourceStoryPath>
+    <dependencies>Story 4.2 (DSL Parser), Story 4.6 (Advanced Mode Editor)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>version history for my algorithm with visual diff and rollback capabilities</iWant>
+    <soThat>I can track changes over time, understand what was modified, and revert to previous versions if needed</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.13.1" title="Version Tracking">
+      <item>Every save creates a new version</item>
+      <item>Versions numbered incrementally (v1, v2, v3...)</item>
+      <item>Version includes timestamp and optional description</item>
+      <item>Only published versions shown to end users</item>
+      <item>Draft versions tracked separately</item>
+    </criterion>
+    <criterion id="AC-4.13.2" title="Version History View">
+      <item>Timeline view showing all versions</item>
+      <item>Each version shows: number, date, description, status (draft/published)</item>
+      <item>Current version highlighted</item>
+      <item>Click to view any version details</item>
+    </criterion>
+    <criterion id="AC-4.13.3" title="Visual Diff">
+      <item>Side-by-side comparison of two versions</item>
+      <item>Additions highlighted in green</item>
+      <item>Deletions highlighted in red</item>
+      <item>Changes highlighted in yellow</item>
+      <item>Diff shows formula changes per zman</item>
+      <item>Summary of what changed at top</item>
+    </criterion>
+    <criterion id="AC-4.13.4" title="Rollback Capability">
+      <item>"Restore this version" button on any historical version</item>
+      <item>Restoration creates a new version (doesn't overwrite history)</item>
+      <item>Confirmation dialog with warning</item>
+      <item>Option to restore as draft or publish immediately</item>
+      <item>Audit log of who restored and when</item>
+    </criterion>
+    <criterion id="AC-4.13.5" title="Version Comparison Selection">
+      <item>Select any two versions to compare</item>
+      <item>Quick compare: current vs previous</item>
+      <item>Quick compare: current vs any published version</item>
+      <item>Permalink to specific version for sharing</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.13</section>
+      </doc>
+    </docs>
+  </artifacts>
+
+  <databaseSchema>
+    <table name="algorithm_versions">
+      <column name="id" type="UUID" primary="true"/>
+      <column name="algorithm_id" type="UUID" references="algorithms(id)"/>
+      <column name="version_number" type="INT"/>
+      <column name="status" type="VARCHAR(20)" description="draft, published"/>
+      <column name="config" type="JSONB" description="Full config snapshot"/>
+      <column name="description" type="TEXT"/>
+      <column name="created_by" type="UUID" references="users(id)"/>
+      <column name="created_at" type="TIMESTAMP"/>
+      <uniqueConstraint columns="algorithm_id, version_number"/>
+    </table>
+  </databaseSchema>
+
+  <serviceStructure>
+    <directory path="api/internal/diff/">
+      <file>algorithm.go - Diff generation service</file>
+    </directory>
+    <directory path="web/components/algorithm/">
+      <file>VersionHistory.tsx - Timeline view</file>
+      <file>VersionDiff.tsx - Side-by-side diff</file>
+      <file>RestoreButton.tsx - Rollback action</file>
+    </directory>
+  </serviceStructure>
+
+  <diffModel>
+    <type name="AlgorithmDiff">
+      <field name="Summary" type="string"/>
+      <field name="Changes" type="[]ZmanChange"/>
+      <field name="AddedZmanim" type="[]string"/>
+      <field name="RemovedZmanim" type="[]string"/>
+    </type>
+    <type name="ZmanChange">
+      <field name="ZmanKey" type="string"/>
+      <field name="Field" type="string" description="formula, name_hebrew, etc."/>
+      <field name="OldValue" type="string"/>
+      <field name="NewValue" type="string"/>
+      <field name="ChangeType" type="string" description="modified, added, removed"/>
+    </type>
+  </diffModel>
+
+  <constraints>
+    <constraint type="data">Rollback creates new version, never overwrites history</constraint>
+    <constraint type="audit">All rollback actions logged with user ID</constraint>
+    <constraint type="ux">Diff colors: green=added, red=removed, yellow=modified</constraint>
+  </constraints>
+</story-context>

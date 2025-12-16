@@ -1,0 +1,136 @@
+<story-context id="4-6-advanced-mode-editor" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.6</storyId>
+    <title>Advanced Mode Editor (CodeMirror 6)</title>
+    <status>ready-for-dev</status>
+    <storyPoints>8</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-6-advanced-mode-editor.md</sourceStoryPath>
+    <dependencies>Story 4.2 (DSL Parser), Story 4.4 (Guided Formula Builder)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>power-user publisher</asA>
+    <iWant>a code editor with full DSL syntax support via CodeMirror 6</iWant>
+    <soThat>I can write complex formulas with syntax highlighting, autocomplete, and inline validation</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.6.1" title="CodeMirror Integration">
+      <item>CodeMirror 6 editor integrated into formula editing page</item>
+      <item>Editor loads existing formula from database</item>
+      <item>Editor saves formula back to database</item>
+      <item>Minimum height: 200px, maximum: 500px</item>
+    </criterion>
+    <criterion id="AC-4.6.2" title="DSL Syntax Highlighting">
+      <item>Custom syntax highlighting for DSL language</item>
+      <item>Keywords highlighted (sunrise, sunset, solar, shaos, etc.)</item>
+      <item>Functions highlighted differently from primitives</item>
+      <item>References (@zman_key) highlighted with distinct color</item>
+      <item>Numbers and durations highlighted</item>
+    </criterion>
+    <criterion id="AC-4.6.3" title="Autocomplete">
+      <item>Autocomplete for primitives (sunrise, sunset, etc.)</item>
+      <item>Autocomplete for functions (solar, shaos, midpoint)</item>
+      <item>Autocomplete for zman references (@) from publisher's defined zmanim</item>
+      <item>Autocomplete shows documentation snippets</item>
+      <item>Keyboard-accessible (Tab to accept, Esc to dismiss)</item>
+    </criterion>
+    <criterion id="AC-4.6.4" title="Inline Validation">
+      <item>Real-time validation as user types (debounced 500ms)</item>
+      <item>Syntax errors underlined with red squiggly</item>
+      <item>Semantic errors underlined with yellow squiggly</item>
+      <item>Hover over error shows message</item>
+      <item>Error panel below editor lists all errors</item>
+    </criterion>
+    <criterion id="AC-4.6.5" title="Mode Toggle">
+      <item>Easy toggle between Guided Mode and Advanced Mode</item>
+      <item>Formula transfers correctly between modes</item>
+      <item>Warning if switching from Advanced to Guided loses complex features</item>
+    </criterion>
+    <criterion id="AC-4.6.6" title="Live Preview">
+      <item>Preview panel shows calculated result (same as Guided Mode)</item>
+      <item>Preview updates as formula changes</item>
+      <item>Preview shows calculation breakdown</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.6</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-ui-wireframes.md</path>
+        <section>Advanced Mode</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-dsl-specification.md</path>
+        <section>Full specification for syntax highlighting</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>web/components/formula-builder/CalculationPreview.tsx</path>
+        <kind>component</kind>
+        <reason>Reuse from Story 4.4</reason>
+      </file>
+    </code>
+    <newDependencies>
+      <npm>codemirror - Code editor</npm>
+      <npm>@codemirror/basic-setup - Editor extensions</npm>
+      <npm>@codemirror/language - Language support</npm>
+      <npm>@codemirror/autocomplete - Autocomplete</npm>
+      <npm>@codemirror/lint - Inline validation</npm>
+      <npm>@lezer/highlight - Syntax highlighting</npm>
+    </newDependencies>
+  </artifacts>
+
+  <componentStructure>
+    <directory path="web/lib/codemirror/">
+      <file>dsl-language.ts - Lezer grammar and language support</file>
+      <file>dsl-completion.ts - Autocomplete source</file>
+      <file>dsl-linting.ts - Lint source calling validation API</file>
+      <file>dsl-theme.ts - Syntax highlighting colors</file>
+    </directory>
+    <directory path="web/components/editor/">
+      <file>DSLEditor.tsx - Main editor component</file>
+      <file>ModeToggle.tsx - Guided/Advanced toggle</file>
+      <file>ErrorPanel.tsx - Error list below editor</file>
+    </directory>
+  </componentStructure>
+
+  <lezerGrammarSketch>
+    <grammar>
+@top Formula { expression }
+
+expression {
+  Primitive |
+  FunctionCall |
+  BinaryOp |
+  Reference |
+  Conditional |
+  "(" expression ")"
+}
+
+Primitive { "sunrise" | "sunset" | "solar_noon" | "civil_dawn" | "civil_dusk" | ... }
+FunctionCall { Function "(" Args ")" }
+Function { "solar" | "shaos" | "midpoint" }
+BinaryOp { expression Operator expression }
+Operator { "+" | "-" | "*" | "/" }
+Reference { "@" identifier }
+Duration { Number ("min" | "hr" | "h" | "m") }
+Conditional { "if" "(" expression ")" "{" expression "}" "else" "{" expression "}" }
+    </grammar>
+  </lezerGrammarSketch>
+
+  <constraints>
+    <constraint type="ux">500ms debounce on validation</constraint>
+    <constraint type="ux">Responsive editor sizing 200-500px</constraint>
+    <constraint type="accessibility">Keyboard navigation for autocomplete</constraint>
+    <constraint type="accessibility">Screen reader error announcements</constraint>
+  </constraints>
+</story-context>

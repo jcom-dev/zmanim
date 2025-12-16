@@ -1,0 +1,344 @@
+<story-context id="8-36-extended-display-preferences-persistence" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>36</storyId>
+    <title>Extended Display Preferences with Cookie Persistence</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>user of the zmanim platform</asA>
+    <iWant>my display preferences (language, seconds, filters, location) to persist across sessions and apply consistently to all views</iWant>
+    <soThat>I don't have to reconfigure my preferences every time I visit or switch between daily/weekly views</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Language toggle: English, Hebrew, Transliteration - persists in cookie</criterion>
+    <criterion id="AC2">Filter preferences persist: category filters, tag filters, visibility toggles</criterion>
+    <criterion id="AC3">Settings apply to daily view</criterion>
+    <criterion id="AC4">Settings apply to weekly view</criterion>
+    <criterion id="AC5">Settings apply to publisher algorithm page</criterion>
+    <criterion id="AC6">Settings apply to anonymous zmanim page</criterion>
+    <criterion id="AC7">Unified settings panel accessible from page header</criterion>
+    <criterion id="AC8">Reset to defaults option available</criterion>
+    <criterion id="AC9">Cross-tab synchronization works</criterion>
+    <criterion id="AC10">Total cookie size under 4KB</criterion>
+    <criterion id="AC11">SSR hydration works correctly (no flash)</criterion>
+    <criterion id="AC12">Graceful fallback if cookies disabled</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <!-- PreferencesContext - Complete extension -->
+      <artifact>
+        <path>web/lib/contexts/PreferencesContext.tsx</path>
+        <kind>context-provider</kind>
+        <symbol>PreferencesProvider</symbol>
+        <reason>Extend with language, filters, and all display preferences</reason>
+        <currentInterface><![CDATA[
+export interface UserPreferences {
+  // Location (existing from 8.29)
+  cityId: number | null;
+  continentId: number | null;
+  countryId: number | null;
+  regionId: number | null;
+  // Theme (existing from 8.29)
+  theme: 'light' | 'dark' | 'system';
+}
+        ]]></currentInterface>
+        <extendedInterface><![CDATA[
+export type Language = 'en' | 'he' | 'translit';
+export type RoundingMode = 'floor' | 'math' | 'ceil';
+
+export interface FilterPreferences {
+  categories: string[];      // ['dawn', 'morning', 'afternoon', 'evening', 'night']
+  tags: string[];            // ['shabbat', 'biblical', 'rabbinic']
+  showOptional: boolean;
+  showCustom: boolean;
+  showDisabled: boolean;     // Publisher-only
+}
+
+export interface UserPreferences {
+  // Location (existing)
+  cityId: number | null;
+  continentId: number | null;
+  countryId: number | null;
+  regionId: number | null;
+
+  // Theme (existing)
+  theme: 'light' | 'dark' | 'system';
+
+  // Display - from Story 8.34
+  showSeconds: boolean | null;
+  roundingMode: RoundingMode;
+
+  // Language - NEW
+  language: Language;
+
+  // Filters - NEW
+  filters: FilterPreferences;
+}
+        ]]></extendedInterface>
+        <newMethods><![CDATA[
+setLanguage: (language: Language) => void;
+setFilters: (filters: FilterPreferences) => void;
+setShowSeconds: (showSeconds: boolean) => void;
+setRoundingMode: (mode: RoundingMode) => void;
+resetToDefaults: () => void;
+        ]]></newMethods>
+      </artifact>
+
+      <!-- New component: UnifiedSettingsPanel -->
+      <artifact>
+        <path>web/components/shared/UnifiedSettingsPanel.tsx</path>
+        <kind>component</kind>
+        <symbol>UnifiedSettingsPanel</symbol>
+        <reason>NEW FILE - Dropdown panel with all display settings</reason>
+        <sections>
+          <section name="Language">ToggleGroup: English | עברית | Translit</section>
+          <section name="Time Display">Switch (seconds) + ToggleGroup (rounding) - from 8.34</section>
+          <section name="Filters">Checkboxes for category/visibility toggles</section>
+          <section name="Actions">Reset to Defaults button</section>
+        </sections>
+        <uiPattern>DropdownMenu from shadcn/ui, triggered by Settings icon in header</uiPattern>
+      </artifact>
+
+      <!-- Header integration -->
+      <artifact>
+        <path>web/components/shared/Header.tsx</path>
+        <kind>component</kind>
+        <reason>Add UnifiedSettingsPanel to site header (if exists)</reason>
+        <alternative>Add to individual page layouts if no shared header</alternative>
+      </artifact>
+
+      <!-- Pages to consume preferences -->
+      <artifact>
+        <path>web/app/page.tsx</path>
+        <kind>page</kind>
+        <reason>Home page - may show zmanim preview, respect language</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/zmanim/page.tsx</path>
+        <kind>page</kind>
+        <reason>Anonymous zmanim page - full preferences consumption</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/zmanim/[cityId]/page.tsx</path>
+        <kind>page</kind>
+        <reason>City-specific zmanim - respect all display preferences</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/publisher/algorithm/page.tsx</path>
+        <kind>page</kind>
+        <reason>Publisher algorithm page - respect all display preferences</reason>
+      </artifact>
+
+      <!-- Components that display zmanim -->
+      <artifact>
+        <path>web/components/publisher/ZmanCard.tsx</path>
+        <kind>component</kind>
+        <reason>Respect language preference for name display</reason>
+        <currentPattern><![CDATA[
+// Line 140-150: hasNameModifications checks source vs current
+// displayLanguage prop already exists: 'hebrew' | 'english' | 'both'
+// Need to wire to PreferencesContext.language
+        ]]></currentPattern>
+      </artifact>
+      <artifact>
+        <path>web/components/ZmanimDisplay.tsx</path>
+        <kind>component</kind>
+        <reason>Main display component - apply all preferences</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/publisher/WeekPreview.tsx</path>
+        <kind>component</kind>
+        <reason>Weekly view - respect language and time formatting</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/publisher/AlgorithmPreview.tsx</path>
+        <kind>component</kind>
+        <reason>Daily algorithm preview - respect all preferences</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <cookieStrategy>
+    <cookies>
+      <cookie name="zmanim_city_id" ttl="90" size="~10" existing="true" />
+      <cookie name="zmanim_theme" ttl="365" size="~10" existing="true" />
+      <cookie name="zmanim_show_seconds" ttl="365" size="~5" new="8.34" />
+      <cookie name="zmanim_rounding_mode" ttl="365" size="~5" new="8.34" />
+      <cookie name="zmanim_language" ttl="365" size="~10" new="8.36" />
+      <cookie name="zmanim_filters" ttl="90" size="~200" new="8.36" />
+    </cookies>
+    <totalEstimate>~250 bytes (well under 4KB limit)</totalEstimate>
+
+    <filterSerialization><![CDATA[
+// Compact JSON to minimize cookie size
+function serializeFilters(filters: FilterPreferences): string {
+  return JSON.stringify({
+    c: filters.categories,        // Shortened key
+    t: filters.tags,
+    o: filters.showOptional ? 1 : 0,
+    u: filters.showCustom ? 1 : 0,
+    d: filters.showDisabled ? 1 : 0,
+  });
+}
+
+function deserializeFilters(json: string): FilterPreferences {
+  try {
+    const data = JSON.parse(json);
+    return {
+      categories: data.c || DEFAULT_FILTERS.categories,
+      tags: data.t || DEFAULT_FILTERS.tags,
+      showOptional: data.o === 1,
+      showCustom: data.u === 1,
+      showDisabled: data.d === 1,
+    };
+  } catch {
+    return DEFAULT_FILTERS;
+  }
+}
+    ]]></filterSerialization>
+  </cookieStrategy>
+
+  <defaultValues>
+    <default name="language" value="en" />
+    <default name="showSeconds" value="null" note="Use page default" />
+    <default name="roundingMode" value="math" />
+    <default name="filters.categories">['dawn', 'morning', 'afternoon', 'evening', 'night']</default>
+    <default name="filters.tags">[]</default>
+    <default name="filters.showOptional" value="true" />
+    <default name="filters.showCustom" value="true" />
+    <default name="filters.showDisabled" value="false" />
+  </defaultValues>
+
+  <languageIntegration>
+    <mapping from="en" to="english_name" rtl="false" />
+    <mapping from="he" to="hebrew_name" rtl="true" />
+    <mapping from="translit" to="transliteration" rtl="false" />
+    <rtlHandling><![CDATA[
+// In consuming components:
+const dir = preferences.language === 'he' ? 'rtl' : 'ltr';
+<div dir={dir}>...</div>
+    ]]></rtlHandling>
+  </languageIntegration>
+
+  <filterIntegration>
+    <filtering><![CDATA[
+// Filter zmanim based on preferences
+const filteredZmanim = zmanim.filter((z) => {
+  // Category filter
+  if (filters.categories.length > 0 && !filters.categories.includes(z.time_category)) {
+    return false;
+  }
+
+  // Tag filter
+  if (filters.tags.length > 0) {
+    const zmanTags = z.tags?.map(t => t.name) || [];
+    if (!filters.tags.some(tag => zmanTags.includes(tag))) {
+      return false;
+    }
+  }
+
+  // Visibility toggles
+  if (!filters.showOptional && z.category === 'optional') return false;
+  if (!filters.showCustom && z.is_custom) return false;
+  if (!filters.showDisabled && !z.is_enabled) return false;  // Publisher only
+
+  return true;
+});
+    ]]></filtering>
+  </filterIntegration>
+
+  <crossTabSync>
+    <eventName>preferences-cookie-change</eventName>
+    <payload>{ key: string, value: any }</payload>
+    <implementation><![CDATA[
+// When setting a preference:
+window.dispatchEvent(new CustomEvent('preferences-cookie-change', {
+  detail: { key: COOKIE_LANGUAGE, value: language }
+}));
+
+// Listener in PreferencesProvider:
+window.addEventListener('preferences-cookie-change', (e: CustomEvent) => {
+  const { key, value } = e.detail;
+  switch (key) {
+    case COOKIE_LANGUAGE:
+      setPreferences(prev => ({ ...prev, language: value }));
+      break;
+    case COOKIE_FILTERS:
+      setPreferences(prev => ({ ...prev, filters: deserializeFilters(value) }));
+      break;
+    // ... other cases
+  }
+});
+    ]]></implementation>
+  </crossTabSync>
+
+  <ssrStrategy>
+    <serverSide><![CDATA[
+// In layout.tsx:
+const cookieStore = await cookies();
+const languageCookie = cookieStore.get('zmanim_language')?.value;
+const filtersCookie = cookieStore.get('zmanim_filters')?.value;
+
+// Pass to PreferencesProvider:
+<PreferencesProvider
+  initialLanguage={languageCookie as Language || 'en'}
+  initialFilters={filtersCookie ? deserializeFilters(filtersCookie) : DEFAULT_FILTERS}
+>
+    ]]></serverSide>
+    <hydration>Provider reads cookies client-side, compares with SSR values, updates if needed</hydration>
+  </ssrStrategy>
+
+  <dependencies>
+    <dependency>Story 8.29 - PreferencesContext foundation (DONE)</dependency>
+    <dependency>Story 8.34 - Seconds display toggle (showSeconds, roundingMode)</dependency>
+    <dependency>js-cookie - already installed</dependency>
+    <dependency>shadcn/ui components: DropdownMenu, Switch, ToggleGroup, Checkbox</dependency>
+  </dependencies>
+
+  <testingStrategy>
+    <unit>
+      <test>serializeFilters produces valid JSON under 500 bytes</test>
+      <test>deserializeFilters handles malformed JSON gracefully</test>
+      <test>Default values applied when cookies missing</test>
+    </unit>
+    <component>
+      <test>UnifiedSettingsPanel renders all sections</test>
+      <test>Language toggle updates preference</test>
+      <test>Filter toggles update preferences</test>
+      <test>Reset to defaults works</test>
+    </component>
+    <e2e>
+      <test>Language change persists across refresh</test>
+      <test>Language applies to all views (zmanim, weekly, algorithm)</test>
+      <test>Filter change persists across refresh</test>
+      <test>Cross-tab sync: change in Tab 1, reflects in Tab 2</test>
+      <test>Hebrew mode: RTL layout applied</test>
+      <test>Cookie size never exceeds 4KB: document.cookie.length</test>
+    </e2e>
+  </testingStrategy>
+
+  <constraints>
+    <constraint>Total cookie size must stay under 4KB (browser limit)</constraint>
+    <constraint>SSR must not cause hydration mismatch</constraint>
+    <constraint>Hebrew mode requires proper RTL styling</constraint>
+    <constraint>All views must consistently respect preferences</constraint>
+    <constraint>Graceful degradation if cookies disabled</constraint>
+  </constraints>
+
+  <implementationOrder>
+    <step n="1">Extend PreferencesContext interface and types</step>
+    <step n="2">Add new cookie handling (language, filters)</step>
+    <step n="3">Implement setLanguage, setFilters, resetToDefaults methods</step>
+    <step n="4">Create UnifiedSettingsPanel component</step>
+    <step n="5">Update SSR in layout.tsx to read new cookies</step>
+    <step n="6">Update consuming components to use preferences</step>
+    <step n="7">Add cross-tab sync for new preferences</step>
+    <step n="8">Testing and verification</step>
+  </implementationOrder>
+</story-context>

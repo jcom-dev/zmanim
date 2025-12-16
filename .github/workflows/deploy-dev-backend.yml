@@ -1,0 +1,80 @@
+name: Deploy Dev Backend
+
+# Deploy Go API to Fly.io development environment
+# Production uses AWS (deploy-prod-backend.yml)
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'api/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: api/go.sum
+
+      - name: Setup Fly
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.DEV_FLY_API_TOKEN }}
+
+      # Note: Post-deployment steps (geo data seeding, RAG indexer) are skipped
+      # because they have already been completed manually in production.
+      # If you need to re-run these steps, uncomment and fix the paths below:
+
+      # # Install PostgreSQL 17 client for database checks
+      # - name: Install PostgreSQL 17 Client
+      #   run: |
+      #     sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+      #     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+      #     sudo apt-get update
+      #     sudo apt-get install -y postgresql-client-17
+
+      # # Post-deploy: Seed geographic data if not already present
+      # - name: Seed Geographic Data (if needed)
+      #   run: |
+      #     echo "Checking if geographic data exists..."
+      #     CITY_COUNT=$(psql "$DATABASE_URL" -t -c 'SELECT COUNT(*) FROM cities' 2>/dev/null | tr -d ' \n' || echo "0")
+      #     echo "Current city count: $CITY_COUNT"
+      #     if [ -z "$CITY_COUNT" ] || [ "$CITY_COUNT" -lt "1000" ]; then
+      #       echo "Geographic data missing or incomplete. Running seed-geodata..."
+      #       go run ./cmd/seed-geodata/
+      #       echo "Geographic data seeded"
+      #     else
+      #       echo "Geographic data already exists ($CITY_COUNT cities). Skipping seed."
+      #     fi
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+
+      # # Post-deploy: Run RAG indexer if embeddings table is empty
+      # - name: Run RAG Indexer (if needed)
+      #   run: |
+      #     echo "Checking if RAG embeddings exist..."
+      #     EMBEDDING_COUNT=$(psql "$DATABASE_URL" -t -c 'SELECT COUNT(*) FROM embeddings' 2>/dev/null | tr -d ' \n' || echo "0")
+      #     echo "Current embedding count: $EMBEDDING_COUNT"
+      #     if [ -z "$EMBEDDING_COUNT" ] || [ "$EMBEDDING_COUNT" -lt "10" ]; then
+      #       echo "RAG embeddings missing or incomplete. Running indexer..."
+      #       go run ./cmd/indexer/ || echo "Indexer failed - pgvector may not be available"
+      #     else
+      #       echo "RAG embeddings already exist ($EMBEDDING_COUNT embeddings). Skipping indexer."
+      #     fi
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+      #     OPENAI_API_KEY: ${{ secrets.DEV_OPENAI_API_KEY }}

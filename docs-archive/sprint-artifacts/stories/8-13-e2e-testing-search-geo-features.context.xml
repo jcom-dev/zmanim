@@ -1,0 +1,80 @@
+<story-context id="8-13-e2e-testing-search-geo-features" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>13</storyId>
+    <title>E2E Testing for Search &amp; Geo Features</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-13-e2e-testing-search-geo-features.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>comprehensive tests for the new search infrastructure</iWant>
+    <soThat>we can deploy with confidence</soThat>
+    <tasks>
+      <task id="1">Create location search test file (AC: 1-4)</task>
+      <task id="2">Write single-word search tests (AC: 1)</task>
+      <task id="3">Write multi-word search tests (AC: 2)</task>
+      <task id="4">Write alias search tests (AC: 3)</task>
+      <task id="5">Write foreign name tests (AC: 4)</task>
+      <task id="6">Write hierarchy validation tests (AC: 5)</task>
+      <task id="7">Write performance tests (AC: 6)</task>
+      <task id="8">Verify existing tests (AC: 7)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">E2E tests for single-word search (population ranking)</criterion>
+    <criterion id="AC2">E2E tests for multi-word search (context parsing)</criterion>
+    <criterion id="AC3">E2E tests for alias search (UK, USA, England)</criterion>
+    <criterion id="AC4">E2E tests for foreign name search (Yerushalayim)</criterion>
+    <criterion id="AC5">E2E tests for hierarchy validation</criterion>
+    <criterion id="AC6">Performance tests: &lt;50ms for 95th percentile</criterion>
+    <criterion id="AC7">All existing E2E tests still pass</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.13</section>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>tests/e2e/</path>
+        <kind>test-directory</kind>
+        <reason>Location for E2E test files</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/utils/</path>
+        <kind>utility-directory</kind>
+        <reason>Test utilities and helpers</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <node>
+        <package>@playwright/test</package>
+      </node>
+      <stories>
+        <depends-on>8.8, 8.9, 8.10, 8.14 (search infrastructure)</depends-on>
+      </stories>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Requires Stories 8.8, 8.9, 8.10, 8.14 completed first</constraint>
+    <constraint>Use existing test fixtures and utilities</constraint>
+    <constraint>Performance tests must run 100 iterations for p95</constraint>
+  </constraints>
+
+  <tests>
+    <standards>Use Playwright. Use existing fixtures. Performance benchmark with 100 iterations.</standards>
+    <locations>
+      <location>tests/e2e/search/location-search.spec.ts</location>
+    </locations>
+  </tests>
+</story-context>

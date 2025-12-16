@@ -1,0 +1,51 @@
+<story-context id="8-24-soft-delete-pattern-documentation" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>24</storyId>
+    <title>Soft Delete Pattern Documentation</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>documented soft-delete patterns with examples</iWant>
+    <soThat>future features implement deletion consistently</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Soft-delete pattern documented in coding-standards.md</criterion>
+    <criterion id="AC2">Existing implementations audited and listed</criterion>
+    <criterion id="AC3">Example code snippets provided</criterion>
+    <criterion id="AC4">SQLc query patterns documented</criterion>
+    <criterion id="AC5">Frontend deletion flow patterns documented</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <reason>Add soft-delete pattern section</reason>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/publisher_zmanim.go</path>
+        <kind>reference</kind>
+        <symbol>SoftDeletePublisherZman, RestorePublisherZman, PermanentDeletePublisherZman</symbol>
+        <reason>Reference implementation of soft-delete pattern</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/publisher_zmanim.sql</path>
+        <kind>reference</kind>
+        <reason>SQLc queries for soft-delete pattern</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>Documentation only - no code changes</constraint>
+    <constraint>Must be actionable for future implementations</constraint>
+  </constraints>
+</story-context>

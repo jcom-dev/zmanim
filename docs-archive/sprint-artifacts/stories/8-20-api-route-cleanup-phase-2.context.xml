@@ -1,0 +1,77 @@
+<story-context id="8-20-api-route-cleanup-phase-2" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>20</storyId>
+    <title>API Route Cleanup Phase 2</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-20-api-route-cleanup-phase-2.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>platform maintainer</asA>
+    <iWant>to complete API route consolidation</iWant>
+    <soThat>we achieve the full 25% route reduction target</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Version history uses single consistent pattern for both zman and algorithm</criterion>
+    <criterion id="AC2">Correction requests unified with role-based filtering</criterion>
+    <criterion id="AC3">Soft-delete/restore/permanent-delete abstracted to shared middleware</criterion>
+    <criterion id="AC4">Team management simplified</criterion>
+    <criterion id="AC5">Legacy routes return 301 redirect</criterion>
+    <criterion id="AC6">E2E tests pass</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/</path>
+        <kind>handler-directory</kind>
+        <reason>Update version history and correction request handlers</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/middleware/soft_delete.go</path>
+        <kind>middleware</kind>
+        <reason>New soft-delete middleware to create</reason>
+      </artifact>
+      <artifact>
+        <path>api/cmd/api/main.go</path>
+        <kind>entry-point</kind>
+        <reason>Update route registrations</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <stories>
+        <depends-on>8.19 (Phase 1 must be complete first)</depends-on>
+      </stories>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Story 8.19 (Phase 1) must be completed first</constraint>
+    <constraint>Maintain backwards compatibility during transition</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Version History Standardization</name>
+      <kind>route pattern</kind>
+      <signature>
+        GET /publisher/{resource}/history - list versions
+        GET /publisher/{resource}/history/{version} - version detail
+        POST /publisher/{resource}/history/{version}/restore - restore version
+      </signature>
+    </interface>
+    <interface>
+      <name>Soft Delete Middleware</name>
+      <kind>middleware</kind>
+      <signature>
+        DELETE /{resource}/{id} - soft delete
+        POST /{resource}/{id}/restore - restore
+        DELETE /{resource}/{id}/permanent - hard delete
+      </signature>
+    </interface>
+  </interfaces>
+</story-context>

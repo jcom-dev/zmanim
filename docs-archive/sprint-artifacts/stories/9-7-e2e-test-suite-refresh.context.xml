@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.7" title="E2E Test Suite Refresh for New API Structure">
+  <summary>
+    This context file provides all information needed to update the E2E test suite for the new API structure from Epic 9.
+    Tests must be updated to use new /public/* and /auth/* paths, and new test suites must be created for
+    consolidated endpoints, security controls, and role-based filtering.
+  </summary>
+
+  <current-state>
+    <description>
+      The E2E test suite uses old API paths and lacks tests for:
+      - New API path structure (/api/v1/public/*, /api/v1/auth/*)
+      - Consolidated correction request endpoints
+      - Security controls (tenant isolation, IDOR prevention)
+      - Legacy endpoint redirect behavior (301 responses)
+      - Role-based filtering (admin vs publisher views)
+    </description>
+
+    <test-structure>
+      tests/
+      ├── e2e/
+      │   ├── admin/                    # Admin flow tests
+      │   │   ├── dashboard.spec.ts
+      │   │   ├── publishers.spec.ts
+      │   │   └── impersonation.spec.ts
+      │   ├── publisher/                # Publisher flow tests
+      │   │   ├── algorithm.spec.ts
+      │   │   ├── version-history.spec.ts
+      │   │   ├── team.spec.ts
+      │   │   └── publisher-lifecycle.spec.ts
+      │   ├── registration/             # Registration flow tests
+      │   │   ├── auth-flows.spec.ts
+      │   │   └── publisher-registration.spec.ts
+      │   ├── user/                     # User flow tests
+      │   │   ├── zmanim.spec.ts
+      │   │   └── location.spec.ts
+      │   └── utils/                    # Test utilities
+      │       ├── auth-helpers.ts
+      │       └── api-helpers.ts
+      ├── playwright.config.ts
+      └── package.json
+    </test-structure>
+  </current-state>
+
+  <target-state>
+    <description>
+      - All tests use new API structure (/api/v1/public/*, /api/v1/auth/*)
+      - Tests validate consolidated correction request endpoints
+      - Security test coverage for tenant isolation and IDOR prevention
+      - Tests verify legacy redirects work correctly (301 + deprecation headers)
+      - Tests verify role-based filtering (admin sees all, publisher sees own)
+    </description>
+
+    <new-test-files>
+      tests/e2e/correction-requests/
+      ├── consolidated-endpoints.spec.ts    # Unified endpoint tests
+      ├── role-based-filtering.spec.ts      # Admin vs publisher views
+      └── legacy-redirects.spec.ts          # 301 redirect tests
+
+      tests/e2e/security/
+      ├── tenant-isolation.spec.ts          # Cross-tenant access tests
+      ├── role-enforcement.spec.ts          # Role-based authorization
+      ├── idor-prevention.spec.ts           # IDOR vulnerability tests
+      └── admin-bypass.spec.ts              # Authorized admin cross-tenant
+    </new-test-files>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/tests/playwright.config.ts" relevance="primary">
+      <description>Playwright configuration for E2E tests</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/tests/e2e/utils/api-helpers.ts" relevance="primary">
+      <description>
+        Test utilities for API calls. Need to add normalizeApiPath helper and
+        functions for new consolidated endpoints.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/tests/e2e/utils/auth-helpers.ts" relevance="primary">
+      <description>Authentication helpers for E2E tests. May need updates for role-based testing.</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/web/lib/api-client.ts" relevance="reference">
+      <description>
+        Frontend API client reference. Shows normalizeEndpoint pattern that tests should follow.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/cmd/api/main.go" relevance="reference">
+      <description>
+        Backend route structure. Shows new /public and /auth organization.
+      </description>
+    </file>
+  </files>
+
+  <api-path-migration>
+    <pattern name="Public API">
+      <before>await page.request.get('/api/v1/publishers')</before>
+      <after>await page.request.get('/api/v1/public/publishers')</after>
+    </pattern>
+
+    <pattern name="Publisher API">
+      <before>await apiContext.get('/api/v1/publisher/zmanim', { headers: { 'X-Publisher-Id': id } })</before>
+      <after>await apiContext.get('/api/v1/auth/publisher/zmanim', { headers: { 'X-Publisher-Id': id } })</after>
+    </pattern>
+
+    <pattern name="Admin API">
+      <before>await apiContext.get('/api/v1/admin/publishers')</before>
+      <after>await apiContext.get('/api/v1/auth/admin/publishers')</after>
+    </pattern>
+  </api-path-migration>
+
+  <test-examples>
+    <example name="Legacy Redirect Test">
+      <code><![CDATA[
+test('legacy GET /publisher/correction-requests redirects to /correction-requests', async ({ request }) => {
+  const response = await request.get('/api/v1/publisher/correction-requests', {
+    maxRedirects: 0, // Don't follow redirects
+  });
+
+  expect(response.status()).toBe(301);
+  expect(response.headers()['location']).toContain('/api/v1/correction-requests');
+  expect(response.headers()['deprecation']).toBe('true');
+  expect(response.headers()['sunset']).toBeTruthy();
+  expect(response.headers()['link']).toContain('successor-version');
+});
+      ]]></code>
+    </example>
+
+    <example name="Tenant Isolation Test">
+      <code><![CDATA[
+test('publisher cannot access another publisher data via X-Publisher-Id header', async ({ page }) => {
+  const publisherA = await createPublisher('Publisher A');
+  const publisherB = await createPublisher('Publisher B');
+  const zman = await createZman(publisherA.id, 'alos_hashachar');
+
+  await loginAsPublisher(page, publisherB.id);
+
+  const response = await page.request.get(`/api/v1/auth/publisher/zmanim/${zman.id}`, {
+    headers: { 'X-Publisher-Id': publisherA.id }
+  });
+
+  expect(response.status()).toBe(403);
+});
+      ]]></code>
+    </example>
+
+    <example name="Role-Based Filtering Test">
+      <code><![CDATA[
+test('publisher sees only own correction requests', async ({ page }) => {
+  const publisher1 = await createPublisher('Publisher A');
+  const publisher2 = await createPublisher('Publisher B');
+
+  await createCorrectionRequest(publisher1.id, 'Request from A');
+  await createCorrectionRequest(publisher2.id, 'Request from B');
+
+  await loginAsPublisher(page, publisher1.id);
+
+  const response = await page.request.get('/api/v1/auth/correction-requests', {
+    headers: { 'X-Publisher-Id': publisher1.id }
+  });
+
+  const data = await response.json();
+  expect(data.requests).toHaveLength(1);
+  expect(data.requests[0].publisher_id).toBe(publisher1.id);
+});
+      ]]></code>
+    </example>
+  </test-examples>
+
+  <verification-commands>
+    <command name="Run All E2E Tests">
+      <code>cd tests && npx playwright test</code>
+    </command>
+
+    <command name="Run Security Tests">
+      <code>cd tests && npx playwright test security/</code>
+    </command>
+
+    <command name="Run Correction Request Tests">
+      <code>cd tests && npx playwright test correction-requests/</code>
+    </command>
+
+    <command name="Check for Old API Paths">
+      <code>grep -r "await.*get('/api/v1/publisher/" tests/e2e --include="*.spec.ts" | wc -l</code>
+      <expected>0 (no old paths remaining)</expected>
+    </command>
+  </verification-commands>
+
+  <dependencies>
+    <story id="9.3" status="prerequisite">
+      Correction Request Endpoint Consolidation - Must be complete for consolidated endpoint tests
+    </story>
+    <story id="9.4" status="prerequisite">
+      API Security Audit - Must be complete for security tests
+    </story>
+  </dependencies>
+
+  <references>
+    <reference type="documentation">
+      Playwright Documentation: https://playwright.dev/docs/intro
+    </reference>
+    <reference type="code">
+      API Client: /home/coder/workspace/zmanim/web/lib/api-client.ts
+    </reference>
+    <reference type="code">
+      Coding Standards: /home/coder/workspace/zmanim/docs/coding-standards.md
+    </reference>
+  </references>
+</story-context>

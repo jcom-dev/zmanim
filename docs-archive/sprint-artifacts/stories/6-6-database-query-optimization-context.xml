@@ -1,0 +1,346 @@
+<story-context id="story-6-6-database-query-optimization" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>6.6</storyId>
+    <title>Database Query Optimization &amp; Indexing</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-08T17:23:59Z</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/6-6-database-query-optimization.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>all new queries from Epic 6 optimized with proper indexes and performance monitoring</iWant>
+    <soThat>the application performs well under load and doesn't degrade as data grows</soThat>
+    <tasks>
+      <task id="1" title="Query Analysis">
+        <subtask>1.1 List all new queries from Stories 6.3-6.5</subtask>
+        <subtask>1.2 Run EXPLAIN ANALYZE on GetTagsForDate</subtask>
+        <subtask>1.3 Run EXPLAIN ANALYZE on GetZmanTags with source tracking</subtask>
+        <subtask>1.4 Run EXPLAIN ANALYZE on GetLocationOverrideForCalculation</subtask>
+        <subtask>1.5 Run EXPLAIN ANALYZE on GetPendingCorrectionRequests</subtask>
+        <subtask>1.6 Document findings in spreadsheet</subtask>
+        <subtask>1.7 Identify missing indexes</subtask>
+      </task>
+      <task id="2" title="Create Indexes">
+        <subtask>2.1 Create migration file</subtask>
+        <subtask>2.2 Add tag_event_mappings indexes</subtask>
+        <subtask>2.3 Add master_zman_tags indexes</subtask>
+        <subtask>2.4 Add publisher_zman_tags indexes</subtask>
+        <subtask>2.5 Add tag correction request indexes (partial indexes)</subtask>
+        <subtask>2.6 Add location override indexes (including covering index)</subtask>
+        <subtask>2.7 Add city correction request indexes</subtask>
+        <subtask>2.8 Add VACUUM ANALYZE commands</subtask>
+        <subtask>2.9 Run migration</subtask>
+        <subtask>2.10 Re-run EXPLAIN ANALYZE to verify</subtask>
+      </task>
+      <task id="3" title="Performance Tests">
+        <subtask>3.1 Create performance_test.go</subtask>
+        <subtask>3.2 Add TestTagFilteringPerformance</subtask>
+        <subtask>3.3 Add TestLocationOverrideLookupPerformance</subtask>
+        <subtask>3.4 Add TestCorrectionRequestListPerformance</subtask>
+        <subtask>3.5 Add BenchmarkZmanimCalculationWithFiltering</subtask>
+        <subtask>3.6 Run tests and verify targets met</subtask>
+      </task>
+      <task id="4" title="Documentation">
+        <subtask>4.1 Create/update database-indexes.md</subtask>
+        <subtask>4.2 Document tag event mapping indexes</subtask>
+        <subtask>4.3 Document tag tracking indexes</subtask>
+        <subtask>4.4 Document location override indexes</subtask>
+        <subtask>4.5 Document correction request indexes</subtask>
+        <subtask>4.6 Document monitoring strategy</subtask>
+        <subtask>4.7 Add query optimization guidelines</subtask>
+      </task>
+      <task id="5" title="Verification">
+        <subtask>5.1 Run all performance tests</subtask>
+        <subtask>5.2 Verify all tests pass</subtask>
+        <subtask>5.3 Check query plans show index usage</subtask>
+        <subtask>5.4 No sequential scans on large tables</subtask>
+        <subtask>5.5 Document results</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-6.6.1" title="Analyze All New Queries with EXPLAIN ANALYZE">
+      <requirement>Run EXPLAIN ANALYZE on all new queries from Stories 6.3-6.5</requirement>
+      <requirement>Document query plans in /docs/database-indexes.md</requirement>
+      <requirement>Identify missing indexes</requirement>
+      <requirement>Check for sequential scans on large tables</requirement>
+      <requirement>Verify estimated rows match actual rows</requirement>
+    </criterion>
+    <criterion id="AC-6.6.2" title="Create Required Indexes">
+      <requirement>Create migration 00000000000028_epic6_performance_indexes.sql</requirement>
+      <requirement>Add indexes for tag_event_mappings (hebrew_month, hebrew_day_start, hebrew_day_end)</requirement>
+      <requirement>Add indexes for master_zman_tags (master_zman_id, tag_id)</requirement>
+      <requirement>Add indexes for publisher_zman_tags (publisher_zman_id, tag_id)</requirement>
+      <requirement>Add indexes for tag correction requests (status, created_at)</requirement>
+      <requirement>Add indexes for publisher_location_overrides (publisher_id, city_id)</requirement>
+      <requirement>Add covering index for location overrides with INCLUDE clause</requirement>
+      <requirement>Add indexes for city correction requests (status, city_id, publisher_id)</requirement>
+      <requirement>Run VACUUM ANALYZE after index creation</requirement>
+    </criterion>
+    <criterion id="AC-6.6.3" title="Add Query Performance Tests">
+      <requirement>Create api/internal/handlers/performance_test.go</requirement>
+      <requirement>Add test: TestTagFilteringPerformance (&lt; 50ms)</requirement>
+      <requirement>Add test: TestLocationOverrideLookupPerformance (&lt; 20ms)</requirement>
+      <requirement>Add test: TestCorrectionRequestListPerformance (&lt; 150ms)</requirement>
+      <requirement>Add benchmark: BenchmarkZmanimCalculationWithFiltering</requirement>
+    </criterion>
+    <criterion id="AC-6.6.4" title="Document Index Strategy">
+      <requirement>Create or update /docs/database-indexes.md</requirement>
+      <requirement>Document all new indexes with rationale</requirement>
+      <requirement>Document query patterns each index supports</requirement>
+      <requirement>Document performance targets</requirement>
+      <requirement>Document monitoring strategy</requirement>
+    </criterion>
+    <criterion id="AC-6.6.5" title="Verify Performance Targets">
+      <requirement>All queries meet performance targets</requirement>
+      <requirement>No sequential scans on large tables</requirement>
+      <requirement>Query plans show index usage</requirement>
+      <requirement>Benchmark tests pass</requirement>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <item path="docs/coding-standards.md" section="Database Standards">
+        <summary>All indexes in migration files, use partial indexes for filtered queries, use covering indexes for read-heavy queries, run VACUUM ANALYZE after index creation</summary>
+      </item>
+      <item path="docs/coding-standards.md" section="Testing Standards">
+        <summary>Parallel execution (REQUIRED), shared fixtures, test pattern with proper assertions</summary>
+      </item>
+      <item path="docs/archive/database-index-optimization-report.md">
+        <summary>Previous database optimization effort with 26 indexes added, shows methodology and performance improvements</summary>
+      </item>
+      <item path="docs/sprint-artifacts/stories/6-3-unified-tag-manager.md">
+        <summary>Story 6.3 introduces tag filtering queries (GetTagsForHebrewDate, GetZmanTags with source tracking, tag correction requests)</summary>
+      </item>
+      <item path="docs/sprint-artifacts/stories/6-4-publisher-location-overrides.md">
+        <summary>Story 6.4 introduces location override queries (GetLocationOverrideForCalculation, GetPublisherLocationOverrides)</summary>
+      </item>
+      <item path="docs/sprint-artifacts/stories/6-5-public-correction-requests.md">
+        <summary>Story 6.5 introduces city correction request queries (GetPendingCorrectionRequests, GetPublisherCorrectionRequests)</summary>
+      </item>
+    </docs>
+    <code>
+      <item path="api/internal/db/queries/zmanim_tags.sql">
+        <summary>Existing query: GetZmanTags - Fetches all tags for a publisher zman with source tracking (master vs publisher). Includes UNION ALL and multiple JOINs. NEEDS OPTIMIZATION.</summary>
+        <key_queries>
+          <query name="GetZmanTags" line="7">Fetches tags for publisher zman, combines master and publisher-specific tags, includes negation and source tracking</query>
+          <query name="CheckIfEventZman" line="43">Checks if zman has event or behavior tags</query>
+        </key_queries>
+      </item>
+      <item path="api/internal/db/queries/tag_events.sql">
+        <summary>Tag event mapping queries for Hebrew calendar filtering. CRITICAL for performance as called on EVERY zmanim calculation.</summary>
+        <key_queries>
+          <query name="GetTagEventMappings" line="8">Get all HebCal event mappings for tag matching</query>
+          <query name="GetTagsForHebCalEvent" line="19">Get tags matching a specific HebCal event name using pattern matching</query>
+          <query name="GetTagsForHebrewDate" line="47">Get tags matching a specific Hebrew date (month and day). WHERE hebrew_month = $1 AND $2 BETWEEN hebrew_day_start AND hebrew_day_end. CRITICAL QUERY.</query>
+          <query name="GetZmanimByActiveTags" line="160">Get publisher zmanim that have any of the specified tags</query>
+          <query name="GetMasterZmanimByTags" line="185">Get master registry zmanim that have any of the specified tags</query>
+        </key_queries>
+      </item>
+      <item path="api/internal/handlers/handlers_test.go">
+        <summary>Test helper utilities for handler testing. Includes TestHelper with MakeRequest, AddAuthContext, AddPublisherHeader, ParseJSONResponse, AssertStatus functions.</summary>
+      </item>
+      <item path="api/internal/handlers/zmanim.go">
+        <summary>Zmanim calculation handlers. Will be impacted by tag filtering performance. Includes ZmanimRequestParams, ZmanimWithFormulaResponse types.</summary>
+      </item>
+      <item path="db/migrations/00000000000003_add_lookup_indexes.sql">
+        <summary>Previous index migration showing patterns: indexes on lookup table keys, composite indexes for common query patterns, comments explaining query patterns and expected usage.</summary>
+      </item>
+    </code>
+    <dependencies>
+      <item type="story" id="6.3" title="Unified Tag Manager">
+        <status>drafted</status>
+        <impact>Introduces tag filtering queries that need optimization: GetTagsForHebrewDate (called on EVERY calculation), GetZmanTags with source tracking, tag correction request queries</impact>
+        <tables>
+          <table>tag_event_mappings</table>
+          <table>master_zman_tags</table>
+          <table>publisher_zman_tags</table>
+          <table>master_zman_tag_correction_requests</table>
+        </tables>
+      </item>
+      <item type="story" id="6.4" title="Publisher Location Overrides">
+        <status>drafted</status>
+        <impact>Introduces location override lookup that happens on EVERY calculation for publishers with overrides. Needs fast composite index and covering index.</impact>
+        <tables>
+          <table>publisher_location_overrides</table>
+        </tables>
+      </item>
+      <item type="story" id="6.5" title="Public Correction Requests">
+        <status>drafted</status>
+        <impact>Introduces admin dashboard queries for pending requests. Needs partial indexes for status filtering and composite indexes for publisher-specific queries.</impact>
+        <tables>
+          <table>city_correction_requests</table>
+        </tables>
+      </item>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <critical-requirement>
+      <mandate>MUST follow ALL standards in docs/coding-standards.md</mandate>
+      <file>docs/coding-standards.md</file>
+      <enforcement>PR blocker - violations block merges</enforcement>
+    </critical-requirement>
+    <technical>
+      <item>All indexes must be in migration file format (not direct SQL execution)</item>
+      <item>Use partial indexes (WHERE clause) for status-based queries (e.g., WHERE status = 'pending')</item>
+      <item>Use covering indexes (INCLUDE clause) for read-heavy queries to avoid heap fetches</item>
+      <item>Composite indexes must match query WHERE clause order</item>
+      <item>VACUUM ANALYZE required after index creation to update statistics</item>
+      <item>Migration number: 00000000000028 (stories 6.3-6.5 will use 00000000000025-00000000000027)</item>
+    </technical>
+    <performance>
+      <item>Tag filtering (GetTagsForHebrewDate): &lt; 50ms (p95) - CRITICAL as called on every calculation</item>
+      <item>Location override lookup: &lt; 20ms (p95) - Called on every calculation for publishers with overrides</item>
+      <item>Correction request lists: &lt; 150ms (p95) - Admin dashboard queries</item>
+      <item>Full zmanim calculation with filtering: &lt; 200ms (p95) - End-to-end target</item>
+      <item>No sequential scans allowed on large tables (tag_event_mappings, publisher_zmanim, cities)</item>
+    </performance>
+    <standards>
+      <item>Follow docs/coding-standards.md database patterns</item>
+      <item>Index naming convention: idx_{table}_{columns}_{purpose}</item>
+      <item>Document each index with comment explaining query pattern and rationale</item>
+      <item>Test all indexes with EXPLAIN ANALYZE before and after</item>
+      <item>Performance tests must use TestHelper pattern from handlers_test.go</item>
+    </standards>
+  </constraints>
+
+  <interfaces>
+    <database>
+      <schema>
+        <table name="tag_event_mappings">
+          <purpose>Maps tags to Hebrew dates and HebCal events for filtering</purpose>
+          <columns>
+            <column>id</column>
+            <column>tag_id</column>
+            <column>hebrew_month (1-13)</column>
+            <column>hebrew_day_start (1-30)</column>
+            <column>hebrew_day_end (nullable, for ranges)</column>
+            <column>hebcal_event_pattern (nullable, for pattern matching)</column>
+            <column>priority (for ordering)</column>
+          </columns>
+          <query_patterns>
+            <pattern>WHERE hebrew_month = $1 AND $2 BETWEEN hebrew_day_start AND hebrew_day_end</pattern>
+            <pattern>WHERE hebcal_event_pattern IS NOT NULL</pattern>
+            <pattern>ORDER BY priority DESC</pattern>
+          </query_patterns>
+        </table>
+        <table name="master_zman_tags">
+          <purpose>Tags from master registry (source of truth)</purpose>
+          <columns>
+            <column>master_zman_id</column>
+            <column>tag_id</column>
+            <column>is_negated</column>
+          </columns>
+          <query_patterns>
+            <pattern>WHERE master_zman_id = $1 (lookup all tags for a master zman)</pattern>
+            <pattern>JOIN with zman_tags ON tag_id</pattern>
+          </query_patterns>
+        </table>
+        <table name="publisher_zman_tags">
+          <purpose>Publisher-specific tag overrides</purpose>
+          <columns>
+            <column>publisher_zman_id</column>
+            <column>tag_id</column>
+            <column>is_negated</column>
+          </columns>
+          <query_patterns>
+            <pattern>WHERE publisher_zman_id = $1 (lookup all tags for a publisher zman)</pattern>
+            <pattern>JOIN with zman_tags ON tag_id</pattern>
+          </query_patterns>
+        </table>
+        <table name="master_zman_tag_correction_requests">
+          <purpose>Publisher requests to correct master registry tags (Story 6.3)</purpose>
+          <columns>
+            <column>id</column>
+            <column>master_zman_id</column>
+            <column>tag_id</column>
+            <column>action (add/remove/negate/unnegate)</column>
+            <column>status (pending/approved/rejected)</column>
+            <column>created_at</column>
+          </columns>
+          <query_patterns>
+            <pattern>WHERE status = 'pending' ORDER BY created_at DESC (admin dashboard)</pattern>
+            <pattern>WHERE master_zman_id = $1</pattern>
+            <pattern>WHERE tag_id = $1</pattern>
+          </query_patterns>
+        </table>
+        <table name="publisher_location_overrides">
+          <purpose>Publisher-specific location data overrides (Story 6.4)</purpose>
+          <columns>
+            <column>id (UUID)</column>
+            <column>publisher_id (UUID)</column>
+            <column>city_id (BIGINT)</column>
+            <column>override_latitude</column>
+            <column>override_longitude</column>
+            <column>override_elevation</column>
+            <column>override_timezone</column>
+          </columns>
+          <query_patterns>
+            <pattern>WHERE publisher_id = $1 AND city_id = $2 (lookup during calculation - CRITICAL)</pattern>
+            <pattern>WHERE publisher_id = $1 (list all overrides)</pattern>
+          </query_patterns>
+        </table>
+        <table name="city_correction_requests">
+          <purpose>Public correction requests for city data (Story 6.5)</purpose>
+          <columns>
+            <column>id (UUID)</column>
+            <column>city_id (BIGINT)</column>
+            <column>publisher_id (UUID, nullable)</column>
+            <column>status (pending/approved/rejected)</column>
+            <column>created_at</column>
+          </columns>
+          <query_patterns>
+            <pattern>WHERE status = 'pending' ORDER BY created_at DESC (admin dashboard)</pattern>
+            <pattern>WHERE city_id = $1</pattern>
+            <pattern>WHERE publisher_id = $1 ORDER BY created_at DESC (publisher list)</pattern>
+          </query_patterns>
+        </table>
+      </schema>
+    </database>
+    <api>
+      <endpoint method="GET" path="/api/v1/zmanim">
+        <description>Zmanim calculation endpoint that will be impacted by tag filtering performance</description>
+        <performance_requirement>&lt; 200ms p95 including tag filtering</performance_requirement>
+      </endpoint>
+    </api>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <item>Performance tests in api/internal/handlers/performance_test.go</item>
+      <item>Use TestHelper pattern from handlers_test.go</item>
+      <item>Test actual database queries, not mocks</item>
+      <item>Each performance test must assert duration &lt; target</item>
+      <item>Benchmark tests use b.N iterations for accurate measurement</item>
+      <item>Tests must use test database with realistic data volumes</item>
+    </standards>
+    <locations>
+      <item path="api/internal/handlers/performance_test.go" type="new">
+        <tests>
+          <test>TestTagFilteringPerformance - GetTagsForHebrewDate &lt; 50ms</test>
+          <test>TestLocationOverrideLookupPerformance - GetLocationOverrideForCalculation &lt; 20ms</test>
+          <test>TestCorrectionRequestListPerformance - GetPendingCorrectionRequests &lt; 150ms</test>
+          <test>BenchmarkZmanimCalculationWithFiltering - End-to-end benchmark</test>
+        </tests>
+      </item>
+      <item path="db/migrations/00000000000028_epic6_performance_indexes.sql" type="new">
+        <description>Migration file with all indexes and VACUUM ANALYZE commands</description>
+      </item>
+    </locations>
+    <ideas>
+      <item>Test with empty database vs database with realistic data volumes (e.g., 100+ publishers, 1000+ zmanim)</item>
+      <item>Test tag filtering on different Hebrew dates (some with many events, some with none)</item>
+      <item>Test location override lookup with publishers that have many overrides vs none</item>
+      <item>Run EXPLAIN ANALYZE in tests and verify index usage (no sequential scans)</item>
+      <item>Compare performance before and after index creation</item>
+      <item>Test partial index effectiveness: queries with status='pending' vs other statuses</item>
+      <item>Test covering index effectiveness: measure heap fetches before vs after</item>
+    </ideas>
+  </tests>
+</story-context>

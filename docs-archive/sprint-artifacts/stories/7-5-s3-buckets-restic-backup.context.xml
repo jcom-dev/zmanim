@@ -1,0 +1,938 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>7.5</storyId>
+    <title>S3 Buckets &amp; Restic Backup Configuration</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <sourceStoryPath>docs/sprint-artifacts/stories/7-5-s3-buckets-restic-backup.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>S3 buckets for backups and static assets with Restic streaming backups</iWant>
+    <soThat>data is durable, encrypted, and frontend is served from CDN</soThat>
+
+    <tasks>
+      <task id="1" acceptanceCriteria="AC1">
+        <title>Create Backup Bucket</title>
+        <subtasks>
+          <subtask id="1.1">Define zmanim-backups-prod S3 bucket in CDK</subtask>
+          <subtask id="1.2">Configure AES-256 server-side encryption</subtask>
+          <subtask id="1.3">Enable versioning for safety</subtask>
+          <subtask id="1.4">Configure bucket policy for VPC endpoint access</subtask>
+          <subtask id="1.5">Note: Restic manages its own retention (no lifecycle rules)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="2" acceptanceCriteria="AC2">
+        <title>Create Releases Bucket</title>
+        <subtasks>
+          <subtask id="2.1">Define zmanim-releases-prod S3 bucket in CDK</subtask>
+          <subtask id="2.2">Configure AES-256 encryption</subtask>
+          <subtask id="2.3">Set lifecycle rule: delete old versions after 30 days</subtask>
+          <subtask id="2.4">Configure bucket policy for EC2 role access</subtask>
+        </subtasks>
+      </task>
+
+      <task id="3" acceptanceCriteria="AC3">
+        <title>Create Static Assets Bucket</title>
+        <subtasks>
+          <subtask id="3.1">Define zmanim-static-prod S3 bucket in CDK</subtask>
+          <subtask id="3.2">Configure for static website hosting</subtask>
+          <subtask id="3.3">Configure CloudFront OAI access policy</subtask>
+          <subtask id="3.4">Set cache-control headers for static assets</subtask>
+        </subtasks>
+      </task>
+
+      <task id="4" acceptanceCriteria="AC4">
+        <title>Restic Configuration in AMI</title>
+        <subtasks>
+          <subtask id="4.1">Ensure Restic installed in Packer AMI (Story 7.2)</subtask>
+          <subtask id="4.2">Create /etc/restic/env.template with S3 repository URL</subtask>
+          <subtask id="4.3">Configure user data to generate /etc/restic/env from SSM</subtask>
+          <subtask id="4.4">Document Restic repository initialization (one-time)</subtask>
+        </subtasks>
+      </task>
+
+      <task id="5" acceptanceCriteria="AC5">
+        <title>Backup Timer</title>
+        <subtasks>
+          <subtask id="5.1">Create restic-backup.timer in AMI</subtask>
+          <subtask id="5.2">Configure OnCalendar=*-*-* 03:00:00</subtask>
+          <subtask id="5.3">Set Persistent=true for catch-up</subtask>
+          <subtask id="5.4">Set RandomizedDelaySec=300 for jitter</subtask>
+          <subtask id="5.5">Enable timer in systemd</subtask>
+        </subtasks>
+      </task>
+
+      <task id="6" acceptanceCriteria="AC6">
+        <title>Email Notification</title>
+        <subtasks>
+          <subtask id="6.1">Configure SES in CDK (verify domain/email)</subtask>
+          <subtask id="6.2">Create backup-notify@.service in AMI</subtask>
+          <subtask id="6.3">Create /opt/zmanim/notify-failure.sh script</subtask>
+          <subtask id="6.4">Configure OnFailure=backup-notify@%n.service</subtask>
+          <subtask id="6.5">Test failure notification</subtask>
+        </subtasks>
+      </task>
+
+      <task id="7" acceptanceCriteria="AC7">
+        <title>Weekly Verification</title>
+        <subtasks>
+          <subtask id="7.1">Add weekly restic check to backup.sh</subtask>
+          <subtask id="7.2">Run only on Sundays (date +%u == 7)</subtask>
+          <subtask id="7.3">Include verification result in logs</subtask>
+        </subtasks>
+      </task>
+
+      <task id="8" acceptanceCriteria="AC1-7">
+        <title>Testing</title>
+        <subtasks>
+          <subtask id="8.1">Deploy buckets to staging</subtask>
+          <subtask id="8.2">Initialize Restic repository</subtask>
+          <subtask id="8.3">Run manual backup and verify S3 objects</subtask>
+          <subtask id="8.4">Test restore procedure</subtask>
+          <subtask id="8.5">Trigger failure and verify email notification</subtask>
+          <subtask id="8.6">Document backup/restore procedures</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">zmanim-backups-prod bucket for Restic repository</criterion>
+    <criterion id="AC2">zmanim-releases-prod bucket for API binaries</criterion>
+    <criterion id="AC3">zmanim-static-prod bucket for Next.js assets</criterion>
+    <criterion id="AC4">Restic installed in AMI, configured for S3 streaming</criterion>
+    <criterion id="AC5">systemd timer runs backup daily at 3 AM UTC</criterion>
+    <criterion id="AC6">Email notification on backup failure via SES</criterion>
+    <criterion id="AC7">Backup verification (weekly restic check)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-artifacts/epic-7-aws-migration.md" relevance="high">
+        <section>Story 7.5 definition and work items</section>
+        <section>Backup Strategy - Restic architecture</section>
+        <section>Backup script implementation</section>
+        <section>Restore procedure</section>
+        <section>S3 bucket structure</section>
+      </doc>
+      <doc path="docs/sprint-artifacts/tech-spec-epic-7.md" relevance="high">
+        <section>Story 7.5 Acceptance Criteria (authoritative)</section>
+        <section>Backup Architecture (Restic streaming)</section>
+        <section>Storage Stacks definition</section>
+        <section>Non-functional requirements - Reliability/Availability</section>
+      </doc>
+      <doc path="docs/coding-standards.md" relevance="medium">
+        <section>Security - Secrets Management (ZERO TOLERANCE)</section>
+        <section>Backend Standards - slog logging</section>
+      </doc>
+    </docs>
+
+    <code>
+      <existing>
+        <file path="infrastructure/" status="to-be-created">
+          <description>CDK infrastructure directory (Story 7.1 dependency)</description>
+        </file>
+        <file path="infrastructure/packer/" status="to-be-created">
+          <description>Packer AMI build (Story 7.2 dependency)</description>
+        </file>
+      </existing>
+
+      <toCreate>
+        <file path="infrastructure/lib/storage-stack.ts">
+          <description>CDK stack defining three S3 buckets (backups, releases, static)</description>
+          <patterns>
+            <pattern>AWS CDK L2 constructs for S3</pattern>
+            <pattern>Bucket policies for VPC endpoint access</pattern>
+            <pattern>Encryption configuration (AES-256)</pattern>
+            <pattern>Lifecycle policies (releases bucket only)</pattern>
+          </patterns>
+        </file>
+
+        <file path="infrastructure/lib/ses-stack.ts">
+          <description>CDK stack for SES email configuration</description>
+          <patterns>
+            <pattern>Email identity verification</pattern>
+            <pattern>IAM policies for EC2 to send email</pattern>
+          </patterns>
+        </file>
+
+        <file path="infrastructure/packer/files/etc/systemd/system/restic-backup.service">
+          <description>systemd service for Restic backup</description>
+          <patterns>
+            <pattern>Type=oneshot</pattern>
+            <pattern>EnvironmentFile=/etc/restic/env</pattern>
+            <pattern>OnFailure=backup-notify@%n.service</pattern>
+          </patterns>
+        </file>
+
+        <file path="infrastructure/packer/files/etc/systemd/system/restic-backup.timer">
+          <description>systemd timer for daily backup at 3 AM UTC</description>
+          <patterns>
+            <pattern>OnCalendar=*-*-* 03:00:00</pattern>
+            <pattern>Persistent=true</pattern>
+            <pattern>RandomizedDelaySec=300</pattern>
+          </patterns>
+        </file>
+
+        <file path="infrastructure/packer/files/etc/systemd/system/backup-notify@.service">
+          <description>systemd service template for failure notifications</description>
+          <patterns>
+            <pattern>Type=oneshot</pattern>
+            <pattern>ExecStart=/opt/zmanim/notify-failure.sh %i</pattern>
+          </patterns>
+        </file>
+
+        <file path="infrastructure/packer/files/etc/restic/env.template">
+          <description>Template for Restic environment file</description>
+          <patterns>
+            <pattern>AWS_DEFAULT_REGION=eu-west-1</pattern>
+            <pattern>RESTIC_REPOSITORY=s3:s3.eu-west-1.amazonaws.com/zmanim-backups-prod</pattern>
+            <pattern>RESTIC_PASSWORD placeholder (replaced by user-data)</pattern>
+          </patterns>
+        </file>
+
+        <file path="infrastructure/packer/files/opt/zmanim/backup.sh">
+          <description>Main backup script using Restic stdin streaming</description>
+          <patterns>
+            <pattern>Streams pg_dump directly to S3 via Restic</pattern>
+            <pattern>Streams redis-cli --rdb to S3 via Restic</pattern>
+            <pattern>Restic forget with retention policy (7 daily, 4 weekly, 3 monthly)</pattern>
+            <pattern>Weekly integrity check (Sundays only)</pattern>
+            <pattern>Set -euo pipefail for safety</pattern>
+          </patterns>
+          <implementation>
+            <![CDATA[
+#!/bin/bash
+# /opt/zmanim/backup.sh
+set -euo pipefail
+
+source /etc/restic/env
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# PostgreSQL backup (streams directly to S3)
+echo "[$TIMESTAMP] Backing up PostgreSQL..."
+sudo -u postgres pg_dump -Fc zmanim | restic backup --stdin --stdin-filename postgres.dump
+
+# Redis backup (streams directly to S3)
+echo "[$TIMESTAMP] Backing up Redis..."
+redis-cli --rdb - | restic backup --stdin --stdin-filename redis.rdb
+
+# Prune old backups (keep 7 daily, 4 weekly, 3 monthly)
+echo "[$TIMESTAMP] Pruning old snapshots..."
+restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune
+
+# Verify repository integrity (weekly - Sundays)
+if [ "$(date +%u)" -eq 7 ]; then
+    echo "[$TIMESTAMP] Running integrity check..."
+    restic check
+fi
+
+echo "[$TIMESTAMP] Backup completed"
+            ]]>
+          </implementation>
+        </file>
+
+        <file path="infrastructure/packer/files/opt/zmanim/notify-failure.sh">
+          <description>Email notification script for backup failures</description>
+          <patterns>
+            <pattern>AWS SES send-email command</pattern>
+            <pattern>Extract service name from systemd parameter</pattern>
+            <pattern>Include timestamp and hostname</pattern>
+          </patterns>
+          <implementation>
+            <![CDATA[
+#!/bin/bash
+# /opt/zmanim/notify-failure.sh
+
+SERVICE_NAME=$1
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+HOSTNAME=$(hostname)
+
+# Send via AWS SES
+aws ses send-email \
+  --from "backup@zmanim.shtetl.io" \
+  --to "admin@shtetl.io" \
+  --subject "🚨 Backup Failed: $SERVICE_NAME on $HOSTNAME" \
+  --text "Backup service $SERVICE_NAME failed at $TIMESTAMP on $HOSTNAME.
+
+Check logs with: journalctl -u $SERVICE_NAME"
+            ]]>
+          </implementation>
+        </file>
+
+        <file path="docs/operations/backup-restore.md">
+          <description>Operational documentation for backup and restore procedures</description>
+          <sections>
+            <section>Restic repository structure</section>
+            <section>Restore PostgreSQL procedure</section>
+            <section>Restore Redis procedure</section>
+            <section>Verify backup integrity</section>
+            <section>One-time repository initialization</section>
+          </sections>
+        </file>
+      </toCreate>
+    </code>
+
+    <dependencies>
+      <upstream>
+        <dependency storyId="7.1">
+          <title>AWS CDK Project Setup</title>
+          <requirement>CDK project structure must exist</requirement>
+          <files>
+            <file>infrastructure/lib/ directory</file>
+            <file>infrastructure/cdk.json</file>
+          </files>
+        </dependency>
+
+        <dependency storyId="7.2">
+          <title>Packer AMI Build Pipeline</title>
+          <requirement>Packer template must exist for file provisioning</requirement>
+          <files>
+            <file>infrastructure/packer/zmanim-ami.pkr.hcl</file>
+            <file>infrastructure/packer/files/ directory</file>
+          </files>
+        </dependency>
+
+        <dependency storyId="7.3">
+          <title>VPC &amp; Network Infrastructure</title>
+          <requirement>VPC and S3 Gateway Endpoint must exist</requirement>
+          <files>
+            <file>infrastructure/lib/network-stack.ts</file>
+          </files>
+        </dependency>
+
+        <dependency storyId="7.9">
+          <title>SSM Parameter Store Configuration</title>
+          <requirement>Restic password stored in SSM</requirement>
+          <files>
+            <file>/zmanim/prod/restic-password (SSM parameter)</file>
+          </files>
+        </dependency>
+      </upstream>
+
+      <downstream>
+        <dependency storyId="7.4">
+          <title>EC2 Instance &amp; EBS Storage</title>
+          <requirement>EC2 IAM role needs S3 bucket access policies</requirement>
+          <integration>IAM policy for s3:PutObject, s3:GetObject on backup bucket</integration>
+        </dependency>
+
+        <dependency storyId="7.6">
+          <title>CloudFront Distribution</title>
+          <requirement>CloudFront needs static assets bucket as origin</requirement>
+          <integration>S3 bucket policy for CloudFront OAI</integration>
+        </dependency>
+      </downstream>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint type="no-nat-gateway">
+        <description>Restic must be installed in Packer AMI, not at runtime</description>
+        <rationale>Eliminate NAT Gateway cost (~$32/month) by pre-baking dependencies</rationale>
+      </constraint>
+
+      <constraint type="streaming-backup">
+        <description>No local disk staging for backups</description>
+        <rationale>pg_dump and redis-cli stream directly to Restic stdin → S3</rationale>
+        <benefit>Reduces EBS storage requirements, faster backup completion</benefit>
+      </constraint>
+
+      <constraint type="vpc-endpoint-access">
+        <description>S3 access via VPC Gateway Endpoint (free)</description>
+        <rationale>No data transfer charges for S3 access within same region</rationale>
+      </constraint>
+
+      <constraint type="retention-management">
+        <description>Restic manages retention via forget/prune, not S3 lifecycle</description>
+        <rationale>Restic repository integrity requires Restic-managed pruning</rationale>
+        <policy>Keep 7 daily, 4 weekly, 3 monthly snapshots</policy>
+      </constraint>
+    </architectural>
+
+    <security>
+      <constraint type="encryption-at-rest">
+        <description>All S3 buckets use AES-256 server-side encryption</description>
+        <implementation>S3 Bucket encryption configuration in CDK</implementation>
+      </constraint>
+
+      <constraint type="encryption-in-transit">
+        <description>Restic encrypts data before upload to S3</description>
+        <implementation>Restic password stored in SSM SecureString</implementation>
+      </constraint>
+
+      <constraint type="secret-management">
+        <description>ZERO TOLERANCE - No hardcoded secrets</description>
+        <implementation>Restic password pulled from SSM at boot</implementation>
+        <reference>docs/coding-standards.md - Security section</reference>
+      </constraint>
+
+      <constraint type="iam-least-privilege">
+        <description>EC2 instance role limited to specific S3 buckets</description>
+        <policy>
+          <![CDATA[
+{
+  "Effect": "Allow",
+  "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+  "Resource": [
+    "arn:aws:s3:::zmanim-backups-prod",
+    "arn:aws:s3:::zmanim-backups-prod/*",
+    "arn:aws:s3:::zmanim-releases-prod/*"
+  ]
+}
+          ]]>
+        </policy>
+      </constraint>
+
+      <constraint type="email-sender-verification">
+        <description>SES requires verified sender email address</description>
+        <implementation>Verify backup@zmanim.shtetl.io in SES console</implementation>
+      </constraint>
+    </security>
+
+    <cost>
+      <constraint type="lifecycle-policies">
+        <description>Releases bucket auto-deletes old versions after 30 days</description>
+        <rationale>Prevent unbounded storage growth from API binary versions</rationale>
+      </constraint>
+
+      <constraint type="no-cloudwatch-detailed-metrics">
+        <description>Use basic CloudWatch metrics only</description>
+        <rationale>Detailed metrics cost extra, start basic and enable if needed</rationale>
+      </constraint>
+
+      <constraint type="restic-deduplication">
+        <description>Restic deduplication reduces incremental backup size</description>
+        <benefit>Lower S3 storage costs for daily backups</benefit>
+      </constraint>
+    </cost>
+  </constraints>
+
+  <interfaces>
+    <inputs>
+      <input name="SSM Restic Password">
+        <source>Story 7.9 - SSM Parameter Store</source>
+        <parameter>/zmanim/prod/restic-password</parameter>
+        <type>SecureString</type>
+        <accessedBy>EC2 user-data script at boot</accessedBy>
+      </input>
+
+      <input name="VPC Gateway Endpoint">
+        <source>Story 7.3 - VPC &amp; Network Infrastructure</source>
+        <resource>S3 VPC Gateway Endpoint</resource>
+        <purpose>Free S3 access from EC2</purpose>
+      </input>
+
+      <input name="PostgreSQL Database">
+        <source>Story 7.4 - EC2 Instance (PostgreSQL service)</source>
+        <location>/data/postgres</location>
+        <backupCommand>pg_dump -Fc zmanim</backupCommand>
+      </input>
+
+      <input name="Redis Database">
+        <source>Story 7.4 - EC2 Instance (Redis service)</source>
+        <location>/data/redis</location>
+        <backupCommand>redis-cli --rdb -</backupCommand>
+      </input>
+    </inputs>
+
+    <outputs>
+      <output name="Backup S3 Bucket">
+        <resource>zmanim-backups-prod</resource>
+        <contents>Restic repository (config, data/, index/, keys/, snapshots/)</contents>
+        <encryption>AES-256 (S3) + AES-256 (Restic)</encryption>
+        <retention>7 daily, 4 weekly, 3 monthly</retention>
+        <consumedBy>Restore procedures</consumedBy>
+      </output>
+
+      <output name="Releases S3 Bucket">
+        <resource>zmanim-releases-prod</resource>
+        <contents>API binaries (zmanim-api-v1.0.0, zmanim-api-v1.0.1, etc.)</contents>
+        <lifecycle>Delete old versions after 30 days</lifecycle>
+        <consumedBy>Story 7.4 - EC2 download-latest.sh script</consumedBy>
+      </output>
+
+      <output name="Static Assets S3 Bucket">
+        <resource>zmanim-static-prod</resource>
+        <contents>Next.js static export (HTML, CSS, JS, assets)</contents>
+        <websiteHosting>Enabled</websiteHosting>
+        <consumedBy>Story 7.6 - CloudFront distribution</consumedBy>
+      </output>
+
+      <output name="Backup Logs">
+        <destination>systemd journal (journalctl -u restic-backup.service)</destination>
+        <fields>
+          <field>Timestamp</field>
+          <field>Backup start/completion</field>
+          <field>Snapshot ID</field>
+          <field>Pruning results</field>
+          <field>Integrity check results (Sundays)</field>
+        </fields>
+        <forwardedTo>CloudWatch Logs (Story 7.4)</forwardedTo>
+      </output>
+
+      <output name="Failure Email">
+        <service>AWS SES</service>
+        <trigger>OnFailure condition in systemd service</trigger>
+        <recipients>admin@shtetl.io</recipients>
+        <content>Service name, timestamp, hostname, remediation command</content>
+      </output>
+    </outputs>
+
+    <integrations>
+      <integration name="CDK Storage Stack">
+        <type>Infrastructure as Code</type>
+        <language>TypeScript</language>
+        <framework>AWS CDK v2</framework>
+        <exports>
+          <export>S3 bucket ARNs for IAM policies</export>
+          <export>Bucket names for Restic configuration</export>
+        </exports>
+      </integration>
+
+      <integration name="Packer Provisioning">
+        <type>AMI Build</type>
+        <files>
+          <file source="files/etc/systemd/system/restic-backup.service" dest="/etc/systemd/system/"/>
+          <file source="files/etc/systemd/system/restic-backup.timer" dest="/etc/systemd/system/"/>
+          <file source="files/etc/systemd/system/backup-notify@.service" dest="/etc/systemd/system/"/>
+          <file source="files/etc/restic/env.template" dest="/etc/restic/"/>
+          <file source="files/opt/zmanim/backup.sh" dest="/opt/zmanim/" mode="0755"/>
+          <file source="files/opt/zmanim/notify-failure.sh" dest="/opt/zmanim/" mode="0755"/>
+        </files>
+        <postProvision>
+          <command>systemctl enable restic-backup.timer</command>
+        </postProvision>
+      </integration>
+
+      <integration name="User Data Script">
+        <type>EC2 Boot Configuration</type>
+        <responsibility>Generate /etc/restic/env from SSM parameters</responsibility>
+        <script>
+          <![CDATA[
+#!/bin/bash
+# Part of EC2 user-data (Story 7.4)
+
+# Generate Restic environment file from SSM
+RESTIC_PASSWORD=$(aws ssm get-parameter --name /zmanim/prod/restic-password --with-decryption --query Parameter.Value --output text)
+
+cat > /etc/restic/env <<EOF
+AWS_DEFAULT_REGION=eu-west-1
+RESTIC_REPOSITORY=s3:s3.eu-west-1.amazonaws.com/zmanim-backups-prod
+RESTIC_PASSWORD=$RESTIC_PASSWORD
+EOF
+
+chmod 600 /etc/restic/env
+          ]]>
+        </script>
+      </integration>
+
+      <integration name="GitHub Actions">
+        <type>CI/CD Pipeline</type>
+        <workflow>.github/workflows/deploy-prod.yml</workflow>
+        <jobs>
+          <job name="deploy-frontend">
+            <command>aws s3 sync web/out/ s3://zmanim-static-prod/ --delete</command>
+            <command>aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"</command>
+          </job>
+          <job name="deploy-api-binary">
+            <command>aws s3 cp bin/zmanim-api s3://zmanim-releases-prod/zmanim-api-$VERSION</command>
+            <command>echo $VERSION | aws s3 cp - s3://zmanim-releases-prod/latest.txt</command>
+          </job>
+        </jobs>
+      </integration>
+    </integrations>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard>All backup scripts must use set -euo pipefail for safety</standard>
+      <standard>Backup success/failure must be verifiable via journalctl</standard>
+      <standard>Restore procedure must be tested before go-live</standard>
+      <standard>Email notification must be triggered on actual failure</standard>
+      <standard>S3 bucket encryption must be validated via AWS Console/CLI</standard>
+    </standards>
+
+    <locations>
+      <location type="unit">
+        <path>infrastructure/test/storage-stack.test.ts</path>
+        <description>CDK unit tests for S3 bucket configuration</description>
+        <assertions>
+          <assertion>Backup bucket has encryption enabled</assertion>
+          <assertion>Backup bucket has versioning enabled</assertion>
+          <assertion>Releases bucket has lifecycle policy</assertion>
+          <assertion>Static bucket has website hosting enabled</assertion>
+        </assertions>
+      </location>
+
+      <location type="integration">
+        <path>infrastructure/test/restic-backup.test.sh</path>
+        <description>Integration test for backup script</description>
+        <steps>
+          <step>Initialize test Restic repository</step>
+          <step>Create test database dump</step>
+          <step>Run backup.sh script</step>
+          <step>Verify snapshot created in S3</step>
+          <step>Test restore procedure</step>
+        </steps>
+      </location>
+
+      <location type="e2e">
+        <path>Manual testing on staging EC2</path>
+        <description>End-to-end validation of backup system</description>
+        <scenarios>
+          <scenario>Daily backup runs automatically at 3 AM UTC</scenario>
+          <scenario>Backup completes successfully and logs to journal</scenario>
+          <scenario>Weekly verification runs on Sunday</scenario>
+          <scenario>Failure triggers email notification</scenario>
+          <scenario>Restore PostgreSQL from backup</scenario>
+          <scenario>Restore Redis from backup</scenario>
+        </scenarios>
+      </location>
+    </locations>
+
+    <testIdeas>
+      <idea priority="critical">
+        <title>Restic Repository Initialization</title>
+        <description>Verify one-time repository initialization succeeds</description>
+        <command>source /etc/restic/env &amp;&amp; restic init</command>
+        <expectedResult>Repository created successfully</expectedResult>
+      </idea>
+
+      <idea priority="critical">
+        <title>PostgreSQL Streaming Backup</title>
+        <description>Verify pg_dump streams to S3 without local staging</description>
+        <command>sudo -u postgres pg_dump -Fc zmanim | restic backup --stdin --stdin-filename postgres.dump</command>
+        <expectedResult>Snapshot created with postgres.dump file</expectedResult>
+        <validation>Check S3 bucket for new data chunks</validation>
+      </idea>
+
+      <idea priority="critical">
+        <title>Redis Streaming Backup</title>
+        <description>Verify redis-cli streams to S3 without local staging</description>
+        <command>redis-cli --rdb - | restic backup --stdin --stdin-filename redis.rdb</command>
+        <expectedResult>Snapshot created with redis.rdb file</expectedResult>
+      </idea>
+
+      <idea priority="critical">
+        <title>PostgreSQL Restore</title>
+        <description>Verify restore from backup succeeds</description>
+        <command>restic dump latest postgres.dump | pg_restore -d zmanim_test -c</command>
+        <expectedResult>Database restored with correct row counts</expectedResult>
+        <validation>Compare row counts between original and restored database</validation>
+      </idea>
+
+      <idea priority="critical">
+        <title>Redis Restore</title>
+        <description>Verify Redis restore from backup succeeds</description>
+        <steps>
+          <step>systemctl stop redis</step>
+          <step>restic dump latest redis.rdb &gt; /data/redis/dump.rdb</step>
+          <step>chown redis:redis /data/redis/dump.rdb</step>
+          <step>systemctl start redis</step>
+        </steps>
+        <validation>Redis loads dump file successfully</validation>
+      </idea>
+
+      <idea priority="high">
+        <title>Retention Policy Enforcement</title>
+        <description>Verify old snapshots are pruned correctly</description>
+        <command>restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 3 --prune --dry-run</command>
+        <expectedResult>Correct snapshots marked for deletion</expectedResult>
+      </idea>
+
+      <idea priority="high">
+        <title>Weekly Integrity Check</title>
+        <description>Verify restic check runs only on Sundays</description>
+        <testCases>
+          <case day="Monday">restic check should NOT run</case>
+          <case day="Sunday">restic check should run</case>
+        </testCases>
+        <implementation>Mock date command or wait for Sunday</implementation>
+      </idea>
+
+      <idea priority="high">
+        <title>Email Notification on Failure</title>
+        <description>Verify email sent when backup fails</description>
+        <simulation>Modify backup.sh to exit 1</simulation>
+        <expectedResult>Email received at admin@shtetl.io with service name, timestamp, hostname</expectedResult>
+      </idea>
+
+      <idea priority="medium">
+        <title>VPC Endpoint Access</title>
+        <description>Verify S3 access uses VPC Gateway Endpoint (no NAT)</description>
+        <validation>Check VPC Flow Logs for S3 traffic</validation>
+        <expectedResult>S3 traffic routes through endpoint, not internet gateway</expectedResult>
+      </idea>
+
+      <idea priority="medium">
+        <title>Backup Timer Persistence</title>
+        <description>Verify missed backups run on boot</description>
+        <simulation>Stop EC2 instance at 3 AM, start at 4 AM</simulation>
+        <expectedResult>Timer runs backup immediately due to Persistent=true</expectedResult>
+      </idea>
+
+      <idea priority="medium">
+        <title>Backup Jitter</title>
+        <description>Verify RandomizedDelaySec adds up to 5 minutes jitter</description>
+        <observation>Multiple backup starts should vary between 03:00:00 and 03:05:00</observation>
+      </idea>
+
+      <idea priority="low">
+        <title>S3 Bucket Versioning</title>
+        <description>Verify backup bucket versioning protects against accidental deletion</description>
+        <simulation>Delete S3 object via console</simulation>
+        <expectedResult>Object marked deleted but version preserved</expectedResult>
+      </idea>
+
+      <idea priority="low">
+        <title>Releases Bucket Lifecycle</title>
+        <description>Verify old API binary versions deleted after 30 days</description>
+        <simulation>Upload test binary, wait 31 days (or modify lifecycle rule for testing)</simulation>
+        <expectedResult>Old version automatically deleted</expectedResult>
+      </idea>
+
+      <idea priority="low">
+        <title>Static Assets Cache Headers</title>
+        <description>Verify cache-control headers set correctly</description>
+        <command>aws s3api head-object --bucket zmanim-static-prod --key index.html</command>
+        <expectedResult>CacheControl: max-age=31536000 for static assets</expectedResult>
+      </idea>
+    </testIdeas>
+  </tests>
+
+  <references>
+    <external>
+      <reference>
+        <title>Restic Documentation</title>
+        <url>https://restic.net/</url>
+        <relevance>Official documentation for Restic backup tool</relevance>
+      </reference>
+
+      <reference>
+        <title>Restic Amazon Backup Repository</title>
+        <url>https://github.com/breakerh/restic-amazon-backup</url>
+        <relevance>Reference implementation for Restic + S3 + systemd</relevance>
+      </reference>
+
+      <reference>
+        <title>AWS S3 Encryption</title>
+        <url>https://docs.aws.amazon.com/AmazonS3/latest/userguide/serv-side-encryption.html</url>
+        <relevance>Server-side encryption configuration</relevance>
+      </reference>
+
+      <reference>
+        <title>AWS SES Send Email</title>
+        <url>https://docs.aws.amazon.com/ses/latest/dg/send-email-cli.html</url>
+        <relevance>CLI command for sending notification emails</relevance>
+      </reference>
+
+      <reference>
+        <title>systemd Timer Units</title>
+        <url>https://www.freedesktop.org/software/systemd/man/systemd.timer.html</url>
+        <relevance>Timer configuration (OnCalendar, Persistent, RandomizedDelaySec)</relevance>
+      </reference>
+
+      <reference>
+        <title>systemd OnFailure</title>
+        <url>https://www.freedesktop.org/software/systemd/man/systemd.unit.html#OnFailure=</url>
+        <relevance>Service failure notification configuration</relevance>
+      </reference>
+    </external>
+
+    <internal>
+      <reference>
+        <path>docs/sprint-artifacts/epic-7-aws-migration.md</path>
+        <section>Story 7.5</section>
+        <section>Backup Strategy</section>
+      </reference>
+
+      <reference>
+        <path>docs/sprint-artifacts/tech-spec-epic-7.md</path>
+        <section>Story 7.5 Acceptance Criteria</section>
+        <section>Storage Stacks</section>
+      </reference>
+
+      <reference>
+        <path>docs/coding-standards.md</path>
+        <section>Security - Secrets Management</section>
+      </reference>
+    </internal>
+  </references>
+
+  <keyDecisions>
+    <decision id="1">
+      <title>Restic Streaming (No Local Staging)</title>
+      <rationale>pg_dump and redis-cli pipe directly to restic --stdin, avoiding disk I/O and reducing EBS storage requirements</rationale>
+      <alternatives>
+        <alternative>Local staging + S3 upload</alternative>
+        <rejectedBecause>Requires larger EBS volume, slower backups, two-stage process</rejectedBecause>
+      </alternatives>
+    </decision>
+
+    <decision id="2">
+      <title>Restic Retention Management</title>
+      <rationale>Restic's forget/prune manages retention instead of S3 lifecycle policies to preserve repository integrity</rationale>
+      <policy>Keep 7 daily, 4 weekly, 3 monthly snapshots</policy>
+      <alternatives>
+        <alternative>S3 lifecycle policies</alternative>
+        <rejectedBecause>Deleting individual chunks breaks Restic repository structure</rejectedBecause>
+      </alternatives>
+    </decision>
+
+    <decision id="3">
+      <title>Daily Backup at 3 AM UTC</title>
+      <rationale>Low-traffic time window, consistent schedule across time zones</rationale>
+      <implementation>systemd timer with OnCalendar=*-*-* 03:00:00</implementation>
+    </decision>
+
+    <decision id="4">
+      <title>Weekly Integrity Check (Sundays)</title>
+      <rationale>Balance between verification frequency and performance impact</rationale>
+      <implementation>Conditional logic in backup.sh: if [ "$(date +%u)" -eq 7 ]</implementation>
+    </decision>
+
+    <decision id="5">
+      <title>SES for Email Notifications</title>
+      <rationale>AWS-native, no external SMTP dependencies, IAM-based authentication</rationale>
+      <cost>Free tier: 62,000 emails/month (outbound from EC2)</cost>
+      <alternatives>
+        <alternative>SNS</alternative>
+        <rejectedBecause>Requires subscription confirmation, less flexible formatting</rejectedBecause>
+      </alternatives>
+    </decision>
+
+    <decision id="6">
+      <title>Separate Buckets for Each Purpose</title>
+      <rationale>Cleaner IAM policies, different lifecycle/encryption requirements</rationale>
+      <buckets>
+        <bucket name="zmanim-backups-prod" purpose="Restic repository" lifecycle="Restic-managed"/>
+        <bucket name="zmanim-releases-prod" purpose="API binaries" lifecycle="30-day deletion"/>
+        <bucket name="zmanim-static-prod" purpose="Next.js export" lifecycle="None (immutable)"/>
+      </buckets>
+    </decision>
+  </keyDecisions>
+
+  <riskMitigation>
+    <risk id="1">
+      <title>Restic Repository Corruption</title>
+      <likelihood>Low</likelihood>
+      <impact>High</impact>
+      <mitigation>
+        <measure>Enable S3 bucket versioning</measure>
+        <measure>Weekly restic check for integrity verification</measure>
+        <measure>Test restore procedure regularly</measure>
+      </mitigation>
+    </risk>
+
+    <risk id="2">
+      <title>Backup Failure Undetected</title>
+      <likelihood>Medium</likelihood>
+      <impact>High</impact>
+      <mitigation>
+        <measure>Email notification on systemd OnFailure</measure>
+        <measure>CloudWatch Logs for backup service</measure>
+        <measure>Manual verification of S3 objects after initial setup</measure>
+      </mitigation>
+    </risk>
+
+    <risk id="3">
+      <title>SSM Parameter Retrieval Failure</title>
+      <likelihood>Low</likelihood>
+      <impact>High</impact>
+      <mitigation>
+        <measure>User-data script validates parameter before writing /etc/restic/env</measure>
+        <measure>IAM role grants ssm:GetParameter permission</measure>
+        <measure>Test parameter retrieval during AMI boot test</measure>
+      </mitigation>
+    </risk>
+
+    <risk id="4">
+      <title>SES Email Delivery Failure</title>
+      <likelihood>Medium</likelihood>
+      <impact>Medium</impact>
+      <mitigation>
+        <measure>Verify sender email address in SES console</measure>
+        <measure>Test notification script manually before deployment</measure>
+        <measure>Check SES sending statistics regularly</measure>
+      </mitigation>
+    </risk>
+
+    <risk id="5">
+      <title>Disk Space Exhaustion During Backup</title>
+      <likelihood>Low</likelihood>
+      <impact>Medium</impact>
+      <mitigation>
+        <measure>Streaming backups use minimal local disk</measure>
+        <measure>CloudWatch alarm on disk usage &gt; 80%</measure>
+        <measure>Weekly verification cleans up corrupted data</measure>
+      </mitigation>
+    </risk>
+  </riskMitigation>
+
+  <successCriteria>
+    <criterion id="1">
+      <title>All Three Buckets Created</title>
+      <validation>AWS Console shows zmanim-backups-prod, zmanim-releases-prod, zmanim-static-prod</validation>
+    </criterion>
+
+    <criterion id="2">
+      <title>Encryption Enabled</title>
+      <validation>All buckets show AES-256 encryption in bucket properties</validation>
+    </criterion>
+
+    <criterion id="3">
+      <title>Restic Repository Initialized</title>
+      <validation>restic snapshots command returns empty list (no errors)</validation>
+    </criterion>
+
+    <criterion id="4">
+      <title>Backup Completes Successfully</title>
+      <validation>journalctl -u restic-backup.service shows "Backup completed"</validation>
+      <validation>restic snapshots shows new snapshot with postgres.dump and redis.rdb</validation>
+      <validation>S3 bucket contains data/ directory with chunks</validation>
+    </criterion>
+
+    <criterion id="5">
+      <title>Restore Works</title>
+      <validation>restic dump latest postgres.dump | pg_restore succeeds</validation>
+      <validation>Row counts match between backup and restore</validation>
+    </criterion>
+
+    <criterion id="6">
+      <title>Timer Runs Daily</title>
+      <validation>systemctl status restic-backup.timer shows "Active: active (waiting)"</validation>
+      <validation>systemctl list-timers shows next run at 03:00:00</validation>
+    </criterion>
+
+    <criterion id="7">
+      <title>Email Notification Works</title>
+      <validation>Simulate failure, verify email received at admin@shtetl.io</validation>
+      <validation>Email contains service name, timestamp, hostname, remediation command</validation>
+    </criterion>
+
+    <criterion id="8">
+      <title>Weekly Verification Runs</title>
+      <validation>Wait for Sunday or mock date, verify "Running integrity check" in logs</validation>
+    </criterion>
+
+    <criterion id="9">
+      <title>IAM Permissions Correct</title>
+      <validation>EC2 instance can read/write backup bucket</validation>
+      <validation>EC2 instance can write releases/static buckets</validation>
+      <validation>CloudFront can read static bucket</validation>
+    </criterion>
+
+    <criterion id="10">
+      <title>Documentation Complete</title>
+      <validation>docs/operations/backup-restore.md exists</validation>
+      <validation>Document includes initialization, backup, restore, verification procedures</validation>
+    </criterion>
+  </successCriteria>
+</storyContext>

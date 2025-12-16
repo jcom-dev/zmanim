@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Calendar Options - Dialog Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dialog-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100;
+        }
+
+        .dialog {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 480px;
+            width: 100%;
+            position: relative;
+            z-index: 101;
+            overflow: hidden;
+        }
+
+        .dialog-header {
+            padding: 24px 24px 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .dialog-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .dialog-header p {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+
+        .dialog-content {
+            padding: 24px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .checkbox-item:hover {
+            background: #f9fafb;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            cursor: pointer;
+            accent-color: #3b82f6;
+        }
+
+        .checkbox-label {
+            flex: 1;
+        }
+
+        .checkbox-label .label-text {
+            font-size: 15px;
+            font-weight: 500;
+            color: #111827;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .checkbox-label .label-count {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .info-box .icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .info-box .text {
+            font-size: 13px;
+            color: #1e40af;
+            line-height: 1.5;
+        }
+
+        .total-count {
+            background: #f3f4f6;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-top: 16px;
+            text-align: center;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .total-count strong {
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .dialog-footer {
+            padding: 16px 24px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .button {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: none;
+            outline: none;
+        }
+
+        .button-secondary {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .button-secondary:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+
+        .button-primary {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .button-primary:hover {
+            background: #2563eb;
+        }
+
+        .button-primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Badge styles for status types */
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            margin-left: 6px;
+        }
+
+        .badge-published {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-draft {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-optional {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .badge-hidden {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        /* Always-on published row */
+        .checkbox-item.always-on {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            cursor: default;
+        }
+
+        .checkbox-item.always-on:hover {
+            background: #f0fdf4;
+        }
+
+        .checkmark-icon {
+            width: 20px;
+            height: 20px;
+            background: #22c55e;
+            color: white;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .optional-section-label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 8px;
+            margin-bottom: -8px;
+            padding-left: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dialog-overlay"></div>
+
+    <div class="dialog">
+        <div class="dialog-header">
+            <h2>Weekly Calendar Options</h2>
+            <p>Select which types of zmanim to include on your printable calendar</p>
+        </div>
+
+        <div class="dialog-content">
+            <div class="checkbox-group">
+                <!-- Published is always included - not a checkbox -->
+                <div class="checkbox-item always-on">
+                    <span class="checkmark-icon">&#10003;</span>
+                    <div class="checkbox-label">
+                        <span class="label-text">
+                            Published zmanim
+                            <span class="status-badge badge-published">Always included</span>
+                        </span>
+                        <span class="label-count">8 zmanim • Finalized and approved for publication</span>
+                    </div>
+                </div>
+
+                <div class="optional-section-label">Optionally include:</div>
+
+                <label class="checkbox-item">
+                    <input type="checkbox" id="draft">
+                    <div class="checkbox-label">
+                        <span class="label-text">
+                            Draft zmanim
+                            <span class="status-badge badge-draft">Beta</span>
+                        </span>
+                        <span class="label-count">2 zmanim • In testing, not yet published</span>
+                    </div>
+                </label>
+
+                <label class="checkbox-item">
+                    <input type="checkbox" id="optional">
+                    <div class="checkbox-label">
+                        <span class="label-text">
+                            Optional zmanim
+                            <span class="status-badge badge-optional">Optional</span>
+                        </span>
+                        <span class="label-count">3 zmanim • Alternative or supplementary times</span>
+                    </div>
+                </label>
+
+                <label class="checkbox-item">
+                    <input type="checkbox" id="hidden">
+                    <div class="checkbox-label">
+                        <span class="label-text">
+                            Hidden zmanim
+                            <span class="status-badge badge-hidden">Hidden</span>
+                        </span>
+                        <span class="label-count">1 zman • Deprecated or disabled</span>
+                    </div>
+                </label>
+            </div>
+
+            <div class="total-count">
+                Calendar will include <strong id="total">8 zmanim</strong>
+            </div>
+
+            <div class="info-box">
+                <span class="icon">ℹ️</span>
+                <span class="text">All selected zmanim will appear on the calendar in their defined display order.</span>
+            </div>
+        </div>
+
+        <div class="dialog-footer">
+            <button class="button button-secondary">Cancel</button>
+            <button class="button button-primary" id="generateBtn">Generate PDF</button>
+        </div>
+    </div>
+
+    <script>
+        // Simple interactivity for demo
+        // Published is always included (8 zmanim) - not a checkbox
+        const PUBLISHED_COUNT = 8;
+
+        const checkboxes = {
+            draft: document.getElementById('draft'),
+            optional: document.getElementById('optional'),
+            hidden: document.getElementById('hidden')
+        };
+
+        const counts = {
+            draft: 2,
+            optional: 3,
+            hidden: 1
+        };
+
+        const totalDisplay = document.getElementById('total');
+        const generateBtn = document.getElementById('generateBtn');
+
+        function updateTotal() {
+            // Always start with published count
+            let total = PUBLISHED_COUNT;
+
+            // Add optional categories if checked
+            Object.keys(checkboxes).forEach(key => {
+                if (checkboxes[key].checked) {
+                    total += counts[key];
+                }
+            });
+
+            totalDisplay.textContent = `${total} zmanim`;
+
+            // Button is always enabled since published is always included
+            generateBtn.disabled = false;
+        }
+
+        // Add event listeners
+        Object.values(checkboxes).forEach(checkbox => {
+            checkbox.addEventListener('change', updateTotal);
+        });
+
+        // Initialize
+        updateTotal();
+
+        // Button click simulation
+        generateBtn.addEventListener('click', () => {
+            alert('PDF generation would start here!\n\nSelections:\n' +
+                '✓ Published (8) [always included]\n' +
+                (checkboxes.draft.checked ? '✓ Draft (2)\n' : '') +
+                (checkboxes.optional.checked ? '✓ Optional (3)\n' : '') +
+                (checkboxes.hidden.checked ? '✓ Hidden (1)\n' : '') +
+                '\nTotal: ' + totalDisplay.textContent
+            );
+        });
+    </script>
+</body>
+</html>

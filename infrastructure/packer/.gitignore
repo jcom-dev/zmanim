@@ -1,0 +1,12 @@
+# Packer build artifacts
+manifest.json
+packer_cache/
+*.box
+
+# macOS
+.DS_Store
+
+# Editor files
+*.swp
+*.swo
+*~

@@ -1,0 +1,112 @@
+<story-context id="4-12-algorithm-collaboration" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.12</storyId>
+    <title>Algorithm Collaboration (Copy/Fork)</title>
+    <status>ready-for-dev</status>
+    <storyPoints>5</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-12-algorithm-collaboration.md</sourceStoryPath>
+    <dependencies>Story 4.2 (DSL Parser), Story 1.9 (Algorithm Publishing)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>to copy or fork algorithms from other publishers</iWant>
+    <soThat>I can start from a proven configuration and customize it for my community rather than building from scratch</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.12.1" title="Browse Public Algorithms">
+      <item>Page listing algorithms marked as "public/shareable"</item>
+      <item>Filter by: template base (GRA, MGA, etc.), publisher, region</item>
+      <item>Search by algorithm name or publisher name</item>
+      <item>Preview of key zmanim for each algorithm</item>
+    </criterion>
+    <criterion id="AC-4.12.2" title="Algorithm Details View">
+      <item>View complete configuration of a public algorithm</item>
+      <item>See all zmanim with their formulas</item>
+      <item>See publisher information and reputation</item>
+      <item>Usage statistics (how many have copied/forked)</item>
+      <item>View halachic notes if provided</item>
+    </criterion>
+    <criterion id="AC-4.12.3" title="Copy/Fork Actions">
+      <item>"Copy" button creates exact duplicate under my account</item>
+      <item>"Fork" creates linked copy with attribution</item>
+      <item>Fork maintains reference to original for update notifications</item>
+      <item>Both actions require confirmation dialog</item>
+      <item>Attribution shown: "Based on [Publisher]'s algorithm"</item>
+    </criterion>
+    <criterion id="AC-4.12.4" title="Privacy Controls">
+      <item>Publisher can mark algorithm as "public" or "private"</item>
+      <item>Default is "private"</item>
+      <item>Public algorithms appear in browse list</item>
+      <item>Private algorithms cannot be copied/forked</item>
+    </criterion>
+    <criterion id="AC-4.12.5" title="Fork Management">
+      <item>See list of my forks and their sources</item>
+      <item>Notification when source algorithm updated</item>
+      <item>Option to "sync" with source changes</item>
+      <item>Option to "detach" fork and remove link</item>
+      <item>See who has forked my public algorithm</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.12</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>api/internal/models/algorithm.go</path>
+        <kind>model</kind>
+        <reason>Add is_public, forked_from, attribution_text columns</reason>
+      </file>
+    </code>
+  </artifacts>
+
+  <databaseSchema>
+    <migration>
+ALTER TABLE algorithms
+ADD COLUMN is_public BOOLEAN DEFAULT FALSE,
+ADD COLUMN forked_from UUID REFERENCES algorithms(id) ON DELETE SET NULL,
+ADD COLUMN attribution_text TEXT,
+ADD COLUMN fork_count INT DEFAULT 0;
+
+CREATE INDEX idx_algorithms_public ON algorithms(is_public) WHERE is_public = true;
+CREATE INDEX idx_algorithms_forked_from ON algorithms(forked_from) WHERE forked_from IS NOT NULL;
+    </migration>
+  </databaseSchema>
+
+  <copyVsFork>
+    <comparison>
+      <aspect name="Link to source">Copy: No, Fork: Yes</aspect>
+      <aspect name="Attribution">Copy: Optional, Fork: Required</aspect>
+      <aspect name="Update notifications">Copy: No, Fork: Yes</aspect>
+      <aspect name="Can sync changes">Copy: No, Fork: Yes</aspect>
+      <aspect name="Independence">Copy: Fully independent, Fork: Linked</aspect>
+    </comparison>
+  </copyVsFork>
+
+  <componentStructure>
+    <directory path="web/app/publisher/algorithms/">
+      <file>browse/page.tsx - Browse public algorithms</file>
+      <file>browse/[id]/page.tsx - Algorithm detail view</file>
+    </directory>
+    <directory path="web/components/algorithms/">
+      <file>AlgorithmCard.tsx - Card for browse list</file>
+      <file>CopyForkButtons.tsx - Action buttons</file>
+      <file>ForkManager.tsx - Manage forks section</file>
+    </directory>
+  </componentStructure>
+
+  <constraints>
+    <constraint type="security">Cannot access private algorithm details</constraint>
+    <constraint type="security">Cannot copy/fork private algorithms</constraint>
+    <constraint type="privacy">Default algorithm visibility is private</constraint>
+  </constraints>
+</story-context>

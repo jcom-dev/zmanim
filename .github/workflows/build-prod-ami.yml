@@ -1,0 +1,169 @@
+name: Build Prod AMI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'AMI version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
+jobs:
+  build-ami:
+    name: Build Zmanim AMI
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.24
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: api/go.sum
+
+      - name: Build Go API binary for ARM64
+        run: |
+          cd api
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
+            -ldflags="-s -w" \
+            -o ../bin/zmanim-api \
+            ./cmd/api
+        env:
+          CGO_ENABLED: 0
+
+      - name: Verify binary
+        run: |
+          ls -lh bin/zmanim-api
+          file bin/zmanim-api
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-packer-build
+          aws-region: eu-west-1
+
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: 'latest'
+
+      - name: Initialize Packer
+        run: |
+          cd infrastructure/packer
+          packer init .
+
+      - name: Validate Packer template
+        run: |
+          cd infrastructure/packer
+          packer validate .
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from tag (e.g., v1.0.0-ami -> v1.0.0)
+            VERSION="${GITHUB_REF_NAME%-ami}"
+          fi
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+          echo "Building AMI version: ${VERSION} (build: ${TIMESTAMP})"
+
+      - name: Build AMI
+        run: |
+          cd infrastructure/packer
+          packer build \
+            -var "version=${{ steps.version.outputs.version }}" \
+            -var "build_timestamp=${{ steps.version.outputs.timestamp }}" \
+            -var "api_binary_path=../../bin/zmanim-api" \
+            .
+
+      - name: Cleanup old AMIs with same version tag
+        id: cleanup
+        run: |
+          # Extract AMI ID from manifest
+          AMI_ID=$(jq -r '.builds[-1].artifact_id | split(":")[1]' infrastructure/packer/manifest.json)
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "New AMI: $AMI_ID (version: $VERSION)"
+          echo "ami_id=${AMI_ID}" >> $GITHUB_OUTPUT
+
+          # Find all AMIs with the same Version tag (excluding the one we just built)
+          OLD_AMIS=$(aws ec2 describe-images \
+            --owners self \
+            --filters "Name=tag:Version,Values=${VERSION}" "Name=tag:ManagedBy,Values=Packer" \
+            --query "Images[?ImageId!='${AMI_ID}'].ImageId" \
+            --output text \
+            --region eu-west-1 2>/dev/null || echo "")
+
+          if [ -n "$OLD_AMIS" ] && [ "$OLD_AMIS" != "None" ]; then
+            echo "Found old AMIs with version ${VERSION} to clean up:"
+            for OLD_AMI in $OLD_AMIS; do
+              echo "  Deregistering: $OLD_AMI"
+
+              # Get snapshots before deregistering
+              OLD_SNAPSHOTS=$(aws ec2 describe-images \
+                --image-ids "$OLD_AMI" \
+                --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
+                --output text \
+                --region eu-west-1 2>/dev/null || echo "")
+
+              aws ec2 deregister-image --image-id "$OLD_AMI" --region eu-west-1 || true
+
+              # Delete old snapshots
+              for SNAP_ID in $OLD_SNAPSHOTS; do
+                if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
+                  echo "    Deleting snapshot: $SNAP_ID"
+                  aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region eu-west-1 || true
+                fi
+              done
+            done
+          else
+            echo "No old AMIs found with version ${VERSION}"
+          fi
+
+          echo "Current AMI ready: $AMI_ID"
+
+      - name: Update SSM parameter with new version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Updating SSM parameter /zmanim/prod/ami-version to: $VERSION"
+          aws ssm put-parameter \
+            --name "/zmanim/prod/ami-version" \
+            --value "$VERSION" \
+            --type "String" \
+            --overwrite \
+            --description "AMI version tag for Zmanim (updated $(date -u +%Y-%m-%dT%H:%M:%SZ))" \
+            --region eu-west-1
+          echo "SSM parameter updated successfully"
+
+      - name: Output AMI information
+        run: |
+          echo "AMI Build Complete!"
+          echo "===================="
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Region: eu-west-1"
+          echo "AMI ID: ${{ steps.cleanup.outputs.ami_id }}"
+          echo "AMI Name: zmanim-${{ steps.version.outputs.version }}-${{ steps.version.outputs.timestamp }}"
+          echo "SSM Parameter: /zmanim/prod/ami-version = ${{ steps.version.outputs.version }}"
+          echo ""
+          echo "CDK will find this AMI by Version tag from SSM parameter"
+
+      - name: Upload Packer manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: packer-manifest
+          path: infrastructure/packer/manifest.json
+          retention-days: 30

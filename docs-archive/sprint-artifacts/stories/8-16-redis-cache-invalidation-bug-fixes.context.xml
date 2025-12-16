@@ -1,0 +1,67 @@
+<story-context id="8-16-redis-cache-invalidation-bug-fixes" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>16</storyId>
+    <title>Redis Cache Invalidation Bug Fixes</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-16-redis-cache-invalidation-bug-fixes.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>zmanim calculations to reflect latest publisher settings</iWant>
+    <soThat>I don't receive outdated prayer times</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Coverage add/update/delete invalidates Redis cache</criterion>
+    <criterion id="AC2">Location override add/update/delete invalidates Redis cache</criterion>
+    <criterion id="AC3">Tag add/update/delete invalidates Redis cache</criterion>
+    <criterion id="AC4">Zman metadata changes (not just formula) invalidate cache</criterion>
+    <criterion id="AC5">Integration tests verify cache invalidation</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/coverage.go</path>
+        <kind>handler</kind>
+        <reason>Add cache invalidation to Create, Update, Delete</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/location_overrides.go</path>
+        <kind>handler</kind>
+        <reason>Add cache invalidation to Create, Update, Delete</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publisher_zmanim.go</path>
+        <kind>handler</kind>
+        <reason>Add cache invalidation to tag operations and metadata changes</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/cache_service.go</path>
+        <kind>service</kind>
+        <reason>Reference for cache methods</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use existing InvalidatePublisherCache and InvalidateZmanimForCity methods</constraint>
+    <constraint>Log warnings but don't fail request if invalidation fails</constraint>
+    <constraint>Use slog for logging</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Cache Methods</name>
+      <kind>Go methods</kind>
+      <signature>
+        h.cache.InvalidatePublisherCache(ctx, publisherID)
+        h.cache.InvalidateZmanimForCity(ctx, publisherID, cityID)
+      </signature>
+    </interface>
+  </interfaces>
+</story-context>

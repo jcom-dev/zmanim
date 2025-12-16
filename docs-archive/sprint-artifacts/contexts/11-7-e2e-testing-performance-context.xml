@@ -1,0 +1,839 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>11.7</story-id>
+    <story-title>E2E Testing &amp; Performance Validation</story-title>
+    <epic>Epic 11 - Publisher Zmanim Registry Interface</epic>
+    <status>Draft</status>
+    <priority>P1</priority>
+    <story-points>3</story-points>
+    <dependencies>Stories 11.0-11.6 (ALL MUST BE COMPLETE)</dependencies>
+    <generated-date>2025-12-22</generated-date>
+  </metadata>
+
+  <story-overview>
+    <user-story>
+      As a developer,
+      I want comprehensive E2E tests and performance validation for the registry interface,
+      So that we ensure quality, prevent regressions, and meet performance targets before launch.
+    </user-story>
+
+    <background>
+      Story 11.7 is the FINAL story of Epic 11, responsible for validating the complete Publisher Zmanim Registry Interface
+      through comprehensive end-to-end testing and performance benchmarking.
+
+      This story ensures:
+      - All user flows work correctly (browse, filter, search, import/link/copy, documentation)
+      - Performance targets met (page load &lt;2s, calculations &lt;500ms, filters &lt;300ms)
+      - Data integrity maintained (duplicate prevention, correct linkages, validation)
+      - PDF report generation works (all sections, styling, file size, generation time)
+      - Accessibility compliance (keyboard navigation, screen readers, focus management)
+
+      CRITICAL: This is the FINAL GATE before Epic 11 launch. Zero tolerance for test failures.
+    </background>
+
+    <scope>
+      <test-suites>
+        <suite id="1" file="registry-master.spec.ts">Master Registry Flow (8 scenarios)</suite>
+        <suite id="2" file="registry-publisher.spec.ts">Publisher Examples Flow (8 scenarios)</suite>
+        <suite id="3" file="registry-request.spec.ts">Request Addition Flow (2 scenarios)</suite>
+        <suite id="4" file="algorithm-migration.spec.ts">Algorithm Page Migration (4 scenarios)</suite>
+        <suite id="5" file="pdf-report.spec.ts">PDF Report Generation (6 scenarios)</suite>
+        <suite id="6" file="registry-duplicates.spec.ts">Duplicate Prevention (3 scenarios)</suite>
+        <suite id="7" file="registry-performance.spec.ts">Performance Tests (6 tests)</suite>
+        <suite id="8" file="registry-validation.sql">Data Validation (8 SQL queries)</suite>
+        <suite id="9" file="registry-a11y.spec.ts">Accessibility Tests (5 tests)</suite>
+      </test-suites>
+
+      <performance-targets>
+        <target metric="page_load_p95" value="&lt;2s" />
+        <target metric="preview_calculation" value="&lt;500ms" />
+        <target metric="filter_operation" value="&lt;300ms" />
+        <target metric="pagination" value="&lt;1s" />
+        <target metric="modal_open" value="&lt;200ms" />
+        <target metric="modal_close" value="&lt;100ms" />
+        <target metric="pdf_generation_p95" value="&lt;10s" />
+        <target metric="pdf_size_with_glossary" value="&lt;5MB" />
+        <target metric="pdf_size_without_glossary" value="&lt;2MB" />
+        <target metric="concurrent_users" value="100 users, p95 &lt;2s" />
+        <target metric="success_rate" value="&gt;95%" />
+        <target metric="cache_hit_rate" value="&gt;80%" />
+      </performance-targets>
+    </scope>
+  </story-overview>
+
+  <acceptance-criteria>
+    <criterion id="AC-1" title="Master Registry Flow E2E Tests">
+      Test Suite 1: registry-master.spec.ts
+      - Navigation &amp; default state
+      - Location &amp; date selection (global locality dropdown)
+      - Search &amp; filter operations (multi-select category/shita filters)
+      - Zman card display (Hebrew/English, DSL formula, preview time, badges, status)
+      - Master zman documentation modal (all sections, copy to clipboard, related zmanim)
+      - Import flow (redirect to /publisher/algorithm?focus=zman_key, highlight, toast)
+      - Duplicate prevention (Imported checkmark badge, disabled button)
+      - Empty state handling
+    </criterion>
+
+    <criterion id="AC-2" title="Publisher Examples Flow E2E Tests">
+      Test Suite 2: registry-publisher.spec.ts
+      - Tab switch &amp; publisher search (autocomplete, validated publishers only)
+      - Publisher selection &amp; display (name, badge, coverage-restricted location)
+      - Location selection (coverage-restricted, auto-clear if not covered)
+      - Publisher zman card display (customized name, master reference, status)
+      - Publisher zman documentation modal (2 sections: publisher-specific + inherited master)
+      - Link flow (redirect, highlight, toast, "Already in Your Catalog" status)
+      - Copy flow (redirect, highlight, toast, disabled buttons)
+      - Search &amp; filter within publisher catalog
+    </criterion>
+
+    <criterion id="AC-3" title="Request Addition Flow E2E Tests">
+      Test Suite 3: registry-request.spec.ts
+      - Request from Master Registry tab (modal form, submit, toast, remain on page)
+      - Request from Publisher Examples tab (modal pre-populates source="registry")
+    </criterion>
+
+    <criterion id="AC-4" title="Algorithm Page Migration E2E Tests">
+      Test Suite 4: algorithm-migration.spec.ts
+      - Algorithm page UI changes (NO "Add Zman" button, Browse Registry button exists)
+      - Code inspection (NO "Add Zman Mode" code, NO MasterZmanPicker/PublisherZmanPicker)
+      - Browse Registry navigation (redirect to /publisher/registry, Master Registry tab active)
+      - Focus param handling (?focus=zman_key highlights card, fades after 3s)
+    </criterion>
+
+    <criterion id="AC-5" title="PDF Report Generation E2E Tests">
+      Test Suite 5: pdf-report.spec.ts
+      - Modal open &amp; configuration (location selector, date picker, glossary toggle)
+      - PDF generation with glossary (6 sections: header, location, metadata, zmanim, primitives, functions)
+      - PDF generation without glossary (4 sections only, smaller file size)
+      - PDF file size &amp; performance (&lt;10s generation, &lt;5MB/&lt;2MB)
+      - Error handling (coverage validation, modal stays open)
+    </criterion>
+
+    <criterion id="AC-6" title="Duplicate Prevention Tests">
+      Test Suite 6: registry-duplicates.spec.ts
+      - UI-level duplicate prevention (badges, disabled buttons)
+      - API-level duplicate prevention (400 error, no duplicate created)
+      - Database-level duplicate prevention (unique constraint, violation error)
+    </criterion>
+
+    <criterion id="AC-7" title="Performance Tests">
+      Test Suite 7: registry-performance.spec.ts
+      - Page load (&lt;2s p95)
+      - Location preview calculation (&lt;500ms per zman)
+      - Search/filter operations (&lt;300ms)
+      - Pagination (&lt;1s)
+      - Modal open/close (&lt;200ms/&lt;100ms)
+      - Concurrency (100 users, 50 operations, &gt;95% success, &gt;80% cache hit)
+    </criterion>
+
+    <criterion id="AC-8" title="Data Validation Tests">
+      Test Suite 8: registry-validation.sql
+      - Documentation backfill validation (0 missing docs)
+      - Related zmanim validation (all IDs valid)
+      - Publisher 1 linkage validation (0 unlinked)
+      - Publisher 1 duplicate check (0 duplicates)
+      - Schema validation (constraints and indexes exist)
+      - Data integrity validation (all FKs valid)
+    </criterion>
+
+    <criterion id="AC-9" title="Accessibility Tests">
+      Test Suite 9: registry-a11y.spec.ts
+      - Keyboard navigation (all elements reachable, logical order)
+      - Screen reader support (ARIA labels, live regions, semantic HTML, 0 violations)
+      - Focus management (modal trap, drawer trap, focus return)
+      - Color contrast (4.5:1 text, 3:1 UI, color blindness simulators)
+      - Skip to content link
+    </criterion>
+  </acceptance-criteria>
+
+  <database-schema>
+    <table name="master_zmanim_registry">
+      <description>Canonical zman definitions - the single source of truth for all publishers</description>
+      <columns>
+        <column name="id" type="integer" primary-key="true" />
+        <column name="zman_key" type="varchar(100)" unique="true" />
+        <column name="canonical_hebrew_name" type="text" />
+        <column name="canonical_english_name" type="text" />
+        <column name="transliteration" type="text" nullable="true" />
+        <column name="description" type="text" nullable="true" />
+        <column name="halachic_source" type="text" nullable="true" />
+        <column name="halachic_notes" type="text" nullable="true" />
+        <column name="time_category_id" type="integer" fk="time_categories.id" />
+        <column name="default_formula_dsl" type="text" />
+        <column name="is_hidden" type="boolean" default="false" />
+        <column name="is_core" type="boolean" default="false" />
+        <column name="aliases" type="text[]" />
+        <column name="created_at" type="timestamptz" />
+        <column name="updated_at" type="timestamptz" />
+      </columns>
+      <indexes>
+        <index name="idx_master_zmanim_category" columns="time_category_id" />
+      </indexes>
+    </table>
+
+    <table name="publisher_zmanim">
+      <description>Publisher-specific zman instances - may link/copy from master or be custom</description>
+      <columns>
+        <column name="id" type="integer" primary-key="true" />
+        <column name="publisher_id" type="integer" fk="publishers.id" />
+        <column name="zman_key" type="varchar(100)" />
+        <column name="hebrew_name" type="text" />
+        <column name="english_name" type="text" />
+        <column name="transliteration" type="text" nullable="true" />
+        <column name="description" type="text" nullable="true" />
+        <column name="formula_dsl" type="text" />
+        <column name="master_zman_id" type="integer" fk="master_zmanim_registry.id" nullable="true" />
+        <column name="linked_publisher_zman_id" type="integer" fk="publisher_zmanim.id" nullable="true" />
+        <column name="is_enabled" type="boolean" default="true" />
+        <column name="is_visible" type="boolean" default="true" />
+        <column name="is_published" type="boolean" default="true" />
+        <column name="is_custom" type="boolean" default="false" />
+        <column name="time_category_id" type="integer" fk="time_categories.id" />
+        <column name="deleted_at" type="timestamptz" nullable="true" />
+        <column name="deleted_by" type="text" nullable="true" />
+        <column name="created_at" type="timestamptz" />
+        <column name="updated_at" type="timestamptz" />
+      </columns>
+      <indexes>
+        <index name="idx_publisher_zmanim_master_unique" columns="publisher_id, master_zman_id" unique="true" where="deleted_at IS NULL AND master_zman_id IS NOT NULL" />
+        <index name="idx_publisher_zmanim_active" columns="id" where="deleted_at IS NULL" />
+      </indexes>
+      <constraints>
+        <constraint type="unique" name="idx_publisher_zmanim_master_unique">
+          CRITICAL: Prevents duplicate master zman imports per publisher
+        </constraint>
+      </constraints>
+    </table>
+
+    <table name="publisher_coverage">
+      <description>Geographic coverage areas for publishers (continent, country, region, district, locality)</description>
+      <columns>
+        <column name="id" type="uuid" primary-key="true" />
+        <column name="publisher_id" type="integer" fk="publishers.id" />
+        <column name="coverage_level_id" type="smallint" fk="coverage_levels.id" />
+        <column name="geo_location_id" type="uuid" fk="geo_location_references.id" />
+        <column name="is_active" type="boolean" default="true" />
+        <column name="created_at" type="timestamptz" />
+      </columns>
+    </table>
+
+    <table name="geo_localities">
+      <description>~4M localities worldwide with coordinates and timezone (from GeoNames)</description>
+      <columns>
+        <column name="id" type="integer" primary-key="true" />
+        <column name="name" type="text" />
+        <column name="country_id" type="smallint" fk="geo_countries.id" />
+        <column name="region_id" type="integer" fk="geo_regions.id" nullable="true" />
+        <column name="district_id" type="integer" fk="geo_districts.id" nullable="true" />
+        <column name="latitude" type="double precision" />
+        <column name="longitude" type="double precision" />
+        <column name="timezone" type="text" />
+        <column name="population" type="integer" nullable="true" />
+      </columns>
+    </table>
+  </database-schema>
+
+  <existing-code>
+    <playwright-config file="tests/playwright.config.ts">
+      <parallel-execution enabled="true" workers="75%" />
+      <authentication-strategy>
+        Setup projects run ONCE per role, create storage state files
+        Test projects REUSE storage state (no sign-in per test)
+        Avoids Clerk rate limits (5 sign-ins per 10 seconds)
+      </authentication-strategy>
+      <projects>
+        <project name="setup" testMatch=".*\.setup\.ts" />
+        <project name="chromium-admin" storageState="test-results/.auth/admin.json" testMatch="admin/.*\.spec\.ts" />
+        <project name="chromium-publisher" storageState="test-results/.auth/publisher.json" testMatch="publisher/.*\.spec\.ts" />
+        <project name="chromium" testIgnore="admin|publisher|setup" />
+      </projects>
+      <timeouts>
+        <timeout type="test" value="60000" />
+        <timeout type="action" value="15000" />
+        <timeout type="navigation" value="30000" />
+        <timeout type="expect" value="10000" />
+      </timeouts>
+    </playwright-config>
+
+    <test-utilities dir="tests/e2e/utils">
+      <file name="clerk-auth.ts">
+        loginAsAdmin(page): Promise&lt;void&gt;
+        loginAsPublisher(page, publisherId): Promise&lt;void&gt;
+        loginAsUser(page): Promise&lt;void&gt;
+        createTestAdmin(): Promise&lt;AdminUser&gt;
+        createTestPublisher(publisherId): Promise&lt;PublisherUser&gt;
+        cleanupTestUsers(): Promise&lt;void&gt;
+        logout(page): Promise&lt;void&gt;
+      </file>
+
+      <file name="test-fixtures.ts">
+        createTestPublisherEntity(overrides): Promise&lt;Publisher&gt;
+        createTestAlgorithm(publisherId, overrides): Promise&lt;Algorithm&gt;
+        createTestCoverage(publisherId, cityId): Promise&lt;Coverage&gt;
+        cleanupTestData(): Promise&lt;void&gt;
+        cleanupPublisher(publisherId): Promise&lt;void&gt;
+        isDatabaseConfigured(): boolean
+        closePool(): Promise&lt;void&gt;
+      </file>
+
+      <file name="wait-helpers.ts">
+        waitForPageReady(page, options): Promise&lt;void&gt;
+        waitForClerkReady(page): Promise&lt;void&gt;
+        waitForNavigation(page, url): Promise&lt;void&gt;
+        waitForContent(page, text, options): Promise&lt;void&gt;
+        waitForLoadingComplete(page): Promise&lt;void&gt;
+        retryAction(action, options): Promise&lt;T&gt;
+        pollUntil(condition, options): Promise&lt;void&gt;
+      </file>
+
+      <file name="shared-fixtures.ts">
+        getSharedPublisher(key): SharedPublisher
+        getPublisherWithAlgorithm(): SharedPublisher
+        getEmptyPublisher(): SharedPublisher
+        getAllSharedPublishers(): SharedPublisher[]
+
+        Available keys: "verified-1" to "verified-5", "pending", "suspended",
+                       "with-algorithm-1/2", "with-coverage", "empty-1/2/3"
+      </file>
+    </test-utilities>
+
+    <test-patterns>
+      <pattern name="Deterministic Waits (MANDATORY)">
+        CORRECT:
+          await page.waitForResponse(response =&gt; response.url().includes('/api/v1/...') &amp;&amp; response.ok())
+          await expect(page.locator('[data-testid="zman-card"]').first()).toBeVisible()
+          await page.waitForLoadState('networkidle')
+          await expect(page.locator('text=Imported successfully')).toBeVisible()
+
+        FORBIDDEN:
+          await page.waitForTimeout(2000)  // NEVER use arbitrary timeouts
+      </pattern>
+
+      <pattern name="Parallel Test Execution (REQUIRED)">
+        test.describe.configure({ mode: 'parallel' })  // Top of every spec file
+
+        Ensures tests run in parallel for speed (target: &lt;20 minutes total)
+      </pattern>
+
+      <pattern name="Shared Fixtures (REQUIRED)">
+        FORBIDDEN: per-test creation
+          test.beforeEach(async () =&gt; { testPublisher = await create(...) })
+
+        REQUIRED: shared fixtures
+          const publisher = getSharedPublisher('verified-1')
+          await loginAsPublisher(page, publisher.id)
+      </pattern>
+
+      <pattern name="Test Cleanup (REQUIRED)">
+        test.afterAll(async () =&gt; {
+          await cleanupTestData()  // Idempotent, safe to run multiple times
+        })
+
+        Uses TEST_ prefix to identify test data
+        Uses test-zmanim.example.com domain filter
+      </pattern>
+    </test-patterns>
+  </existing-code>
+
+  <backend-handlers>
+    <handler file="api/internal/handlers/master_registry.go">
+      <purpose>Master zmanim registry CRUD - canonical zman definitions</purpose>
+      <types>
+        MasterZman: ID, ZmanKey, CanonicalHebrewName, CanonicalEnglishName, Transliteration, Description, HalachicNotes, HalachicSource, TimeCategory, DefaultFormulaDSL, IsCore, Tags, DayTypes
+
+        ZmanTag: ID, TagKey, Name, DisplayNameHebrew, DisplayNameEnglish, TagType, Description, Color, SortOrder, IsNegated, IsModified
+      </types>
+      <endpoints>
+        GET /api/v1/admin/master-registry - List all master zmanim
+        GET /api/v1/admin/master-registry/:id - Get single master zman
+        POST /api/v1/admin/master-registry - Create master zman
+        PUT /api/v1/admin/master-registry/:id - Update master zman
+        DELETE /api/v1/admin/master-registry/:id - Delete master zman
+
+        GET /api/v1/publisher/registry/master - Browse master registry (paginated, filtered)
+        POST /api/v1/publisher/registry/import - Import master zman to publisher catalog
+      </endpoints>
+    </handler>
+
+    <handler file="api/internal/handlers/publisher_zmanim.go">
+      <purpose>Publisher-specific zman CRUD - linked/copied/custom zmanim</purpose>
+      <endpoints>
+        GET /api/v1/publisher/zmanim - List publisher's zmanim
+        GET /api/v1/publisher/zmanim/:id - Get single publisher zman
+        POST /api/v1/publisher/zmanim - Create custom zman
+        PUT /api/v1/publisher/zmanim/:id - Update zman
+        DELETE /api/v1/publisher/zmanim/:id - Soft delete zman
+
+        POST /api/v1/publisher/zmanim/link - Link to another publisher's zman
+        POST /api/v1/publisher/zmanim/copy - Copy from another publisher's zman
+      </endpoints>
+      <duplicate-prevention>
+        API: Check if master_zman_id already exists for this publisher
+        Response: 400 "You already have this master zman" if duplicate
+        Database: unique constraint idx_publisher_zmanim_master_unique prevents duplicates
+      </duplicate-prevention>
+    </handler>
+
+    <handler file="api/internal/handlers/zmanim.go">
+      <purpose>Public zmanim calculation endpoints</purpose>
+      <endpoints>
+        GET /api/v1/publisher/zmanim?locality_id=&amp;date= - Calculate zmanim for location/date
+
+        Performance: Redis cache with 24hr TTL
+        Cache key: zmanim:{publisher_id}:{locality_id}:{date}:{filter_hash}
+      </endpoints>
+    </handler>
+  </backend-handlers>
+
+  <frontend-components>
+    <page file="web/app/publisher/algorithm/page.tsx">
+      <description>Publisher's zmanim algorithm editor - MIGRATED (No Add Zman button)</description>
+      <changes-in-story-11-5>
+        REMOVED: "Add Zman" button
+        REMOVED: "Add Zman Mode" dialog (lines 1144-1238)
+        REMOVED: MasterZmanPicker component import/usage
+        REMOVED: PublisherZmanPicker component import/usage
+        REMOVED: "Add Zman Mode" state variables
+
+        ADDED: "Browse Registry" button (prominent, secondary style)
+
+        Navigation: /publisher/algorithm?focus=zman_key
+        Focus handling: Scroll to card with data-zman-key attribute, highlight 3s
+      </changes-in-story-11-5>
+    </page>
+
+    <component name="ZmanCard">
+      <attributes>
+        data-zman-key="zman_key" - For focus param handling
+      </attributes>
+      <highlight-animation>
+        green border, fade after 3 seconds
+      </highlight-animation>
+    </component>
+
+    <toast-notifications>
+      "[Zman Name] imported successfully" - After import
+      "Linked to [Publisher Name]'s [Zman Name]" - After link
+      "Copied [Zman Name] from [Publisher Name]" - After copy
+      "Zmanim report generated successfully" - After PDF generation
+      "Request submitted for admin review" - After request submission
+    </toast-notifications>
+  </frontend-components>
+
+  <coding-standards>
+    <testing-standards>
+      <rule>Parallel Execution: test.describe.configure({ mode: 'parallel' }) - Top of every spec</rule>
+      <rule>Shared Fixtures: Use getSharedPublisher() - NO per-test creation</rule>
+      <rule>Deterministic Waits: waitForResponse/toBeVisible - NO waitForTimeout()</rule>
+      <rule>Cleanup: test.afterAll() with cleanupTestData() - Idempotent</rule>
+      <rule>Test Data: TEST_ prefix, test-zmanim.example.com domain</rule>
+    </testing-standards>
+
+    <performance-standards>
+      <rule>Measure time: Date.now() before/after operation</rule>
+      <rule>Record baseline: tests/performance/baseline.json</rule>
+      <rule>Compare p95: metrics.totalTime &lt; baseline.pageLoad.p95</rule>
+      <rule>Cache metrics: Redis cache hit rate &gt;80%</rule>
+    </performance-standards>
+
+    <accessibility-standards>
+      <rule>axe-core: 0 violations for WCAG 2.1 AA</rule>
+      <rule>Keyboard: All elements reachable, logical tab order</rule>
+      <rule>Focus trap: Modal/drawer cycle focus within, return on close</rule>
+      <rule>Color contrast: 4.5:1 text, 3:1 UI elements</rule>
+      <rule>ARIA: labels, live regions, expanded states, semantic HTML</rule>
+    </accessibility-standards>
+  </coding-standards>
+
+  <api-patterns>
+    <authentication>
+      All /api/v1/publisher/* endpoints require:
+      - Clerk JWT in Authorization: Bearer {token}
+      - X-Publisher-Id header (validated against JWT claims)
+
+      PublisherResolver.MustResolve(w, r) - Validates publisher access
+    </authentication>
+
+    <response-format>
+      Success: { data: {...}, meta: { timestamp, request_id } }
+      Error: { error: { code, message, details } }
+    </response-format>
+
+    <error-codes>
+      400: VALIDATION_ERROR, DUPLICATE_ZMAN, COVERAGE_NOT_FOUND
+      401: UNAUTHORIZED
+      403: FORBIDDEN
+      404: NOT_FOUND
+      500: INTERNAL_ERROR
+    </error-codes>
+  </api-patterns>
+
+  <pdf-report-structure>
+    <section id="1" title="Publisher Header">
+      - Publisher logo or fallback icon
+      - Publisher name (large, bold)
+      - Report generation timestamp
+      - Colorful gradient background
+    </section>
+
+    <section id="2" title="Location Details">
+      - Section title: "Location Information"
+      - Location name (e.g., "Jerusalem, Israel")
+      - Coordinates (latitude/longitude)
+      - Elevation (meters)
+      - Timezone (e.g., "Asia/Jerusalem (UTC+2)")
+      - Embedded static map (400x200px, red pin)
+    </section>
+
+    <section id="3" title="Report Metadata">
+      - Section title: "Report Date &amp; Time"
+      - Selected date (e.g., "Friday, December 29, 2025")
+      - Hebrew date (if available)
+      - Sunrise/Sunset times
+    </section>
+
+    <section id="4" title="Zmanim List">
+      - Section title: "Zmanim Calculations"
+      - Table columns: Zman Name, Calculated Time, DSL Formula, Explanation, Rounded Time
+      - At least 10 zmanim rows
+      - Syntax-highlighted DSL formulas
+      - 12-hour format times (AM/PM)
+      - Alternating row colors
+    </section>
+
+    <section id="5" title="Glossary - Primitives" conditional="include_glossary">
+      - Section title: "Glossary: Primitives"
+      - At least 3 primitive cards (sunrise, sunset, solar)
+      - Each card: name, definition, calculation method, scientific source
+      - Visual styling (borders, colors, icons)
+    </section>
+
+    <section id="6" title="Glossary - Functions" conditional="include_glossary">
+      - Section title: "Glossary: Functions"
+      - At least 2 function cards (coalesce, min, max)
+      - Each card: name, purpose, syntax, parameters, example usage
+      - Code examples in monospace font
+    </section>
+
+    <footer>
+      - Page number (e.g., "Page 2 of 5")
+      - Shtetl Zmanim branding
+      - Disclaimer text
+      - Generated timestamp
+    </footer>
+  </pdf-report-structure>
+
+  <sql-validation-queries>
+    <query id="1" title="Documentation Backfill Validation">
+      SELECT COUNT(*) AS missing_docs FROM master_zmanim_registry
+      WHERE full_description IS NULL OR halachic_source IS NULL OR formula_explanation IS NULL;
+
+      Expected: missing_docs = 0
+    </query>
+
+    <query id="2" title="Related Zmanim Validation">
+      SELECT mzr.id, mzr.zman_key, unnest(mzr.related_zmanim_ids) AS related_id
+      FROM master_zmanim_registry mzr
+      WHERE NOT EXISTS (
+        SELECT 1 FROM master_zmanim_registry mzr2
+        WHERE mzr2.id = unnest(mzr.related_zmanim_ids)
+      );
+
+      Expected: 0 rows
+    </query>
+
+    <query id="3" title="Publisher 1 Linkage Validation">
+      SELECT COUNT(*) AS unlinked FROM publisher_zmanim
+      WHERE publisher_id = 1 AND master_zmanim_id IS NULL AND deleted_at IS NULL;
+
+      Expected: unlinked = 0
+    </query>
+
+    <query id="4" title="Publisher 1 Duplicate Check">
+      SELECT master_zmanim_id, COUNT(*) AS duplicate_count
+      FROM publisher_zmanim
+      WHERE publisher_id = 1 AND deleted_at IS NULL
+      GROUP BY master_zmanim_id
+      HAVING COUNT(*) &gt; 1;
+
+      Expected: 0 rows
+    </query>
+
+    <query id="5" title="Schema Validation">
+      -- Unique constraint
+      SELECT constraint_name FROM information_schema.table_constraints
+      WHERE table_name = 'publisher_zmanim' AND constraint_type = 'UNIQUE'
+        AND constraint_name = 'idx_publisher_zmanim_master_unique';
+
+      -- Indexes
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'master_zmanim_registry'
+        AND indexname IN ('idx_master_zmanim_shita', 'idx_master_zmanim_category');
+
+      Expected: 1 constraint, 2 indexes
+    </query>
+
+    <query id="6" title="Data Integrity - Master FK">
+      SELECT pz.id, pz.zman_key, pz.master_zmanim_id
+      FROM publisher_zmanim pz
+      WHERE pz.master_zmanim_id IS NOT NULL AND pz.deleted_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM master_zmanim_registry mzr WHERE mzr.id = pz.master_zmanim_id);
+
+      Expected: 0 rows
+    </query>
+
+    <query id="7" title="Data Integrity - Linked FK">
+      SELECT pz.id, pz.zman_key, pz.linked_from_publisher_zman_id
+      FROM publisher_zmanim pz
+      WHERE pz.linked_from_publisher_zman_id IS NOT NULL AND pz.deleted_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM publisher_zmanim pz2 WHERE pz2.id = pz.linked_from_publisher_zman_id);
+
+      Expected: 0 rows
+    </query>
+
+    <query id="8" title="Data Integrity - Publisher FK">
+      SELECT pz.id, pz.zman_key, pz.copied_from_publisher_id
+      FROM publisher_zmanim pz
+      WHERE pz.copied_from_publisher_id IS NOT NULL AND pz.deleted_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM publishers p WHERE p.id = pz.copied_from_publisher_id);
+
+      Expected: 0 rows
+    </query>
+  </sql-validation-queries>
+
+  <implementation-checklist>
+    <phase id="1" title="E2E Test Suite Setup">
+      - [ ] Create file structure under tests/e2e/publisher/
+      - [ ] Create performance test directory tests/e2e/performance/
+      - [ ] Create accessibility test directory tests/e2e/accessibility/
+      - [ ] Create SQL test directory tests/sql/
+      - [ ] Install test utilities: @axe-core/playwright, pdf-parse
+      - [ ] Create test data fixtures for registry
+      - [ ] Create PDF validation helper (tests/utils/pdf-validator.ts)
+      - [ ] Create performance metrics helper (tests/utils/performance-metrics.ts)
+    </phase>
+
+    <phase id="2" title="Master Registry E2E Tests">
+      - [ ] Implement registry-master.spec.ts (8 scenarios)
+      - [ ] Test navigation &amp; default state
+      - [ ] Test location &amp; date selection
+      - [ ] Test search &amp; filter operations
+      - [ ] Test zman card display
+      - [ ] Test master zman documentation modal
+      - [ ] Test import flow
+      - [ ] Test duplicate prevention UI
+      - [ ] Test empty state
+      - [ ] Verify all tests pass locally
+    </phase>
+
+    <phase id="3" title="Publisher Examples E2E Tests">
+      - [ ] Implement registry-publisher.spec.ts (8 scenarios)
+      - [ ] Test tab switch &amp; publisher search
+      - [ ] Test publisher selection &amp; display
+      - [ ] Test coverage-restricted location selection
+      - [ ] Test publisher zman card display
+      - [ ] Test publisher zman documentation modal
+      - [ ] Test link flow
+      - [ ] Test copy flow
+      - [ ] Test search &amp; filter within publisher catalog
+      - [ ] Verify all tests pass locally
+    </phase>
+
+    <phase id="4" title="Request Addition &amp; Algorithm Migration Tests">
+      - [ ] Implement registry-request.spec.ts (2 scenarios)
+      - [ ] Test request from Master Registry tab
+      - [ ] Test request from Publisher Examples tab
+      - [ ] Implement algorithm-migration.spec.ts (4 scenarios)
+      - [ ] Test algorithm page UI changes
+      - [ ] Test code inspection (no Add Zman components)
+      - [ ] Test browse registry navigation
+      - [ ] Test focus param handling
+      - [ ] Verify all tests pass locally
+    </phase>
+
+    <phase id="5" title="PDF Report E2E Tests">
+      - [ ] Implement pdf-report.spec.ts (6 scenarios)
+      - [ ] Test modal open &amp; configuration
+      - [ ] Test PDF generation with glossary
+      - [ ] Test PDF content validation (all 6 sections)
+      - [ ] Test PDF generation without glossary (4 sections)
+      - [ ] Test PDF file size &amp; performance
+      - [ ] Test error handling (coverage validation)
+      - [ ] Verify all tests pass locally
+    </phase>
+
+    <phase id="6" title="Duplicate Prevention Tests">
+      - [ ] Implement registry-duplicates.spec.ts (3 scenarios)
+      - [ ] Test UI-level duplicate prevention
+      - [ ] Test API-level duplicate prevention
+      - [ ] Test database-level duplicate prevention
+      - [ ] Verify all tests pass locally
+    </phase>
+
+    <phase id="7" title="Performance Tests">
+      - [ ] Implement registry-performance.spec.ts (6 tests)
+      - [ ] Test page load (&lt;2s p95)
+      - [ ] Test location preview calculation (&lt;500ms)
+      - [ ] Test search/filter operations (&lt;300ms)
+      - [ ] Test pagination (&lt;1s)
+      - [ ] Test modal open/close (&lt;200ms/&lt;100ms)
+      - [ ] Test concurrency (100 users, 50 operations)
+      - [ ] Record performance baseline (tests/performance/baseline.json)
+      - [ ] Verify all targets met
+    </phase>
+
+    <phase id="8" title="Data Validation Tests">
+      - [ ] Create registry-validation.sql (8 queries)
+      - [ ] Add documentation backfill validation
+      - [ ] Add related zmanim validation
+      - [ ] Add Publisher 1 linkage validation
+      - [ ] Add Publisher 1 duplicate check
+      - [ ] Add schema validation (constraints/indexes)
+      - [ ] Add data integrity validation (3 FK checks)
+      - [ ] Run SQL validation suite
+      - [ ] Verify all queries return expected results
+    </phase>
+
+    <phase id="9" title="Accessibility Tests">
+      - [ ] Implement registry-a11y.spec.ts (5 tests)
+      - [ ] Test keyboard navigation
+      - [ ] Test screen reader support (axe-core, 0 violations)
+      - [ ] Test focus management (modal/drawer trap, return focus)
+      - [ ] Test color contrast (4.5:1 text, 3:1 UI)
+      - [ ] Test skip to content link
+      - [ ] Test with color blindness simulators
+      - [ ] Verify NO critical accessibility violations
+    </phase>
+
+    <phase id="10" title="CI Integration">
+      - [ ] Update .github/workflows/pr-e2e.yml to include registry tests
+      - [ ] Configure parallel test execution (8 workers)
+      - [ ] Configure test artifacts (screenshots, traces, videos)
+      - [ ] Run full test suite in CI
+      - [ ] Verify all tests pass in CI
+      - [ ] Verify test execution time &lt;20 minutes
+    </phase>
+  </implementation-checklist>
+
+  <definition-of-done>
+    <criteria>
+      - [ ] All 9 acceptance criteria met (AC-1 through AC-9)
+      - [ ] All E2E test suites implemented and passing (6 suites)
+      - [ ] All performance tests passing (6 tests, all targets met)
+      - [ ] All data validation queries passing (8 queries, expected results)
+      - [ ] All accessibility tests passing (5 tests, 0 violations)
+      - [ ] Test coverage: 100% of Epic 11 features tested
+      - [ ] Test execution time &lt;20 minutes (p95)
+      - [ ] Performance baseline recorded for future comparison
+      - [ ] All tests passing in CI (GitHub Actions)
+      - [ ] Test documentation updated (usage examples, patterns)
+      - [ ] Code reviewed and approved
+    </criteria>
+
+    <zero-tolerance>
+      CRITICAL: This is the FINAL GATE before Epic 11 launch.
+
+      If a test fails, either:
+      1. Fix the bug in the implementation (PREFERRED)
+      2. Fix the test if it's incorrect (rare)
+      3. Update acceptance criteria if requirements changed (requires approval)
+
+      NO EXCEPTIONS. Epic 11 cannot launch with test failures.
+    </zero-tolerance>
+  </definition-of-done>
+
+  <reference-documentation>
+    <doc file="/home/daniel/repos/zmanim/docs/coding-standards.md">
+      - Testing patterns (parallel execution, shared fixtures, deterministic waits)
+      - Cleanup patterns (idempotent, TEST_ prefix, test domain)
+      - Database patterns (soft delete, unique constraints, indexes)
+      - API patterns (PublisherResolver, response format, error codes)
+    </doc>
+
+    <doc file="/home/daniel/repos/zmanim/docs/architecture.md">
+      - Testing infrastructure (Playwright + Clerk + MailSlurp)
+      - Authentication pattern (@clerk/testing/playwright)
+      - Test data patterns (naming, fixtures, caching, cleanup)
+      - 130+ existing test scenarios (admin, publisher, user flows)
+    </doc>
+
+    <doc file="/home/daniel/repos/zmanim/tests/playwright.config.ts">
+      - Parallel execution configuration
+      - Authentication setup projects (storage state reuse)
+      - Timeouts (60s test, 15s action, 30s navigation, 10s expect)
+      - Reporter configuration (list, html, json)
+    </doc>
+
+    <doc file="/home/daniel/repos/zmanim/docs/sprint-artifacts/stories/11-7-e2e-testing-performance.md">
+      - Complete acceptance criteria (9 ACs)
+      - Detailed test scenarios (130+ test cases)
+      - Performance targets (12 metrics)
+      - SQL validation queries (8 queries)
+      - PDF validation structure (6 sections)
+      - Implementation checklist (10 phases)
+    </doc>
+  </reference-documentation>
+
+  <key-decisions>
+    <decision id="1">
+      Deterministic Waits Only: NO waitForTimeout - all waits based on network responses or element visibility
+    </decision>
+
+    <decision id="2">
+      Parallel Execution: Tests run in parallel for speed (target: &lt;20 minutes total)
+    </decision>
+
+    <decision id="3">
+      Test Data Cleanup: Each suite cleans up after itself (idempotent, safe to re-run)
+    </decision>
+
+    <decision id="4">
+      Performance Baselines: Record metrics for future comparison and regression detection
+    </decision>
+
+    <decision id="5">
+      Accessibility First: axe-core integration ensures WCAG 2.1 AA compliance (0 violations)
+    </decision>
+
+    <decision id="6">
+      Real PDF Validation: Parse actual PDF content to verify structure and sections
+    </decision>
+
+    <decision id="7">
+      Epic 11 Completion Gate: Story 11.7 is FINAL gate - zero tolerance for failures
+    </decision>
+  </key-decisions>
+
+  <notes>
+    <testing-strategy>
+      Story 11.7 follows "Dev is QA" philosophy - comprehensive testing ensures Epic 11 launches with confidence.
+
+      Test suite covers:
+      1. Functional Testing: All user flows work correctly
+      2. Performance Testing: All targets met (page load, calculations, filters, modals)
+      3. Data Integrity Testing: Database is correct (documentation, linkages, no duplicates)
+      4. Accessibility Testing: Interface is usable by everyone
+      5. Regression Prevention: Future changes won't break existing functionality
+    </testing-strategy>
+
+    <test-execution-order>
+      1. Data Validation (SQL queries) - Verify database foundation first
+      2. E2E Tests (Playwright) - Test all user flows
+      3. Performance Tests (Playwright with metrics) - Verify speed targets
+      4. Accessibility Tests (axe-core) - Verify WCAG compliance
+    </test-execution-order>
+
+    <epic-11-completion>
+      Story 11.7 is the FINAL gate before Epic 11 is considered complete.
+
+      All tests must pass before:
+      - Merging to dev branch
+      - Deploying to staging
+      - Announcing to publishers
+      - Launching to production
+
+      ZERO TOLERANCE for test failures.
+    </epic-11-completion>
+  </notes>
+</story-context>

@@ -1,0 +1,163 @@
+<story-context id="8-33-ai-explanation-rag-validation-enriched-context" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>33</storyId>
+    <title>AI Explanation/Generation RAG Validation and Enriched Context</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>publisher using AI-powered formula generation or explanation</asA>
+    <iWant>the system to validate that RAG context was successfully retrieved and include rich zman metadata in the AI request</iWant>
+    <soThat>I receive accurate, contextually-aware AI responses or a clear error if the knowledge base is unavailable</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">AI endpoints fail with 503 if RAG context assembly fails (not silently ignored)</criterion>
+    <criterion id="AC2">AI endpoints fail with 503 if RAG returns zero sources (knowledge base not indexed)</criterion>
+    <criterion id="AC3">New optional request parameters: zman_key and publisher_id</criterion>
+    <criterion id="AC4">When zman_key provided, include master registry data in AI context</criterion>
+    <criterion id="AC5">When zman_key + publisher_id provided, also include publisher zman data</criterion>
+    <criterion id="AC6">Frontend components updated to pass zman_key when available</criterion>
+    <criterion id="AC7">Error responses clearly indicate RAG failure vs. other errors</criterion>
+    <criterion id="AC8">Existing functionality preserved when RAG unavailable in dev environments (AI_REQUIRE_RAG=false)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/ai_formula.go</path>
+        <kind>handler</kind>
+        <symbol>GenerateFormula</symbol>
+        <reason>Main handler - currently silently ignores RAG errors (lines 82-94)</reason>
+        <currentBehavior><![CDATA[
+if h.aiContext != nil {
+    assembled, err := h.aiContext.AssembleContext(ctx, req.Description, opts)
+    if err == nil && assembled != nil {  // Silently ignores errors!
+        ragContext = assembled.Context
+        ragUsed = len(assembled.Sources) > 0
+    }
+}
+        ]]></currentBehavior>
+        <requiredChange>Add RAG validation, fail with 503 if unavailable, add zman_key support</requiredChange>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/ai_formula.go</path>
+        <kind>handler</kind>
+        <symbol>ExplainFormula</symbol>
+        <reason>Second handler - same RAG silent failure issue (lines 169-183)</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/ai_formula.go</path>
+        <kind>type</kind>
+        <symbol>GenerateFormulaRequest</symbol>
+        <reason>Add zman_key and publisher_id fields</reason>
+        <currentDefinition>type GenerateFormulaRequest struct { Description string }</currentDefinition>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/ai_formula.go</path>
+        <kind>type</kind>
+        <symbol>ExplainFormulaRequest</symbol>
+        <reason>Add zman_key and publisher_id fields</reason>
+        <currentDefinition>type ExplainFormulaRequest struct { Formula string; Language string }</currentDefinition>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/master_registry.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>New query: GetZmanContextForAI - joins master_zmanim_registry + publisher_zmanim + tags</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/algorithm/AIFormulaGenerator.tsx</path>
+        <kind>component</kind>
+        <reason>Pass zman_key when editing existing zman</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/formula-builder/AIGeneratePanel.tsx</path>
+        <kind>component</kind>
+        <reason>Pass zman_key from parent context</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/zmanim/FormulaExplanation.tsx</path>
+        <kind>component</kind>
+        <reason>Pass zman_key for context-aware explanations</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <zmanContextStructure>
+    <description>Rich context to include in AI prompt when zman_key is provided</description>
+    <jsonSchema><![CDATA[
+{
+  "zman": {
+    "key": "alos_hashachar",
+    "hebrew_name": "עלות השחר",
+    "english_name": "Alos Hashachar (Dawn)",
+    "transliteration": "Alot HaShachar",
+    "description": "The time when the first light appears in the east...",
+    "halachic_notes": "According to most poskim, this is when...",
+    "halachic_source": "Shulchan Aruch OC 89:1",
+    "time_category": "dawn",
+    "default_formula": "solar(-16.1)",
+    "is_core": true,
+    "tags": [
+      {"name": "morning_prayers", "type": "behavior", "hebrew": "תפילות שחרית"},
+      {"name": "biblical", "type": "timing", "hebrew": "מקרא"}
+    ]
+  },
+  "publisher_context": {
+    "current_formula": "solar(-18.0)",
+    "publisher_comment": "Following Rabbeinu Tam's opinion",
+    "is_enabled": true,
+    "is_published": true
+  }
+}
+    ]]></jsonSchema>
+  </zmanContextStructure>
+
+  <ragValidationHelper><![CDATA[
+func (h *Handlers) validateRAGAvailability(ctx context.Context, query string) (*ai.AssembledContext, error) {
+    if h.aiContext == nil {
+        return nil, fmt.Errorf("RAG service not configured")
+    }
+
+    opts := ai.ContextOptions{MaxTokens: 1500, MaxDocs: 3, IncludeExamples: true, IncludeHalachic: true}
+    assembled, err := h.aiContext.AssembleContext(ctx, query, opts)
+    if err != nil {
+        return nil, fmt.Errorf("RAG context assembly failed: %w", err)
+    }
+
+    if len(assembled.Sources) == 0 {
+        if os.Getenv("AI_REQUIRE_RAG") != "false" {
+            return nil, fmt.Errorf("knowledge base not indexed - RAG sources unavailable")
+        }
+        slog.Warn("RAG sources empty, proceeding without context (AI_REQUIRE_RAG=false)")
+    }
+
+    return assembled, nil
+}
+  ]]></ragValidationHelper>
+
+  <errorResponseFormat><![CDATA[
+{
+  "error": "AI service temporarily unavailable",
+  "code": "RAG_UNAVAILABLE",
+  "message": "The AI knowledge base is not currently accessible. Please try again later.",
+  "retry_after": 60
+}
+  ]]></errorResponseFormat>
+
+  <envConfig>
+    <variable name="AI_REQUIRE_RAG" default="true">
+      <description>When true, AI endpoints fail if RAG unavailable. Set to false for local dev without embeddings.</description>
+    </variable>
+  </envConfig>
+
+  <constraints>
+    <constraint>Existing functionality must work when AI_REQUIRE_RAG=false</constraint>
+    <constraint>503 errors must have clear, actionable messages</constraint>
+    <constraint>Cache key for explanations must include zman_key when provided</constraint>
+    <constraint>Frontend must handle 503 gracefully with user-friendly message</constraint>
+  </constraints>
+</story-context>

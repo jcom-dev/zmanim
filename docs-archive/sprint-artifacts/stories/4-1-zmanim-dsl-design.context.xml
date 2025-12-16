@@ -1,0 +1,301 @@
+<story-context id="4-1-zmanim-dsl-design" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.1</storyId>
+    <title>Zmanim DSL Design</title>
+    <status>ready-for-dev</status>
+    <storyPoints>3</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-1-zmanim-dsl-design.md</sourceStoryPath>
+    <dependencies>Story 4.0 (PostgreSQL + pgvector) - COMPLETE</dependencies>
+  </metadata>
+
+  <story>
+    <asA>product team</asA>
+    <iWant>a complete DSL specification for zmanim calculations</iWant>
+    <soThat>we have a documented, validated syntax that supports all 157+ zmanim from KosherJava while remaining accessible to non-programmers</soThat>
+    <tasks>
+      <task id="1" title="Research KosherJava Zmanim" ac="4.1.1">
+        <subtask>1.1 Clone KosherJava repository and analyze source</subtask>
+        <subtask>1.2 Document all zman calculation methods</subtask>
+        <subtask>1.3 Identify parameters and variations for each method</subtask>
+        <subtask>1.4 Create zmanim catalog spreadsheet</subtask>
+      </task>
+      <task id="2" title="Research hebcal-go" ac="4.1.1">
+        <subtask>2.1 Analyze hebcal-go zmanim implementation</subtask>
+        <subtask>2.2 Compare with KosherJava methods</subtask>
+        <subtask>2.3 Document any differences or additional methods</subtask>
+      </task>
+      <task id="3" title="Design DSL Syntax" ac="4.1.2">
+        <subtask>3.1 Define primitive keywords</subtask>
+        <subtask>3.2 Define function signatures</subtask>
+        <subtask>3.3 Define operator precedence</subtask>
+        <subtask>3.4 Define duration formats</subtask>
+        <subtask>3.5 Define reference syntax</subtask>
+        <subtask>3.6 Define conditional syntax</subtask>
+        <subtask>3.7 Write complete BNF grammar</subtask>
+      </task>
+      <task id="4" title="Create Example Formulas" ac="4.1.3">
+        <subtask>4.1 Write GRA system formulas (standard Ashkenazi)</subtask>
+        <subtask>4.2 Write MGA system formulas (Magen Avraham)</subtask>
+        <subtask>4.3 Write Rabbeinu Tam formulas</subtask>
+        <subtask>4.4 Write Baal HaTanya formulas</subtask>
+        <subtask>4.5 Write complex conditional formulas</subtask>
+      </task>
+      <task id="5" title="Document Validation Rules" ac="4.1.4">
+        <subtask>5.1 Document syntax validation</subtask>
+        <subtask>5.2 Document semantic validation</subtask>
+        <subtask>5.3 Document circular dependency detection</subtask>
+        <subtask>5.4 Design error message format with suggestions</subtask>
+      </task>
+      <task id="6" title="Finalize Documentation" ac="4.1.5">
+        <subtask>6.1 Review and polish DSL specification</subtask>
+        <subtask>6.2 Create quick reference card</subtask>
+        <subtask>6.3 Write JSON to DSL migration guide</subtask>
+        <subtask>6.4 Get team review and approval</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.1.1" title="Research Documentation">
+      <item>All 157+ zmanim from KosherJava/hebcal-go catalogued with calculation methods</item>
+      <item>Common calculation patterns documented (solar angle, fixed minutes, proportional hours)</item>
+      <item>Edge cases identified (high latitudes, polar regions, date line)</item>
+    </criterion>
+    <criterion id="AC-4.1.2" title="DSL Syntax Specification">
+      <item>Complete BNF grammar defined and documented</item>
+      <item>Primitives defined: sunrise, sunset, solar_noon, civil_dawn, civil_dusk, etc.</item>
+      <item>Functions defined: solar(degrees, direction), shaos(hours, base), midpoint(t1, t2)</item>
+      <item>Operators defined: +, -, *, /, ()</item>
+      <item>Duration formats defined: Xmin, Xhr, Xh Ymin</item>
+      <item>References defined: @zman_key for cross-zman dependencies</item>
+      <item>Conditionals defined: if (condition) { ... } else { ... }</item>
+    </criterion>
+    <criterion id="AC-4.1.3" title="Example Formulas">
+      <item>Example formulas for all common zmanim (GRA system, MGA system, Rabbeinu Tam)</item>
+      <item>Complex formulas with conditionals (high-latitude fallbacks)</item>
+      <item>Reference chain examples showing dependency resolution</item>
+    </criterion>
+    <criterion id="AC-4.1.4" title="Validation Rules">
+      <item>Syntax validation rules documented</item>
+      <item>Semantic validation rules documented (type checking, parameter ranges)</item>
+      <item>Circular dependency detection rules documented</item>
+      <item>Error message format and suggestions documented</item>
+    </criterion>
+    <criterion id="AC-4.1.5" title="Documentation Complete">
+      <item>DSL specification document finalized: docs/sprint-artifacts/epic-4-dsl-specification.md</item>
+      <item>Quick reference card for common formulas</item>
+      <item>Migration guide from Epic 1 JSON format to DSL</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-dsl-specification.md</path>
+        <title>Epic 4: Zmanim DSL - Complete Specification</title>
+        <section>Full Document (1391 lines)</section>
+        <snippet>Draft DSL specification with primitives, functions, operators, conditionals, BNF grammar. This story validates, refines, and finalizes this specification.</snippet>
+        <status>DRAFT - needs review and finalization</status>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <title>Epic 4: Comprehensive Planning Document</title>
+        <section>DSL Specification, Story 4.1</section>
+        <snippet>DSL design principles, quick reference, example formulas, database schema for zmanim_templates and publisher_zmanim tables.</snippet>
+      </doc>
+    </docs>
+
+    <externalReferences>
+      <reference>
+        <name>KosherJava Zmanim Library</name>
+        <url>https://github.com/KosherJava/zmanim</url>
+        <description>Java library with 157+ zmanim calculations. Primary reference for calculation methods.</description>
+        <keyFiles>
+          <file>src/main/java/com/kosherjava/zmanim/ZmanimCalendar.java</file>
+          <file>src/main/java/com/kosherjava/zmanim/ComplexZmanimCalendar.java</file>
+          <file>src/main/java/com/kosherjava/zmanim/util/AstronomicalCalculator.java</file>
+        </keyFiles>
+      </reference>
+      <reference>
+        <name>hebcal-go</name>
+        <url>https://github.com/hebcal/hebcal-go</url>
+        <description>Go library for Hebrew calendar and zmanim. Used for Hebrew date integration in Story 4.10.</description>
+        <keyPackages>
+          <package>zmanim - Zmanim calculations</package>
+          <package>hdate - Hebrew date conversion</package>
+          <package>event - Jewish holiday events</package>
+        </keyPackages>
+      </reference>
+    </externalReferences>
+
+    <code>
+      <file>
+        <path>api/internal/astro/sun.go</path>
+        <kind>package</kind>
+        <symbol>CalculateSunTimes, SunTimeAtAngle</symbol>
+        <reason>Existing astronomical calculations. DSL primitives (sunrise, sunset, solar_noon) must map to these functions.</reason>
+      </file>
+      <file>
+        <path>api/internal/astro/times.go</path>
+        <kind>package</kind>
+        <symbol>ShaosZmaniyosGRA, ShaosZmaniyosMGA, Midpoint, AddMinutes</symbol>
+        <reason>Existing time arithmetic. DSL functions (shaos, midpoint, fixed offsets) must use these.</reason>
+      </file>
+      <file>
+        <path>api/internal/algorithm/types.go</path>
+        <kind>types</kind>
+        <symbol>AlgorithmConfig, ZmanConfig, Method constants</symbol>
+        <reason>Current JSON-based algorithm configuration. Migration guide must show path from JSON to DSL.</reason>
+      </file>
+      <file>
+        <path>api/internal/algorithm/executor.go</path>
+        <kind>service</kind>
+        <symbol>Executor, calculateZman methods</symbol>
+        <reason>Current calculation engine. DSL executor (Story 4.2) will replace this.</reason>
+      </file>
+    </code>
+  </artifacts>
+
+  <dslSpecificationSummary>
+    <primitives>
+      <primitive name="sunrise" description="Geometric sunrise (sun's center at horizon)"/>
+      <primitive name="sunset" description="Geometric sunset"/>
+      <primitive name="solar_noon" description="Sun at highest point"/>
+      <primitive name="solar_midnight" description="Opposite of solar noon"/>
+      <primitive name="visible_sunrise" description="Accounts for refraction (-0.833°)"/>
+      <primitive name="visible_sunset" description="Accounts for refraction"/>
+      <primitive name="civil_dawn" description="Sun at -6° (morning)"/>
+      <primitive name="civil_dusk" description="Sun at -6° (evening)"/>
+      <primitive name="nautical_dawn" description="Sun at -12° (morning)"/>
+      <primitive name="nautical_dusk" description="Sun at -12° (evening)"/>
+      <primitive name="astronomical_dawn" description="Sun at -18° (morning)"/>
+      <primitive name="astronomical_dusk" description="Sun at -18° (evening)"/>
+    </primitives>
+
+    <functions>
+      <function name="solar" signature="solar(degrees, direction)">
+        <parameter name="degrees" type="float" range="0.0-90.0"/>
+        <parameter name="direction" type="enum" values="before_sunrise, after_sunset, before_noon, after_noon"/>
+        <example>solar(16.1, before_sunrise) // Alos at 16.1°</example>
+      </function>
+      <function name="shaos" signature="shaos(hours, base)">
+        <parameter name="hours" type="float" range="0.5-12.0"/>
+        <parameter name="base" type="enum" values="gra, mga, mga_90, mga_120, custom(start, end)"/>
+        <example>shaos(3, gra) // 3 proportional hours GRA</example>
+      </function>
+      <function name="midpoint" signature="midpoint(time1, time2)">
+        <parameter name="time1" type="Time"/>
+        <parameter name="time2" type="Time"/>
+        <example>midpoint(sunrise, sunset) // Chatzos</example>
+      </function>
+    </functions>
+
+    <operators>
+      <operator symbol="+" description="Add duration to time"/>
+      <operator symbol="-" description="Subtract duration from time"/>
+      <operator symbol="*" description="Multiply duration"/>
+      <operator symbol="/" description="Divide duration"/>
+      <operator symbol="()" description="Grouping"/>
+    </operators>
+
+    <durations>
+      <format pattern="Xmin" example="72min"/>
+      <format pattern="Xhr" example="2hr"/>
+      <format pattern="Xh Ymin" example="1h 30min"/>
+    </durations>
+
+    <references>
+      <syntax>@zman_key</syntax>
+      <example>@alos_hashachar + shaos(3, custom(@alos_hashachar, @tzais_72))</example>
+    </references>
+
+    <conditionals>
+      <syntax>if (condition) { formula } else { alternative }</syntax>
+      <conditions>latitude > X, latitude &lt; X, day_length > Xhr, month == X, season == "name"</conditions>
+      <example>if (latitude > 60) { civil_dawn } else { solar(16.1, before_sunrise) }</example>
+    </conditionals>
+
+    <typeRules>
+      <rule>Time + Duration = Time</rule>
+      <rule>Time - Duration = Time</rule>
+      <rule>Time - Time = Duration</rule>
+      <rule>Duration + Duration = Duration</rule>
+      <rule>Duration * Scalar = Duration</rule>
+      <rule>Duration / Scalar = Duration</rule>
+    </typeRules>
+  </dslSpecificationSummary>
+
+  <constraints>
+    <constraint type="scope">This is a DOCUMENTATION story - no code implementation</constraint>
+    <constraint type="deliverable">Primary output is finalized epic-4-dsl-specification.md</constraint>
+    <constraint type="review">Requires review by Product (John) and Architecture (Winston)</constraint>
+    <constraint type="dependency">Must complete before Story 4.2 (DSL Parser) can begin implementation</constraint>
+    <constraint type="coverage">Must support all 157+ zmanim from KosherJava</constraint>
+    <constraint type="accessibility">DSL syntax must be readable by non-programmers (rabbis, halachic authorities)</constraint>
+  </constraints>
+
+  <tests>
+    <standards>
+      This is a documentation story. Testing is manual review and validation.
+    </standards>
+    <reviewChecklist>
+      <item>BNF grammar parses all example formulas correctly (manual validation)</item>
+      <item>All 157+ zmanim have mappable DSL formulas</item>
+      <item>Edge case formulas compile conceptually</item>
+      <item>DSL syntax is unambiguous</item>
+      <item>Error messages are helpful</item>
+      <item>Migration path from JSON is clear</item>
+      <item>Non-programmers can understand basic formulas</item>
+    </reviewChecklist>
+  </tests>
+
+  <exampleFormulas>
+    <category name="GRA System">
+      <formula name="Sunrise" dsl="sunrise"/>
+      <formula name="Sof Zman Shma (GRA)" dsl="sunrise + shaos(3, gra)"/>
+      <formula name="Sof Zman Tefilla (GRA)" dsl="sunrise + shaos(4, gra)"/>
+      <formula name="Chatzos" dsl="midpoint(sunrise, sunset)"/>
+      <formula name="Mincha Gedola" dsl="sunrise + shaos(6.5, gra)"/>
+      <formula name="Mincha Ketana" dsl="sunrise + shaos(9.5, gra)"/>
+      <formula name="Plag HaMincha" dsl="sunrise + shaos(10.75, gra)"/>
+      <formula name="Sunset" dsl="sunset"/>
+      <formula name="Tzais 8.5°" dsl="solar(8.5, after_sunset)"/>
+    </category>
+    <category name="MGA System">
+      <formula name="Alos 72min" dsl="sunrise - 72min"/>
+      <formula name="Sof Zman Shma (MGA)" dsl="sunrise - 72min + shaos(3, mga)"/>
+      <formula name="Sof Zman Tefilla (MGA)" dsl="sunrise - 72min + shaos(4, mga)"/>
+      <formula name="Tzais 72min" dsl="sunset + 72min"/>
+    </category>
+    <category name="Solar Angle Methods">
+      <formula name="Alos 16.1°" dsl="solar(16.1, before_sunrise)"/>
+      <formula name="Misheyakir 11.5°" dsl="solar(11.5, before_sunrise)"/>
+      <formula name="Tzais Geonim 7.083°" dsl="solar(7.083, after_sunset)"/>
+      <formula name="Tzais Rabbeinu Tam 16.1°" dsl="solar(16.1, after_sunset)"/>
+    </category>
+    <category name="Conditionals">
+      <formula name="High Latitude Fallback" dsl="if (latitude > 60) { civil_dawn } else { solar(16.1, before_sunrise) }"/>
+      <formula name="Short Day Fallback" dsl="if (day_length &lt; 8hr) { sunrise - 60min } else { solar(16.1, before_sunrise) }"/>
+    </category>
+    <category name="References">
+      <formula name="Custom Shaos Base" dsl="@alos_hashachar + shaos(3, custom(@alos_hashachar, @tzais_72))"/>
+    </category>
+  </exampleFormulas>
+
+  <migrationGuide>
+    <summary>Epic 1 used JSON-based algorithm configuration. Epic 4 uses DSL formulas.</summary>
+    <jsonToDsl>
+      <mapping json='{"method": "sunrise"}' dsl="sunrise"/>
+      <mapping json='{"method": "sunset"}' dsl="sunset"/>
+      <mapping json='{"method": "solar_angle", "params": {"degrees": 16.1}}' dsl="solar(16.1, before_sunrise)"/>
+      <mapping json='{"method": "fixed_minutes", "params": {"minutes": 72, "from": "sunrise"}}' dsl="sunrise - 72min"/>
+      <mapping json='{"method": "fixed_minutes", "params": {"minutes": 72, "from": "sunset"}}' dsl="sunset + 72min"/>
+      <mapping json='{"method": "proportional", "params": {"hours": 3, "base": "gra"}}' dsl="sunrise + shaos(3, gra)"/>
+      <mapping json='{"method": "proportional", "params": {"hours": 3, "base": "mga"}}' dsl="sunrise - 72min + shaos(3, mga)"/>
+      <mapping json='{"method": "midpoint", "params": {"start": "sunrise", "end": "sunset"}}' dsl="midpoint(sunrise, sunset)"/>
+    </jsonToDsl>
+  </migrationGuide>
+</story-context>

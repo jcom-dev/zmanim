@@ -1,0 +1,68 @@
+{
+  "name": "Shtetl Zmanim Dev",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.21"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "forwardPorts": [3000, 8080],
+
+  "portsAttributes": {
+    "3000": {
+      "label": "Web Frontend",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Go API",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "postCreateCommand": "cd web && npm install && cd ../api && go mod download",
+
+  "postStartCommand": "echo 'Dev environment ready! Run: cd web && npm run dev (frontend) or cd api && go run ./cmd/api (backend)'",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "usernamehw.errorlens",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.lintOnSave": "package",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[go]": {
+          "editor.defaultFormatter": "golang.go"
+        },
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "tailwindCSS.experimental.classRegex": [
+          ["className=\"([^\"]*)\"", "([^\"\\s]*)"]
+        ]
+      }
+    },
+    "codespaces": {
+      "openFiles": ["README.md"]
+    }
+  },
+
+  "remoteEnv": {
+    "NEXT_PUBLIC_API_URL": "http://localhost:8080"
+  }
+}

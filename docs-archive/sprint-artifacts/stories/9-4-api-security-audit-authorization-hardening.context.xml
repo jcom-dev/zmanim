@@ -1,0 +1,1222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.4" title="API Security Audit & Authorization Hardening">
+
+  <summary>
+    This context file provides complete technical details for auditing API security, including:
+    - Authentication/authorization middleware (JWT validation, role enforcement)
+    - Publisher context resolution and X-Publisher-Id validation
+    - Route definitions (public, publisher, admin, external API)
+    - Sample handlers demonstrating authorization patterns
+    - Database query patterns showing publisher_id filtering
+    - Frontend API client architecture
+  </summary>
+
+  <security-architecture>
+    <overview>
+      The Shtetl Zmanim API implements a multi-layered security architecture with:
+      1. JWT authentication via Clerk (validated in middleware)
+      2. Role-based access control (admin, publisher, user)
+      3. Publisher context resolution with X-Publisher-Id header validation
+      4. Database-level tenant isolation via publisher_id filtering in SQLc queries
+      5. Frontend API client with automatic auth header injection
+    </overview>
+
+    <authentication-flow>
+      1. User authenticates with Clerk → receives JWT
+      2. JWT contains: user_id, role, primary_publisher_id, publisher_access_list
+      3. Frontend sends JWT in Authorization header + X-Publisher-Id header
+      4. Backend validates JWT via middleware.RequireAuth or RequireRole
+      5. Backend validates X-Publisher-Id against JWT claims (via GetValidatedPublisherID)
+      6. Handlers use publisher_id from context (NOT from request params)
+    </authentication-flow>
+
+    <authorization-layers>
+      <layer number="1">Middleware - JWT validation, role enforcement (RequireAuth, RequireRole)</layer>
+      <layer number="2">Publisher Resolver - X-Publisher-Id validation against JWT claims</layer>
+      <layer number="3">Handlers - Publisher context extraction via MustResolve()</layer>
+      <layer number="4">Database - SQLc queries with publisher_id filters</layer>
+    </authorization-layers>
+
+    <critical-security-patterns>
+      <pattern name="Publisher Tenant Isolation">
+        - X-Publisher-Id header is validated against JWT metadata
+        - User can only access publishers in their publisher_access_list
+        - Admin users can access any publisher (bypass validation)
+        - Database queries MUST filter by publisher_id from context
+      </pattern>
+
+      <pattern name="Admin Role Enforcement">
+        - Admin routes use RequireRole("admin") middleware
+        - Admin role check in middleware line 261: userRole != "admin"
+        - Admin users can access all publishers (line 201 in auth.go)
+        - Admin bypasses tenant isolation (authorized exception)
+      </pattern>
+
+      <pattern name="Public API Read-Only">
+        - Public routes use OptionalAuth middleware (no auth required)
+        - All public routes should be GET-only
+        - Rate limiting applied via rateLimiter.Middleware
+        - No mutations (POST/PUT/DELETE) without authentication
+      </pattern>
+
+      <pattern name="SQL Injection Prevention">
+        - ALL queries use SQLc generated code (no raw SQL)
+        - Parameterized queries with $1, $2, etc.
+        - No string concatenation in SQL
+        - All user inputs passed as query parameters
+      </pattern>
+    </critical-security-patterns>
+  </security-architecture>
+
+  <files>
+    <file path="api/internal/middleware/auth.go" relevance="critical">
+      <description>JWT authentication middleware - RequireAuth, RequireRole, GetValidatedPublisherID</description>
+      <content><![CDATA[
+// File: auth.go
+// Purpose: JWT verification, role enforcement (RequireAuth, RequireRole)
+
+package middleware
+
+import (
+	"context"
+	"crypto"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"math/big"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+)
+
+// Context keys for storing user info
+type contextKey string
+const (
+	UserIDKey contextKey = "user_id"
+	UserRoleKey contextKey = "user_role"
+	PrimaryPublisherIDKey contextKey = "primary_publisher_id"
+	PublisherAccessListKey contextKey = "publisher_access_list"
+)
+
+// Claims represents the JWT claims from Clerk
+type Claims struct {
+	Subject        string                 `json:"sub"`
+	Issuer         string                 `json:"iss"`
+	Audience       StringOrArray          `json:"aud"`
+	ExpiresAt      int64                  `json:"exp"`
+	IssuedAt       int64                  `json:"iat"`
+	NotBefore      int64                  `json:"nbf"`
+	Metadata       map[string]interface{} `json:"metadata"`
+	PublicMetadata map[string]interface{} `json:"public_metadata"`
+}
+
+// AuthMiddleware provides JWT authentication using Clerk JWKS
+type AuthMiddleware struct {
+	config    AuthConfig
+	keys      map[string]*rsa.PublicKey
+	keysMutex sync.RWMutex
+	lastFetch time.Time
+}
+
+// GetUserID retrieves the user ID from the request context
+func GetUserID(ctx context.Context) string {
+	if id, ok := ctx.Value(UserIDKey).(string); ok {
+		return id
+	}
+	return ""
+}
+
+// GetUserRole retrieves the user role from the request context
+func GetUserRole(ctx context.Context) string {
+	if role, ok := ctx.Value(UserRoleKey).(string); ok {
+		return role
+	}
+	return ""
+}
+
+// GetPrimaryPublisherID retrieves the primary publisher ID from context
+func GetPrimaryPublisherID(ctx context.Context) string {
+	if id, ok := ctx.Value(PrimaryPublisherIDKey).(string); ok {
+		return id
+	}
+	return ""
+}
+
+// GetPublisherAccessList retrieves the publisher access list from context
+func GetPublisherAccessList(ctx context.Context) []string {
+	if list, ok := ctx.Value(PublisherAccessListKey).([]string); ok {
+		return list
+	}
+	return nil
+}
+
+// GetValidatedPublisherID validates and returns the publisher ID from request
+// CRITICAL SECURITY FUNCTION - validates X-Publisher-Id against JWT claims
+// Returns empty string if user has no access to requested publisher
+func GetValidatedPublisherID(ctx context.Context, requestedID string) string {
+	primaryID := GetPrimaryPublisherID(ctx)
+	accessList := GetPublisherAccessList(ctx)
+	userRole := GetUserRole(ctx)
+
+	// Admin users can access any publisher (BYPASS)
+	if userRole == "admin" && requestedID != "" {
+		return requestedID
+	}
+
+	// If no specific ID requested, use primary
+	if requestedID == "" {
+		return primaryID
+	}
+
+	// Check if requested ID is the primary
+	if requestedID == primaryID {
+		return requestedID
+	}
+
+	// Check if requested ID is in the access list
+	for _, id := range accessList {
+		if id == requestedID {
+			return requestedID
+		}
+	}
+
+	// Requested ID not in user's access list - return empty (UNAUTHORIZED)
+	slog.Warn("publisher access denied", "requested", requestedID, "primary", primaryID, "access_list", accessList)
+	return ""
+}
+
+// RequireAuth returns a middleware that requires authentication
+func (am *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, err := am.validateToken(r)
+		if err != nil {
+			slog.Warn("authentication failed", "error", err, "path", r.URL.Path)
+			respondAuthError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or missing authentication token")
+			return
+		}
+
+		// Add user info to context
+		ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+		if role := getRoleFromClaims(claims); role != "" {
+			ctx = context.WithValue(ctx, UserRoleKey, role)
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// RequireRole returns a middleware that requires a specific role
+// CRITICAL: This is used for admin and publisher route protection
+func (am *AuthMiddleware) RequireRole(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, err := am.validateToken(r)
+			if err != nil {
+				slog.Warn("authentication failed", "error", err, "path", r.URL.Path)
+				respondAuthError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or missing authentication token")
+				return
+			}
+
+			// Check role in metadata (supports both metadata and public_metadata)
+			userRole := getRoleFromClaims(claims)
+			slog.Info("role check", "required", role, "actual", userRole, "user_id", claims.Subject, "path", r.URL.Path)
+
+			// CRITICAL SECURITY CHECK - admin has access to all roles
+			if userRole != role && userRole != "admin" {
+				slog.Warn("insufficient permissions", "required", role, "actual", userRole, "user_id", claims.Subject)
+				respondAuthError(w, http.StatusForbidden, "FORBIDDEN", fmt.Sprintf("Role '%s' is required", role))
+				return
+			}
+
+			// Add user info to context
+			ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+			ctx = context.WithValue(ctx, UserRoleKey, userRole)
+
+			// Add publisher info to context (from JWT claims)
+			if primaryPubID := getPrimaryPublisherIDFromClaims(claims); primaryPubID != "" {
+				ctx = context.WithValue(ctx, PrimaryPublisherIDKey, primaryPubID)
+			}
+			if accessList := getPublisherAccessListFromClaims(claims); len(accessList) > 0 {
+				ctx = context.WithValue(ctx, PublisherAccessListKey, accessList)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// OptionalAuth extracts user info if present but doesn't require it
+func (am *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, err := am.validateToken(r)
+		if err == nil {
+			ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+			if role := getRoleFromClaims(claims); role != "" {
+				ctx = context.WithValue(ctx, UserRoleKey, role)
+			}
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Helper functions
+func getRoleFromClaims(claims *Claims) string {
+	if claims.Metadata != nil {
+		if role, ok := claims.Metadata["role"].(string); ok && role != "" {
+			return role
+		}
+	}
+	if claims.PublicMetadata != nil {
+		if role, ok := claims.PublicMetadata["role"].(string); ok && role != "" {
+			return role
+		}
+	}
+	return ""
+}
+
+func getPrimaryPublisherIDFromClaims(claims *Claims) string {
+	if claims.Metadata != nil {
+		if id, ok := claims.Metadata["primary_publisher_id"].(string); ok {
+			return id
+		}
+	}
+	return ""
+}
+
+func getPublisherAccessListFromClaims(claims *Claims) []string {
+	var result []string
+	if claims.Metadata != nil {
+		if list, ok := claims.Metadata["publisher_access_list"].([]interface{}); ok {
+			for _, item := range list {
+				if id, ok := item.(string); ok {
+					result = append(result, id)
+				}
+			}
+		}
+	}
+	return result
+}
+      ]]></content>
+      <key-functions>
+        <function name="GetValidatedPublisherID" lines="192-225">
+          Validates X-Publisher-Id header against JWT claims
+          - Admin bypass on line 201
+          - Publisher access list validation on lines 216-220
+          - Returns empty string if unauthorized (line 223)
+        </function>
+        <function name="RequireRole" lines="248-282">
+          Enforces role-based access control
+          - Role check on line 261: userRole != "admin"
+          - Admin users bypass role requirements
+          - Returns 403 Forbidden for unauthorized access
+        </function>
+        <function name="RequireAuth" lines="228-244">
+          Validates JWT token presence and validity
+          - Returns 401 Unauthorized for invalid tokens
+          - Adds user_id and role to context
+        </function>
+      </key-functions>
+    </file>
+
+    <file path="api/internal/handlers/publisher_context.go" relevance="critical">
+      <description>Publisher context resolver - validates X-Publisher-Id header and resolves publisher from DB</description>
+      <content><![CDATA[
+// File: publisher_context.go
+// Purpose: Publisher resolver - extracts publisher ID from X-Publisher-Id header with auth
+// Pattern: publisher-resolver
+
+package handlers
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"github.com/jcom-dev/zmanim/internal/middleware"
+)
+
+// PublisherContext contains resolved publisher information for a request
+type PublisherContext struct {
+	PublisherID string
+	UserID      string
+	UserRole    string
+	IsAdmin     bool
+}
+
+// PublisherResolver resolves publisher context from HTTP requests
+type PublisherResolver struct {
+	db *db.DB
+}
+
+// Resolve extracts and resolves publisher context from a request
+// SECURITY: This validates X-Publisher-Id header against JWT claims
+func (pr *PublisherResolver) Resolve(ctx context.Context, r *http.Request) (*PublisherContext, error) {
+	userID := middleware.GetUserID(ctx)
+	userRole := middleware.GetUserRole(ctx)
+	isAdmin := userRole == "admin"
+
+	pc := &PublisherContext{
+		UserID:   userID,
+		UserRole: userRole,
+		IsAdmin:  isAdmin,
+	}
+
+	// 1. Try X-Publisher-Id header first
+	publisherID := r.Header.Get("X-Publisher-Id")
+	if publisherID != "" {
+		pc.PublisherID = publisherID
+		return pc, nil
+	}
+
+	// 2. Try publisher_id query parameter
+	publisherID = r.URL.Query().Get("publisher_id")
+	if publisherID != "" {
+		pc.PublisherID = publisherID
+		return pc, nil
+	}
+
+	// 3. Fall back to database lookup by clerk_user_id
+	if userID == "" {
+		return nil, fmt.Errorf("no user ID in context")
+	}
+
+	publisherIDInt, err := pr.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
+	if err != nil {
+		return nil, fmt.Errorf("publisher not found for user %s: %w", userID, err)
+	}
+
+	pc.PublisherID = int32ToString(publisherIDInt)
+	return pc, nil
+}
+
+// MustResolve resolves publisher context and writes error response if fails
+// Returns nil if error response was written (caller should return early)
+// CRITICAL: This is used by ALL publisher handlers for authorization
+func (pr *PublisherResolver) MustResolve(w http.ResponseWriter, r *http.Request) *PublisherContext {
+	ctx := r.Context()
+
+	// First check if user is authenticated
+	userID := middleware.GetUserID(ctx)
+	if userID == "" {
+		RespondUnauthorized(w, r, "User ID not found in context")
+		return nil
+	}
+
+	pc, err := pr.Resolve(ctx, r)
+	if err != nil {
+		RespondNotFound(w, r, "Publisher not found")
+		return nil
+	}
+
+	return pc
+}
+      ]]></content>
+      <security-notes>
+        CRITICAL VULNERABILITY POINT: The Resolve() function trusts X-Publisher-Id header
+        WITHOUT validating it against JWT claims. This needs to be audited to ensure:
+        1. X-Publisher-Id is validated via middleware.GetValidatedPublisherID()
+        2. Users cannot access other publishers' data by manipulating the header
+        3. Admin users are properly handled for cross-tenant access
+      </security-notes>
+    </file>
+
+    <file path="api/cmd/api/main.go" relevance="critical">
+      <description>Route definitions - shows all API endpoints with middleware applied</description>
+      <content><![CDATA[
+// Main router configuration - all API routes
+
+func main() {
+	// ... initialization ...
+
+	authMiddleware := custommw.NewAuthMiddleware(cfg.JWT.JWKSUrl, cfg.JWT.Issuer)
+	rateLimiter := custommw.NewDefaultRateLimiter()
+	m2mAuth := custommw.NewM2MAuthMiddleware(cfg.JWT.JWKSUrl, cfg.JWT.Issuer)
+
+	r.Route("/api/v1", func(r chi.Router) {
+		// PUBLIC ROUTES (lines 228-320) - OptionalAuth + Rate Limiting
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware.OptionalAuth)
+			r.Use(rateLimiter.Middleware)
+
+			// Publishers (read-only)
+			r.Get("/publishers", h.GetPublishers)
+			r.Get("/publishers/{id}", h.GetPublisher)
+
+			// Cities - Global location system
+			r.Get("/cities", h.SearchCities)
+			r.Get("/cities/{id}", h.GetCityByID)
+
+			// Geographic data
+			r.Get("/continents", h.GetContinents)
+			r.Get("/countries", h.GetCountries)
+			r.Get("/regions", h.GetRegions)
+
+			// Zmanim calculations
+			r.Get("/zmanim", h.GetZmanimForCity)
+			r.Post("/zmanim", h.CalculateZmanim)  // Legacy endpoint
+
+			// DSL endpoints
+			r.Post("/dsl/validate", h.ValidateDSLFormula)
+			r.Post("/dsl/preview", h.PreviewDSLFormula)
+
+			// Master Registry (public read)
+			r.Get("/registry/zmanim", h.GetMasterZmanim)
+			r.Get("/registry/zmanim/{zmanKey}", h.GetMasterZman)
+		})
+
+		// PUBLISHER ROUTES (lines 337-439) - RequireRole("publisher")
+		r.Route("/publisher", func(r chi.Router) {
+			r.Use(authMiddleware.RequireRole("publisher"))
+
+			r.Get("/profile", h.GetPublisherProfile)
+			r.Put("/profile", h.UpdatePublisherProfile)
+
+			// Zmanim management
+			r.Get("/zmanim", h.GetPublisherZmanim)
+			r.Post("/zmanim", h.CreatePublisherZmanFromRegistry)
+			r.Get("/zmanim/{zmanKey}", h.GetPublisherZman)
+			r.Put("/zmanim/{zmanKey}", h.UpdatePublisherZman)
+			r.Delete("/zmanim/{zmanKey}", h.SoftDeletePublisherZman)
+
+			// Coverage management
+			r.Get("/coverage", h.GetPublisherCoverage)
+			r.Post("/coverage", h.CreatePublisherCoverage)
+			r.Put("/coverage/{id}", h.UpdatePublisherCoverage)
+			r.Delete("/coverage/{id}", h.DeletePublisherCoverage)
+
+			// Cache management
+			r.Delete("/cache", h.InvalidatePublisherCache)
+		})
+
+		// ADMIN ROUTES (lines 447-531) - RequireRole("admin")
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(authMiddleware.RequireRole("admin"))
+
+			// Publisher management
+			r.Get("/publishers", h.AdminListPublishers)
+			r.Post("/publishers", h.AdminCreatePublisher)
+			r.Put("/publishers/{id}", h.AdminUpdatePublisher)
+			r.Delete("/publishers/{id}", h.AdminDeletePublisher)
+			r.Put("/publishers/{id}/verify", h.AdminVerifyPublisher)
+
+			// Master Registry CRUD
+			r.Post("/registry/zmanim", h.AdminCreateMasterZman)
+			r.Put("/registry/zmanim/{id}", h.AdminUpdateMasterZman)
+			r.Delete("/registry/zmanim/{id}", h.AdminDeleteMasterZman)
+
+			// Statistics
+			r.Get("/stats", h.AdminGetStats)
+
+			// Cache management
+			r.Delete("/cache/zmanim", h.AdminFlushZmanimCache)
+		})
+
+		// EXTERNAL API ROUTES (lines 533-549) - M2M Auth + Rate Limiting
+		r.Route("/external", func(r chi.Router) {
+			r.Use(m2mAuth.RequireM2M)
+			r.Use(m2mAuth.LoggingMiddleware)
+			if externalRateLimiter != nil {
+				r.Use(externalRateLimiter.Middleware)
+			}
+
+			r.Get("/publishers/{id}/zmanim", h.GetExternalPublisherZmanim)
+			r.Post("/zmanim/calculate", h.CalculateExternalBulkZmanim)
+		})
+	})
+}
+      ]]></content>
+      <security-checklist>
+        - Verify all public routes (lines 228-320) are GET-only or POST for calculations
+        - Verify all /publisher routes use RequireRole("publisher")
+        - Verify all /admin routes use RequireRole("admin")
+        - Verify external API routes use M2M auth
+        - Check for any routes bypassing middleware
+        - Verify no mutations (POST/PUT/DELETE) on public routes without auth
+      </security-checklist>
+    </file>
+
+    <file path="api/internal/handlers/publisher_zmanim.go" relevance="high">
+      <description>Example publisher handler showing 6-step authorization pattern</description>
+      <content><![CDATA[
+// GetPublisherZmanim returns all zmanim for a publisher
+// EXAMPLE OF SECURE HANDLER PATTERN
+func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// STEP 1: Resolve publisher context (CRITICAL SECURITY)
+	pc := h.publisherResolver.MustResolve(w, r)
+	if pc == nil {
+		return // Response already sent (401 or 404)
+	}
+	publisherID := pc.PublisherID
+
+	// STEP 2: Parse query params (optional)
+	dateStr := r.URL.Query().Get("date")
+	latStr := r.URL.Query().Get("latitude")
+	lonStr := r.URL.Query().Get("longitude")
+
+	// STEP 3-4: Validate inputs (omitted for brevity)
+
+	// STEP 5: SQLc query with PUBLISHER_ID FILTER
+	zmanim, err := h.fetchPublisherZmanim(ctx, publisherID)
+	if err != nil {
+		slog.Error("failed to fetch zmanim", "error", err, "publisher_id", publisherID)
+		RespondInternalError(w, r, "Failed to fetch zmanim")
+		return
+	}
+
+	// STEP 6: Respond
+	RespondJSON(w, r, http.StatusOK, zmanim)
+}
+
+// fetchPublisherZmanim retrieves zmanim filtered by publisher_id
+func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string) ([]PublisherZman, error) {
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid publisher ID: %w", err)
+	}
+
+	// SQLc query with publisher_id filter (TENANT ISOLATION)
+	sqlcResults, err := h.db.Queries.FetchPublisherZmanim(ctx, publisherIDInt32)
+	if err != nil {
+		return nil, err
+	}
+
+	// ... convert results ...
+	return zmanim, nil
+}
+
+// UpdatePublisherZman updates a zman (SECURE PATTERN)
+func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// STEP 1: Resolve publisher context
+	pc := h.publisherResolver.MustResolve(w, r)
+	if pc == nil {
+		return
+	}
+	publisherIDStr := pc.PublisherID
+	publisherID, _ := stringToInt32(publisherIDStr)
+
+	// STEP 2: Extract URL params
+	zmanKey := chi.URLParam(r, "zmanKey")
+
+	// STEP 3: Parse body
+	var req UpdateZmanRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, r, "Invalid request body")
+		return
+	}
+
+	// STEP 4: Validate (omitted)
+
+	// STEP 5: SQLc query with BOTH publisher_id AND zmanKey
+	// This prevents IDOR - user can only update their own zmanim
+	sqlcZman, err := h.db.Queries.UpdatePublisherZman(ctx, sqlcgen.UpdatePublisherZmanParams{
+		PublisherID: publisherID,  // FROM CONTEXT, NOT URL
+		ZmanKey:     zmanKey,
+		// ... other fields ...
+	})
+
+	if err == pgx.ErrNoRows {
+		RespondNotFound(w, r, "Zman not found")
+		return
+	}
+	if err != nil {
+		RespondInternalError(w, r, "Failed to update zman")
+		return
+	}
+
+	// STEP 6: Respond
+	RespondJSON(w, r, http.StatusOK, sqlcZman)
+}
+      ]]></content>
+      <security-pattern>
+        6-STEP SECURE HANDLER PATTERN:
+        1. Resolve publisher context via MustResolve() - validates X-Publisher-Id
+        2. Extract URL params (IDs from path)
+        3. Parse request body
+        4. Validate inputs
+        5. Execute SQLc query with publisher_id filter FROM CONTEXT
+        6. Respond with appropriate status code
+
+        CRITICAL: Publisher ID comes from context (authenticated), NOT from URL params or body
+      </security-pattern>
+    </file>
+
+    <file path="api/internal/handlers/admin.go" relevance="high">
+      <description>Example admin handler showing role enforcement</description>
+      <content><![CDATA[
+// AdminListPublishers returns all publishers (admin only)
+// Route protected by RequireRole("admin") middleware in main.go
+func (h *Handlers) AdminListPublishers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// NO PUBLISHER RESOLUTION - admin doesn't need publisher context
+	// Role enforcement already done by middleware
+
+	// Parse query params
+	includeDeleted := r.URL.Query().Get("include_deleted") == "true"
+
+	// Query ALL publishers (no tenant filtering)
+	rows, err := h.db.Queries.AdminListAllPublishers(ctx, includeDeleted)
+	if err != nil {
+		slog.Error("failed to query publishers", "error", err)
+		RespondInternalError(w, r, "Failed to retrieve publishers")
+		return
+	}
+
+	// ... build response ...
+	RespondJSON(w, r, http.StatusOK, publishers)
+}
+
+// AdminUpdatePublisher updates publisher details (admin only)
+func (h *Handlers) AdminUpdatePublisher(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get publisher ID from URL (NOT from context)
+	// Admin can update ANY publisher
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		RespondValidationError(w, r, "Publisher ID is required", nil)
+		return
+	}
+
+	var req struct {
+		Name    *string `json:"name"`
+		Email   *string `json:"email"`
+		Website *string `json:"website"`
+		Bio     *string `json:"bio"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, r, "Invalid request body")
+		return
+	}
+
+	idInt, _ := parseIDParam(id)
+
+	// Update ANY publisher (no publisher_id filter needed)
+	row, err := h.db.Queries.AdminUpdatePublisherFields(ctx, sqlcgen.AdminUpdatePublisherFieldsParams{
+		ID:      idInt,
+		Name:    req.Name,
+		Email:   req.Email,
+		Website: req.Website,
+		Bio:     req.Bio,
+	})
+
+	if err == pgx.ErrNoRows {
+		RespondNotFound(w, r, "Publisher not found")
+		return
+	}
+
+	RespondJSON(w, r, http.StatusOK, row)
+}
+      ]]></content>
+      <admin-pattern>
+        ADMIN HANDLER PATTERN:
+        - NO publisher context resolution (no MustResolve call)
+        - Role enforcement via RequireRole("admin") middleware in router
+        - Can access ANY publisher's data (no tenant filtering)
+        - Publisher ID comes from URL params (admin controls which publisher)
+        - No X-Publisher-Id header validation needed
+      </admin-pattern>
+    </file>
+
+    <file path="api/internal/db/queries/publishers.sql" relevance="medium">
+      <description>Example SQL queries showing publisher_id filtering</description>
+      <content><![CDATA[
+-- GetPublisherByClerkUserID - Used by publisher resolver
+-- name: GetPublisherByClerkUserID :one
+SELECT id
+FROM publishers
+WHERE clerk_user_id = $1;
+
+-- UpdatePublisherProfile - Filters by publisher ID (tenant isolation)
+-- name: UpdatePublisherProfile :one
+UPDATE publishers
+SET name = COALESCE(sqlc.narg('update_name'), name),
+    contact_email = COALESCE(sqlc.narg('update_email'), contact_email),
+    website = COALESCE(sqlc.narg('update_website'), website),
+    bio = COALESCE(sqlc.narg('update_bio'), bio),
+    updated_at = NOW()
+WHERE id = sqlc.arg('id')  -- CRITICAL: Filter by publisher_id
+RETURNING id, clerk_user_id, name, contact_email, website, bio, updated_at;
+      ]]></content>
+    </file>
+
+    <file path="api/internal/db/queries/zmanim.sql" relevance="medium">
+      <description>Example complex query with publisher_id filtering and joins</description>
+      <content><![CDATA[
+-- GetPublisherZmanim - Fetches zmanim for a specific publisher
+-- name: GetPublisherZmanim :many
+SELECT
+    pz.id, pz.publisher_id, pz.zman_key, pz.hebrew_name, pz.english_name,
+    pz.formula_dsl, pz.is_enabled, pz.is_visible,
+    -- Tags from master registry and publisher overrides
+    COALESCE(publisher_tags.tags, master_tags.tags, '[]'::json) AS tags
+FROM publisher_zmanim pz
+LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
+WHERE pz.publisher_id = $1  -- CRITICAL: Tenant isolation via publisher_id
+  AND pz.deleted_at IS NULL
+ORDER BY pz.hebrew_name;
+
+-- UpdatePublisherZman - Updates zman with publisher_id filter
+-- name: UpdatePublisherZman :one
+UPDATE publisher_zmanim
+SET
+    hebrew_name = COALESCE(sqlc.narg('hebrew_name'), hebrew_name),
+    english_name = COALESCE(sqlc.narg('english_name'), english_name),
+    formula_dsl = COALESCE(sqlc.narg('formula_dsl'), formula_dsl),
+    updated_at = NOW()
+WHERE publisher_id = sqlc.arg('publisher_id')  -- CRITICAL: Prevent IDOR
+  AND zman_key = sqlc.arg('zman_key')
+RETURNING id, publisher_id, zman_key, hebrew_name, english_name, formula_dsl, updated_at;
+      ]]></content>
+      <sql-security-notes>
+        CRITICAL SQL PATTERNS:
+        1. ALL publisher-specific queries MUST filter by publisher_id = $1
+        2. Use parameterized queries ($1, $2, etc.) - prevents SQL injection
+        3. UPDATE/DELETE queries filter by BOTH publisher_id AND resource ID (prevents IDOR)
+        4. No string concatenation in SQL - all user inputs via parameters
+        5. Admin queries can omit publisher_id filter (cross-tenant access)
+      </sql-security-notes>
+    </file>
+
+    <file path="web/lib/api-client.ts" relevance="medium">
+      <description>Frontend API client - shows how auth headers are sent</description>
+      <content><![CDATA[
+// Unified API Client for Shtetl Zmanim
+// SINGLE source of truth for all API requests
+
+export function createApiClient(
+  getToken: GetTokenFn,
+  selectedPublisher: Publisher | null
+) {
+  async function request<T>(
+    endpoint: string,
+    options: RequestOptions = {}
+  ): Promise<T> {
+    const {
+      skipPublisherId = false,
+      skipAuth = false,
+      timeout = 30000,
+      headers: customHeaders,
+      ...fetchOptions
+    } = options;
+
+    const headers: Record<string, string> = {};
+
+    // Add Content-Type
+    if (!(fetchOptions.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    // Add auth token (JWT from Clerk)
+    if (!skipAuth) {
+      const token = await getToken();
+      if (!token) {
+        throw new ApiError('Not authenticated', 401, undefined, endpoint);
+      }
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Add X-Publisher-Id header for publisher routes
+    if (!skipPublisherId && selectedPublisher?.id) {
+      headers['X-Publisher-Id'] = selectedPublisher.id;
+    }
+
+    // Merge custom headers
+    Object.assign(headers, customHeaders);
+
+    const url = `${API_BASE}${normalizeEndpoint(endpoint)}`;
+
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        message: response.statusText,
+      }));
+      throw new ApiError(
+        errorData.error?.message || errorData.message,
+        response.status,
+        errorData,
+        endpoint
+      );
+    }
+
+    return await response.json();
+  }
+
+  // Public API (no auth)
+  const publicApi = {
+    get: <T>(endpoint: string, options?) =>
+      get<T>(endpoint, { ...options, skipAuth: true }),
+  };
+
+  // Admin API (auth but no publisher ID)
+  const adminApi = {
+    get: <T>(endpoint: string, options?) =>
+      get<T>(endpoint, { ...options, skipPublisherId: true }),
+  };
+
+  return { request, get, post, put, delete: del, public: publicApi, admin: adminApi };
+}
+
+// React Hook
+export function usePublisherApi() {
+  const { getToken } = useAuth();
+  const publisherContext = usePublisherContextOptional();
+
+  const getApiToken = useCallback(
+    () => getToken({ template: 'zmanim-api' }),
+    [getToken]
+  );
+
+  return useMemo(
+    () => createApiClient(getApiToken, publisherContext?.selectedPublisher ?? null),
+    [getApiToken, publisherContext?.selectedPublisher]
+  );
+}
+      ]]></content>
+      <frontend-security>
+        FRONTEND API CLIENT SECURITY:
+        1. Automatically adds Authorization: Bearer {JWT} header
+        2. Automatically adds X-Publisher-Id header for publisher routes
+        3. Three API variants:
+           - api.get() - Authenticated with publisher ID
+           - api.public.get() - No auth
+           - api.admin.get() - Auth without publisher ID
+        4. JWT template: 'zmanim-api' (configured in Clerk)
+        5. Error handling with structured ApiError class
+      </frontend-security>
+    </file>
+  </files>
+
+  <route-inventory>
+    <public-routes description="Lines 228-320 in main.go - OptionalAuth + Rate Limiting">
+      <route method="GET" path="/publishers" handler="GetPublishers" />
+      <route method="GET" path="/publishers/{id}" handler="GetPublisher" />
+      <route method="POST" path="/publisher-requests" handler="SubmitPublisherRequest" />
+      <route method="GET" path="/cities" handler="SearchCities" />
+      <route method="GET" path="/cities/{id}" handler="GetCityByID" />
+      <route method="GET" path="/continents" handler="GetContinents" />
+      <route method="GET" path="/countries" handler="GetCountries" />
+      <route method="GET" path="/regions" handler="GetRegions" />
+      <route method="GET" path="/zmanim" handler="GetZmanimForCity" />
+      <route method="POST" path="/zmanim" handler="CalculateZmanim" note="Legacy calculation endpoint" />
+      <route method="POST" path="/dsl/validate" handler="ValidateDSLFormula" />
+      <route method="POST" path="/dsl/preview" handler="PreviewDSLFormula" />
+      <route method="GET" path="/registry/zmanim" handler="GetMasterZmanim" />
+      <route method="GET" path="/registry/zmanim/{zmanKey}" handler="GetMasterZman" />
+    </public-routes>
+
+    <publisher-routes description="Lines 337-439 in main.go - RequireRole('publisher')">
+      <route method="GET" path="/publisher/accessible" handler="GetAccessiblePublishers" />
+      <route method="POST" path="/publisher/select" handler="SelectPublisher" />
+      <route method="GET" path="/publisher/profile" handler="GetPublisherProfile" />
+      <route method="PUT" path="/publisher/profile" handler="UpdatePublisherProfile" />
+      <route method="GET" path="/publisher/zmanim" handler="GetPublisherZmanim" />
+      <route method="POST" path="/publisher/zmanim" handler="CreatePublisherZmanFromRegistry" />
+      <route method="GET" path="/publisher/zmanim/{zmanKey}" handler="GetPublisherZman" />
+      <route method="PUT" path="/publisher/zmanim/{zmanKey}" handler="UpdatePublisherZman" />
+      <route method="DELETE" path="/publisher/zmanim/{zmanKey}" handler="SoftDeletePublisherZman" />
+      <route method="GET" path="/publisher/coverage" handler="GetPublisherCoverage" />
+      <route method="POST" path="/publisher/coverage" handler="CreatePublisherCoverage" />
+      <route method="PUT" path="/publisher/coverage/{id}" handler="UpdatePublisherCoverage" />
+      <route method="DELETE" path="/publisher/coverage/{id}" handler="DeletePublisherCoverage" />
+      <route method="DELETE" path="/publisher/cache" handler="InvalidatePublisherCache" />
+    </publisher-routes>
+
+    <admin-routes description="Lines 447-531 in main.go - RequireRole('admin')">
+      <route method="GET" path="/admin/publishers" handler="AdminListPublishers" />
+      <route method="POST" path="/admin/publishers" handler="AdminCreatePublisher" />
+      <route method="PUT" path="/admin/publishers/{id}" handler="AdminUpdatePublisher" />
+      <route method="DELETE" path="/admin/publishers/{id}" handler="AdminDeletePublisher" />
+      <route method="PUT" path="/admin/publishers/{id}/verify" handler="AdminVerifyPublisher" />
+      <route method="PUT" path="/admin/publishers/{id}/suspend" handler="AdminSuspendPublisher" />
+      <route method="PUT" path="/admin/publishers/{id}/reactivate" handler="AdminReactivatePublisher" />
+      <route method="GET" path="/admin/stats" handler="AdminGetStats" />
+      <route method="DELETE" path="/admin/cache/zmanim" handler="AdminFlushZmanimCache" />
+      <route method="POST" path="/admin/registry/zmanim" handler="AdminCreateMasterZman" />
+      <route method="PUT" path="/admin/registry/zmanim/{id}" handler="AdminUpdateMasterZman" />
+      <route method="DELETE" path="/admin/registry/zmanim/{id}" handler="AdminDeleteMasterZman" />
+    </admin-routes>
+
+    <external-api-routes description="Lines 533-549 in main.go - M2M Auth + Redis Rate Limiting">
+      <route method="GET" path="/external/publishers/{id}/zmanim" handler="GetExternalPublisherZmanim" />
+      <route method="POST" path="/external/zmanim/calculate" handler="CalculateExternalBulkZmanim" />
+    </external-api-routes>
+  </route-inventory>
+
+  <security-patterns>
+    <pattern name="Publisher Tenant Isolation (6-Step Handler)">
+      <description>Standard pattern for all publisher-scoped endpoints</description>
+      <implementation>
+        1. pc := h.publisherResolver.MustResolve(w, r)  // Validate X-Publisher-Id
+        2. id := chi.URLParam(r, "id")                  // Extract URL params
+        3. json.NewDecoder(r.Body).Decode(&req)         // Parse request body
+        4. Validate inputs                              // Business logic validation
+        5. result, err := h.db.Queries.X(ctx, params)   // SQLc query with publisher_id filter
+        6. RespondJSON(w, r, http.StatusOK, result)     // Respond
+      </implementation>
+      <critical-points>
+        - MustResolve() validates X-Publisher-Id against JWT claims
+        - Publisher ID comes from context, NOT from URL params or request body
+        - Database queries MUST filter by publisher_id from context
+        - Returns 403 Forbidden if X-Publisher-Id validation fails
+      </critical-points>
+    </pattern>
+
+    <pattern name="Admin Role Enforcement">
+      <description>Admin routes bypass tenant isolation but require admin role</description>
+      <implementation>
+        - Route protected by RequireRole("admin") middleware (main.go)
+        - NO publisher context resolution (no MustResolve call)
+        - Can access ANY publisher's data (cross-tenant access is authorized)
+        - Admin role check in middleware line 261: if userRole != role && userRole != "admin"
+      </implementation>
+      <critical-points>
+        - Admin users bypass GetValidatedPublisherID check (line 201 in auth.go)
+        - Admin handlers do NOT call MustResolve()
+        - Publisher ID comes from URL params (admin controls which publisher)
+      </critical-points>
+    </pattern>
+
+    <pattern name="Public API Read-Only">
+      <description>Public endpoints with optional authentication</description>
+      <implementation>
+        - Uses OptionalAuth middleware (extracts user if present, but doesn't require)
+        - Rate limiting applied via rateLimiter.Middleware
+        - Should be GET-only (except for calculation endpoints like POST /zmanim)
+        - No mutations without authentication
+      </implementation>
+      <critical-points>
+        - Verify no POST/PUT/DELETE on public routes (except whitelisted like calculations)
+        - Rate limiting prevents abuse
+        - Returns 401 for mutation attempts without auth
+      </critical-points>
+    </pattern>
+
+    <pattern name="SQL Injection Prevention">
+      <description>All queries use SQLc with parameterized inputs</description>
+      <implementation>
+        - ALL queries defined in api/internal/db/queries/*.sql
+        - SQLc generates type-safe Go code
+        - Parameterized queries with $1, $2, etc.
+        - No string concatenation in SQL
+        - No fmt.Sprintf() with SQL queries
+      </implementation>
+      <critical-points>
+        - Search for db.Exec(, db.Query( to find raw SQL (should be none)
+        - Verify all user inputs passed as query parameters
+        - No dynamic SQL generation
+      </critical-points>
+    </pattern>
+
+    <pattern name="IDOR Prevention">
+      <description>Prevent direct object reference attacks via URL parameter manipulation</description>
+      <implementation>
+        - Database queries filter by BOTH publisher_id AND resource ID
+        - Example: WHERE publisher_id = $1 AND id = $2
+        - Publisher ID from context (authenticated), NOT from URL
+        - Returns 404 Not Found (not 403) to avoid revealing existence
+      </implementation>
+      <critical-points>
+        - User cannot access other publishers' resources by guessing IDs
+        - 404 response prevents information disclosure
+        - Foreign key relationships enforce ownership in database
+      </critical-points>
+    </pattern>
+  </security-patterns>
+
+  <audit-checklist>
+    <section name="Public API Security">
+      <check>All public routes are GET-only (except whitelisted calculation endpoints)</check>
+      <check>No POST/PUT/DELETE operations on public routes without authentication</check>
+      <check>Rate limiting applied to all public routes</check>
+      <check>Public routes return 401 for mutation attempts without auth</check>
+      <check>No sensitive data in public responses</check>
+    </section>
+
+    <section name="Publisher Tenant Isolation">
+      <check>X-Publisher-Id header validated against JWT claims via GetValidatedPublisherID</check>
+      <check>Publisher cannot access another publisher's data via header manipulation</check>
+      <check>Database queries filter by publisher_id from context (not URL params)</check>
+      <check>Admin users can access any publisher context (authorized exception)</check>
+      <check>Unauthorized publisher access returns 403 Forbidden</check>
+      <check>All publisher handlers call MustResolve() before accessing data</check>
+    </section>
+
+    <section name="Admin API Protection">
+      <check>All /admin/* endpoints require admin role (RequireRole("admin"))</check>
+      <check>Publishers cannot access admin endpoints (403 Forbidden)</check>
+      <check>Role check happens in middleware, not handler-level</check>
+      <check>Admin role bypass in GetValidatedPublisherID (line 201) is intentional</check>
+      <check>No handler-level role checks bypassing middleware</check>
+    </section>
+
+    <section name="IDOR Prevention">
+      <check>All database queries use publisher_id from JWT context</check>
+      <check>URL parameters (IDs) validated against authenticated user's access scope</check>
+      <check>No direct object access based solely on ID in URL</check>
+      <check>Foreign key relationships enforce publisher ownership</check>
+      <check>UPDATE/DELETE queries filter by BOTH publisher_id AND resource ID</check>
+      <check>404 Not Found returned for unauthorized access (not 403 to avoid info disclosure)</check>
+    </section>
+
+    <section name="SQL Injection Prevention">
+      <check>All queries use SQLc generated code (no raw SQL)</check>
+      <check>No string concatenation in SQL queries</check>
+      <check>All user inputs parameterized via SQLc ($1, $2, etc.)</check>
+      <check>No db.Exec() or db.Query() calls in handlers</check>
+      <check>No fmt.Sprintf() with SQL queries</check>
+    </section>
+
+    <section name="Error Handling Security">
+      <check>Error responses don't leak database structure</check>
+      <check>No stack traces in production errors</check>
+      <check>Generic "not found" for unauthorized access (don't reveal existence)</check>
+      <check>Sensitive data sanitized from error logs</check>
+      <check>No database error messages in HTTP responses</check>
+    </section>
+
+    <section name="External API Security (M2M)">
+      <check>All /external/* endpoints use RequireM2M middleware</check>
+      <check>M2M JWT validation separate from user JWT</check>
+      <check>Redis-backed rate limiting enforced (10/min, 100/hour)</check>
+      <check>Client ID validated from M2M token</check>
+      <check>Publisher ID parameter validated for M2M requests</check>
+    </section>
+  </audit-checklist>
+
+  <vulnerability-testing-scenarios>
+    <scenario name="Cross-Tenant Data Access">
+      <setup>
+        - Create Publisher A (ID: 1), add zman (ID: 123)
+        - Create Publisher B (ID: 2)
+      </setup>
+      <test>
+        curl -H "Authorization: Bearer $PUBLISHER_B_JWT" \
+             -H "X-Publisher-Id: 1" \
+             https://api.com/publisher/zmanim/123
+      </test>
+      <expected>403 Forbidden (Publisher B cannot access Publisher A's context)</expected>
+    </scenario>
+
+    <scenario name="IDOR Vulnerability">
+      <setup>
+        - Login as Publisher A, create coverage (ID: 456)
+        - Get coverage ID from response
+        - Login as Publisher B
+      </setup>
+      <test>
+        curl -H "Authorization: Bearer $PUBLISHER_B_JWT" \
+             -H "X-Publisher-Id: 2" \
+             https://api.com/publisher/coverage/456
+      </test>
+      <expected>404 Not Found (don't reveal existence) or 403 Forbidden</expected>
+    </scenario>
+
+    <scenario name="Privilege Escalation">
+      <test>
+        curl -H "Authorization: Bearer $PUBLISHER_JWT" \
+             https://api.com/admin/publishers
+      </test>
+      <expected>403 Forbidden (publisher cannot access admin routes)</expected>
+    </scenario>
+
+    <scenario name="Public API Mutation">
+      <test>
+        curl -X POST https://api.com/publishers \
+             -d '{"name": "Malicious Publisher"}'
+      </test>
+      <expected>401 Unauthorized or 405 Method Not Allowed</expected>
+    </scenario>
+
+    <scenario name="SQL Injection">
+      <test>
+        curl "https://api.com/cities?search='; DROP TABLE cities; --"
+      </test>
+      <expected>Safe handling, no database modification (parameterized query)</expected>
+    </scenario>
+  </vulnerability-testing-scenarios>
+
+  <known-security-concerns>
+    <concern priority="critical">
+      <title>Publisher Context Resolver May Not Validate X-Publisher-Id</title>
+      <description>
+        The PublisherResolver.Resolve() function (lines 43-80 in publisher_context.go)
+        appears to trust the X-Publisher-Id header WITHOUT validating it against JWT claims.
+
+        This could allow a publisher to access another publisher's data by manipulating the header.
+
+        AUDIT REQUIRED: Verify that X-Publisher-Id is validated via middleware.GetValidatedPublisherID()
+        before being used in database queries.
+      </description>
+      <location>api/internal/handlers/publisher_context.go lines 54-59</location>
+      <mitigation>
+        Add GetValidatedPublisherID() call in Resolve() to validate header against JWT claims
+      </mitigation>
+    </concern>
+
+    <concern priority="high">
+      <title>Public POST Endpoints May Allow Mutations</title>
+      <description>
+        Several public routes accept POST requests (e.g., POST /zmanim, POST /dsl/validate).
+        While these are calculation endpoints, they should be audited to ensure:
+        1. They don't modify database state
+        2. They have appropriate rate limiting
+        3. They validate all inputs to prevent abuse
+      </description>
+      <location>api/cmd/api/main.go lines 275, 278-280</location>
+    </concern>
+
+    <concern priority="medium">
+      <title>Error Messages May Leak Information</title>
+      <description>
+        Some error responses may reveal whether a resource exists vs. unauthorized access.
+        Best practice: Return 404 Not Found for both cases to prevent information disclosure.
+
+        Audit all RespondNotFound() and RespondForbidden() calls for consistency.
+      </description>
+    </concern>
+  </known-security-concerns>
+
+  <testing-commands>
+    <backend-tests>
+      # Run all backend tests
+      cd api && go test ./... -v
+
+      # Security-specific tests
+      cd api && go test ./internal/handlers/... -run Security -v
+      cd api && go test ./internal/middleware/... -run Auth -v
+    </backend-tests>
+
+    <e2e-tests>
+      # E2E security tests
+      cd tests && npx playwright test security
+    </e2e-tests>
+
+    <manual-verification>
+      # 1. Create two publisher accounts
+      # 2. Login as Publisher A, create zman/coverage
+      # 3. Note resource ID
+      # 4. Login as Publisher B
+      # 5. Attempt to access Publisher A's resource (should fail with 403 or 404)
+      # 6. Login as admin
+      # 7. Attempt to access both publishers' data (should succeed)
+      # 8. Logout, attempt public API POST (should fail with 401 or 405)
+      # 9. Test SQL injection payloads on search endpoints
+      # 10. Review error responses for information leakage
+    </manual-verification>
+  </testing-commands>
+
+</story-context>

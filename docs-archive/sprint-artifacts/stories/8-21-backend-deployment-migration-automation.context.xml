@@ -1,0 +1,385 @@
+<story-context id="8-21-backend-deployment-migration-automation" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>21</storyId>
+    <title>Backend Deployment Migration Automation</title>
+    <status>draft</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-21-backend-deployment-migration-automation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>platform operator</asA>
+    <iWant>the GitHub Actions backend deployment workflow to automatically copy SQL migration files and run migrations on the production EC2 instance</iWant>
+    <soThat>database schema changes are applied reliably during every deployment without manual intervention</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">GitHub Actions workflow uploads db/migrations/*.sql files to S3 alongside the binary</criterion>
+    <criterion id="AC2">SSM command copies migration files from S3 to the EC2 instance before service restart</criterion>
+    <criterion id="AC3">SSM command runs migrations using a production-safe migration script</criterion>
+    <criterion id="AC4">Migration script is idempotent (safe to run multiple times)</criterion>
+    <criterion id="AC5">Migration failures abort the deployment (do NOT restart service with stale schema)</criterion>
+    <criterion id="AC6">Deployment summary shows migration status (files applied, skipped)</criterion>
+    <criterion id="AC7">E2E test validates migration flow works correctly (dry-run in staging or test)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>.github/workflows/deploy-prod-backend.yml</path>
+        <kind>github-actions-workflow</kind>
+        <reason>Primary file to modify - add migration packaging, upload, and execution steps</reason>
+        <currentContent><![CDATA[
+name: Deploy Prod Backend
+
+# Deploys Go API binary to AWS production
+# - Builds ARM64 binary for EC2 (m7g.medium)
+# - Uploads to S3 releases bucket
+# - Triggers service restart via SSM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'db/migrations/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-1
+  GO_VERSION: '1.24'
+  S3_BUCKET: zmanim-releases-prod
+  S3_KEY: releases/latest/zmanim-api
+  INSTANCE_NAME: zmanim-api-prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy API
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: api/go.sum
+
+      - name: Build API binary (ARM64)
+        run: |
+          cd api
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o zmanim-api ./cmd/api
+          ls -lh zmanim-api
+          file zmanim-api
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-actions-deploy-api
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload binary to S3
+        run: |
+          aws s3 cp api/zmanim-api "s3://${S3_BUCKET}/${S3_KEY}" \
+            --metadata "commit=${GITHUB_SHA},timestamp=$(date -u +%Y%m%d%H%M%S)"
+          echo "Uploaded to s3://${S3_BUCKET}/${S3_KEY}"
+
+      - name: Get EC2 instance ID
+        id: get-instance
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+
+          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
+            echo "ERROR: No running instance found with name ${INSTANCE_NAME}"
+            exit 1
+          fi
+
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "Found instance: $INSTANCE_ID"
+
+      - name: Restart zmanim-api service via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["systemctl restart zmanim-api"]' \
+            --comment "Deploy API - commit ${GITHUB_SHA::7}" \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          # Wait for command to complete
+          echo "Waiting for command to complete..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            || true
+
+          # Get command result
+          RESULT=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query '[Status, StatusDetails]' \
+            --output text)
+
+          echo "Command result: $RESULT"
+
+          if [[ "$RESULT" != *"Success"* ]]; then
+            echo "ERROR: Service restart failed"
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+            exit 1
+          fi
+
+      - name: Verify API health
+        run: |
+          echo "Waiting for API to start..."
+          sleep 10
+
+          # Check health endpoint via SSM
+          HEALTH_CMD=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["curl -sf http://localhost:8080/health || exit 1"]' \
+            --query 'Command.CommandId' \
+            --output text)
+
+          aws ssm wait command-executed \
+            --command-id "$HEALTH_CMD" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            || true
+
+          HEALTH_STATUS=$(aws ssm get-command-invocation \
+            --command-id "$HEALTH_CMD" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query 'Status' \
+            --output text)
+
+          if [ "$HEALTH_STATUS" == "Success" ]; then
+            echo "API is healthy!"
+          else
+            echo "WARNING: Health check did not return success (status: $HEALTH_STATUS)"
+            echo "API may still be starting up..."
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "## API Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Instance:** ${{ steps.get-instance.outputs.instance_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Binary:** s3://${S3_BUCKET}/${S3_KEY}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- API Health: https://zmanim.shtetl.io/api/health" >> $GITHUB_STEP_SUMMARY
+]]></currentContent>
+      </artifact>
+      <artifact>
+        <path>scripts/migrate.sh</path>
+        <kind>shell-script</kind>
+        <reason>Existing dev migration script - use as reference for production script pattern</reason>
+        <currentContent><![CDATA[
+#!/bin/bash
+# Database migration script
+# Runs PostgreSQL migrations from db/migrations directory
+
+set -e
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+# Check if we're in Coder environment
+if [[ -d "/home/coder" ]] && [[ -f "$SCRIPT_DIR/../api/.env" ]]; then
+    echo "Running database migrations..."
+
+    # Use DATABASE_URL from environment, or fall back to .env file
+    if [[ -z "$DATABASE_URL" ]]; then
+        source $SCRIPT_DIR/../api/.env
+    fi
+
+    # Parse DATABASE_URL
+    # Format: postgresql://user:password@host:port/database
+    if [[ -z "$DATABASE_URL" ]]; then
+        echo "Error: DATABASE_URL not set in environment or api/.env"
+        exit 1
+    fi
+
+    # Extract components using regex
+    if [[ $DATABASE_URL =~ postgresql://([^:]+):([^@]+)@([^:]+):([0-9]+)/(.+) ]]; then
+        export DB_USER="${BASH_REMATCH[1]}"
+        export DB_PASS="${BASH_REMATCH[2]}"
+        export DB_HOST="${BASH_REMATCH[3]}"
+        export DB_PORT="${BASH_REMATCH[4]}"
+        export DB_NAME="${BASH_REMATCH[5]}"
+    else
+        echo "Error: Could not parse DATABASE_URL"
+        exit 1
+    fi
+
+    MIGRATIONS_DIR="$SCRIPT_DIR/../db/migrations"
+
+    # Create schema_migrations table if it doesn't exist
+    PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
+        "CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW());" 2>/dev/null || true
+
+    # Get list of applied migrations
+    echo "Checking for applied migrations..."
+    APPLIED=$(PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c \
+        "SELECT version FROM schema_migrations ORDER BY version;" 2>/dev/null || echo "")
+
+    # Apply pending migrations
+    echo "Looking for migrations in $MIGRATIONS_DIR..."
+
+    for migration in $(ls -1 $MIGRATIONS_DIR/*.sql 2>/dev/null | sort); do
+        MIGRATION_NAME=$(basename "$migration")
+
+        # Check if already applied
+        if echo "$APPLIED" | grep -q "$MIGRATION_NAME"; then
+            echo "  [SKIP] $MIGRATION_NAME (already applied)"
+            continue
+        fi
+
+        echo "  [APPLY] $MIGRATION_NAME"
+
+        # Apply migration (continue on errors for idempotent migrations)
+        PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$migration" 2>&1 || true
+
+        # Record migration as applied
+        PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
+            "INSERT INTO schema_migrations (version) VALUES ('$MIGRATION_NAME') ON CONFLICT DO NOTHING;" 2>/dev/null
+        echo "    Done"
+    done
+
+    echo ""
+    echo "Migration complete!"
+    echo ""
+    echo "NOTE: To seed geographic data (cities, countries, regions), run:"
+    echo "  cd api && DATABASE_URL=\$DATABASE_URL go run ./cmd/seed-geo/"
+
+else
+    echo "Error: Not in Coder environment"
+    echo "Please run this script from the Coder workspace"
+    exit 1
+fi
+]]></currentContent>
+      </artifact>
+      <artifact>
+        <path>scripts/migrate-prod.sh</path>
+        <kind>shell-script</kind>
+        <reason>New file to create - production migration script reading credentials from SSM</reason>
+      </artifact>
+      <artifact>
+        <path>db/migrations/</path>
+        <kind>directory</kind>
+        <reason>SQL migration files to be packaged and deployed</reason>
+        <files>
+          <file>00000000000001_schema.sql</file>
+          <file>00000000000002_seed_data.sql</file>
+          <file>00000000000003_epic6_features.sql</file>
+          <file>00000000000004_remove_source_type.sql</file>
+        </files>
+      </artifact>
+    </code>
+    <dependencies>
+      <stories>
+        <depends-on>Epic 7 (AWS Migration) - EC2 infrastructure must be in place</depends-on>
+      </stories>
+      <infrastructure>
+        <aws>
+          <service>S3 bucket: zmanim-releases-prod</service>
+          <service>SSM Parameter Store: /zmanim/prod/postgres-user, /zmanim/prod/postgres-password</service>
+          <service>EC2 instance with PostgreSQL 17 and AWS CLI</service>
+          <service>IAM role with SSM parameter read permissions</service>
+        </aws>
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Migration script must read credentials from SSM Parameter Store (never from environment or git)</constraint>
+    <constraint>Migrations must be idempotent - safe to run multiple times</constraint>
+    <constraint>Migration failures MUST abort deployment - never restart service with stale schema</constraint>
+    <constraint>Must track applied migrations in schema_migrations table</constraint>
+    <constraint>SSM commands run as root on EC2 (existing pattern)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Production Migration Script</name>
+      <kind>shell-script</kind>
+      <signature>./migrate-prod.sh /path/to/migrations</signature>
+      <description>Idempotent script that reads DB credentials from SSM and applies pending migrations</description>
+    </interface>
+    <interface>
+      <name>S3 Migration Archive</name>
+      <kind>artifact</kind>
+      <signature>s3://zmanim-releases-prod/releases/latest/migrations.tar.gz</signature>
+      <description>Tarball containing migration SQL files and the migrate-prod.sh script</description>
+    </interface>
+    <interface>
+      <name>Schema Migrations Table</name>
+      <kind>database</kind>
+      <signature>
+        CREATE TABLE schema_migrations (
+          version TEXT PRIMARY KEY,
+          applied_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      </signature>
+    </interface>
+  </interfaces>
+
+  <targetWorkflow>
+    <step order="1">Build API binary (ARM64) - existing</step>
+    <step order="2">Package migrations archive (NEW) - create migrations.tar.gz with SQL files + migrate-prod.sh</step>
+    <step order="3">Upload binary to S3 - existing</step>
+    <step order="4">Upload migrations to S3 (NEW) - s3://zmanim-releases-prod/releases/latest/migrations.tar.gz</step>
+    <step order="5">Get EC2 instance ID - existing</step>
+    <step order="6">Download and apply migrations via SSM (NEW) - BEFORE service restart</step>
+    <step order="7">Restart zmanim-api service via SSM - existing (only if migrations succeed)</step>
+    <step order="8">Verify API health - existing</step>
+    <step order="9">Deployment summary with migration status (ENHANCED)</step>
+  </targetWorkflow>
+
+  <failureHandling>
+    <scenario name="migration-failure">
+      <trigger>Migration SQL fails (syntax error, constraint violation, etc.)</trigger>
+      <response>
+        <action>SSM command returns non-zero exit code</action>
+        <action>GitHub Action detects failure</action>
+        <action>Service is NOT restarted (old binary continues with old schema)</action>
+        <action>GitHub Actions notification sent</action>
+        <action>Manual intervention required</action>
+      </response>
+    </scenario>
+    <rollback>
+      <note>For failed migrations, manual rollback may be needed:</note>
+      <command>aws ssm start-session --target i-xxx</command>
+      <note>Then fix the migration or revert schema manually</note>
+    </rollback>
+  </failureHandling>
+
+  <ssmParameters>
+    <parameter path="/zmanim/prod/postgres-user" type="SecureString">Database username</parameter>
+    <parameter path="/zmanim/prod/postgres-password" type="SecureString">Database password</parameter>
+  </ssmParameters>
+
+  <ec2FileStructure>
+    <path>/data/postgres/</path>
+    <path>/data/redis/</path>
+    <path>/data/migrations/ (NEW - extracted from S3)</path>
+  </ec2FileStructure>
+</story-context>

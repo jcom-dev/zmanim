@@ -1,0 +1,826 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>11.0</story-id>
+    <story-title>Data Foundation and Integrity Audit</story-title>
+    <epic>Epic 11 - Publisher Zmanim Registry Interface</epic>
+    <story-points>13</story-points>
+    <status>TODO</status>
+    <priority>CRITICAL</priority>
+    <created>2025-12-22</created>
+    <context-generated>2025-12-22</context-generated>
+  </metadata>
+
+  <story-overview>
+    <user-story>
+      As a platform administrator,
+      I want the master registry documentation fully populated and Publisher 1 data audited for correctness,
+      So that the registry launches with 100% quality data that new publishers can trust.
+    </user-story>
+
+    <objectives>
+      <objective>Extend database schema with documentation and tracking fields</objective>
+      <objective>Populate all master zmanim with comprehensive documentation from KosherJava research</objective>
+      <objective>Audit Publisher 1 (MH Zmanim) data for correct master linkages</objective>
+      <objective>Fix any mismatches or missing linkages in Publisher 1 data</objective>
+      <objective>Achieve 100% data quality before launching Epic 11 features</objective>
+    </objectives>
+
+    <acceptance-criteria>
+      <criterion id="AC1">
+        <title>Master Zmanim Documentation Completeness</title>
+        <requirements>
+          <requirement>ALL master zmanim have populated documentation fields</requirement>
+          <requirement>full_description (REQUIRED)</requirement>
+          <requirement>halachic_source (REQUIRED)</requirement>
+          <requirement>formula_explanation (REQUIRED)</requirement>
+          <requirement>usage_context (RECOMMENDED)</requirement>
+          <requirement>related_zmanim_ids (NICE TO HAVE)</requirement>
+          <requirement>shita (e.g., "GRA", "MGA", "BAAL_HATANYA")</requirement>
+          <requirement>category (e.g., "ALOS", "SHEMA", "TZAIS")</requirement>
+          <requirement>Database schema extended with new fields</requirement>
+          <requirement>Unique constraint: (publisher_id, master_zmanim_id) WHERE deleted_at IS NULL</requirement>
+        </requirements>
+      </criterion>
+
+      <criterion id="AC2">
+        <title>Documentation Backfill Success</title>
+        <requirements>
+          <requirement>Mapping from KosherJava methods to master registry zman_key complete</requirement>
+          <requirement>All documentation populated via SQL migration script</requirement>
+          <requirement>Validation queries confirm 100% coverage</requirement>
+        </requirements>
+      </criterion>
+
+      <criterion id="AC3">
+        <title>Publisher 1 Audit Report</title>
+        <requirements>
+          <requirement>Audit report showing total zmanim reviewed</requirement>
+          <requirement>Exact matches count</requirement>
+          <requirement>Semantic matches count with details</requirement>
+          <requirement>Mismatches count with recommended corrections</requirement>
+          <requirement>Missing linkages count</requirement>
+          <requirement>Correction migration script created and tested</requirement>
+          <requirement>100% of Publisher 1 zmanim have correct master linkages after migration</requirement>
+        </requirements>
+      </criterion>
+    </acceptance-criteria>
+  </story-overview>
+
+  <architecture-context>
+    <system-overview>
+      <description>
+        Shtetl Zmanim is a multi-publisher platform for Jewish prayer times. The master_zmanim_registry
+        contains canonical zman definitions that publishers can import and customize. Publisher zmanim
+        link to master registry entries via master_zman_id field.
+      </description>
+
+      <tech-stack>
+        <backend>
+          <language>Go 1.24+</language>
+          <router>Chi 5.x</router>
+          <database-driver>pgx 5.x</database-driver>
+          <query-tool>SQLc (type-safe SQL generation)</query-tool>
+          <logging>slog (stdlib)</logging>
+        </backend>
+
+        <database>
+          <engine>PostgreSQL 15+</engine>
+          <extensions>
+            <extension>PostGIS (spatial)</extension>
+            <extension>pg_trgm (text search)</extension>
+            <extension>unaccent (text normalization)</extension>
+          </extensions>
+        </database>
+
+        <frontend>
+          <framework>Next.js 16 (App Router)</framework>
+          <language>TypeScript 5.4+</language>
+          <ui>shadcn/ui + Radix</ui>
+          <styling>Tailwind CSS 4.x</styling>
+        </frontend>
+      </tech-stack>
+    </system-overview>
+
+    <architectural-principles>
+      <principle>
+        <name>Integer IDs Only</name>
+        <description>All tables use integer id (SERIAL/BIGSERIAL). No UUIDs in this project.</description>
+      </principle>
+
+      <principle>
+        <name>Lookup Table Pattern</name>
+        <description>All reference data uses lookup tables with id + key pattern. 21 verified lookup tables exist.</description>
+      </principle>
+
+      <principle>
+        <name>Soft Delete Pattern</name>
+        <description>User-facing data uses soft delete (deleted_at, deleted_by). All queries MUST filter deleted_at IS NULL.</description>
+      </principle>
+
+      <principle>
+        <name>SQLc for Type Safety</name>
+        <description>All database queries use SQLc for type-safe Go code generation. NO raw SQL strings.</description>
+      </principle>
+
+      <principle>
+        <name>6-Step Handler Pattern</name>
+        <description>
+          1. Resolve publisher context (PublisherResolver)
+          2. Extract URL params
+          3. Parse request body
+          4. Validate inputs
+          5. Execute SQLc query
+          6. Respond with RespondJSON
+        </description>
+      </principle>
+    </architectural-principles>
+  </architecture-context>
+
+  <database-schema>
+    <table name="master_zmanim_registry">
+      <description>Canonical zman definitions used by all publishers</description>
+      <current-columns>
+        <column name="id" type="SERIAL PRIMARY KEY" nullable="false">Unique ID</column>
+        <column name="zman_key" type="varchar(100)" nullable="false" unique="true">Programmatic key (e.g., alos_16_1, sof_zman_shema_gra)</column>
+        <column name="canonical_hebrew_name" type="text" nullable="false">Official Hebrew name</column>
+        <column name="canonical_english_name" type="text" nullable="false">Official English name</column>
+        <column name="transliteration" type="text" nullable="true">Romanized Hebrew name</column>
+        <column name="description" type="text" nullable="true">Brief description (currently sparse)</column>
+        <column name="halachic_source" type="text" nullable="true">Halachic sources (currently sparse)</column>
+        <column name="halachic_notes" type="text" nullable="true">Additional notes (currently sparse)</column>
+        <column name="time_category_id" type="integer" nullable="true" foreign-key="time_categories.id">Category for ordering</column>
+        <column name="default_formula_dsl" type="text" nullable="true">Default DSL formula</column>
+        <column name="is_hidden" type="boolean" default="false" nullable="false">Hidden from public view</column>
+        <column name="is_core" type="boolean" default="false" nullable="true">Core zman (commonly used)</column>
+        <column name="aliases" type="text[]" default="'{}'" nullable="true">Alternative names</column>
+        <column name="created_at" type="timestamptz" default="now()" nullable="true">Creation timestamp</column>
+        <column name="updated_at" type="timestamptz" default="now()" nullable="true">Update timestamp</column>
+      </current-columns>
+
+      <new-columns-required>
+        <column name="full_description" type="text" nullable="true">Comprehensive description including scientific and halachic context</column>
+        <column name="formula_explanation" type="text" nullable="true">Plain-language explanation of what the DSL formula calculates</column>
+        <column name="usage_context" type="text" nullable="true">When and how this zman should be used in practice</column>
+        <column name="related_zmanim_ids" type="integer[]" nullable="true">Array of master_zmanim_registry IDs for alternative/related calculations</column>
+        <column name="shita" type="varchar(50)" nullable="true">Halachic opinion: GRA, MGA, BAAL_HATANYA, RABBEINU_TAM, GEONIM, etc.</column>
+        <column name="category" type="varchar(50)" nullable="true">Time category: ALOS, SHEMA, TEFILLA, CHATZOS, MINCHA, TZAIS, etc.</column>
+      </new-columns-required>
+
+      <new-indexes-required>
+        <index name="idx_master_zmanim_shita" columns="shita" where="shita IS NOT NULL">Performance index for shita filtering</index>
+        <index name="idx_master_zmanim_category" columns="category" where="category IS NOT NULL">Performance index for category filtering</index>
+        <index name="idx_master_zmanim_related" columns="related_zmanim_ids" type="GIN" where="related_zmanim_ids IS NOT NULL">Index for related zmanim lookups</index>
+      </new-indexes-required>
+    </table>
+
+    <table name="publisher_zmanim">
+      <description>Publisher-specific zman implementations (link to master registry)</description>
+      <current-columns>
+        <column name="id" type="SERIAL PRIMARY KEY" nullable="false">Unique ID</column>
+        <column name="publisher_id" type="integer" nullable="false" foreign-key="publishers.id">Publisher owner</column>
+        <column name="zman_key" type="varchar(100)" nullable="false">Zman key (unique per publisher)</column>
+        <column name="hebrew_name" type="text" nullable="false">Hebrew name</column>
+        <column name="english_name" type="text" nullable="false">English name</column>
+        <column name="transliteration" type="text" nullable="true">Romanized name</column>
+        <column name="description" type="text" nullable="true">Description</column>
+        <column name="formula_dsl" type="text" nullable="false">DSL formula</column>
+        <column name="ai_explanation" type="text" nullable="true">AI-generated explanation</column>
+        <column name="publisher_comment" type="text" nullable="true">Publisher notes</column>
+        <column name="master_zman_id" type="integer" nullable="true" foreign-key="master_zmanim_registry.id">Linked master zman</column>
+        <column name="linked_publisher_zman_id" type="integer" nullable="true" foreign-key="publisher_zmanim.id">Linked from another publisher's zman</column>
+        <column name="is_enabled" type="boolean" default="true" nullable="false">Enabled for calculation</column>
+        <column name="is_visible" type="boolean" default="true" nullable="false">Visible in UI</column>
+        <column name="is_published" type="boolean" default="true" nullable="false">Published to public</column>
+        <column name="is_beta" type="boolean" default="false" nullable="false">Beta status</column>
+        <column name="is_custom" type="boolean" default="false" nullable="false">Custom zman (not from registry)</column>
+        <column name="time_category_id" type="integer" nullable="true" foreign-key="time_categories.id">Time category</column>
+        <column name="dependencies" type="text[]" default="'{}'" nullable="true">Dependency zman keys</column>
+        <column name="current_version" type="integer" default="1" nullable="true">Version number</column>
+        <column name="created_at" type="timestamptz" default="now()" nullable="true">Creation timestamp</column>
+        <column name="updated_at" type="timestamptz" default="now()" nullable="true">Update timestamp</column>
+        <column name="deleted_at" type="timestamptz" nullable="true">Soft delete timestamp</column>
+        <column name="deleted_by" type="text" nullable="true">Clerk user ID who deleted</column>
+      </current-columns>
+
+      <new-columns-required>
+        <column name="copied_from_publisher_id" type="integer" nullable="true" foreign-key="publishers.id">If copied from another publisher, stores the source publisher ID</column>
+        <column name="linked_from_publisher_zman_id" type="integer" nullable="true" foreign-key="publisher_zmanim.id">If linked from another publisher zman, stores the source zman ID (NOTE: This may overlap with existing linked_publisher_zman_id - verify before adding)</column>
+      </new-columns-required>
+
+      <new-constraints-required>
+        <constraint name="unique_publisher_master_zman" type="UNIQUE INDEX">
+          <definition>CREATE UNIQUE INDEX idx_publisher_zmanim_master_unique ON publisher_zmanim(publisher_id, master_zmanim_id) WHERE deleted_at IS NULL</definition>
+          <purpose>Prevent duplicate master imports per publisher</purpose>
+        </constraint>
+      </new-constraints-required>
+
+      <existing-constraints>
+        <constraint name="unique_publisher_zman_key" type="UNIQUE INDEX">
+          <definition>UNIQUE (publisher_id, zman_key)</definition>
+          <purpose>One zman_key per publisher</purpose>
+        </constraint>
+      </existing-constraints>
+    </table>
+
+    <table name="publishers">
+      <description>Publisher accounts (halachic authorities)</description>
+      <relevant-columns>
+        <column name="id" type="SERIAL PRIMARY KEY">Publisher ID</column>
+        <column name="name" type="text">Publisher name</column>
+        <column name="status_id" type="smallint" foreign-key="publisher_statuses.id">Status (verified, active, etc.)</column>
+        <column name="created_at" type="timestamptz">Creation timestamp</column>
+      </relevant-columns>
+      <notes>Publisher 1 is "MH Zmanim" - the first publisher requiring audit</notes>
+    </table>
+
+    <table name="time_categories">
+      <description>Time category lookup table (ALOS, SHEMA, CHATZOS, etc.)</description>
+      <relevant-columns>
+        <column name="id" type="SMALLSERIAL PRIMARY KEY">Category ID</column>
+        <column name="key" type="varchar(20)" unique="true">Programmatic key</column>
+        <column name="display_name_hebrew" type="text">Hebrew display name</column>
+        <column name="display_name_english" type="text">English display name</column>
+        <column name="sort_order" type="integer">Order for chronological display</column>
+      </relevant-columns>
+      <notes>Used for ordering zmanim chronologically through the day</notes>
+    </table>
+  </database-schema>
+
+  <existing-code-patterns>
+    <handler-pattern>
+      <name>6-Step Handler Pattern</name>
+      <file>api/internal/handlers/master_registry.go</file>
+      <example>
+        <![CDATA[
+func (h *Handlers) HandlerName(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+
+    // 1. Resolve publisher context (if needed)
+    pc := h.publisherResolver.MustResolve(w, r)
+    if pc == nil { return }
+
+    // 2. Extract URL params
+    id := chi.URLParam(r, "id")
+
+    // 3. Parse body
+    var req RequestStruct
+    json.NewDecoder(r.Body).Decode(&req)
+
+    // 4. Validate
+    if req.Field == "" {
+        RespondValidationError(w, r, "message", details)
+        return
+    }
+
+    // 5. SQLc query (NO raw SQL)
+    result, err := h.db.Queries.QueryName(ctx, params)
+
+    // 6. Respond
+    RespondJSON(w, r, http.StatusOK, result)
+}
+        ]]>
+      </example>
+    </handler-pattern>
+
+    <sqlc-query-pattern>
+      <name>SQLc Query with Soft Delete Filter</name>
+      <file>api/internal/db/queries/master_registry.sql</file>
+      <example>
+        <![CDATA[
+-- name: GetPublisherZmanimWithRegistry :many
+SELECT
+    pz.id, pz.publisher_id, pz.zman_key,
+    pz.formula_dsl,
+    mr.canonical_hebrew_name,
+    mr.canonical_english_name
+FROM publisher_zmanim pz
+LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
+WHERE pz.publisher_id = $1
+  AND pz.deleted_at IS NULL  -- CRITICAL: Always filter soft-deleted records
+ORDER BY mr.time_category_id, pz.hebrew_name;
+        ]]>
+      </example>
+    </sqlc-query-pattern>
+
+    <migration-pattern>
+      <name>Migration with Validation</name>
+      <description>Migrations should include validation DO blocks to confirm success</description>
+      <example>
+        <![CDATA[
+-- Add new columns
+ALTER TABLE master_zmanim_registry
+    ADD COLUMN full_description text,
+    ADD COLUMN halachic_source text;
+
+-- Create indexes
+CREATE INDEX idx_master_zmanim_category
+    ON master_zmanim_registry(category)
+    WHERE category IS NOT NULL;
+
+-- Validation
+DO $$
+DECLARE
+    missing_count integer;
+    total_count integer;
+BEGIN
+    SELECT COUNT(*) INTO total_count FROM master_zmanim_registry;
+    SELECT COUNT(*) INTO missing_count FROM master_zmanim_registry
+    WHERE full_description IS NULL;
+
+    IF missing_count > 0 THEN
+        RAISE NOTICE 'WARNING: % of % records missing full_description', missing_count, total_count;
+    ELSE
+        RAISE NOTICE 'SUCCESS: All % records have full_description', total_count;
+    END IF;
+END $$;
+        ]]>
+      </example>
+    </migration-pattern>
+  </existing-code-patterns>
+
+  <kosherjava-research>
+    <overview>
+      <description>
+        KosherJava is a comprehensive Java library for zmanim calculations. The research documents
+        map KosherJava method names to master registry zman_key values and extract documentation
+        for populating the master_zmanim_registry table.
+      </description>
+
+      <research-files>
+        <file path="docs/kosherjava-zmanim-complete-extraction.md">Complete extraction of all KosherJava methods with formulas</file>
+        <file path="docs/kosherjava-research-summary.md">Summary of research findings</file>
+        <file path="docs/kosherjava-research-index.md">Index of all research documents</file>
+        <file path="docs/kosherjava-formulas-quick-reference.md">Quick reference for formulas</file>
+        <file path="docs/kosherjava-developer-quick-lookup.md">Developer-focused lookup guide</file>
+      </research-files>
+
+      <mapping-examples>
+        <mapping>
+          <kosherjava-method>getAlos16Point1Degrees()</kosherjava-method>
+          <master-zman-key>alos_16_1</master-zman-key>
+          <match-type>EXACT</match-type>
+          <description>Dawn at 16.1° solar depression</description>
+          <shita>GRA</shita>
+          <category>ALOS</category>
+        </mapping>
+
+        <mapping>
+          <kosherjava-method>getAlos72()</kosherjava-method>
+          <master-zman-key>alos_72min</master-zman-key>
+          <match-type>EXACT</match-type>
+          <description>Dawn 72 minutes before sunrise</description>
+          <shita>MGA</shita>
+          <category>ALOS</category>
+        </mapping>
+
+        <mapping>
+          <kosherjava-method>getSofZmanShmaGRA()</kosherjava-method>
+          <master-zman-key>sof_zman_shema_gra</master-zman-key>
+          <match-type>EXACT</match-type>
+          <description>Latest time for Shema (GRA - 3 hours after sunrise)</description>
+          <shita>GRA</shita>
+          <category>SHEMA</category>
+        </mapping>
+      </mapping-examples>
+
+      <shita-classifications>
+        <shita key="GRA">
+          <name>Vilna Gaon (GRA)</name>
+          <description>Fixed sunrise-to-sunset calculations</description>
+          <characteristics>Uses sunrise to sunset as day length</characteristics>
+        </shita>
+
+        <shita key="MGA">
+          <name>Magen Avraham (MGA)</name>
+          <description>Alos-to-tzais calculations</description>
+          <characteristics>Uses dawn to nightfall as day length</characteristics>
+        </shita>
+
+        <shita key="BAAL_HATANYA">
+          <name>Baal HaTanya (Chabad)</name>
+          <description>Chabad tradition calculations</description>
+        </shita>
+
+        <shita key="RABBEINU_TAM">
+          <name>Rabbeinu Tam</name>
+          <description>Late nightfall opinions (72 minutes after sunset)</description>
+        </shita>
+
+        <shita key="GEONIM">
+          <name>Geonim</name>
+          <description>Early nightfall opinions (8.5° solar depression)</description>
+        </shita>
+
+        <shita key="UNIVERSAL">
+          <name>Universal</name>
+          <description>Applies to all opinions (e.g., solar noon)</description>
+        </shita>
+      </shita-classifications>
+
+      <category-classifications>
+        <category key="ALOS">Dawn times</category>
+        <category key="SHEMA">Latest time for Shema</category>
+        <category key="TEFILLA">Latest time for Shacharis</category>
+        <category key="CHATZOS">Midday/midnight</category>
+        <category key="MINCHA">Afternoon prayer times</category>
+        <category key="TZAIS">Nightfall times</category>
+        <category key="OTHER">Special zmanim (fast start/end, candle lighting, etc.)</category>
+      </category-classifications>
+    </overview>
+  </kosherjava-research>
+
+  <audit-requirements>
+    <publisher-1-audit>
+      <publisher-id>1</publisher-id>
+      <publisher-name>MH Zmanim</publisher-name>
+      <description>First publisher on platform - requires comprehensive audit</description>
+
+      <audit-goals>
+        <goal>Verify all Publisher 1 zmanim have master_zman_id set</goal>
+        <goal>Verify formulas match between publisher_zmanim and master registry</goal>
+        <goal>Identify exact matches (formula identical)</goal>
+        <goal>Identify semantic matches (formula equivalent, different syntax)</goal>
+        <goal>Identify mismatches (wrong master linkage)</goal>
+        <goal>Identify missing linkages (master_zman_id is NULL)</goal>
+      </audit-goals>
+
+      <audit-script-requirements>
+        <requirement>Written in TypeScript (Node.js script)</requirement>
+        <requirement>Uses pg client for database queries</requirement>
+        <requirement>Implements formula normalization (remove whitespace, lowercase, etc.)</requirement>
+        <requirement>Implements semantic equivalence checking (e.g., sunrise + 0min == sunrise)</requirement>
+        <requirement>Generates detailed audit report in Markdown format</requirement>
+        <requirement>Produces correction migration SQL with HIGH confidence recommendations</requirement>
+      </audit-script-requirements>
+
+      <audit-report-sections>
+        <section>Summary: Total reviewed, exact matches, semantic matches, mismatches, missing linkages</section>
+        <section>Detailed findings: Breakdown by match type with examples</section>
+        <section>High confidence corrections: Auto-migrable SQL statements</section>
+        <section>Medium confidence corrections: Require manual review</section>
+        <section>Low confidence/manual review: Complex cases</section>
+      </audit-report-sections>
+    </publisher-1-audit>
+  </audit-requirements>
+
+  <testing-requirements>
+    <validation-queries>
+      <query name="Check Required Documentation">
+        <description>Verify all master zmanim have required fields populated</description>
+        <sql>
+          <![CDATA[
+SELECT COUNT(*) FROM master_zmanim_registry
+WHERE full_description IS NULL
+   OR halachic_source IS NULL
+   OR formula_explanation IS NULL;
+-- Expected: 0
+          ]]>
+        </sql>
+      </query>
+
+      <query name="Check Related Zmanim Validity">
+        <description>Verify all related_zmanim_ids point to existing master zmanim</description>
+        <sql>
+          <![CDATA[
+SELECT mzr.id, mzr.zman_key, unnest(mzr.related_zmanim_ids) AS related_id
+FROM master_zmanim_registry mzr
+WHERE related_zmanim_ids IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM master_zmanim_registry mzr2
+      WHERE mzr2.id = unnest(mzr.related_zmanim_ids)
+  );
+-- Expected: 0 rows
+          ]]>
+        </sql>
+      </query>
+
+      <query name="Check Publisher 1 Linkages">
+        <description>Verify all Publisher 1 zmanim have master_zman_id</description>
+        <sql>
+          <![CDATA[
+SELECT COUNT(*) FROM publisher_zmanim
+WHERE publisher_id = 1
+  AND master_zman_id IS NULL
+  AND deleted_at IS NULL;
+-- Expected: 0
+          ]]>
+        </sql>
+      </query>
+
+      <query name="Check Duplicate Prevention">
+        <description>Verify unique constraint prevents duplicates</description>
+        <sql>
+          <![CDATA[
+SELECT publisher_id, master_zman_id, COUNT(*) as cnt
+FROM publisher_zmanim
+WHERE deleted_at IS NULL
+  AND master_zman_id IS NOT NULL
+GROUP BY publisher_id, master_zman_id
+HAVING COUNT(*) > 1;
+-- Expected: 0 rows
+          ]]>
+        </sql>
+      </query>
+
+      <query name="Check Index Existence">
+        <description>Verify performance indexes were created</description>
+        <sql>
+          <![CDATA[
+SELECT indexname FROM pg_indexes
+WHERE schemaname = 'public'
+  AND indexname IN (
+      'idx_master_zmanim_shita',
+      'idx_master_zmanim_category',
+      'idx_master_zmanim_related',
+      'idx_publisher_zmanim_master_unique'
+  );
+-- Expected: 4 rows
+          ]]>
+        </sql>
+      </query>
+    </validation-queries>
+
+    <manual-qa-checklist>
+      <item>Review KosherJava mapping document - Verify all 172+ zmanim mapped correctly</item>
+      <item>Review documentation backfill migration - Spot-check 10 random zmanim for accuracy</item>
+      <item>Review audit report - Verify counts make sense, check mismatch examples</item>
+      <item>Review correction migration - Verify SQL statements match audit recommendations</item>
+      <item>Run validation queries - All should return expected results (0 or specific count)</item>
+      <item>Test unique constraint - Attempt to insert duplicate master_zman_id for same publisher (should fail)</item>
+    </manual-qa-checklist>
+  </testing-requirements>
+
+  <implementation-phases>
+    <phase number="1" name="Database Schema Extensions">
+      <description>Add new columns, indexes, and constraints to master_zmanim_registry and publisher_zmanim tables</description>
+
+      <tasks>
+        <task>Create migration file: db/migrations/YYYYMMDDHHMMSS_add_registry_documentation_fields.sql</task>
+        <task>Add documentation columns to master_zmanim_registry (full_description, formula_explanation, usage_context, related_zmanim_ids, shita, category)</task>
+        <task>Add tracking columns to publisher_zmanim (copied_from_publisher_id, linked_from_publisher_zman_id - verify no overlap with existing columns)</task>
+        <task>Create unique constraint on (publisher_id, master_zmanim_id) WHERE deleted_at IS NULL</task>
+        <task>Create performance indexes (idx_master_zmanim_shita, idx_master_zmanim_category, idx_master_zmanim_related)</task>
+        <task>Add COMMENT ON COLUMN statements for documentation</task>
+        <task>Run sqlc generate to update Go structs</task>
+        <task>Test migration on local database</task>
+      </tasks>
+
+      <files-to-create>
+        <file>db/migrations/YYYYMMDDHHMMSS_add_registry_documentation_fields.sql</file>
+      </files-to-create>
+
+      <files-to-modify>
+        <file>api/internal/db/sqlcgen/models.go (auto-generated by sqlc)</file>
+      </files-to-modify>
+    </phase>
+
+    <phase number="2" name="Documentation Backfill">
+      <description>Create KosherJava mapping document and populate master_zmanim_registry with comprehensive documentation</description>
+
+      <tasks>
+        <task>Create mapping document: docs/audit/kosherjava-to-master-registry-mapping.md</task>
+        <task>Map all 172+ KosherJava methods to master registry zman_key values</task>
+        <task>Extract documentation from KosherJava research files</task>
+        <task>Classify each zman by shita (GRA, MGA, etc.)</task>
+        <task>Classify each zman by category (ALOS, SHEMA, TZAIS, etc.)</task>
+        <task>Identify related zmanim (alternatives/variations)</task>
+        <task>Create migration file: db/migrations/YYYYMMDDHHMMSS_backfill_master_zmanim_documentation.sql</task>
+        <task>Write UPDATE statements for each zman category</task>
+        <task>Add validation DO block to confirm 100% coverage</task>
+        <task>Test migration on local database</task>
+        <task>Create validation query script: scripts/validate-master-documentation.sql</task>
+        <task>Run validation queries to confirm success</task>
+      </tasks>
+
+      <files-to-create>
+        <file>docs/audit/kosherjava-to-master-registry-mapping.md</file>
+        <file>db/migrations/YYYYMMDDHHMMSS_backfill_master_zmanim_documentation.sql</file>
+        <file>scripts/validate-master-documentation.sql</file>
+      </files-to-create>
+
+      <data-sources>
+        <source>docs/kosherjava-zmanim-complete-extraction.md (PRIMARY)</source>
+        <source>docs/kosherjava-research-summary.md</source>
+        <source>docs/kosherjava-formulas-quick-reference.md</source>
+        <source>KosherJava library source code (if needed for clarification)</source>
+      </data-sources>
+    </phase>
+
+    <phase number="3" name="Publisher 1 Audit">
+      <description>Create audit script to analyze Publisher 1 data and generate correction recommendations</description>
+
+      <tasks>
+        <task>Create audit script: scripts/audit-publisher-1-linkages.ts</task>
+        <task>Implement formula normalization function</task>
+        <task>Implement semantic equivalence checking function</task>
+        <task>Implement best-match finder function</task>
+        <task>Query all Publisher 1 zmanim from database</task>
+        <task>Query all master zmanim from database</task>
+        <task>Compare each Publisher 1 zman to its linked master zman</task>
+        <task>Classify each comparison (EXACT, SEMANTIC, MISMATCH, MISSING)</task>
+        <task>Assign confidence level (HIGH, MEDIUM, LOW)</task>
+        <task>Generate audit report: docs/audit/publisher-1-master-linkages-audit.md</task>
+        <task>Test audit script on local database</task>
+        <task>Review audit report for accuracy</task>
+      </tasks>
+
+      <files-to-create>
+        <file>scripts/audit-publisher-1-linkages.ts</file>
+        <file>docs/audit/publisher-1-master-linkages-audit.md (generated by script)</file>
+      </files-to-create>
+
+      <audit-algorithm>
+        <step>Normalize formulas (remove whitespace, lowercase, normalize units)</step>
+        <step>Check for exact match (normalized strings identical)</step>
+        <step>Check for semantic equivalence (e.g., sunrise + 0min == sunrise)</step>
+        <step>If mismatch, find best matching master zman by formula</step>
+        <step>If no master linkage, find best matching master zman by zman_key</step>
+        <step>Assign confidence based on match type and quality</step>
+      </audit-algorithm>
+    </phase>
+
+    <phase number="4" name="Correction Migration">
+      <description>Create and execute migration to fix Publisher 1 master linkages based on audit report</description>
+
+      <tasks>
+        <task>Create migration file: db/migrations/YYYYMMDDHHMMSS_fix_publisher_1_master_linkages.sql</task>
+        <task>Extract HIGH confidence corrections from audit report</task>
+        <task>Write UPDATE statements for each HIGH confidence correction</task>
+        <task>Add validation DO block to confirm 100% Publisher 1 linkage</task>
+        <task>Test migration on local database copy</task>
+        <task>Review correction SQL with tech lead</task>
+        <task>Run validation queries after migration</task>
+        <task>Confirm 0 missing linkages, 0 formula mismatches</task>
+      </tasks>
+
+      <files-to-create>
+        <file>db/migrations/YYYYMMDDHHMMSS_fix_publisher_1_master_linkages.sql</file>
+      </files-to-create>
+
+      <safety-measures>
+        <measure>Only auto-migrate HIGH confidence corrections</measure>
+        <measure>Manual review required for MEDIUM and LOW confidence</measure>
+        <measure>Test on staging database before production</measure>
+        <measure>Create database backup before running migration</measure>
+        <measure>Validation query must pass before merge</measure>
+      </safety-measures>
+    </phase>
+  </implementation-phases>
+
+  <migration-order>
+    <order-critical>
+      <step number="1">Schema changes FIRST (add columns, indexes, constraints)</step>
+      <step number="2">Documentation backfill SECOND (populate master registry)</step>
+      <step number="3">Audit THIRD (analyze Publisher 1)</step>
+      <step number="4">Corrections FOURTH (fix Publisher 1 linkages)</step>
+    </order-critical>
+
+    <rationale>
+      This order prevents foreign key violations and ensures data integrity.
+      Schema must exist before populating data.
+      Data must exist before auditing.
+      Audit must complete before corrections.
+    </rationale>
+  </migration-order>
+
+  <definition-of-done>
+    <checklist>
+      <item>Database schema extended with all new fields (documentation, tracking, unique constraint)</item>
+      <item>KosherJava mapping document complete (172+ zmanim mapped)</item>
+      <item>Documentation backfill migration created and tested locally</item>
+      <item>All 172+ master zmanim have full_description, halachic_source, formula_explanation</item>
+      <item>All 172+ master zmanim have shita and category classified</item>
+      <item>Related zmanim linkages populated (where applicable)</item>
+      <item>Publisher 1 audit script created and executed</item>
+      <item>Audit report generated and reviewed</item>
+      <item>Correction migration created based on HIGH confidence recommendations</item>
+      <item>All Publisher 1 zmanim have correct master_zman_id after correction</item>
+      <item>Zero formula mismatches between Publisher 1 and master (after correction)</item>
+      <item>All validation SQL tests pass (100% coverage)</item>
+      <item>Performance indexes created and verified</item>
+      <item>Unique constraint prevents duplicate imports (tested)</item>
+      <item>sqlc generate executed successfully</item>
+      <item>Documentation updated: docs/audit/kosherjava-to-master-registry-mapping.md created</item>
+      <item>Documentation updated: docs/audit/publisher-1-master-linkages-audit.md generated</item>
+      <item>Migration notes added to README if needed</item>
+      <item>Code reviewed by tech lead</item>
+      <item>Merged to dev branch</item>
+    </checklist>
+  </definition-of-done>
+
+  <related-files>
+    <backend>
+      <file path="api/internal/handlers/master_registry.go">Master registry handler - may need new endpoints</file>
+      <file path="api/internal/handlers/publisher_zmanim.go">Publisher zmanim handler - understanding current patterns</file>
+      <file path="api/internal/db/queries/master_registry.sql">Master registry queries - may need new queries</file>
+      <file path="api/internal/db/queries/zmanim.sql">Publisher zmanim queries - understanding current patterns</file>
+      <file path="api/internal/db/sqlcgen/models.go">Auto-generated models - will update after sqlc generate</file>
+    </backend>
+
+    <database>
+      <file path="db/migrations/00000000000001_schema.sql">Current schema reference</file>
+      <file path="db/migrations/00000000000002_seed_data.sql">Seed data reference</file>
+    </database>
+
+    <documentation>
+      <file path="docs/coding-standards.md">MANDATORY reading before ANY task</file>
+      <file path="docs/architecture.md">System architecture overview</file>
+      <file path="docs/epic-11-publisher-zmanim-registry.md">Epic 11 comprehensive specification</file>
+      <file path="docs/kosherjava-zmanim-complete-extraction.md">KosherJava research - PRIMARY data source</file>
+      <file path="docs/kosherjava-research-summary.md">KosherJava research summary</file>
+      <file path="docs/kosherjava-research-index.md">KosherJava research index</file>
+    </documentation>
+
+    <scripts>
+      <file path="scripts/validate-ci-checks.sh">CI validation script - run before commit</file>
+      <file path="scripts/migrate.sh">Migration runner script</file>
+    </scripts>
+  </related-files>
+
+  <risks-and-mitigation>
+    <risk id="1">
+      <title>Incomplete KosherJava Documentation</title>
+      <impact>Some master zmanim may lack comprehensive documentation</impact>
+      <mitigation>
+        <item>Prioritize REQUIRED fields (description, source, explanation)</item>
+        <item>Mark incomplete entries for follow-up</item>
+        <item>Launch with 90%+ coverage acceptable, complete post-launch</item>
+      </mitigation>
+    </risk>
+
+    <risk id="2">
+      <title>Publisher 1 Audit Finds Many Mismatches</title>
+      <impact>Correction migration becomes complex and risky</impact>
+      <mitigation>
+        <item>Only auto-migrate HIGH confidence corrections</item>
+        <item>Manual review for MEDIUM/LOW confidence</item>
+        <item>Test correction migration on staging first</item>
+        <item>Keep audit report for reference</item>
+      </mitigation>
+    </risk>
+
+    <risk id="3">
+      <title>Related Zmanim Cycles</title>
+      <impact>Circular references in related_zmanim_ids</impact>
+      <mitigation>
+        <item>Validation query checks for invalid IDs</item>
+        <item>Frontend (Story 11.2) implements cycle detection</item>
+        <item>Not a blocker for data foundation</item>
+      </mitigation>
+    </risk>
+  </risks-and-mitigation>
+
+  <success-metrics>
+    <quantitative>
+      <metric>100% of master zmanim have required documentation fields populated</metric>
+      <metric>100% of Publisher 1 zmanim have correct master_zmanim_id</metric>
+      <metric>0 formula mismatches between Publisher 1 and linked master entries</metric>
+      <metric>&lt;5 minutes total migration runtime</metric>
+      <metric>0 rollbacks required</metric>
+    </quantitative>
+
+    <qualitative>
+      <metric>Audit report provides clear, actionable recommendations</metric>
+      <metric>Documentation is accurate and helpful for publishers</metric>
+      <metric>Schema extensions support all Epic 11 requirements</metric>
+      <metric>Foundation enables Stories 11.1-11.6 without schema changes</metric>
+    </qualitative>
+  </success-metrics>
+
+  <coding-standards-compliance>
+    <critical-rules>
+      <rule>All database queries MUST use SQLc - NO raw SQL strings</rule>
+      <rule>All SELECT queries MUST filter deleted_at IS NULL (soft delete pattern)</rule>
+      <rule>All tables use integer id (SERIAL/BIGSERIAL) - NO UUIDs</rule>
+      <rule>All handlers use 6-step pattern with PublisherResolver</rule>
+      <rule>All logging uses slog - NO fmt.Printf</rule>
+      <rule>NO TODO/FIXME comments - delete or implement</rule>
+      <rule>Run ./restart.sh for service restarts - NEVER go run or npm run dev</rule>
+      <rule>Run ./scripts/validate-ci-checks.sh before pushing</rule>
+    </critical-rules>
+
+    <database-standards>
+      <rule>Primary keys are integer id (SERIAL or BIGSERIAL)</rule>
+      <rule>Lookup tables use id + key pattern with GENERATED ALWAYS AS IDENTITY</rule>
+      <rule>Foreign keys reference integer id (except languages.code)</rule>
+      <rule>Soft delete uses deleted_at (timestamptz) and deleted_by (text - Clerk user ID)</rule>
+      <rule>All queries filter deleted_at IS NULL</rule>
+      <rule>Unique constraints include WHERE deleted_at IS NULL</rule>
+      <rule>Create partial indexes for WHERE deleted_at IS NULL (performance)</rule>
+    </database-standards>
+  </coding-standards-compliance>
+
+  <dependencies>
+    <upstream>
+      <dependency>NONE - This is the first story of Epic 11</dependency>
+    </upstream>
+
+    <downstream>
+      <dependency story="11.1">Master Registry Browser - depends on documentation fields</dependency>
+      <dependency story="11.2">Master Zman Documentation Modal - depends on documentation content</dependency>
+      <dependency story="11.3">Publisher Examples Browser - depends on tracking fields</dependency>
+      <dependency>All subsequent Epic 11 stories depend on this data foundation</dependency>
+    </downstream>
+  </dependencies>
+</story-context>

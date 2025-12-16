@@ -1,0 +1,1504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StoryContext>
+  <Metadata>
+    <StoryID>11.1</StoryID>
+    <Title>Master Registry Browser &amp; Import Flow</Title>
+    <Epic>Epic 11: Publisher Zmanim Registry Interface</Epic>
+    <Status>Ready for Development</Status>
+    <CreatedDate>2025-12-22</CreatedDate>
+    <Prerequisites>
+      <Prerequisite>Story 11.0: Data Foundation &amp; Integrity Audit (MUST BE COMPLETE)</Prerequisite>
+    </Prerequisites>
+  </Metadata>
+
+  <!-- ================================================================ -->
+  <!-- STORY OVERVIEW -->
+  <!-- ================================================================ -->
+  <StoryOverview>
+    <UserStory>
+      As a publisher,
+      I want to browse the master zmanim registry with filters and search, see live preview times, and import zmanim with one click,
+      So that I can quickly find and add canonical zmanim to my algorithm without writing DSL from scratch.
+    </UserStory>
+
+    <Context>
+      This story delivers the core Master Registry Browser interface - the primary onboarding accelerator for new publishers.
+      Currently, publishers must write DSL formulas from scratch with only documentation as a guide. This is intimidating and error-prone.
+
+      The Master Registry Browser transforms the experience by providing:
+      1. Visual Discovery - Browse 172+ canonical zmanim with real-world examples
+      2. Live Preview - See calculated times for any location/date before importing
+      3. One-Click Import - Add master zmanim to your catalog without writing code
+      4. Smart Filtering - Find zmanim by category, shita, or custom search
+      5. Duplicate Prevention - Impossible to accidentally import the same zman twice
+    </Context>
+
+    <BusinessValue>
+      - Reduces onboarding time from 5+ days to 2 days
+      - Increases confidence - Publishers see working formulas with preview times before importing
+      - Prevents errors - Pre-validated master formulas eliminate syntax errors
+      - Reduces support burden - "How do I write a DSL formula?" questions drop significantly
+    </BusinessValue>
+
+    <StoryPoints>13</StoryPoints>
+  </StoryOverview>
+
+  <!-- ================================================================ -->
+  <!-- ACCEPTANCE CRITERIA -->
+  <!-- ================================================================ -->
+  <AcceptanceCriteria>
+    <Criterion id="AC1">
+      <Title>Page Structure &amp; Navigation</Title>
+      <Given>I am logged in as a verified publisher</Given>
+      <When>I navigate to /publisher/registry</When>
+      <Then>
+        - I see the Master Registry tab (active by default)
+        - Paginated table/card view (50 items per page)
+        - Shared header controls: Location picker, date selector, location badge
+        - Filter panel (sidebar on desktop, drawer on mobile)
+        - Search box for zman name or formula keywords
+        - Zman cards showing: name (Hebrew + English), DSL formula, preview time, category badge, shita badge, status
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC2">
+      <Title>Location Selection &amp; Preview Times</Title>
+      <Given>I am viewing the master registry</Given>
+      <When>I select a location from the global locality dropdown (e.g., "Jerusalem, Israel")</When>
+      <Then>
+        - All preview times recalculate for that location
+        - The location badge updates: "Selected: Jerusalem, Israel"
+        - Location selection persists across tab switches
+        - Location picker: Autocomplete dropdown with geo_localities data (4M+ localities)
+        - Preview times update within 500ms per zman (concurrent calculation)
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC3">
+      <Title>Date Selection &amp; Preview Times</Title>
+      <Given>I am viewing the master registry</Given>
+      <When>I select a date (default: today)</When>
+      <Then>
+        - All preview times recalculate for that date
+        - Date selection persists across tab switches
+        - Date format: Display as "Friday, December 22, 2025" in header badge
+        - Preview times update within 500ms per zman
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC4">
+      <Title>Filtering by Category, Shita, and Status</Title>
+      <Given>I am viewing the master registry</Given>
+      <When>I open the filter panel</When>
+      <Then>
+        - I can filter by Category (multi-select checkboxes: Alos, Shema, Tefilla, Chatzos, Mincha, Tzais, etc.)
+        - I can filter by Shita (multi-select checkboxes: GRA, MGA, Baal Hatanya, Rabbeinu Tam, Geonim, etc.)
+        - I can filter by Status (radio: All / Available to Import / Already Imported)
+        - Active filter chips appear showing current selections
+        - I can click chip "×" to remove individual filter
+        - I can click "Clear All Filters" to reset
+        - Results update immediately (no "Apply" button, &lt;300ms)
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC5">
+      <Title>Search Functionality</Title>
+      <Given>I am viewing the master registry</Given>
+      <When>I type in the search box (e.g., "Alos Hashachar")</When>
+      <Then>
+        - Results are filtered to zmanim matching: Zman name (Hebrew or English), DSL formula keywords, zman_key reference
+        - Search updates immediately (debounced 300ms)
+        - Search is case-insensitive
+        - Empty results show: "No master zmanim match your search. Try different keywords."
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC6">
+      <Title>Zman Card Display</Title>
+      <Given>I am viewing a master zman card</Given>
+      <When>The card is displayed</When>
+      <Then>
+        - DSL formula with syntax highlighting (CodeMirror)
+        - Preview time in 12-hour format (e.g., "5:24 AM")
+        - Brief one-line description
+        - Category badge (color-coded: Alos/Indigo, Shema/Blue, Chatzos/Yellow, Mincha/Orange, Tzais/Purple)
+        - Shita badge (color-coded: GRA/Blue, MGA/Green, Baal Hatanya/Purple, etc.)
+        - Status indicator: Available (🟢 green) or Imported (✓ blue)
+        - Info button (ℹ️)
+        - Import button (enabled or disabled based on ownership)
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC7">
+      <Title>Import Zman - Success Flow</Title>
+      <Given>I have NOT imported a specific master zman</Given>
+      <When>I click the "Import Zman" button</When>
+      <Then>
+        - A publisher_zmanim record is created with master_zmanim_id set
+        - Fields copied: zman_key, hebrew_name, english_name, description, formula_dsl
+        - linked_from_publisher_zman_id is NULL (direct master import)
+        - copied_from_publisher_id is NULL (direct master import)
+        - I am redirected to /publisher/algorithm?focus={zman_key}
+        - The newly imported zman is highlighted with green border/animation
+        - Toast notification shows: "Alos Hashachar imported successfully"
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC8">
+      <Title>Import Zman - Duplicate Prevention</Title>
+      <Given>I have ALREADY imported a specific master zman</Given>
+      <When>I view that master zman card</When>
+      <Then>
+        - The "Import Zman" button is disabled (opacity-50, cursor-not-allowed)
+        - Status shows "Imported ✓" badge
+        - Hovering over disabled button shows tooltip: "You already imported this master zman"
+        - Database constraint on (publisher_id, master_zmanim_id) prevents duplicates
+        - If client logic bypassed, server returns 400 Bad Request
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC9">
+      <Title>Empty State Handling</Title>
+      <Given>No master zmanim match my active filters</Given>
+      <When>Results are empty</When>
+      <Then>
+        - I see helpful empty state message: "No master zmanim match your filters. Try adjusting your filters."
+        - "Clear All Filters" button visible in empty state
+      </Then>
+    </Criterion>
+
+    <Criterion id="AC10">
+      <Title>Performance Requirements</Title>
+      <Given>The master registry page loads</Given>
+      <When>Initial render completes</When>
+      <Then>
+        - Page load time is &lt;2 seconds (p95)
+        - Preview calculations complete in &lt;500ms per zman
+        - Search/filter operations complete in &lt;300ms
+        - API response time: &lt;1 second for GET /api/v1/publisher/registry/master
+        - Pagination: Only load 50 items at a time (not all 172+ zmanim)
+      </Then>
+    </Criterion>
+  </AcceptanceCriteria>
+
+  <!-- ================================================================ -->
+  <!-- DATABASE SCHEMAS -->
+  <!-- ================================================================ -->
+  <DatabaseSchemas>
+    <Table name="master_zmanim_registry">
+      <Description>Canonical master zmanim registry with 172+ entries</Description>
+      <Schema>
+        <Column name="id" type="integer" primaryKey="true" />
+        <Column name="zman_key" type="varchar(100)" unique="true" description="Unique identifier (e.g., 'alos_16_1')" />
+        <Column name="canonical_hebrew_name" type="text" notNull="true" />
+        <Column name="canonical_english_name" type="text" notNull="true" />
+        <Column name="transliteration" type="text" />
+        <Column name="description" type="text" description="One-line summary" />
+        <Column name="halachic_source" type="text" description="Populated in Story 11.0" />
+        <Column name="halachic_notes" type="text" description="Populated in Story 11.0" />
+        <Column name="time_category_id" type="integer" foreignKey="time_categories.id" />
+        <Column name="default_formula_dsl" type="text" description="DSL formula for calculation" />
+        <Column name="is_hidden" type="boolean" default="false" />
+        <Column name="is_core" type="boolean" default="false" />
+        <Column name="aliases" type="text[]" />
+        <Column name="created_at" type="timestamptz" />
+        <Column name="updated_at" type="timestamptz" />
+      </Schema>
+      <Indexes>
+        <Index name="idx_master_zmanim_shita" columns="shita" where="shita IS NOT NULL" description="From Story 11.0" />
+        <Index name="idx_master_zmanim_category" columns="category" where="category IS NOT NULL" description="From Story 11.0" />
+      </Indexes>
+      <Note>Story 11.0 adds shita, category, full_description, formula_explanation fields (migration prerequisite)</Note>
+    </Table>
+
+    <Table name="publisher_zmanim">
+      <Description>Publisher-specific zmanim with master registry linkage</Description>
+      <Schema>
+        <Column name="id" type="integer" primaryKey="true" />
+        <Column name="publisher_id" type="integer" foreignKey="publishers.id" notNull="true" />
+        <Column name="zman_key" type="varchar(100)" notNull="true" />
+        <Column name="hebrew_name" type="text" notNull="true" />
+        <Column name="english_name" type="text" notNull="true" />
+        <Column name="transliteration" type="text" />
+        <Column name="description" type="text" />
+        <Column name="formula_dsl" type="text" notNull="true" />
+        <Column name="ai_explanation" type="text" />
+        <Column name="publisher_comment" type="text" />
+        <Column name="master_zman_id" type="integer" foreignKey="master_zmanim_registry.id" description="Link to master registry (required)" />
+        <Column name="halachic_notes" type="text" />
+        <Column name="is_enabled" type="boolean" default="true" />
+        <Column name="is_visible" type="boolean" default="true" />
+        <Column name="is_published" type="boolean" default="true" />
+        <Column name="is_beta" type="boolean" default="false" />
+        <Column name="is_custom" type="boolean" default="false" />
+        <Column name="time_category_id" type="integer" foreignKey="time_categories.id" />
+        <Column name="aliases" type="text[]" />
+        <Column name="dependencies" type="text[]" />
+        <Column name="linked_publisher_zman_id" type="integer" foreignKey="publisher_zmanim.id" description="NULL for direct master import" />
+        <Column name="current_version" type="integer" default="1" />
+        <Column name="created_by_action_id" type="uuid" />
+        <Column name="updated_by_action_id" type="uuid" />
+        <Column name="created_at" type="timestamptz" />
+        <Column name="updated_at" type="timestamptz" />
+        <Column name="deleted_at" type="timestamptz" description="Soft delete timestamp" />
+        <Column name="deleted_by" type="text" description="Clerk user ID" />
+        <Column name="certified_at" type="timestamptz" />
+        <Column name="display_name_hebrew" type="text" />
+        <Column name="display_name_english" type="text" />
+        <Column name="rounding_mode" type="varchar(10)" default="'math'" check="rounding_mode IN ('floor', 'math', 'ceil')" />
+        <Column name="display_status" type="display_status" default="'core'" />
+      </Schema>
+      <Constraints>
+        <UniqueConstraint name="idx_publisher_zmanim_master_unique" columns="publisher_id, master_zmanim_id" where="deleted_at IS NULL" description="Prevent duplicate imports (Story 11.0)" />
+      </Constraints>
+      <Note>Import flow creates records with master_zman_id set, NULL linked_publisher_zman_id, NULL copied_from_publisher_id</Note>
+    </Table>
+
+    <Table name="geo_localities">
+      <Description>~4M localities (cities, towns, villages) from Overture Maps</Description>
+      <Schema>
+        <Column name="id" type="integer" primaryKey="true" />
+        <Column name="parent_overture_id" type="text" />
+        <Column name="locality_type_id" type="smallint" foreignKey="geo_locality_types.id" />
+        <Column name="name" type="text" notNull="true" />
+        <Column name="name_ascii" type="text" />
+        <Column name="timezone" type="text" notNull="true" />
+        <Column name="population" type="integer" />
+        <Column name="continent_id" type="smallint" foreignKey="geo_continents.id" />
+        <Column name="country_id" type="smallint" foreignKey="geo_countries.id" />
+        <Column name="source_id" type="integer" foreignKey="geo_data_sources.id" />
+        <Column name="overture_id" type="text" />
+        <Column name="created_at" type="timestamptz" />
+        <Column name="updated_at" type="timestamptz" />
+        <Column name="boundary" type="geometry(MultiPolygon,4326)" description="PostGIS polygon boundary" />
+      </Schema>
+      <Note>Location picker uses this table for autocomplete search with 4M+ entries</Note>
+    </Table>
+
+    <Table name="time_categories">
+      <Description>Lookup table for time categories (Alos, Shema, Chatzos, etc.)</Description>
+      <Schema>
+        <Column name="id" type="integer" primaryKey="true" />
+        <Column name="key" type="varchar(20)" unique="true" />
+        <Column name="display_name_hebrew" type="text" />
+        <Column name="display_name_english" type="text" />
+        <Column name="sort_order" type="integer" description="For sorting zmanim in chronological category order" />
+        <Column name="created_at" type="timestamptz" />
+      </Schema>
+    </Table>
+  </DatabaseSchemas>
+
+  <!-- ================================================================ -->
+  <!-- ARCHITECTURE DECISIONS -->
+  <!-- ================================================================ -->
+  <ArchitectureDecisions>
+    <Decision>
+      <Title>Registry Tab Navigation Pattern</Title>
+      <Context>Master Registry and Publisher Examples are two distinct browsing modes with shared controls</Context>
+      <Decision>Use shadcn/ui Tabs component with Master Registry as default tab</Decision>
+      <Rationale>
+        - Tabs provide clear visual separation between master vs. publisher zmanim
+        - Shared location/date controls persist across tabs (no re-selection needed)
+        - Familiar UX pattern (users understand tabs immediately)
+      </Rationale>
+    </Decision>
+
+    <Decision>
+      <Title>Preview Calculation Performance</Title>
+      <Context>Each zman card needs a preview time, potentially 50 calculations per page</Context>
+      <Decision>Concurrent calculation with Promise.all() and Redis caching (24-hour TTL)</Decision>
+      <Rationale>
+        - Sequential calculations would take 50 * 100ms = 5 seconds (unacceptable)
+        - Concurrent calculations: 50 requests in parallel, ~500ms total
+        - Redis caching: locality_id:date:master_zman_id key, 99% cache hit rate for same-day requests
+        - Backend handles concurrency with goroutine pooling
+      </Rationale>
+    </Decision>
+
+    <Decision>
+      <Title>Duplicate Prevention Strategy</Title>
+      <Context>Publishers must not import the same master zman twice</Context>
+      <Decision>Three-layer defense: Client-side UI, Server validation, Database constraint</Decision>
+      <Rationale>
+        - Layer 1 (Client): already_imported flag in API response disables Import button
+        - Layer 2 (Server): CheckPublisherHasMasterZman SQLc query returns 400 if duplicate
+        - Layer 3 (Database): UNIQUE constraint on (publisher_id, master_zmanim_id WHERE deleted_at IS NULL)
+        - Defense in depth prevents edge cases (e.g., double-click, race conditions, malicious clients)
+      </Rationale>
+    </Decision>
+
+    <Decision>
+      <Title>Filter Panel Responsiveness</Title>
+      <Context>Desktop has space for sidebar, mobile does not</Context>
+      <Decision>Desktop: Fixed sidebar (w-64), Mobile: Drawer (Sheet component)</Decision>
+      <Rationale>
+        - Desktop users benefit from always-visible filters (faster workflow)
+        - Mobile users need screen space for zman cards (drawer preserves space)
+        - shadcn/ui Sheet component provides smooth drawer animation
+        - Breakpoint: 1024px (Tailwind lg:)
+      </Rationale>
+    </Decision>
+
+    <Decision>
+      <Title>Import Redirect Flow</Title>
+      <Context>After import, publisher needs to see the newly imported zman</Context>
+      <Decision>Redirect to /publisher/algorithm?focus={zman_key} with highlight animation</Decision>
+      <Rationale>
+        - User gets immediate feedback (zman is now in their catalog)
+        - Highlight animation (green border, 3s duration) draws attention to new zman
+        - URL parameter (?focus=) allows deep linking and bookmark support
+        - Aligns with Story 11.5 navigation pattern
+      </Rationale>
+    </Decision>
+  </ArchitectureDecisions>
+
+  <!-- ================================================================ -->
+  <!-- EXISTING CODE PATTERNS -->
+  <!-- ================================================================ -->
+  <ExistingCodePatterns>
+    <Pattern name="6-Step Handler Pattern">
+      <Location>api/internal/handlers/*.go</Location>
+      <Description>ALL backend handlers MUST follow this exact pattern</Description>
+      <Example>
+```go
+func (h *Handlers) HandlerName(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+
+    // 1. Resolve publisher context (SECURITY CRITICAL)
+    pc := h.publisherResolver.MustResolve(w, r)
+    if pc == nil { return }
+
+    // 2. Extract URL params
+    id := chi.URLParam(r, "id")
+
+    // 3. Parse body
+    var req RequestType
+    if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil {
+        RespondBadRequest(w, r, "Invalid request body")
+        return
+    }
+
+    // 4. Validate
+    if req.Name == "" {
+        RespondValidationError(w, r, "Name is required", nil)
+        return
+    }
+
+    // 5. SQLc query (NO RAW SQL)
+    result, err := h.db.Queries.GetSomething(ctx, sqlcgen.GetSomethingParams{
+        ID:          id,
+        PublisherID: pc.PublisherID,
+    })
+    if err != nil {
+        slog.Error("operation failed", "error", err, "id", id)
+        RespondInternalError(w, r)
+        return
+    }
+
+    // 6. Respond
+    RespondJSON(w, r, http.StatusOK, result)
+}
+```
+      </Example>
+      <ComplianceRule>88% of handlers comply (PublisherResolver pattern)</ComplianceRule>
+    </Pattern>
+
+    <Pattern name="React useApi Hook">
+      <Location>web/lib/api-client.ts</Location>
+      <Description>Unified API client with automatic auth and publisher ID injection</Description>
+      <Example>
+```tsx
+'use client';
+import { useApi } from '@/lib/api-client';
+
+export function Component() {
+  const api = useApi();
+
+  // Auth + X-Publisher-Id header
+  const data = await api.get&lt;DataType&gt;('/publisher/profile');
+
+  // POST with body
+  await api.post('/publisher/zmanim', {
+    body: JSON.stringify(zman)
+  });
+
+  // No auth (public)
+  const countries = await api.public.get('/countries');
+
+  // Auth only (admin)
+  const stats = await api.admin.get('/admin/stats');
+}
+```
+      </Example>
+      <ComplianceRule>98% compliance - NO raw fetch() allowed in components</ComplianceRule>
+    </Pattern>
+
+    <Pattern name="React Query Hook">
+      <Location>web/lib/hooks/*.ts</Location>
+      <Description>Type-safe data fetching with automatic cache management</Description>
+      <Example>
+```tsx
+import { usePublisherQuery, usePublisherMutation } from '@/lib/hooks';
+
+// Query
+const { data, isLoading, error } = usePublisherQuery&lt;DataType&gt;(
+  'query-key',
+  '/publisher/endpoint',
+  { enabled: !!dependency }
+);
+
+// Mutation
+const mutation = usePublisherMutation&lt;Result, Payload&gt;(
+  '/publisher/endpoint',
+  'POST',
+  { invalidateKeys: ['query-key'] }
+);
+```
+      </Example>
+    </Pattern>
+
+    <Pattern name="Design Tokens (100% Compliance)">
+      <Location>web/components/**/*.tsx</Location>
+      <Description>NEVER use hardcoded colors - ALWAYS use design tokens</Description>
+      <Example>
+```tsx
+// REQUIRED - Design tokens
+className="text-foreground bg-card border-border"
+className="text-primary hover:text-primary/80"
+className="text-muted-foreground"
+
+// FORBIDDEN - Hardcoded colors
+className="text-[#1e3a5f]"
+style={{ color: '#ff0000' }}
+```
+      </Example>
+      <ComplianceRule>100% compliance - PR blocks hardcoded colors</ComplianceRule>
+    </Pattern>
+
+    <Pattern name="Time Formatting (12-hour ONLY)">
+      <Location>web/lib/utils.ts</Location>
+      <Description>All time displays MUST use 12-hour format with AM/PM</Description>
+      <Example>
+```tsx
+import { formatTime, formatTimeShort } from '@/lib/utils';
+
+formatTime('14:30:36')      // "2:30:36 PM"
+formatTimeShort('14:30:36') // "2:30 PM"
+```
+      </Example>
+    </Pattern>
+
+    <Pattern name="Clerk isLoaded Check (95% Compliance)">
+      <Location>web/app/**/*.tsx</Location>
+      <Description>ALWAYS check isLoaded before accessing user/token</Description>
+      <Example>
+```tsx
+const { isLoaded, isSignedIn, user } = useUser();
+
+if (!isLoaded) return &lt;Loader2 className="animate-spin" /&gt;;
+if (!isSignedIn) redirect('/sign-in');
+// NOW safe to use user/token
+```
+      </Example>
+    </Pattern>
+
+    <Pattern name="Soft Delete Pattern (MANDATORY)">
+      <Location>api/internal/db/queries/*.sql</Location>
+      <Description>ALL SELECT queries MUST filter out soft-deleted records</Description>
+      <Example>
+```sql
+-- REQUIRED - All SELECT queries MUST filter deleted_at
+SELECT * FROM publisher_zmanim
+WHERE publisher_id = $1
+  AND deleted_at IS NULL;
+
+-- Soft delete operation
+UPDATE publisher_zmanim
+SET deleted_at = now(),
+    deleted_by = $1
+WHERE id = $2
+  AND deleted_at IS NULL;
+```
+      </Example>
+    </Pattern>
+  </ExistingCodePatterns>
+
+  <!-- ================================================================ -->
+  <!-- EXISTING COMPONENTS TO REUSE -->
+  <!-- ================================================================ -->
+  <ExistingComponents>
+    <Component name="LocalityPicker">
+      <Location>web/components/shared/LocalityPicker.tsx</Location>
+      <Description>Smart location autocomplete with 4M+ localities</Description>
+      <Features>
+        - Autocomplete dropdown with geo_localities search
+        - Geolocation support (optional)
+        - Displays: Name, Country, Population
+        - Returns: locality_id (integer)
+      </Features>
+      <Usage>
+```tsx
+&lt;LocalityPicker
+  value={selectedLocality}
+  onChange={setSelectedLocality}
+  placeholder="Search for a location"
+/&gt;
+```
+      </Usage>
+    </Component>
+
+    <Component name="DatePickerDropdown">
+      <Location>web/components/zmanim/DatePickerDropdown.tsx</Location>
+      <Description>Calendar picker for date selection</Description>
+      <Features>
+        - shadcn/ui Calendar component
+        - Default: today
+        - Format: YYYY-MM-DD
+        - Display: "Friday, December 22, 2025"
+      </Features>
+      <Usage>
+```tsx
+&lt;DatePickerDropdown
+  value={selectedDate}
+  onChange={setSelectedDate}
+/&gt;
+```
+      </Usage>
+    </Component>
+
+    <Component name="CodeMirrorDSLEditor">
+      <Location>web/components/editor/CodeMirrorDSLEditor.tsx</Location>
+      <Description>Modern DSL editor with syntax highlighting</Description>
+      <Features>
+        - CodeMirror-based editor
+        - DSL syntax highlighting (primitives: blue, functions: green, numbers: orange)
+        - Read-only mode supported
+        - Height customizable
+      </Features>
+      <Usage>
+```tsx
+&lt;CodeMirrorDSLEditor
+  value={formula}
+  onChange={setFormula}
+  height="50px"
+  readOnly={true}
+/&gt;
+```
+      </Usage>
+    </Component>
+
+    <Component name="TagChip">
+      <Location>web/components/shared/tags/TagChip.tsx</Location>
+      <Description>Tag display chip with colors</Description>
+      <Features>
+        - Color-coded badges
+        - Close button (×) optional
+        - Variant: default, secondary, outline
+      </Features>
+      <Usage>
+```tsx
+&lt;TagChip tag="ALOS" onRemove={() => removeFilter('ALOS')} /&gt;
+```
+      </Usage>
+    </Component>
+
+    <Component name="Button, Card, Badge (shadcn/ui)">
+      <Location>web/components/ui/*.tsx</Location>
+      <Description>25 shadcn/ui primitives - ALWAYS use these instead of native HTML</Description>
+      <Examples>
+        - Button: Primary, secondary, outline, ghost variants
+        - Card: CardHeader, CardContent, CardFooter
+        - Badge: Default, secondary, destructive, outline
+        - Select: Select, SelectTrigger, SelectContent, SelectItem
+        - Dialog: Dialog, DialogTrigger, DialogContent, DialogHeader
+        - Sheet: Sheet (mobile drawer)
+        - Tabs: Tabs, TabsList, TabsTrigger, TabsContent
+      </Examples>
+    </Component>
+
+    <Component name="Loader2 (Loading Spinner)">
+      <Location>lucide-react</Location>
+      <Description>Standard loading indicator</Description>
+      <Usage>
+```tsx
+import { Loader2 } from 'lucide-react';
+
+{loading &amp;&amp; &lt;Loader2 className="animate-spin" /&gt;}
+```
+      </Usage>
+    </Component>
+  </ExistingComponents>
+
+  <!-- ================================================================ -->
+  <!-- API ENDPOINTS (NEW) -->
+  <!-- ================================================================ -->
+  <ApiEndpoints>
+    <Endpoint>
+      <Method>GET</Method>
+      <Path>/api/v1/publisher/registry/master</Path>
+      <Auth>Publisher (PublisherResolver)</Auth>
+      <Description>List master zmanim for registry with ownership check</Description>
+      <QueryParams>
+        <Param name="locality_id" type="integer" required="true" description="Location for preview times" />
+        <Param name="date" type="string" required="true" format="YYYY-MM-DD" description="Date for preview times" />
+        <Param name="category" type="string[]" required="false" description="Filter by categories (comma-separated)" />
+        <Param name="shita" type="string[]" required="false" description="Filter by shitas (comma-separated)" />
+        <Param name="status" type="string" required="false" enum="all,available,imported" description="Filter by ownership status" />
+        <Param name="search" type="string" required="false" description="Search by name or formula" />
+        <Param name="page" type="integer" required="false" default="1" description="Page number" />
+        <Param name="limit" type="integer" required="false" default="50" min="10" max="100" description="Items per page" />
+      </QueryParams>
+      <Response>
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": 123,
+        "zman_key": "alos_16_1",
+        "canonical_hebrew_name": "עלות השחר",
+        "canonical_english_name": "Alos Hashachar (16.1°)",
+        "description": "Dawn when the sun is 16.1° below the horizon",
+        "default_formula_dsl": "solar(-16.1)",
+        "time_category_key": "ALOS",
+        "shita": "GRA",
+        "category": "ALOS",
+        "preview_time": "05:24:37",
+        "preview_time_rounded": "05:25",
+        "already_imported": false
+      }
+    ],
+    "total": 172,
+    "page": 1,
+    "limit": 50
+  }
+}
+```
+      </Response>
+      <Handler>api/internal/handlers/registry_master.go</Handler>
+      <SQLcQuery>ListMasterZmanimForRegistry</SQLcQuery>
+    </Endpoint>
+
+    <Endpoint>
+      <Method>POST</Method>
+      <Path>/api/v1/publisher/registry/import</Path>
+      <Auth>Publisher (PublisherResolver)</Auth>
+      <Description>Import master zman to publisher catalog</Description>
+      <RequestBody>
+```json
+{
+  "master_zmanim_id": 123
+}
+```
+      </RequestBody>
+      <Response>
+```json
+{
+  "data": {
+    "id": 456,
+    "publisher_id": 2,
+    "zman_key": "alos_16_1",
+    "hebrew_name": "עלות השחר",
+    "english_name": "Alos Hashachar (16.1°)",
+    "formula_dsl": "solar(-16.1)",
+    "master_zman_id": 123,
+    "linked_from_publisher_zman_id": null,
+    "copied_from_publisher_id": null,
+    "created_at": "2025-12-22T10:30:00Z"
+  }
+}
+```
+      </Response>
+      <ErrorResponses>
+        <Error status="400" message="You already have this master zman" />
+        <Error status="404" message="Master zman not found" />
+      </ErrorResponses>
+      <Handler>api/internal/handlers/registry_import.go</Handler>
+      <SQLcQueries>
+        - CheckPublisherHasMasterZman (duplicate check)
+        - ImportMasterZman (insert publisher_zmanim)
+      </SQLcQueries>
+    </Endpoint>
+  </ApiEndpoints>
+
+  <!-- ================================================================ -->
+  <!-- SQLC QUERIES (NEW) -->
+  <!-- ================================================================ -->
+  <SqlcQueries>
+    <Query name="ListMasterZmanimForRegistry">
+      <File>api/internal/db/queries/master_zmanim_registry.sql</File>
+      <Description>List master zmanim with ownership check and filters</Description>
+      <SQL>
+```sql
+-- name: ListMasterZmanimForRegistry :many
+SELECT
+  mzr.id,
+  mzr.zman_key,
+  mzr.canonical_hebrew_name,
+  mzr.canonical_english_name,
+  mzr.description,
+  mzr.default_formula_dsl,
+  mzr.time_category_id,
+  tc.key as time_category_key,
+  -- Check if publisher already imported this master zman
+  EXISTS(
+    SELECT 1 FROM publisher_zmanim pz
+    WHERE pz.publisher_id = $1
+      AND pz.master_zman_id = mzr.id
+      AND pz.deleted_at IS NULL
+  ) AS already_imported
+FROM master_zmanim_registry mzr
+LEFT JOIN time_categories tc ON mzr.time_category_id = tc.id
+WHERE
+  ($2::text IS NULL OR mzr.category = ANY($2::text[]))
+  AND ($3::text IS NULL OR mzr.shita = ANY($3::text[]))
+  AND (
+    $4::text IS NULL
+    OR mzr.canonical_hebrew_name ILIKE '%' || $4 || '%'
+    OR mzr.canonical_english_name ILIKE '%' || $4 || '%'
+    OR mzr.default_formula_dsl ILIKE '%' || $4 || '%'
+    OR mzr.zman_key ILIKE '%' || $4 || '%'
+  )
+  AND (
+    $5::text IS NULL
+    OR ($5 = 'available' AND NOT EXISTS(SELECT 1 FROM publisher_zmanim WHERE publisher_id = $1 AND master_zman_id = mzr.id AND deleted_at IS NULL))
+    OR ($5 = 'imported' AND EXISTS(SELECT 1 FROM publisher_zmanim WHERE publisher_id = $1 AND master_zman_id = mzr.id AND deleted_at IS NULL))
+  )
+ORDER BY mzr.category, mzr.canonical_english_name
+LIMIT $6 OFFSET $7;
+```
+      </SQL>
+      <Parameters>
+        $1: publisher_id (int32)
+        $2: categories ([]string, nullable)
+        $3: shitas ([]string, nullable)
+        $4: search (string, nullable)
+        $5: status (string, nullable)
+        $6: limit (int32)
+        $7: offset (int32)
+      </Parameters>
+    </Query>
+
+    <Query name="CheckPublisherHasMasterZman">
+      <File>api/internal/db/queries/publisher_zmanim.sql</File>
+      <Description>Check if publisher already has this master zman (duplicate prevention)</Description>
+      <SQL>
+```sql
+-- name: CheckPublisherHasMasterZman :one
+SELECT EXISTS(
+  SELECT 1 FROM publisher_zmanim
+  WHERE publisher_id = $1
+    AND master_zman_id = $2
+    AND deleted_at IS NULL
+) AS has_master_zman;
+```
+      </SQL>
+      <Parameters>
+        $1: publisher_id (int32)
+        $2: master_zman_id (int32)
+      </Parameters>
+      <Returns>bool (has_master_zman)</Returns>
+    </Query>
+
+    <Query name="ImportMasterZman">
+      <File>api/internal/db/queries/publisher_zmanim.sql</File>
+      <Description>Insert publisher_zmanim from master registry</Description>
+      <SQL>
+```sql
+-- name: ImportMasterZman :one
+INSERT INTO publisher_zmanim (
+  publisher_id,
+  master_zman_id,
+  zman_key,
+  hebrew_name,
+  english_name,
+  description,
+  formula_dsl,
+  linked_from_publisher_zman_id,
+  copied_from_publisher_id,
+  created_at,
+  updated_at
+)
+SELECT
+  $1 AS publisher_id,
+  mzr.id AS master_zman_id,
+  mzr.zman_key,
+  mzr.canonical_hebrew_name,
+  mzr.canonical_english_name,
+  mzr.description,
+  mzr.default_formula_dsl,
+  NULL AS linked_from_publisher_zman_id,
+  NULL AS copied_from_publisher_id,
+  NOW() AS created_at,
+  NOW() AS updated_at
+FROM master_zmanim_registry mzr
+WHERE mzr.id = $2
+RETURNING *;
+```
+      </SQL>
+      <Parameters>
+        $1: publisher_id (int32)
+        $2: master_zman_id (int32)
+      </Parameters>
+      <Returns>publisher_zmanim (full record)</Returns>
+    </Query>
+  </SqlcQueries>
+
+  <!-- ================================================================ -->
+  <!-- FRONTEND COMPONENTS (NEW) -->
+  <!-- ================================================================ -->
+  <FrontendComponents>
+    <Component name="RegistryPage">
+      <File>web/app/publisher/registry/page.tsx</File>
+      <Description>Main registry page with tab navigation</Description>
+      <Structure>
+```tsx
+'use client';
+
+import { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import RegistryMasterBrowser from '@/components/registry/RegistryMasterBrowser';
+import RegistryLocationPicker from '@/components/registry/RegistryLocationPicker';
+import { useSearchParams } from 'next/navigation';
+
+export default function RegistryPage() {
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'master';
+  const [selectedLocality, setSelectedLocality] = useState&lt;number | null&gt;(null);
+  const [selectedDate, setSelectedDate] = useState&lt;string&gt;(new Date().toISOString().split('T')[0]);
+
+  return (
+    &lt;div className="container mx-auto px-4 py-8"&gt;
+      &lt;h1 className="text-3xl font-bold mb-4"&gt;Zmanim Registry&lt;/h1&gt;
+
+      {/* Shared Header Controls */}
+      &lt;div className="mb-6 flex gap-4 items-center"&gt;
+        &lt;RegistryLocationPicker
+          value={selectedLocality}
+          onChange={setSelectedLocality}
+        /&gt;
+        &lt;DatePicker
+          value={selectedDate}
+          onChange={setSelectedDate}
+        /&gt;
+        {selectedLocality &amp;&amp; (
+          &lt;LocationBadge localityId={selectedLocality} /&gt;
+        )}
+      &lt;/div&gt;
+
+      {/* Tab Navigation */}
+      &lt;Tabs defaultValue={defaultTab}&gt;
+        &lt;TabsList&gt;
+          &lt;TabsTrigger value="master"&gt;Master Registry&lt;/TabsTrigger&gt;
+          &lt;TabsTrigger value="publishers"&gt;Publisher Examples&lt;/TabsTrigger&gt;
+        &lt;/TabsList&gt;
+
+        &lt;TabsContent value="master"&gt;
+          &lt;RegistryMasterBrowser
+            localityId={selectedLocality}
+            date={selectedDate}
+          /&gt;
+        &lt;/TabsContent&gt;
+
+        &lt;TabsContent value="publishers"&gt;
+          {/* Story 11.3 */}
+        &lt;/TabsContent&gt;
+      &lt;/Tabs&gt;
+    &lt;/div&gt;
+  );
+}
+```
+      </Structure>
+    </Component>
+
+    <Component name="RegistryMasterBrowser">
+      <File>web/components/registry/RegistryMasterBrowser.tsx</File>
+      <Description>Master registry tab with filters, search, pagination</Description>
+      <Structure>
+```tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useApi } from '@/lib/api-client';
+import RegistryFilters from './RegistryFilters';
+import ZmanCard from './ZmanCard';
+import { MasterZman } from '@/types/registry';
+
+interface Props {
+  localityId: number | null;
+  date: string;
+}
+
+export default function RegistryMasterBrowser({ localityId, date }: Props) {
+  const api = useApi();
+  const [zmanim, setZmanim] = useState&lt;MasterZman[]&gt;([]);
+  const [filters, setFilters] = useState({ category: [], shita: [], status: 'all' });
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchZmanim();
+  }, [localityId, date, filters, search, page]);
+
+  async function fetchZmanim() {
+    setLoading(true);
+    try {
+      const response = await api.get('/publisher/registry/master', {
+        params: { locality_id: localityId, date, ...filters, search, page, limit: 50 }
+      });
+      setZmanim(response.data.items);
+    } catch (error) {
+      console.error('Failed to fetch master zmanim:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    &lt;div className="flex gap-6"&gt;
+      {/* Filter Panel (Sidebar) */}
+      &lt;RegistryFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+      /&gt;
+
+      {/* Main Content */}
+      &lt;div className="flex-1"&gt;
+        {/* Search Box */}
+        &lt;SearchInput value={search} onChange={setSearch} /&gt;
+
+        {/* Zman Cards Grid */}
+        &lt;div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4"&gt;
+          {loading ? (
+            &lt;SkeletonCards count={6} /&gt;
+          ) : zmanim.length === 0 ? (
+            &lt;EmptyState /&gt;
+          ) : (
+            zmanim.map(zman =&gt; (
+              &lt;ZmanCard
+                key={zman.id}
+                zman={zman}
+                localityId={localityId}
+                date={date}
+                onImport={handleImport}
+              /&gt;
+            ))
+          )}
+        &lt;/div&gt;
+
+        {/* Pagination */}
+        &lt;Pagination page={page} onPageChange={setPage} /&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}
+```
+      </Structure>
+    </Component>
+
+    <Component name="ZmanCard">
+      <File>web/components/registry/ZmanCard.tsx</File>
+      <Description>Reusable zman card with formula, preview time, badges, import button</Description>
+      <Features>
+        - DSL formula with syntax highlighting (CodeMirror)
+        - Preview time (12-hour format)
+        - Category badge (color-coded)
+        - Shita badge (color-coded)
+        - Status indicator (Available/Imported)
+        - Info button (ℹ️) → Story 11.2
+        - Import button (enabled/disabled)
+      </Features>
+      <Structure>
+```tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import CodeMirror from '@uiw/react-codemirror';
+import { InfoIcon } from 'lucide-react';
+import { MasterZman } from '@/types/registry';
+
+interface Props {
+  zman: MasterZman;
+  localityId: number | null;
+  date: string;
+  onImport: (id: number) =&gt; void;
+}
+
+export default function ZmanCard({ zman, localityId, date, onImport }: Props) {
+  const [previewTime, setPreviewTime] = useState&lt;string | null&gt;(null);
+
+  useEffect(() => {
+    if (localityId &amp;&amp; date) {
+      calculatePreviewTime();
+    }
+  }, [localityId, date]);
+
+  async function calculatePreviewTime() {
+    // Call calculation engine API
+    const time = await api.post('/publisher/calculate', {
+      formula_dsl: zman.default_formula_dsl,
+      locality_id: localityId,
+      date: date
+    });
+    setPreviewTime(time.data.result);
+  }
+
+  return (
+    &lt;Card className="relative"&gt;
+      &lt;CardHeader&gt;
+        &lt;div className="flex justify-between items-start"&gt;
+          &lt;div&gt;
+            &lt;h3 className="font-bold"&gt;{zman.canonical_hebrew_name}&lt;/h3&gt;
+            &lt;p className="text-sm text-gray-600"&gt;{zman.canonical_english_name}&lt;/p&gt;
+          &lt;/div&gt;
+          &lt;Button variant="ghost" size="icon" onClick={() =&gt; openDocModal(zman.id)}&gt;
+            &lt;InfoIcon className="h-5 w-5" /&gt;
+          &lt;/Button&gt;
+        &lt;/div&gt;
+      &lt;/CardHeader&gt;
+
+      &lt;CardContent&gt;
+        {/* DSL Formula */}
+        &lt;div className="mb-4"&gt;
+          &lt;label className="text-sm font-medium"&gt;Formula:&lt;/label&gt;
+          &lt;CodeMirror
+            value={zman.default_formula_dsl}
+            height="50px"
+            readOnly
+            extensions={[dslLanguage()]}
+          /&gt;
+        &lt;/div&gt;
+
+        {/* Preview Time */}
+        &lt;div className="mb-4"&gt;
+          &lt;label className="text-sm font-medium"&gt;Preview Time:&lt;/label&gt;
+          &lt;p className="text-2xl font-bold text-primary"&gt;
+            {previewTime || 'Select a location'}
+          &lt;/p&gt;
+        &lt;/div&gt;
+
+        {/* Description */}
+        &lt;p className="text-sm text-gray-700"&gt;{zman.description}&lt;/p&gt;
+
+        {/* Badges */}
+        &lt;div className="flex gap-2 mt-4"&gt;
+          &lt;Badge variant="category" className={getCategoryColor(zman.category)}&gt;
+            {zman.category}
+          &lt;/Badge&gt;
+          &lt;Badge variant="shita" className={getShitaColor(zman.shita)}&gt;
+            {zman.shita}
+          &lt;/Badge&gt;
+          &lt;Badge variant="status" className={zman.already_imported ? 'bg-blue-500' : 'bg-green-500'}&gt;
+            {zman.already_imported ? 'Imported ✓' : 'Available 🟢'}
+          &lt;/Badge&gt;
+        &lt;/div&gt;
+      &lt;/CardContent&gt;
+
+      &lt;CardFooter&gt;
+        &lt;Button
+          onClick={() =&gt; onImport(zman.id)}
+          disabled={zman.already_imported}
+          className="w-full"
+          title={zman.already_imported ? 'You already imported this master zman' : ''}
+        &gt;
+          {zman.already_imported ? 'Imported' : 'Import Zman'}
+        &lt;/Button&gt;
+      &lt;/CardFooter&gt;
+    &lt;/Card&gt;
+  );
+}
+```
+      </Structure>
+    </Component>
+
+    <Component name="RegistryFilters">
+      <File>web/components/registry/RegistryFilters.tsx</File>
+      <Description>Filter panel with category, shita, status filters</Description>
+      <Features>
+        - Category filter (multi-select checkboxes)
+        - Shita filter (multi-select checkboxes)
+        - Status filter (radio: All / Available / Imported)
+        - Active filter chips with remove (×)
+        - Clear All Filters button
+        - Responsive: Sidebar (desktop), Drawer (mobile)
+      </Features>
+    </Component>
+  </FrontendComponents>
+
+  <!-- ================================================================ -->
+  <!-- TESTING STRATEGY -->
+  <!-- ================================================================ -->
+  <TestingStrategy>
+    <BackendTests>
+      <Test name="ListMasterZmanimForRegistry - Basic">
+        <Description>Test master zmanim listing with all filters</Description>
+        <Steps>
+          1. Create test publisher (ID=2)
+          2. GET /api/v1/publisher/registry/master?locality_id=4993250&amp;date=2025-12-22
+          3. Verify response has items array, total count, pagination
+          4. Verify each item has: id, zman_key, names, formula, category, shita, already_imported
+        </Steps>
+      </Test>
+
+      <Test name="ListMasterZmanimForRegistry - Category Filter">
+        <Description>Test category filtering</Description>
+        <Steps>
+          1. GET /api/v1/publisher/registry/master?category=ALOS
+          2. Verify all returned items have category = 'ALOS'
+          3. GET /api/v1/publisher/registry/master?category=ALOS,SHEMA
+          4. Verify all returned items have category IN ('ALOS', 'SHEMA')
+        </Steps>
+      </Test>
+
+      <Test name="ListMasterZmanimForRegistry - Ownership Check">
+        <Description>Test already_imported flag</Description>
+        <Steps>
+          1. Import master zman ID=123 for publisher ID=2
+          2. GET /api/v1/publisher/registry/master (publisher ID=2)
+          3. Verify master zman ID=123 has already_imported=true
+          4. Verify other master zmanim have already_imported=false
+        </Steps>
+      </Test>
+
+      <Test name="ImportMasterZman - Success">
+        <Description>Test successful import</Description>
+        <Steps>
+          1. POST /api/v1/publisher/registry/import with master_zmanim_id=123
+          2. Verify 201 Created response
+          3. Verify response has publisher_zmanim record with master_zman_id=123
+          4. Verify linked_from_publisher_zman_id is NULL
+          5. Verify copied_from_publisher_id is NULL
+        </Steps>
+      </Test>
+
+      <Test name="ImportMasterZman - Duplicate Prevention">
+        <Description>Test duplicate import prevention</Description>
+        <Steps>
+          1. Import master zman ID=123 for publisher ID=2
+          2. Attempt to import same master zman again
+          3. Verify 400 Bad Request response
+          4. Verify error message: "You already have this master zman"
+        </Steps>
+      </Test>
+
+      <Test name="ImportMasterZman - Database Constraint">
+        <Description>Test database unique constraint enforcement</Description>
+        <Steps>
+          1. Import master zman ID=123 for publisher ID=2
+          2. Bypass API and attempt direct INSERT with same (publisher_id, master_zman_id)
+          3. Verify database constraint violation error
+        </Steps>
+      </Test>
+    </BackendTests>
+
+    <FrontendTests>
+      <Test name="Registry Page - Navigation">
+        <Description>Test page load and tab navigation</Description>
+        <Steps>
+          1. Navigate to /publisher/registry
+          2. Verify Master Registry tab is active (default)
+          3. Verify location picker, date picker, location badge visible
+          4. Switch to Publisher Examples tab
+          5. Switch back to Master Registry tab
+          6. Verify location/date persist across tabs
+        </Steps>
+      </Test>
+
+      <Test name="Master Registry - Location Selection">
+        <Description>Test location selection and preview update</Description>
+        <Steps>
+          1. Navigate to /publisher/registry
+          2. Select location "Jerusalem, Israel"
+          3. Verify location badge updates: "Selected: Jerusalem, Israel"
+          4. Verify preview times calculate within 500ms
+          5. Verify all zman cards show preview times (12-hour format)
+        </Steps>
+      </Test>
+
+      <Test name="Master Registry - Category Filter">
+        <Description>Test category filtering</Description>
+        <Steps>
+          1. Navigate to /publisher/registry
+          2. Open filter panel
+          3. Select category "ALOS"
+          4. Verify active filter chip appears
+          5. Verify only ALOS zmanim displayed
+          6. Click chip "×" to remove filter
+          7. Verify all zmanim displayed again
+        </Steps>
+      </Test>
+
+      <Test name="Master Registry - Search">
+        <Description>Test search functionality</Description>
+        <Steps>
+          1. Navigate to /publisher/registry
+          2. Type "Alos Hashachar" in search box
+          3. Wait 300ms (debounce)
+          4. Verify results filtered to matching zmanim
+          5. Clear search
+          6. Verify all zmanim displayed again
+        </Steps>
+      </Test>
+
+      <Test name="Master Registry - Import Flow">
+        <Description>Test import and redirect</Description>
+        <Steps>
+          1. Navigate to /publisher/registry
+          2. Select location "Jerusalem, Israel"
+          3. Click "Import Zman" on first result
+          4. Verify redirect to /publisher/algorithm?focus={zman_key}
+          5. Verify zman is highlighted (green border)
+          6. Verify toast notification: "{zman_name} imported successfully"
+          7. Return to registry
+          8. Verify same zman shows "Imported ✓" badge
+          9. Verify Import button is disabled with tooltip
+        </Steps>
+      </Test>
+
+      <Test name="Master Registry - Duplicate Prevention UI">
+        <Description>Test disabled button for already-imported zman</Description>
+        <Steps>
+          1. Import master zman (e.g., Alos 16.1°)
+          2. Return to /publisher/registry
+          3. Verify imported zman shows "Imported ✓" badge
+          4. Verify Import button is disabled (opacity-50)
+          5. Hover over disabled button
+          6. Verify tooltip: "You already imported this master zman"
+        </Steps>
+      </Test>
+
+      <Test name="Master Registry - Performance">
+        <Description>Test page load and preview calculation performance</Description>
+        <Steps>
+          1. Navigate to /publisher/registry (measure page load time)
+          2. Verify page load &lt;2 seconds (p95)
+          3. Select location (measure preview calculation time)
+          4. Verify preview times &lt;500ms per zman
+          5. Apply filter (measure filter response time)
+          6. Verify filter results &lt;300ms
+        </Steps>
+      </Test>
+    </FrontendTests>
+
+    <PerformanceTests>
+      <Test name="Concurrent Preview Calculations">
+        <Description>Test 50 preview calculations in parallel</Description>
+        <Steps>
+          1. Load page with 50 master zmanim
+          2. Select location
+          3. Measure time for all 50 preview times to calculate
+          4. Verify total time &lt;500ms (not 50 * 100ms = 5s)
+        </Steps>
+      </Test>
+
+      <Test name="Cache Effectiveness">
+        <Description>Test Redis caching for preview times</Description>
+        <Steps>
+          1. Load page, select location (cache miss)
+          2. Reload page, select same location (cache hit)
+          3. Verify cache hit response time &lt;100ms
+          4. Verify cache hit rate &gt;80%
+        </Steps>
+      </Test>
+    </PerformanceTests>
+  </TestingStrategy>
+
+  <!-- ================================================================ -->
+  <!-- CACHING STRATEGY -->
+  <!-- ================================================================ -->
+  <CachingStrategy>
+    <CacheKey name="registry:master:{publisher_id}:{filters}">
+      <Description>Master registry list cache</Description>
+      <TTL>24 hours</TTL>
+      <Rationale>Master registry rarely changes (admin updates only)</Rationale>
+    </CacheKey>
+
+    <CacheKey name="preview:{locality_id}:{date}:{master_zman_id}">
+      <Description>Preview calculation cache</Description>
+      <TTL>24 hours</TTL>
+      <Rationale>Zmanim times don't change within a day for same location/formula</Rationale>
+    </CacheKey>
+
+    <InvalidationRules>
+      <Rule>When master registry updated (admin action): Flush registry:master:* keys</Rule>
+      <Rule>When publisher imports zman: No cache flush needed (already_imported flag recalculates on next request)</Rule>
+    </InvalidationRules>
+  </CachingStrategy>
+
+  <!-- ================================================================ -->
+  <!-- PERFORMANCE TARGETS -->
+  <!-- ================================================================ -->
+  <PerformanceTargets>
+    <Target metric="Page Load Time" value="&lt;2 seconds" percentile="p95" />
+    <Target metric="Preview Calculation" value="&lt;500ms per zman" description="Concurrent calculation, not sequential" />
+    <Target metric="Search/Filter Response" value="&lt;300ms" description="From input change to results update" />
+    <Target metric="API Response (Cached)" value="&lt;100ms" description="Direct Redis cache hit" />
+    <Target metric="API Response (Uncached)" value="&lt;1 second" description="Database query + calculation" />
+    <Target metric="Cache Hit Rate" value="&gt;80%" description="For same-day requests" />
+  </PerformanceTargets>
+
+  <!-- ================================================================ -->
+  <!-- DEVELOPMENT WORKFLOW -->
+  <!-- ================================================================ -->
+  <DevelopmentWorkflow>
+    <Step number="1">
+      <Title>Backend - Create SQLc Queries</Title>
+      <Commands>
+        cd api/internal/db/queries
+        # Create master_zmanim_registry.sql (if not exists)
+        # Add ListMasterZmanimForRegistry query
+        # Add queries to publisher_zmanim.sql
+        cd api &amp;&amp; sqlc generate
+      </Commands>
+    </Step>
+
+    <Step number="2">
+      <Title>Backend - Create Handlers</Title>
+      <Commands>
+        cd api/internal/handlers
+        # Create registry_master.go (ListMasterZmanimForRegistry handler)
+        # Create registry_import.go (ImportMasterZman handler)
+        # Follow 6-step handler pattern
+      </Commands>
+    </Step>
+
+    <Step number="3">
+      <Title>Backend - Wire Routes</Title>
+      <Commands>
+        cd api/cmd/api
+        # Edit routes.go
+        # Add /publisher/registry/master (GET)
+        # Add /publisher/registry/import (POST)
+      </Commands>
+    </Step>
+
+    <Step number="4">
+      <Title>Backend - Test Endpoints</Title>
+      <Commands>
+        ./restart.sh
+        # Manual testing with curl
+        source api/.env &amp;&amp; node scripts/get-test-token.js
+        # Copy token, then:
+        curl -H "Authorization: Bearer {token}" -H "X-Publisher-Id: 2" \
+          "http://localhost:8080/api/v1/publisher/registry/master?locality_id=4993250&amp;date=2025-12-22" | jq '.'
+      </Commands>
+    </Step>
+
+    <Step number="5">
+      <Title>Frontend - Create Components</Title>
+      <Commands>
+        cd web/components
+        mkdir registry
+        # Create RegistryMasterBrowser.tsx
+        # Create ZmanCard.tsx
+        # Create RegistryFilters.tsx
+        # Create RegistryLocationPicker.tsx
+      </Commands>
+    </Step>
+
+    <Step number="6">
+      <Title>Frontend - Create Page</Title>
+      <Commands>
+        cd web/app/publisher
+        mkdir registry
+        # Create page.tsx (main registry page with tabs)
+      </Commands>
+    </Step>
+
+    <Step number="7">
+      <Title>Frontend - Test UI</Title>
+      <Commands>
+        npm run dev
+        # Navigate to http://localhost:3001/publisher/registry
+        # Test location selection, filtering, search, import
+      </Commands>
+    </Step>
+
+    <Step number="8">
+      <Title>E2E Tests</Title>
+      <Commands>
+        cd tests/e2e/publisher
+        # Create registry.spec.ts
+        npx playwright test tests/e2e/publisher/registry.spec.ts
+      </Commands>
+    </Step>
+
+    <Step number="9">
+      <Title>Update Documentation</Title>
+      <Commands>
+        # Update api/internal/handlers/INDEX.md
+        # Update api/internal/db/queries/INDEX.md
+        # Update web/components/INDEX.md
+      </Commands>
+    </Step>
+
+    <Step number="10">
+      <Title>Validate CI Checks</Title>
+      <Commands>
+        ./scripts/validate-ci-checks.sh
+        # Fix any linting errors
+        # Run type checks
+        # Run tests
+      </Commands>
+    </Step>
+  </DevelopmentWorkflow>
+
+  <!-- ================================================================ -->
+  <!-- RELATED FILES -->
+  <!-- ================================================================ -->
+  <RelatedFiles>
+    <File path="/home/daniel/repos/zmanim/docs/coding-standards.md" purpose="Coding standards and compliance rules" />
+    <File path="/home/daniel/repos/zmanim/docs/architecture.md" purpose="System architecture and tech stack" />
+    <File path="/home/daniel/repos/zmanim/docs/epic-11-publisher-zmanim-registry.md" purpose="Epic 11 overview and all stories" />
+    <File path="/home/daniel/repos/zmanim/api/internal/handlers/INDEX.md" purpose="Handler registry and patterns" />
+    <File path="/home/daniel/repos/zmanim/api/internal/db/queries/INDEX.md" purpose="SQLc query registry" />
+    <File path="/home/daniel/repos/zmanim/web/components/INDEX.md" purpose="Component registry and patterns" />
+    <File path="/home/daniel/repos/zmanim/web/lib/api-client.ts" purpose="Unified API client (useApi hook)" />
+    <File path="/home/daniel/repos/zmanim/web/components/shared/LocalityPicker.tsx" purpose="Location autocomplete component (reuse)" />
+    <File path="/home/daniel/repos/zmanim/web/components/zmanim/DatePickerDropdown.tsx" purpose="Date picker component (reuse)" />
+    <File path="/home/daniel/repos/zmanim/web/components/editor/CodeMirrorDSLEditor.tsx" purpose="DSL syntax highlighting (reuse)" />
+  </RelatedFiles>
+
+  <!-- ================================================================ -->
+  <!-- DEFINITION OF DONE -->
+  <!-- ================================================================ -->
+  <DefinitionOfDone>
+    <Item>All acceptance criteria validated (10 ACs)</Item>
+    <Item>All tasks completed (10 tasks from story file)</Item>
+    <Item>Backend API endpoints implemented and tested
+      - GET /api/v1/publisher/registry/master working
+      - POST /api/v1/publisher/registry/import working
+      - SQLc queries generated and verified
+    </Item>
+    <Item>Frontend components implemented and tested
+      - Registry page loads without errors
+      - Master Registry tab displays correctly
+      - Filters work (category, shita, status)
+      - Search works (debounced, case-insensitive)
+      - Location/date selection updates preview times
+      - Import flow works (button → redirect → highlight)
+      - Duplicate prevention works (disabled button)
+    </Item>
+    <Item>Integration tests passing (backend)</Item>
+    <Item>E2E tests passing (frontend)</Item>
+    <Item>Performance tests passing (&lt;2s page load, &lt;500ms preview, &lt;300ms search)</Item>
+    <Item>Code review approved</Item>
+    <Item>Documentation updated:
+      - API documentation (Swagger/OpenAPI)
+      - Component INDEX.md entries added
+      - SQL queries INDEX.md entries added
+    </Item>
+    <Item>No TODO/FIXME comments in code</Item>
+    <Item>No console.log statements (use proper logging)</Item>
+    <Item>No raw fetch() calls (use useApi() hook)</Item>
+    <Item>All TypeScript errors resolved</Item>
+    <Item>All linting errors resolved</Item>
+    <Item>Deployed to staging environment</Item>
+    <Item>Manual QA completed (smoke test)</Item>
+    <Item>Merged to dev branch</Item>
+  </DefinitionOfDone>
+</StoryContext>

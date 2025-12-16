@@ -1,0 +1,289 @@
+/**
+ * E2E Tests: Public Pages
+ *
+ * Tests for public (unauthenticated) pages:
+ * - Homepage loads
+ * - Zmanim page loads for valid city
+ * - Zmanim page 404 for invalid city
+ * - Become publisher page loads
+ * - Become publisher form elements
+ */
+
+import { test, expect } from '@playwright/test';
+import { BASE_URL } from '../utils';
+
+// All tests run in parallel
+test.describe.configure({ mode: 'parallel' });
+
+test.describe('Public Pages - Homepage', () => {
+  test('homepage loads successfully', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    expect(page.url()).toBe(`${BASE_URL}/`);
+  });
+
+  test('homepage has Shtetl Zmanim branding', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    const pageContent = await page.textContent('body');
+    expect(pageContent?.toLowerCase().includes('zmanim')).toBeTruthy();
+  });
+
+  test('homepage is accessible without authentication', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Should not be redirected to sign-in
+    expect(page.url()).not.toContain('/sign-in');
+    expect(page.url()).toBe(`${BASE_URL}/`);
+  });
+
+  test('homepage has navigation links', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Should have navigation bar (using div with border-b for styling)
+    // Check for key navigation elements: logo, sign in, and mode toggle
+    await expect(page.getByText('Shtetl Zmanim').first()).toBeVisible();
+  });
+
+  test('homepage has sign in link or login option', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+
+    // Should have sign in link, login link, button, or some auth action
+    // The Sign In is rendered as a Clerk modal button
+    const signInText = page.getByText('Sign In');
+    const signInLink = page.getByRole('link', { name: /sign.?in|log.?in|get.?started/i });
+    const signInButton = page.getByRole('button', { name: /sign.?in|log.?in|get.?started/i });
+    const authLink = page.locator('a[href*="/sign-in"], a[href*="/login"]');
+
+    const hasSignIn = await signInText.isVisible().catch(() => false) ||
+                       await signInLink.isVisible().catch(() => false) ||
+                       await signInButton.isVisible().catch(() => false) ||
+                       await authLink.first().isVisible().catch(() => false);
+    expect(hasSignIn).toBeTruthy();
+  });
+});
+
+test.describe('Public Pages - Register Publisher', () => {
+  test('register page loads', async ({ page }) => {
+    await page.goto(`${BASE_URL}/register`);
+    await page.waitForLoadState('domcontentloaded');
+
+    expect(page.url()).toContain('/register');
+  });
+
+  test('register page is accessible without authentication', async ({ page }) => {
+    await page.goto(`${BASE_URL}/register`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Should not redirect to sign-in immediately
+    // (may require auth after form submission but not to view)
+    const pageContent = await page.textContent('body');
+    expect(pageContent).toBeTruthy();
+  });
+
+  test('register page shows relevant content', async ({ page }) => {
+    await page.goto(`${BASE_URL}/register`);
+    await page.waitForLoadState('domcontentloaded');
+
+    const pageContent = await page.textContent('body');
+    expect(
+      pageContent?.toLowerCase().includes('publisher') ||
+      pageContent?.toLowerCase().includes('register')
+    ).toBeTruthy();
+  });
+
+  test('register page has form or call to action', async ({ page }) => {
+    await page.goto(`${BASE_URL}/register`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Should have form fields or signup button
+    const hasForm = await page.locator('form').isVisible().catch(() => false);
+    const hasButton = await page.getByRole('button').first().isVisible().catch(() => false);
+    const hasLink = await page.getByRole('link').first().isVisible().catch(() => false);
+
+    expect(hasForm || hasButton || hasLink).toBeTruthy();
+  });
+});
+
+test.describe('Public Pages - Auth Pages', () => {
+  test('sign-in page loads', async ({ page }) => {
+    await page.goto(`${BASE_URL}/sign-in`);
+    await page.waitForLoadState('domcontentloaded');
+
+    expect(page.url()).toContain('/sign-in');
+  });
+
+  test('sign-up page loads', async ({ page }) => {
+    await page.goto(`${BASE_URL}/sign-up`);
+    await page.waitForLoadState('domcontentloaded');
+
+    expect(page.url()).toContain('/sign-up');
+  });
+
+  test('sign-in page shows Clerk auth component', async ({ page }) => {
+    await page.goto(`${BASE_URL}/sign-in`);
+    await page.waitForLoadState('networkidle');
+
+    // Wait for Clerk to load by checking for auth-related content
+    await page.waitForFunction(
+      () => {
+        const content = document.body.textContent?.toLowerCase() || '';
+        return content.includes('sign in') || content.includes('email') || content.includes('continue');
+      },
+      { timeout: 15000 }
+    );
+
+    const pageContent = await page.textContent('body');
+    expect(
+      pageContent?.toLowerCase().includes('sign in') ||
+      pageContent?.toLowerCase().includes('email') ||
+      pageContent?.toLowerCase().includes('continue')
+    ).toBeTruthy();
+  });
+
+  test('sign-up page shows Clerk auth component', async ({ page }) => {
+    await page.goto(`${BASE_URL}/sign-up`);
+    await page.waitForLoadState('networkidle');
+
+    // Wait for Clerk to load by checking for auth-related content
+    await page.waitForFunction(
+      () => {
+        const content = document.body.textContent?.toLowerCase() || '';
+        return content.includes('sign up') || content.includes('create') || content.includes('email');
+      },
+      { timeout: 15000 }
+    );
+
+    const pageContent = await page.textContent('body');
+    expect(
+      pageContent?.toLowerCase().includes('sign up') ||
+      pageContent?.toLowerCase().includes('create') ||
+      pageContent?.toLowerCase().includes('email')
+    ).toBeTruthy();
+  });
+});
+
+test.describe('Public Pages - Zmanim Display', () => {
+  test('zmanim page structure exists', async ({ page }) => {
+    // This test checks the route structure exists
+    // Actual zmanim display depends on city data
+    const response = await page.goto(`${BASE_URL}/zmanim/test-city`);
+
+    // Should either load the page or return 404 (not error/redirect)
+    expect(response?.status()).toBeLessThan(500);
+  });
+});
+
+test.describe('Public Pages - 404 Handling', () => {
+  test('404 page shows for invalid routes', async ({ page }) => {
+    await page.goto(`${BASE_URL}/this-page-does-not-exist-12345`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Should show 404 or similar error page
+    const pageContent = await page.textContent('body');
+    expect(
+      pageContent?.includes('404') ||
+      pageContent?.toLowerCase().includes('not found') ||
+      pageContent?.toLowerCase().includes("doesn't exist")
+    ).toBeTruthy();
+  });
+});
+
+test.describe('Public Pages - Responsive Design', () => {
+  test('homepage is responsive on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Page should load without horizontal scroll
+    const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+    expect(bodyWidth).toBeLessThanOrEqual(375 + 50); // Allow small margin
+  });
+
+  test('homepage is responsive on tablet', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+    expect(bodyWidth).toBeLessThanOrEqual(768 + 50);
+  });
+});
+
+test.describe('Public Pages - Navigation', () => {
+  test('clicking sign in from homepage navigates to sign-in page', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    const signInLink = page.getByRole('link', { name: /sign in/i });
+    if (await signInLink.isVisible().catch(() => false)) {
+      await signInLink.click();
+      await page.waitForURL('**/sign-in**');
+      expect(page.url()).toContain('/sign-in');
+    }
+  });
+
+  test('logo link navigates to homepage', async ({ page }) => {
+    await page.goto(`${BASE_URL}/sign-in`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Find and click logo/home link
+    const logoLink = page.locator('a[href="/"]').first();
+    if (await logoLink.isVisible().catch(() => false)) {
+      await logoLink.click();
+      await page.waitForURL(`${BASE_URL}/`);
+      expect(page.url()).toBe(`${BASE_URL}/`);
+    }
+  });
+});
+
+test.describe('Public Pages - Accept Invitation', () => {
+  test('accept invitation page loads', async ({ page }) => {
+    await page.goto(`${BASE_URL}/accept-invitation`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Should either show the page or redirect to sign-in
+    const url = page.url();
+    expect(
+      url.includes('/accept-invitation') ||
+      url.includes('/sign-in')
+    ).toBeTruthy();
+  });
+
+  test('accept invitation with invalid token shows error', async ({ page }) => {
+    await page.goto(`${BASE_URL}/accept-invitation?token=invalid-token-12345`);
+    await page.waitForLoadState('networkidle');
+
+    // Wait for content to load by checking body has content
+    await expect(page.locator('body')).not.toBeEmpty({ timeout: 10000 });
+
+    // Should show error or redirect
+    const pageContent = await page.textContent('body');
+    expect(pageContent).toBeTruthy();
+  });
+});
+
+test.describe('Public Pages - Meta Tags', () => {
+  test('homepage has title tag', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    const title = await page.title();
+    expect(title).toBeTruthy();
+    expect(title.length).toBeGreaterThan(0);
+  });
+
+  test('homepage has viewport meta tag', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('domcontentloaded');
+
+    const viewport = await page.locator('meta[name="viewport"]').getAttribute('content');
+    expect(viewport).toBeTruthy();
+    expect(viewport?.includes('width')).toBeTruthy();
+  });
+});

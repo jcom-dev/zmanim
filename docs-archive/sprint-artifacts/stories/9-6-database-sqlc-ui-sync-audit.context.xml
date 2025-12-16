@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.6" title="Database-SQLc-UI Sync Audit & Validation">
+  <summary>
+    This context file provides information for auditing and validating the synchronization
+    between database schema, SQLc generated code, and frontend TypeScript types.
+  </summary>
+
+  <current-state>
+    <description>
+      After multiple epics with schema changes, drift may exist between database, SQLc,
+      Go structs, and TypeScript interfaces. This audit ensures full stack type safety.
+    </description>
+
+    <drift-patterns>
+      <pattern name="Schema to SQLc">Columns added/removed but not reflected in queries</pattern>
+      <pattern name="SQLc to Go">Generated code out of date with .sql files</pattern>
+      <pattern name="Go to TypeScript">Response structs don't match TS interfaces</pattern>
+      <pattern name="UI to API">Components expecting fields that don't exist</pattern>
+    </drift-patterns>
+  </current-state>
+
+  <target-state>
+    <description>
+      - SQLc compile and generate produce no errors or changes
+      - All database columns represented in queries
+      - Go structs match TypeScript interfaces
+      - No raw SQL in handlers
+      - Full type safety across stack
+    </description>
+  </target-state>
+
+  <key-directories>
+    <directory path="db/migrations/">Database migration files</directory>
+    <directory path="api/internal/db/queries/">SQLc .sql query files</directory>
+    <directory path="api/internal/db/sqlcgen/">SQLc generated Go code</directory>
+    <directory path="web/lib/types/">TypeScript type definitions</directory>
+    <directory path="web/lib/api-client.ts">API client with typed responses</directory>
+  </key-directories>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/api/sqlc.yaml" relevance="primary">
+      <description>SQLc configuration file defining code generation settings.</description>
+    </file>
+    <file path="/home/coder/workspace/zmanim/api/internal/db/queries/" relevance="primary">
+      <description>Directory containing SQLc query definitions (.sql files).</description>
+    </file>
+    <file path="/home/coder/workspace/zmanim/api/internal/db/sqlcgen/" relevance="primary">
+      <description>Directory containing SQLc generated Go code.</description>
+    </file>
+    <file path="/home/coder/workspace/zmanim/db/migrations/" relevance="primary">
+      <description>Database migration files defining schema.</description>
+    </file>
+  </files>
+
+  <key-tables>
+    <table name="publishers">Publisher profiles with status_id</table>
+    <table name="master_zmanim_registry">Canonical zman definitions with enable_rounding</table>
+    <table name="publisher_zmanim">Publisher zmanim with linked_publisher_zman_id</table>
+    <table name="publisher_coverage">Geographic coverage (city, region, country)</table>
+    <table name="cities">163k cities with PostGIS geometry</table>
+    <table name="correction_requests">User feedback with status workflow</table>
+    <table name="invitations">Team invitations with tokens</table>
+    <table name="user_publishers">User-publisher relationships</table>
+  </key-tables>
+
+  <verification-commands>
+    <command purpose="Verify SQLc compiles">
+      cd api && sqlc compile
+    </command>
+    <command purpose="Verify SQLc generated code is current">
+      cd api && sqlc generate && git diff --exit-code internal/db/sqlcgen/
+    </command>
+    <command purpose="Find raw SQL in handlers">
+      grep -rn "db.Exec\|db.Query\|db.QueryRow" api/internal/handlers/ --include="*.go"
+    </command>
+    <command purpose="Find unused queries">
+      # Compare function names in sqlcgen with actual usage
+    </command>
+    <command purpose="Verify Go builds">
+      cd api && go build -v ./...
+    </command>
+    <command purpose="Verify TypeScript types">
+      cd web && npm run type-check
+    </command>
+  </verification-commands>
+
+  <audit-checklist>
+    <check name="SQLc Compilation">sqlc compile passes with zero errors</check>
+    <check name="SQLc Generation">sqlc generate produces no changes</check>
+    <check name="No Manual Edits">No manual edits to sqlcgen/ directory</check>
+    <check name="Foreign Key Indexes">All FK columns have indexes</check>
+    <check name="Nullable Consistency">Nullable columns match Go pointer types</check>
+    <check name="Type Sync">API response types match TS interfaces</check>
+    <check name="No Raw SQL">No raw SQL strings in handlers</check>
+    <check name="No Unused Queries">All queries have at least one caller</check>
+  </audit-checklist>
+
+  <recent-schema-changes>
+    <change epic="8">Added enable_rounding to master_zmanim_registry and publisher_zmanim</change>
+    <change epic="8">Added linked_publisher_zman_id to publisher_zmanim</change>
+    <change epic="8">Modified correction request status workflow</change>
+    <change epic="8">Consolidated master registry endpoints</change>
+  </recent-schema-changes>
+
+  <implementation-guide>
+    <step n="1">
+      <task>Run SQLc validation</task>
+      <code>
+cd api
+sqlc compile
+sqlc generate
+git diff internal/db/sqlcgen/
+      </code>
+    </step>
+    <step n="2">
+      <task>Audit for unused queries</task>
+      <code>
+# Get all query function names from sqlcgen
+grep -h "func.*Querier" api/internal/db/sqlcgen/*.go | sort | uniq
+
+# Search for usage of each function
+grep -r "Queries\." api/internal/handlers/ api/internal/services/
+      </code>
+    </step>
+    <step n="3">
+      <task>Check for raw SQL</task>
+      <code>
+grep -rn 'db\.Exec\|db\.Query\|db\.QueryRow' api/internal/handlers/ api/internal/services/
+      </code>
+    </step>
+    <step n="4">
+      <task>Verify type sync</task>
+      <code>
+# Compare Go response struct field names with TypeScript interfaces
+# Manual review of key types: Publisher, Zman, CorrectionRequest
+      </code>
+    </step>
+    <step n="5">
+      <task>Run full build verification</task>
+      <code>
+cd api && go build -v ./...
+cd web && npm run type-check
+      </code>
+    </step>
+  </implementation-guide>
+
+  <testing>
+    <test-case name="SQLc compilation">
+      <verify>sqlc compile exits with code 0</verify>
+    </test-case>
+    <test-case name="SQLc generation current">
+      <verify>sqlc generate produces no git diff</verify>
+    </test-case>
+    <test-case name="Go build">
+      <verify>go build ./... exits with code 0</verify>
+    </test-case>
+    <test-case name="TypeScript build">
+      <verify>npm run type-check exits with code 0</verify>
+    </test-case>
+  </testing>
+</story-context>

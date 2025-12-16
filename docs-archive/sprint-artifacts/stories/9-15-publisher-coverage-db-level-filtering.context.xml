@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.15" title="Publisher Coverage DB-Level Filtering">
+  <summary>
+    This context file provides information for implementing database-level filtering of
+    publisher coverage in location searches. Currently filtering happens in Go code.
+  </summary>
+
+  <current-state>
+    <description>
+      The location handler currently fetches all matching cities and would filter by publisher
+      coverage in application code. This is inefficient for the 163k city database.
+    </description>
+
+    <source-todo>
+      <file>api/internal/handlers/locations.go</file>
+      <line>374</line>
+      <code>
+// For publisher filtering, we need to check coverage
+// This is a simplified in-memory filter - for production, consider DB-level filtering
+// TODO: Implement publisher coverage filtering at DB level
+_ = publisherID // Placeholder - publisher filtering not yet implemented
+      </code>
+    </source-todo>
+  </current-state>
+
+  <target-state>
+    <description>
+      - SQLc query with publisher coverage JOIN
+      - Filtering happens in PostgreSQL, not Go
+      - Reduced data transfer from database
+      - Better performance for large result sets
+    </description>
+  </target-state>
+
+  <database-schema>
+    <table name="publisher_coverage">
+      <column name="id" type="UUID PRIMARY KEY" />
+      <column name="publisher_id" type="UUID NOT NULL REFERENCES publishers(id)" />
+      <column name="city_id" type="INTEGER REFERENCES cities(id)" note="Specific city coverage" />
+      <column name="region" type="TEXT" note="Region/state coverage" />
+      <column name="country_code" type="CHAR(2)" note="Country-wide coverage" />
+      <constraint>At least one of city_id, region, or country_code must be set</constraint>
+    </table>
+
+    <coverage-types>
+      <type name="City-level">city_id IS NOT NULL</type>
+      <type name="Region-level">region IS NOT NULL AND country_code IS NOT NULL</type>
+      <type name="Country-level">country_code IS NOT NULL AND region IS NULL AND city_id IS NULL</type>
+    </coverage-types>
+  </database-schema>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/api/internal/handlers/locations.go" relevance="primary">
+      <description>
+        Location search handler with TODO placeholder for publisher coverage filtering.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/internal/db/queries/locations.sql" relevance="primary">
+      <description>
+        SQLc queries for location searches. Need new query with coverage JOIN.
+      </description>
+    </file>
+  </files>
+
+  <implementation-guide>
+    <step n="1">
+      <task>Create SQLc query with coverage JOIN</task>
+      <code>
+-- name: SearchCitiesWithPublisherCoverage :many
+SELECT DISTINCT
+    c.id,
+    c.name,
+    c.ascii_name,
+    c.country_code,
+    c.admin1_code as region,
+    c.latitude,
+    c.longitude,
+    c.population,
+    c.timezone
+FROM cities c
+JOIN publisher_coverage pc ON (
+    -- City-level match
+    pc.city_id = c.id
+    OR
+    -- Region-level match
+    (pc.region IS NOT NULL AND pc.region = c.admin1_code AND pc.country_code = c.country_code)
+    OR
+    -- Country-level match
+    (pc.country_code IS NOT NULL AND pc.region IS NULL AND pc.city_id IS NULL AND pc.country_code = c.country_code)
+)
+WHERE pc.publisher_id = $1
+  AND (c.name ILIKE $2 OR c.ascii_name ILIKE $2)
+ORDER BY c.population DESC
+LIMIT $3;
+      </code>
+    </step>
+    <step n="2">
+      <task>Add database indexes</task>
+      <code>
+CREATE INDEX idx_publisher_coverage_publisher_id ON publisher_coverage(publisher_id);
+CREATE INDEX idx_publisher_coverage_city_id ON publisher_coverage(city_id);
+CREATE INDEX idx_publisher_coverage_country ON publisher_coverage(country_code);
+CREATE INDEX idx_publisher_coverage_region ON publisher_coverage(country_code, region);
+      </code>
+    </step>
+    <step n="3">
+      <task>Update locations handler</task>
+      <code>
+func (h *Handlers) SearchLocations(w http.ResponseWriter, r *http.Request) {
+    query := r.URL.Query().Get("q")
+    publisherID := r.URL.Query().Get("publisher_id")
+    limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+    var cities []db.City
+    var err error
+
+    if publisherID != "" {
+        pubID, err := uuid.Parse(publisherID)
+        if err != nil {
+            RespondError(w, r, http.StatusBadRequest, "invalid publisher_id")
+            return
+        }
+
+        cities, err = h.db.Queries.SearchCitiesWithPublisherCoverage(ctx, db.SearchCitiesWithPublisherCoverageParams{
+            PublisherID: pubID,
+            Query:       "%" + query + "%",
+            Limit:       int32(limit),
+        })
+    } else {
+        cities, err = h.db.Queries.SearchCities(ctx, db.SearchCitiesParams{
+            Query: "%" + query + "%",
+            Limit: int32(limit),
+        })
+    }
+
+    if err != nil {
+        RespondError(w, r, http.StatusInternalServerError, "failed to search")
+        return
+    }
+
+    RespondJSON(w, r, http.StatusOK, cities)
+}
+      </code>
+    </step>
+  </implementation-guide>
+
+  <performance-expectations>
+    <scenario name="No filter (163k cities)">
+      <current>~50ms</current>
+      <target>~50ms (unchanged)</target>
+    </scenario>
+    <scenario name="Publisher with 100 cities">
+      <current>~50ms + Go filter</current>
+      <target>~5ms</target>
+    </scenario>
+    <scenario name="Publisher with 1 country">
+      <current>~50ms + Go filter</current>
+      <target>~10ms</target>
+    </scenario>
+  </performance-expectations>
+
+  <testing>
+    <test-case name="City-level coverage">
+      <setup>
+        INSERT INTO publisher_coverage (publisher_id, city_id) VALUES ('pub-uuid', 12345);
+      </setup>
+      <verify>Search returns only city 12345 for that publisher</verify>
+    </test-case>
+    <test-case name="Region-level coverage">
+      <setup>
+        INSERT INTO publisher_coverage (publisher_id, country_code, region) VALUES ('pub-uuid', 'US', 'CA');
+      </setup>
+      <verify>Search returns all California cities for that publisher</verify>
+    </test-case>
+    <test-case name="Country-level coverage">
+      <setup>
+        INSERT INTO publisher_coverage (publisher_id, country_code) VALUES ('pub-uuid', 'IL');
+      </setup>
+      <verify>Search returns all Israel cities for that publisher</verify>
+    </test-case>
+    <test-case name="No publisher filter">
+      <verify>All cities returned (existing behavior)</verify>
+    </test-case>
+  </testing>
+
+  <verification>
+    <command description="Check query performance">
+EXPLAIN ANALYZE
+SELECT DISTINCT c.id, c.name ...
+-- full query
+    </command>
+  </verification>
+</story-context>

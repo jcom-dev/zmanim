@@ -1,0 +1,289 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.2</storyId>
+    <title>Codebase Audit & Documentation</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-27</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-2-codebase-audit-documentation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>documented patterns and learnings from Epic 1 & 2</iWant>
+    <soThat>I understand the codebase and can follow established approaches</soThat>
+    <tasks>
+      Phase 1: Automated Analysis
+      - Run grep commands to find TODOs, FIXMEs, hardcoded values
+      - Generate file counts and statistics
+      - Review git log for bug fixes and patterns
+
+      Phase 2: Manual Pattern Review
+      - Review 3-5 example files from each category
+      - Document the patterns observed
+      - Identify inconsistencies
+      - Note successful and problematic approaches
+
+      Phase 3: Documentation
+      - Create docs/codebase-audit.md
+      - Fill in all sections with findings
+      - Add code examples
+      - Provide specific file references
+      - Prioritize technical debt
+
+      Phase 4: Recommendations
+      - List patterns to standardize for Story 3.3
+      - List debt items to address in Story 3.4
+      - Note architecture updates needed
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    AC-1: Frontend Pattern Inventory
+    - Document component patterns (Client vs Server components, 'use client' directive)
+    - Document state management patterns (Clerk hooks, TanStack Query, PublisherContext)
+    - Document form patterns (validation, submission, error handling)
+    - Document layout patterns (page structure, responsive approach with Tailwind)
+    - Document API integration patterns (fetching, mutations, error handling)
+    - Document icon usage (Lucide React)
+    - Document navigation patterns (Next.js Link component)
+    - Identify inconsistencies between components
+
+    AC-2: Backend Pattern Inventory
+    - Document handler patterns (Chi router, URL params, context passing)
+    - Document service patterns (service injection, business logic organization)
+    - Document middleware patterns (auth, CORS, logging)
+    - Document error handling patterns (RespondJSON, RespondInternalError, etc.)
+    - Document database access patterns (pgx Pool usage, query patterns)
+    - Document logging patterns (slog usage)
+    - Document Clerk integration patterns (SDK usage, metadata handling)
+    - Identify inconsistencies between handlers
+
+    AC-3: Testing Pattern Inventory (from Stories 3.0 & 3.1)
+    - Document test utilities (@clerk/testing/playwright, test fixtures)
+    - Document test data patterns (TEST_ prefix, test-zmanim.example.com domain)
+    - Document test organization (test.describe, beforeAll, afterAll, beforeEach)
+    - Document cleanup patterns (idempotent cleanup, cache clearing)
+    - Document auth injection patterns (setupClerkTestingToken, clerk.signIn)
+
+    AC-4: Technical Debt Inventory
+    - List incomplete pages/features
+    - List inconsistent implementations across similar files
+    - List missing error handling
+    - List hardcoded values that should be configurable
+    - List TODO/FIXME/HACK comments in codebase
+    - Prioritize debt items by impact (High/Medium/Low)
+
+    AC-5: Ad Hoc Fix Documentation
+    - Review git history for bug fixes and workarounds
+    - Document lessons learned from difficult implementations
+    - Capture "gotchas" that future developers should know
+    - Note successful approaches that should be repeated
+
+    AC-6: Audit Document Created
+    - Create docs/codebase-audit.md with all findings
+    - Organize by category (frontend, backend, testing, debt, learnings)
+    - Include specific file references with line numbers where applicable
+    - Include code examples showing patterns
+    - Include recommendations for Story 3.3 (standards)
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Project Structure, FR Category Mapping, Tech Stack</section>
+        <snippet>Defines tech stack (Next.js 16, Go 1.21, Chi, PostgreSQL/Supabase, Clerk auth) and project structure for frontend (web/) and backend (api/) with specific patterns to follow</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epic-3-consolidation-quality.md</path>
+        <title>Epic 3: Consolidation & Quality</title>
+        <section>Overview, Goals, Story Dependency Chain</section>
+        <snippet>Epic 3 focuses on quality as first-class citizen: testing infrastructure (3.0), E2E test suite (3.1), codebase audit (3.2), coding standards (3.3), and refactoring (3.4). Success criteria include 50+ E2E tests, coding-standards.md, and updated architecture.md</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/stories/3-0-testing-infrastructure.md</path>
+        <title>Story 3.0: Testing Infrastructure</title>
+        <section>Completion Notes, Implementation Patterns</section>
+        <snippet>Implemented Clerk auth helpers using @clerk/testing/playwright, test fixtures with Supabase service key, idempotent cleanup, TEST_ prefix naming, test-zmanim.example.com domain, MailSlurp email testing</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/stories/3-1-comprehensive-e2e-test-suite.md</path>
+        <title>Story 3.1: Comprehensive E2E Test Suite</title>
+        <section>Test Organization, Implementation Summary</section>
+        <snippet>130+ E2E test scenarios organized by domain (admin/, publisher/, user/, registration/, errors/). Uses test.describe for grouping, beforeAll/afterAll for setup/cleanup, beforeEach for auth injection</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>web/components/home/RoleNavigation.tsx</path>
+        <kind>component</kind>
+        <symbol>RoleNavigation</symbol>
+        <lines>1-55</lines>
+        <reason>Example of client component pattern: 'use client' directive, Clerk useUser hook, publicMetadata type-casting, Lucide icons, Tailwind styling, conditional rendering based on role</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/admin.go</path>
+        <kind>handler</kind>
+        <symbol>AdminGetPublisherUsers, AdminListPublishers</symbol>
+        <lines>17-100</lines>
+        <reason>Example of handler pattern: Chi URLParam extraction, context passing, validation, service injection, slog logging, Respond helpers (RespondJSON, RespondInternalError, RespondNotFound)</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/clerk_service.go</path>
+        <kind>service</kind>
+        <symbol>ClerkService, CreatePublisherUser, SendInvitation</symbol>
+        <lines>1-100</lines>
+        <reason>Example of service pattern: struct with dependencies, context-first parameters, error wrapping with fmt.Errorf, Clerk SDK usage, JSON metadata marshaling, structured logging</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/utils/clerk-auth.ts</path>
+        <kind>test-utility</kind>
+        <symbol>loginAsAdmin, loginAsPublisher, createTestAdmin</symbol>
+        <lines>1-303</lines>
+        <reason>Test auth pattern: @clerk/testing/playwright usage, setupClerkTestingToken, clerk.signIn, test user caching, test email domain (test-zmanim.example.com), idempotent cleanup</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/utils/test-fixtures.ts</path>
+        <kind>test-utility</kind>
+        <symbol>createTestPublisherEntity, createTestAlgorithm, cleanupTestData</symbol>
+        <lines>1-333</lines>
+        <reason>Test fixture pattern: TEST_ prefix naming, Supabase service key for admin access, entity caching to avoid recreation, comprehensive cleanup with cascade delete</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/admin/publishers.spec.ts</path>
+        <kind>test-spec</kind>
+        <symbol>Admin Publisher Management tests</symbol>
+        <lines>1-259</lines>
+        <reason>Test organization pattern: test.describe grouping, beforeAll for shared data, afterAll for cleanup, beforeEach for auth, waitForLoadState('networkidle'), expect with getByRole/getByText</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/publisher/dashboard.spec.ts</path>
+        <kind>test-spec</kind>
+        <symbol>Publisher Dashboard tests</symbol>
+        <lines>1-215</lines>
+        <reason>Test pattern for authenticated flows: loginAsPublisher with publisherId, creating test data in beforeAll, comprehensive cleanup in afterAll, realistic test data usage</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/response.go</path>
+        <kind>handler-utility</kind>
+        <symbol>RespondJSON, RespondInternalError, RespondNotFound, RespondValidationError</symbol>
+        <lines>all</lines>
+        <reason>Response helper pattern: standardized JSON responses, consistent error handling, HTTP status code conventions</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/ui/</path>
+        <kind>ui-library</kind>
+        <symbol>shadcn/ui components</symbol>
+        <lines>all</lines>
+        <reason>UI component library: button, card, dialog, dropdown-menu, avatar, badge components from shadcn/ui, based on Radix primitives, styled with Tailwind</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <frontend>
+        <package name="@clerk/nextjs" version="latest" usage="Authentication, user hooks, session management" />
+        <package name="@clerk/testing" version="latest" usage="Playwright testing utilities, auth injection" />
+        <package name="next" version="16.x" usage="React framework, App Router, SSR" />
+        <package name="react" version="19.x" usage="UI library" />
+        <package name="tailwindcss" version="3.4+" usage="Utility-first CSS framework" />
+        <package name="lucide-react" version="latest" usage="Icon library" />
+        <package name="@tanstack/react-query" version="5.x" usage="Server state management, caching" />
+        <package name="@playwright/test" version="latest" usage="E2E testing framework" />
+        <package name="@supabase/supabase-js" version="latest" usage="Database client (test fixtures)" />
+      </frontend>
+      <backend>
+        <package name="github.com/go-chi/chi/v5" version="5.x" usage="HTTP router and middleware" />
+        <package name="github.com/jackc/pgx/v5" version="5.x" usage="PostgreSQL driver" />
+        <package name="github.com/clerk/clerk-sdk-go/v2" version="2.x" usage="Clerk authentication SDK" />
+        <package name="log/slog" version="stdlib" usage="Structured logging" />
+      </backend>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Audit should be honest and comprehensive, identifying both good and bad patterns
+    - All file references must be specific with file paths and line numbers where applicable
+    - Code examples must be actual code from the codebase, not invented
+    - Technical debt must be prioritized by impact (High/Medium/Low)
+    - Recommendations must be actionable for Story 3.3 (coding standards)
+    - Audit is foundation for Stories 3.3 and 3.4 - must be thorough
+    - Use project-relative paths (not absolute paths)
+    - Focus on patterns that emerged from Epic 1 & 2 implementation (24 stories, 66 FRs)
+    - Include testing patterns from Stories 3.0 & 3.1 (130+ E2E tests)
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Clerk User Metadata</name>
+      <kind>Type Definition</kind>
+      <signature>
+        user.publicMetadata as {
+          role?: string;
+          publisher_access_list?: string[];
+        }
+      </signature>
+      <path>web/components/home/RoleNavigation.tsx:12-15</path>
+    </interface>
+    <interface>
+      <name>Handler Response Helpers</name>
+      <kind>Function Signature</kind>
+      <signature>
+        RespondJSON(w http.ResponseWriter, r *http.Request, status int, data interface{})
+        RespondInternalError(w http.ResponseWriter, r *http.Request, message string)
+        RespondNotFound(w http.ResponseWriter, r *http.Request, message string)
+        RespondValidationError(w http.ResponseWriter, r *http.Request, message string, errors map[string]string)
+      </signature>
+      <path>api/internal/handlers/response.go</path>
+    </interface>
+    <interface>
+      <name>Test Auth Helpers</name>
+      <kind>Function Signature</kind>
+      <signature>
+        loginAsAdmin(page: Page): Promise&lt;void&gt;
+        loginAsPublisher(page: Page, publisherId: string): Promise&lt;void&gt;
+        loginAsUser(page: Page): Promise&lt;void&gt;
+      </signature>
+      <path>tests/e2e/utils/clerk-auth.ts</path>
+    </interface>
+    <interface>
+      <name>Test Fixtures</name>
+      <kind>Function Signature</kind>
+      <signature>
+        createTestPublisherEntity(overrides?): Promise&lt;Publisher&gt;
+        createTestAlgorithm(publisherId, overrides?): Promise&lt;Algorithm&gt;
+        createTestCoverage(publisherId, cityId, overrides?): Promise&lt;Coverage&gt;
+        cleanupTestData(): Promise&lt;void&gt;
+      </signature>
+      <path>tests/e2e/utils/test-fixtures.ts</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      E2E Testing: Use Playwright with @clerk/testing/playwright for auth injection. Tests organized by domain (admin/, publisher/, user/, registration/, errors/). Pattern: test.describe for grouping, beforeAll for shared setup, afterAll for cleanup, beforeEach for auth. Test data uses TEST_ prefix and test-zmanim.example.com domain. Cleanup must be idempotent. Wait for networkidle after page loads. Use getByRole/getByText for assertions.
+
+      Backend Testing: Use Go stdlib testing package with testify for assertions. Table-driven tests for multiple cases.
+    </standards>
+    <locations>
+      tests/e2e/**/*.spec.ts - E2E test specs organized by domain
+      tests/e2e/utils/*.ts - Shared test utilities (auth, fixtures, cleanup)
+      tests/e2e/setup/*.ts - Global setup and teardown
+      api/internal/**/*_test.go - Backend unit tests (to be added)
+    </locations>
+    <ideas>
+      AC-1 Frontend Patterns: Scan web/components/ and web/app/ directories, identify common patterns, document in codebase-audit.md
+
+      AC-2 Backend Patterns: Review all files in api/internal/handlers/, api/internal/services/, api/internal/middleware/, document patterns and inconsistencies
+
+      AC-3 Testing Patterns: Document patterns from tests/e2e/utils/*.ts and tests/e2e/**/*.spec.ts, capture best practices from 130+ implemented tests
+
+      AC-4 Technical Debt: Run grep for TODO/FIXME/HACK, review git log for bug fixes, identify hardcoded values, missing error handling
+
+      AC-5 Git History: Analyze commits from Epic 1 & 2, document lessons learned, capture successful approaches and gotchas
+
+      AC-6 Audit Document: Create docs/codebase-audit.md with all findings organized by category, include specific file references and code examples
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.9" title="GitHub Actions CI/CD Validation & Hardening">
+  <summary>
+    This context file provides all information needed to enhance GitHub Actions CI with new validation jobs
+    for SQLc compilation, zero deprecated code enforcement, security scanning, and type sync validation.
+  </summary>
+
+  <current-state>
+    <description>
+      Current CI runs frontend/backend checks and E2E tests but lacks:
+      - SQLc validation (compile + generate check)
+      - Zero deprecated code enforcement (TODO, FIXME, raw fetch)
+      - Security scanning (govulncheck, npm audit, secret detection)
+      - Type sync validation (Go/TypeScript drift)
+    </description>
+
+    <workflows>
+      <workflow name="pr-checks.yml">
+        - Frontend: type-check, lint, unit tests, build
+        - Backend: build, test, vet, coverage, golangci-lint
+      </workflow>
+      <workflow name="pr-e2e.yml">
+        - E2E tests with PostgreSQL 17 + Redis services
+        - Playwright tests
+      </workflow>
+    </workflows>
+  </current-state>
+
+  <target-state>
+    <description>
+      Comprehensive CI validation with new jobs:
+      1. SQLc validation - compile and generate checks
+      2. Code quality - zero tolerance enforcement
+      3. Security scanning - vulnerabilities and secrets
+      4. Type sync - Go/TypeScript consistency
+      Plus optimized caching, parallelization, and clear error messages.
+    </description>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/.github/workflows/pr-checks.yml" relevance="primary">
+      <description>Main PR validation workflow. Add new jobs here.</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/.github/workflows/pr-e2e.yml" relevance="primary">
+      <description>E2E test workflow. Add retry logic and improved artifacts.</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/sqlc.yaml" relevance="reference">
+      <description>SQLc configuration for validation job.</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/docs/coding-standards.md" relevance="reference">
+      <description>ZERO TOLERANCE policy reference for code quality checks.</description>
+    </file>
+  </files>
+
+  <new-jobs>
+    <job name="sqlc-validation">
+      <purpose>Validate SQLc queries compile and generated code is in sync</purpose>
+      <steps><![CDATA[
+- name: Install SQLc
+  run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+- name: SQLc Compile Check
+  run: cd api && sqlc compile
+
+- name: SQLc Generate Check
+  run: |
+    cd api && sqlc generate
+    if ! git diff --exit-code internal/db/sqlcgen/; then
+      echo "ERROR: SQLc generated code is out of sync!"
+      exit 1
+    fi
+      ]]></steps>
+    </job>
+
+    <job name="code-quality">
+      <purpose>Enforce zero tolerance for deprecated code markers</purpose>
+      <checks>
+        - TODO comments in web/, api/ (*.ts, *.tsx, *.go)
+        - FIXME comments
+        - Legacy/DEPRECATED markers
+        - Raw fetch() calls in web/
+        - log.Printf/fmt.Printf in api/internal/
+      </checks>
+    </job>
+
+    <job name="security-scan">
+      <purpose>Scan for vulnerabilities and secrets</purpose>
+      <tools>
+        - govulncheck for Go dependencies
+        - npm audit for Node dependencies
+        - gitleaks for secret detection
+      </tools>
+    </job>
+
+    <job name="type-sync">
+      <purpose>Validate Go and TypeScript types stay in sync</purpose>
+      <script>./scripts/verify-type-sync.sh</script>
+    </job>
+  </new-jobs>
+
+  <job-dependencies>
+    <diagram><![CDATA[
+[code-quality] ────┬───> [web]
+                   │
+[sqlc-validation] ─┴───> [api] ───> [E2E tests]
+                   │                 (separate workflow)
+                   └───> [security-scan]
+
+[type-sync] (independent)
+    ]]></diagram>
+  </job-dependencies>
+
+  <error-message-templates>
+    <template name="SQLc Validation Failure">
+      <message><![CDATA[
+ERROR: SQLc generated code is out of sync!
+
+To fix:
+  cd api && sqlc generate
+  git add internal/db/sqlcgen/
+  git commit -m "chore: regenerate SQLc code"
+
+See: docs/coding-standards.md#sqlc-workflow
+      ]]></message>
+    </template>
+
+    <template name="Zero Tolerance Violation">
+      <message><![CDATA[
+ZERO TOLERANCE VIOLATION: Found 5 TODO comments
+
+This violates the clean code policy (docs/coding-standards.md).
+
+Violations:
+  web/app/admin/page.tsx:45: // TODO: Add pagination
+  api/internal/handlers/zmanim.go:123: // TODO: Cache results
+
+To fix:
+  1. Complete the work or create a story
+  2. Delete the TODO comment
+  3. Re-run checks: npm run type-check && go test ./...
+      ]]></message>
+    </template>
+  </error-message-templates>
+
+  <performance-targets>
+    <target check="SQLc validation" time="&lt;30s"/>
+    <target check="Code quality" time="&lt;1min"/>
+    <target check="Frontend checks" time="&lt;3min"/>
+    <target check="Backend checks" time="&lt;4min"/>
+    <target check="Security scan" time="&lt;2min"/>
+    <target check="Type sync" time="&lt;30s"/>
+    <target check="Total PR checks" time="&lt;10min"/>
+    <target check="E2E tests" time="&lt;20min"/>
+  </performance-targets>
+
+  <caching-strategy>
+    <cache name="NPM">
+      <action>actions/setup-node@v4 with cache: 'npm'</action>
+      <key>web/package-lock.json</key>
+    </cache>
+    <cache name="Go Modules">
+      <action>actions/setup-go@v5 with cache: true</action>
+      <key>api/go.sum</key>
+    </cache>
+    <cache name="Playwright Browsers">
+      <path>~/.cache/ms-playwright</path>
+      <key>tests/package-lock.json</key>
+    </cache>
+  </caching-strategy>
+
+  <verification-commands>
+    <command name="Test SQLc Validation Fails">
+      <code>echo "SELECT invalid" >> api/internal/db/queries/test.sql && git push</code>
+      <expected>CI fails with SQLc error</expected>
+    </command>
+
+    <command name="Test Zero Tolerance Fails">
+      <code>echo "// TODO: test" >> web/app/page.tsx && git push</code>
+      <expected>CI fails with zero tolerance violation</expected>
+    </command>
+
+    <command name="Test Security Scan">
+      <code>cd web && npm install lodash@4.17.20 && git push</code>
+      <expected>CI warns about vulnerable dependency</expected>
+    </command>
+  </verification-commands>
+
+  <integration-with-local-tests>
+    <principle>CI checks MUST match local test script (Story 9.8)</principle>
+    <alignment>
+      - Same checks run locally and in CI
+      - Same failure thresholds
+      - Same command syntax
+      - CI can optionally run local script for consistency
+    </alignment>
+  </integration-with-local-tests>
+
+  <scripts-to-create>
+    <script name="verify-type-sync.sh">
+      <path>/home/coder/workspace/zmanim/scripts/verify-type-sync.sh</path>
+      <purpose>Validate Go and TypeScript types stay in sync</purpose>
+    </script>
+  </scripts-to-create>
+
+  <references>
+    <reference type="documentation">
+      GitHub Actions: https://docs.github.com/en/actions
+    </reference>
+    <reference type="documentation">
+      SQLc: https://docs.sqlc.dev/
+    </reference>
+    <reference type="documentation">
+      govulncheck: https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck
+    </reference>
+    <reference type="code">
+      Coding Standards: /home/coder/workspace/zmanim/docs/coding-standards.md
+    </reference>
+  </references>
+</story-context>

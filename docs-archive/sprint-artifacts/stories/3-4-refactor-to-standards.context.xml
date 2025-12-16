@@ -1,0 +1,256 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.4</storyId>
+    <title>Refactor to Standards</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-27</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-4-refactor-to-standards.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>existing code refactored to match documented standards</iWant>
+    <soThat>the codebase is consistent and maintainable</soThat>
+    <tasks>
+      Phase 1: Preparation
+      - Review docs/codebase-audit.md from Story 3.2
+      - Review docs/coding-standards.md from Story 3.3
+      - Prioritize refactoring items (High/Medium/Low impact)
+      - Create refactoring plan based on audit findings
+
+      Phase 2: Frontend Refactoring
+      - Standardize component structures to match docs/coding-standards.md
+      - Fix client component usage ('use client' directive)
+      - Standardize Clerk metadata access
+      - Remove inline styles, use Tailwind consistently
+      - Organize imports according to standards
+      - Remove console.log statements
+      - Run E2E tests after changes
+
+      Phase 3: Backend Refactoring
+      - Standardize handler structures to match template
+      - Move business logic from handlers to services
+      - Standardize error responses (use Respond helpers)
+      - Standardize logging (slog with structured fields)
+      - Fix database access patterns
+      - Run E2E tests after changes
+
+      Phase 4: Technical Debt Cleanup
+      - Resolve or document TODO/FIXME comments
+      - Move hardcoded values to environment variables
+      - Complete or remove incomplete features
+      - Add missing error handling
+      - Run E2E tests after changes
+
+      Phase 5: Verification
+      - Run full E2E test suite (130+ tests from Story 3.1)
+      - Manual testing of refactored areas
+      - Code review
+      - Performance check (no regressions)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    AC-1: Frontend Consistency
+    - All components follow documented structure from coding-standards.md
+    - Client components use 'use client' directive consistently
+    - Clerk metadata type-casting uses shared type (if created)
+    - State management consistent across pages
+    - Form handling consistent across forms
+    - Error/loading states consistent across components
+    - Import organization consistent across files
+    - Tailwind classes follow documented patterns
+    - Icon usage follows documented patterns
+
+    AC-2: Backend Consistency
+    - All handlers follow documented template structure
+    - Service layer follows documented patterns
+    - Error responses use standard helpers consistently
+    - Logging uses slog with structured fields consistently
+    - Database access patterns consistent across handlers
+    - Clerk integration follows documented patterns
+
+    AC-3: Technical Debt Reduction
+    - High-priority debt items from Story 3.2 audit addressed
+    - TODO/FIXME comments resolved or converted to GitHub issues
+    - Incomplete features either completed or clearly marked as future work
+    - Hardcoded values moved to environment variables where appropriate
+    - Missing error handling added
+
+    AC-4: Code Quality
+    - No TypeScript 'any' types without justification comment
+    - No console.log statements in production code (use proper logging)
+    - No commented-out code blocks
+    - Consistent formatting (Prettier for TS, gofmt for Go)
+    - All imports organized according to standards
+
+    AC-5: Verification
+    - All E2E tests still passing after refactor (130+ tests from Story 3.1)
+    - No regressions in functionality
+    - Manual testing of refactored areas
+    - Code review completed
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/codebase-audit.md</path>
+        <title>Codebase Audit (from Story 3.2)</title>
+        <section>Technical Debt Inventory, Inconsistencies, File References</section>
+        <snippet>Complete audit identifying all areas needing refactoring: inconsistent patterns, technical debt prioritized by impact, specific files with issues, hardcoded values, missing error handling</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards (from Story 3.3)</title>
+        <section>All standards with DO/DON'T examples</section>
+        <snippet>Target patterns for refactoring: frontend component structure, backend handler template, testing patterns, API standards, code review checklist. All examples from real codebase.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Updated Architecture (from Story 3.3)</title>
+        <section>Testing Infrastructure, Proven Patterns</section>
+        <snippet>Updated architecture documentation with testing infrastructure section, patterns from Epic 1 & 2, Clerk integration details, ensuring reality matches documentation</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/stories/3-1-comprehensive-e2e-test-suite.md</path>
+        <title>Story 3.1: E2E Test Suite</title>
+        <section>Test Coverage, Test Commands</section>
+        <snippet>130+ E2E test scenarios providing safety net for refactoring. Run tests after each change to catch regressions. Test commands: npm run test:suite, test:admin, test:publisher, etc.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>web/components/**/*.tsx</path>
+        <kind>frontend-to-refactor</kind>
+        <symbol>All components</symbol>
+        <lines>all</lines>
+        <reason>Review all components against coding standards: client directive, Clerk patterns, Tailwind usage, import organization, icon usage</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/**/*.tsx</path>
+        <kind>pages-to-refactor</kind>
+        <symbol>All pages</symbol>
+        <lines>all</lines>
+        <reason>Review all pages for consistency: layout patterns, error handling, loading states, state management</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/*.go</path>
+        <kind>handlers-to-refactor</kind>
+        <symbol>All handlers</symbol>
+        <lines>all</lines>
+        <reason>Standardize to template: Chi URLParam → validate → service → respond. Move business logic to services. Use Respond helpers. Add slog logging.</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/*.go</path>
+        <kind>services-to-review</kind>
+        <symbol>All services</symbol>
+        <lines>all</lines>
+        <reason>Review service patterns: context-first params, error wrapping, structured logging, business logic organization</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/**/*.spec.ts</path>
+        <kind>test-safety-net</kind>
+        <symbol>All E2E tests (130+)</symbol>
+        <lines>all</lines>
+        <reason>Safety net for refactoring. Run after each change to catch regressions. Organized by domain for targeted testing.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <tools>
+        <tool name="Prettier" usage="Format TypeScript/TSX code consistently" />
+        <tool name="gofmt" usage="Format Go code consistently" />
+        <tool name="ESLint" usage="Lint TypeScript code (if configured)" />
+        <tool name="go vet" usage="Static analysis for Go code" />
+      </tools>
+      <testing>
+        <framework name="Playwright" usage="Run E2E tests after refactoring: npm run test:suite" />
+        <framework name="Go testing" usage="Run backend tests (when added)" />
+      </testing>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - GOLDEN RULE: Make structural changes only, NOT behavioral changes
+    - Run E2E tests after EVERY significant change
+    - Work incrementally: small commits, frequent testing
+    - Don't refactor working code unnecessarily - focus on high-impact issues
+    - Perfect is the enemy of good - aim for consistency, not perfection
+    - If tests fail after refactor, you broke something - revert and try again
+    - Don't add new features during refactoring - that's scope creep
+    - Document any necessary deviations from standards in code comments
+    - Use audit (Story 3.2) to prioritize: High-impact issues first
+    - Safety net: 130+ E2E tests from Story 3.1 catch regressions
+    - Time-box effort: refactoring is complete when high-priority debt addressed and tests pass
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Refactoring Workflow</name>
+      <kind>Process</kind>
+      <signature>
+        1. Read audit → identify file to refactor
+        2. Read standards → understand target pattern
+        3. Make small structural change
+        4. Run relevant tests
+        5. Commit if tests pass
+        6. Repeat
+      </signature>
+      <path>Story 3.4 specification</path>
+    </interface>
+    <interface>
+      <name>Test Commands</name>
+      <kind>CLI</kind>
+      <signature>
+        npm run test:suite - Run all E2E tests
+        npm run test:admin - Run admin flow tests
+        npm run test:publisher - Run publisher flow tests
+        npm run test:user - Run user flow tests
+        npm run test:errors - Run error handling tests
+      </signature>
+      <path>tests/package.json</path>
+    </interface>
+    <interface>
+      <name>Refactoring Checklist</name>
+      <kind>Verification</kind>
+      <signature>
+        Before: Read audit, read standards, identify files
+        During: Small changes, run tests frequently, commit often
+        After: Full test suite, manual testing, code review, performance check
+        RED FLAG: Tests failing, behavioral changes, scope creep, large rewrites
+      </signature>
+      <path>Story 3.4 specification: Notes section</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      This story IS the refactoring - no new tests needed. However, Story 3.1's 130+ E2E tests provide the safety net.
+
+      CRITICAL: Run E2E tests after EVERY change to catch regressions immediately. If tests fail, the refactoring broke something.
+
+      Test after each phase:
+      - Phase 2 (Frontend): npm run test:user, test:registration, test:errors
+      - Phase 3 (Backend): npm run test:admin, test:publisher
+      - Phase 5 (Final): npm run test:suite (all tests)
+    </standards>
+    <locations>
+      tests/e2e/**/*.spec.ts - 130+ E2E test scenarios (safety net)
+      tests/playwright.config.ts - Test configuration
+    </locations>
+    <ideas>
+      AC-1 Frontend Consistency: Review each component file, apply standards from docs/coding-standards.md, test after each file or small group
+
+      AC-2 Backend Consistency: Review each handler, standardize to template pattern, move logic to services, test after each handler
+
+      AC-3 Technical Debt: Work through high-priority items from audit, resolve TODOs, move hardcoded values, add error handling
+
+      AC-4 Code Quality: Remove console.log, organize imports, run Prettier/gofmt, remove commented code
+
+      AC-5 Verification: Full test suite must pass, manual smoke testing, code review, performance check for no regressions
+
+      SAFETY: E2E tests catch regressions. Run tests frequently. Small commits. Revert if tests fail.
+    </ideas>
+  </tests>
+</story-context>

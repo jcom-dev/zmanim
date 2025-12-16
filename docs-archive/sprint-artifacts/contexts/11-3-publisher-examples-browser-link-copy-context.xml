@@ -1,0 +1,1297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>11.3</story-id>
+    <story-title>Publisher Examples Browser &amp; Link/Copy Flow</story-title>
+    <epic>Epic 11 - Publisher Zmanim Registry Interface</epic>
+    <priority>High</priority>
+    <story-points>13</story-points>
+    <dependencies>
+      <dependency>Story 11.0 (Data Foundation) - REQUIRED</dependency>
+      <dependency>Story 11.1 (Master Registry Browser) - REQUIRED for component reuse</dependency>
+    </dependencies>
+    <generated-date>2025-12-22</generated-date>
+  </metadata>
+
+  <!-- ============================================================================ -->
+  <!-- STORY OVERVIEW -->
+  <!-- ============================================================================ -->
+
+  <story-overview>
+    <user-story>
+      As a publisher, I want to browse validated publishers' zmanim implementations and link or copy their formulas, so that I can learn from real-world examples and reuse quality formulas from other authorities.
+    </user-story>
+
+    <business-value>
+      Enables publishers to learn from other validated publishers, reuse proven formulas, and accelerate their onboarding by building on existing work. The link/copy distinction provides attribution and tracking.
+    </business-value>
+
+    <key-features>
+      - Publisher search and autocomplete (validated publishers only)
+      - Coverage-restricted location selection
+      - Publisher zman catalog browsing with filtering
+      - Link button: Creates linked reference to source publisher's zman
+      - Copy button: Creates independent copy with attribution
+      - Duplicate prevention: Disables buttons if master already imported
+      - Auto-clear location when switching publishers
+    </key-features>
+  </story-overview>
+
+  <!-- ============================================================================ -->
+  <!-- ACCEPTANCE CRITERIA -->
+  <!-- ============================================================================ -->
+
+  <acceptance-criteria>
+    <criterion id="AC-1">
+      <title>Publisher Examples Tab Navigation</title>
+      <given>I am on the registry page</given>
+      <when>I switch to the "Publisher Examples" tab</when>
+      <then>
+        - I see publisher search/autocomplete dropdown
+        - Instruction text: "Search for a publisher to view their catalog"
+        - Empty state: "Select a publisher to view their zmanim"
+      </then>
+    </criterion>
+
+    <criterion id="AC-2">
+      <title>Publisher Search Autocomplete</title>
+      <given>I am on the Publisher Examples tab</given>
+      <when>I type in the publisher search box (e.g., "MH")</when>
+      <then>
+        - I see autocomplete results showing validated publishers only
+        - Only publishers with status = 'approved'
+        - Excludes deleted, suspended, or inactive publishers
+        - Results sorted alphabetically
+      </then>
+    </criterion>
+
+    <criterion id="AC-3">
+      <title>Publisher Catalog Display</title>
+      <given>I have selected a publisher (e.g., "MH Zmanim")</given>
+      <when>The publisher catalog loads</when>
+      <then>
+        - Publisher name prominently displayed
+        - Location dropdown (restricted to publisher's coverage localities)
+        - Date selector (shared with master tab)
+        - Filter panel (category, shita, status within this publisher's catalog)
+        - Paginated table/card view of their zmanim
+      </then>
+    </criterion>
+
+    <criterion id="AC-4">
+      <title>Coverage-Restricted Location Selection</title>
+      <given>I have selected a publisher</given>
+      <when>I select a location from the dropdown</when>
+      <then>
+        - ONLY localities where the selected publisher has coverage are shown
+        - Preview times calculate for selected location/date
+      </then>
+    </criterion>
+
+    <criterion id="AC-5">
+      <title>Location Auto-Clear on Publisher Switch</title>
+      <given>I switch to a different publisher</given>
+      <when>The new publisher doesn't cover my currently selected location</when>
+      <then>
+        - Location is auto-cleared
+        - I see message: "Please select a location within [Publisher Name]'s coverage"
+      </then>
+    </criterion>
+
+    <criterion id="AC-6">
+      <title>Publisher Zman Card Display</title>
+      <given>I am viewing a publisher zman card</given>
+      <when>The card is displayed</when>
+      <then>
+        - Zman name (may be customized by publisher)
+        - Publisher name with "Validated Publisher" badge
+        - DSL formula (syntax-highlighted)
+        - Preview time (12-hour format)
+        - Master registry name reference (e.g., "Master: Alos Hashachar (16.1°)")
+        - Shita badge (inherited from master)
+        - Category badge (inherited from master)
+        - Status: Available or "Already in Your Catalog"
+        - Info button (ℹ️)
+        - Link button (if not owned)
+        - Copy button (if not owned)
+      </then>
+    </criterion>
+
+    <criterion id="AC-7">
+      <title>Link Button Creates Linked Zman</title>
+      <given>I have NOT imported the master zman that this publisher zman links to</given>
+      <when>I click the "Link" button</when>
+      <then>
+        - A publisher_zmanim record is created with:
+          - master_zmanim_id from the source publisher zman
+          - linked_from_publisher_zman_id set to the source publisher_zman.id
+          - zman_key, hebrew_name, english_name, description, formula_dsl copied from source
+          - copied_from_publisher_id is NULL (this is a link, not a copy)
+        - I am redirected to /publisher/algorithm?focus={zman_key}
+        - Toast notification: "Linked to [Publisher Name]'s [Zman Name]"
+      </then>
+    </criterion>
+
+    <criterion id="AC-8">
+      <title>Copy Button Creates Independent Copy</title>
+      <given>I have NOT imported the master zman that this publisher zman links to</given>
+      <when>I click the "Copy" button</when>
+      <then>
+        - A publisher_zmanim record is created with:
+          - master_zmanim_id from the source publisher zman
+          - copied_from_publisher_id set to the source publisher.id
+          - zman_key, hebrew_name, english_name, description, formula_dsl copied from source
+          - linked_from_publisher_zman_id is NULL (this is a copy, not a link)
+        - I am redirected to /publisher/algorithm?focus={zman_key}
+        - Toast notification: "Copied [Zman Name] from [Publisher Name]"
+      </then>
+    </criterion>
+
+    <criterion id="AC-9">
+      <title>Duplicate Prevention</title>
+      <given>I have ALREADY imported the master zman (via any method: master import, link, or copy)</given>
+      <when>I view a publisher zman card linking to that master</when>
+      <then>
+        - Both Link and Copy buttons are disabled
+        - Status shows "Already in Your Catalog" badge
+        - Hovering over disabled buttons shows tooltip: "You already have this master zman"
+      </then>
+    </criterion>
+
+    <criterion id="AC-10">
+      <title>Location Dropdown Initial State</title>
+      <given>The Publisher Examples tab loads</given>
+      <when>No publisher is selected yet</when>
+      <then>
+        - Location dropdown is disabled
+        - Helper text shows: "Select a publisher first to choose a location"
+      </then>
+    </criterion>
+  </acceptance-criteria>
+
+  <!-- ============================================================================ -->
+  <!-- DATABASE SCHEMA -->
+  <!-- ============================================================================ -->
+
+  <database-schema>
+    <table name="publishers">
+      <description>Publisher accounts and profiles</description>
+      <columns>
+        <column name="id" type="integer" pk="true" />
+        <column name="name" type="text" required="true" />
+        <column name="contact_email" type="text" required="true" />
+        <column name="website" type="text" />
+        <column name="description" type="text" />
+        <column name="logo_url" type="text" />
+        <column name="status_id" type="smallint" required="true" fk="publisher_statuses.id" />
+        <column name="is_verified" type="boolean" default="false" />
+        <column name="is_published" type="boolean" default="false" />
+        <column name="deleted_at" type="timestamptz" />
+        <column name="deleted_by" type="text" />
+        <column name="created_at" type="timestamptz" default="now()" />
+        <column name="updated_at" type="timestamptz" default="now()" />
+      </columns>
+      <indexes>
+        <index name="idx_publishers_status" columns="status_id" />
+        <index name="idx_publishers_active" columns="id" where="deleted_at IS NULL" />
+      </indexes>
+    </table>
+
+    <table name="publisher_statuses">
+      <description>Lookup table for publisher status (approved, pending, suspended, etc.)</description>
+      <columns>
+        <column name="id" type="smallint" pk="true" generated="true" />
+        <column name="key" type="varchar(20)" unique="true" required="true" />
+        <column name="display_name_hebrew" type="text" required="true" />
+        <column name="display_name_english" type="text" required="true" />
+        <column name="description" type="text" />
+        <column name="created_at" type="timestamptz" default="now()" />
+      </columns>
+      <values>
+        <value key="approved">Validated/approved publishers</value>
+        <value key="pending">Awaiting approval</value>
+        <value key="suspended">Suspended</value>
+        <value key="inactive">Inactive</value>
+      </values>
+    </table>
+
+    <table name="publisher_zmanim">
+      <description>Publisher-specific zmanim (linked to master registry)</description>
+      <columns>
+        <column name="id" type="integer" pk="true" />
+        <column name="publisher_id" type="integer" required="true" fk="publishers.id" />
+        <column name="zman_key" type="varchar(100)" required="true" />
+        <column name="hebrew_name" type="text" required="true" />
+        <column name="english_name" type="text" required="true" default="''" />
+        <column name="description" type="text" />
+        <column name="formula_dsl" type="text" required="true" default="''" />
+        <column name="master_zman_id" type="integer" fk="master_zmanim_registry.id" />
+        <column name="linked_from_publisher_zman_id" type="integer" fk="publisher_zmanim.id" note="For link operation" />
+        <column name="copied_from_publisher_id" type="integer" fk="publishers.id" note="For copy operation" />
+        <column name="is_enabled" type="boolean" default="true" />
+        <column name="is_published" type="boolean" default="true" />
+        <column name="time_category_id" type="integer" fk="time_categories.id" />
+        <column name="deleted_at" type="timestamptz" />
+        <column name="deleted_by" type="text" />
+        <column name="created_at" type="timestamptz" default="now()" />
+        <column name="updated_at" type="timestamptz" default="now()" />
+      </columns>
+      <constraints>
+        <unique columns="publisher_id, master_zmanim_id" where="deleted_at IS NULL" />
+      </constraints>
+      <indexes>
+        <index name="idx_publisher_zmanim_publisher" columns="publisher_id" />
+        <index name="idx_publisher_zmanim_master" columns="master_zmanim_id" />
+        <index name="idx_publisher_zmanim_linked_from" columns="linked_from_publisher_zman_id" />
+        <index name="idx_publisher_zmanim_active" columns="publisher_id, master_zmanim_id" where="deleted_at IS NULL" />
+      </indexes>
+    </table>
+
+    <table name="master_zmanim_registry">
+      <description>Canonical zmanim definitions</description>
+      <columns>
+        <column name="id" type="integer" pk="true" />
+        <column name="zman_key" type="varchar(100)" unique="true" required="true" />
+        <column name="canonical_hebrew_name" type="text" required="true" />
+        <column name="canonical_english_name" type="text" required="true" />
+        <column name="transliteration" type="text" />
+        <column name="description" type="text" />
+        <column name="halachic_source" type="text" />
+        <column name="halachic_notes" type="text" />
+        <column name="time_category_id" type="integer" fk="time_categories.id" />
+        <column name="default_formula_dsl" type="text" />
+        <column name="is_core" type="boolean" default="false" />
+        <column name="is_hidden" type="boolean" default="false" />
+        <column name="created_at" type="timestamptz" default="now()" />
+        <column name="updated_at" type="timestamptz" default="now()" />
+      </columns>
+      <indexes>
+        <index name="idx_master_zmanim_category" columns="time_category_id" />
+        <index name="idx_master_zmanim_key" columns="zman_key" />
+      </indexes>
+    </table>
+
+    <table name="publisher_coverage">
+      <description>Publisher geographic coverage areas</description>
+      <columns>
+        <column name="id" type="integer" pk="true" />
+        <column name="publisher_id" type="integer" required="true" fk="publishers.id" />
+        <column name="coverage_level_id" type="smallint" required="true" fk="coverage_levels.id" />
+        <column name="locality_id" type="integer" fk="geo_localities.id" />
+        <column name="region_id" type="integer" fk="geo_regions.id" />
+        <column name="country_id" type="smallint" fk="geo_countries.id" />
+        <column name="continent_id" type="smallint" fk="geo_continents.id" />
+        <column name="is_active" type="boolean" default="true" />
+        <column name="priority" type="integer" default="0" />
+        <column name="created_at" type="timestamptz" default="now()" />
+        <column name="updated_at" type="timestamptz" default="now()" />
+      </columns>
+      <indexes>
+        <index name="idx_publisher_coverage_publisher" columns="publisher_id" />
+        <index name="idx_publisher_coverage_locality" columns="locality_id" />
+      </indexes>
+      <note>Coverage levels: continent, country, region, locality</note>
+    </table>
+
+    <table name="geo_localities">
+      <description>4M+ localities worldwide (cities, towns, villages)</description>
+      <columns>
+        <column name="id" type="integer" pk="true" />
+        <column name="name" type="text" required="true" />
+        <column name="country_id" type="smallint" required="true" />
+        <column name="region_id" type="integer" />
+        <column name="latitude" type="double precision" required="true" />
+        <column name="longitude" type="double precision" required="true" />
+        <column name="timezone" type="text" required="true" />
+        <column name="elevation_meters" type="integer" />
+        <column name="population" type="integer" />
+      </columns>
+      <indexes>
+        <index name="idx_geo_localities_name" columns="name" type="gin" />
+        <index name="idx_geo_localities_country" columns="country_id" />
+      </indexes>
+    </table>
+  </database-schema>
+
+  <!-- ============================================================================ -->
+  <!-- API ENDPOINTS (NEW - TO BE CREATED) -->
+  <!-- ============================================================================ -->
+
+  <api-endpoints>
+    <endpoint>
+      <method>GET</method>
+      <path>/api/v1/publisher/registry/publishers</path>
+      <auth>Publisher</auth>
+      <description>List all validated publishers for browsing</description>
+      <query-params>
+        <param name="search" type="string" description="Search publisher name" />
+      </query-params>
+      <response>
+        <code>200</code>
+        <body>
+          {
+            "data": {
+              "publishers": [
+                {
+                  "id": number,
+                  "name": string,
+                  "status": string,
+                  "description": string | null,
+                  "logo_url": string | null
+                }
+              ]
+            }
+          }
+        </body>
+      </response>
+      <errors>
+        <error code="401">Not authenticated</error>
+      </errors>
+    </endpoint>
+
+    <endpoint>
+      <method>GET</method>
+      <path>/api/v1/publisher/registry/publishers/{publisher_id}</path>
+      <auth>Publisher</auth>
+      <description>Get publisher catalog with ownership check for current publisher</description>
+      <query-params>
+        <param name="locality_id" type="integer" required="true" />
+        <param name="date" type="string" format="YYYY-MM-DD" required="true" />
+        <param name="category" type="string" description="Filter by time category" />
+        <param name="shita" type="string" description="Filter by shita tag" />
+        <param name="status" type="string" description="available | already_have" />
+        <param name="search" type="string" description="Search zman name or formula" />
+        <param name="page" type="integer" default="1" />
+        <param name="limit" type="integer" default="50" />
+      </query-params>
+      <response>
+        <code>200</code>
+        <body>
+          {
+            "data": {
+              "publisher": { "id": number, "name": string, "description": string },
+              "zmanim": [
+                {
+                  "id": number,
+                  "zman_key": string,
+                  "hebrew_name": string,
+                  "english_name": string,
+                  "formula_dsl": string,
+                  "preview_time": string,
+                  "master_zman_name": string,
+                  "master_zmanim_id": number,
+                  "category": string,
+                  "shita": string,
+                  "already_have_master": boolean
+                }
+              ],
+              "total": number,
+              "page": number,
+              "limit": number
+            }
+          }
+        </body>
+      </response>
+      <errors>
+        <error code="400">Invalid locality or publisher</error>
+        <error code="404">Publisher not found</error>
+      </errors>
+    </endpoint>
+
+    <endpoint>
+      <method>GET</method>
+      <path>/api/v1/publisher/registry/coverage/{publisher_id}</path>
+      <auth>Publisher</auth>
+      <description>Get localities covered by publisher (for location dropdown)</description>
+      <response>
+        <code>200</code>
+        <body>
+          {
+            "data": {
+              "localities": [
+                {
+                  "id": number,
+                  "name": string,
+                  "country": string,
+                  "region": string,
+                  "latitude": number,
+                  "longitude": number
+                }
+              ]
+            }
+          }
+        </body>
+      </response>
+      <errors>
+        <error code="404">Publisher not found</error>
+      </errors>
+    </endpoint>
+
+    <endpoint>
+      <method>POST</method>
+      <path>/api/v1/publisher/registry/link</path>
+      <auth>Publisher</auth>
+      <description>Link to another publisher's zman (creates linked reference)</description>
+      <request-body>
+        {
+          "publisher_zmanim_id": number
+        }
+      </request-body>
+      <response>
+        <code>200</code>
+        <body>
+          {
+            "data": {
+              "zman_key": string,
+              "message": string
+            }
+          }
+        </body>
+      </response>
+      <errors>
+        <error code="400">Already have this master zman</error>
+        <error code="404">Source zman not found</error>
+        <error code="401">Not authenticated</error>
+        <error code="403">Forbidden</error>
+      </errors>
+    </endpoint>
+
+    <endpoint>
+      <method>POST</method>
+      <path>/api/v1/publisher/registry/copy</path>
+      <auth>Publisher</auth>
+      <description>Copy from another publisher (creates independent copy with attribution)</description>
+      <request-body>
+        {
+          "publisher_zmanim_id": number
+        }
+      </request-body>
+      <response>
+        <code>200</code>
+        <body>
+          {
+            "data": {
+              "zman_key": string,
+              "message": string
+            }
+          }
+        </body>
+      </response>
+      <errors>
+        <error code="400">Already have this master zman</error>
+        <error code="404">Source zman not found</error>
+        <error code="401">Not authenticated</error>
+        <error code="403">Forbidden</error>
+      </errors>
+    </endpoint>
+  </api-endpoints>
+
+  <!-- ============================================================================ -->
+  <!-- SQLC QUERIES (NEW - TO BE CREATED) -->
+  <!-- ============================================================================ -->
+
+  <sqlc-queries>
+    <file>api/internal/db/queries/publisher_registry.sql</file>
+
+    <query name="ListValidatedPublishers">
+      <description>Get all validated publishers for browsing</description>
+      <sql><![CDATA[
+-- name: ListValidatedPublishers :many
+SELECT p.id, p.name, ps.key as status, p.description, p.logo_url
+FROM publishers p
+JOIN publisher_statuses ps ON p.status_id = ps.id
+WHERE ps.key = 'approved'
+  AND p.deleted_at IS NULL
+ORDER BY p.name;
+      ]]></sql>
+    </query>
+
+    <query name="ListPublisherZmanimForRegistry">
+      <description>Get publisher's zmanim with ownership check for current publisher</description>
+      <parameters>
+        <param name="source_publisher_id" type="integer" />
+        <param name="current_publisher_id" type="integer" />
+        <param name="locality_id" type="integer" />
+        <param name="date" type="string" />
+        <param name="category" type="string" optional="true" />
+        <param name="offset" type="integer" />
+        <param name="limit" type="integer" />
+      </parameters>
+      <sql><![CDATA[
+-- name: ListPublisherZmanimForRegistry :many
+SELECT
+    pz.id,
+    pz.zman_key,
+    pz.hebrew_name,
+    pz.english_name,
+    pz.formula_dsl,
+    mr.canonical_hebrew_name as master_zman_name,
+    mr.id as master_zmanim_id,
+    tc.key as category,
+    EXISTS(
+        SELECT 1 FROM publisher_zmanim cpz
+        WHERE cpz.publisher_id = $2
+          AND cpz.master_zman_id = pz.master_zman_id
+          AND cpz.deleted_at IS NULL
+    ) as already_have_master
+FROM publisher_zmanim pz
+LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
+LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
+WHERE pz.publisher_id = $1
+  AND pz.deleted_at IS NULL
+  AND pz.is_published = true
+  AND (sqlc.narg('category')::text IS NULL OR tc.key = sqlc.narg('category'))
+ORDER BY tc.sort_order, pz.hebrew_name
+OFFSET $6 LIMIT $7;
+      ]]></sql>
+      <note>Preview time calculation done in service layer using UnifiedZmanimService</note>
+    </query>
+
+    <query name="GetPublisherCoverageLocalities">
+      <description>Get localities covered by publisher (all coverage levels expanded)</description>
+      <sql><![CDATA[
+-- name: GetPublisherCoverageLocalities :many
+SELECT DISTINCT
+    l.id,
+    l.name,
+    c.name as country,
+    r.name as region,
+    l.latitude,
+    l.longitude
+FROM publisher_coverage pc
+LEFT JOIN geo_localities l ON pc.locality_id = l.id
+LEFT JOIN geo_countries c ON pc.country_id = c.id
+LEFT JOIN geo_regions r ON pc.region_id = r.id
+WHERE pc.publisher_id = $1
+  AND pc.is_active = true
+ORDER BY l.name;
+      ]]></sql>
+      <note>Expands all coverage levels (continent, country, region, locality) to locality list</note>
+    </query>
+
+    <query name="LinkPublisherZman">
+      <description>Create publisher zman linked to source publisher zman</description>
+      <sql><![CDATA[
+-- name: LinkPublisherZman :one
+INSERT INTO publisher_zmanim (
+    publisher_id,
+    master_zman_id,
+    linked_from_publisher_zman_id,
+    zman_key,
+    hebrew_name,
+    english_name,
+    description,
+    formula_dsl,
+    is_enabled,
+    is_published
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, false)
+RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
+    formula_dsl, master_zman_id, linked_from_publisher_zman_id;
+      ]]></sql>
+    </query>
+
+    <query name="CopyPublisherZman">
+      <description>Create publisher zman copied from source publisher</description>
+      <sql><![CDATA[
+-- name: CopyPublisherZman :one
+INSERT INTO publisher_zmanim (
+    publisher_id,
+    master_zman_id,
+    copied_from_publisher_id,
+    zman_key,
+    hebrew_name,
+    english_name,
+    description,
+    formula_dsl,
+    is_enabled,
+    is_published
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, false)
+RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
+    formula_dsl, master_zman_id, copied_from_publisher_id;
+      ]]></sql>
+    </query>
+
+    <query name="CheckPublisherHasMasterZman">
+      <description>Check if current publisher already has this master zman</description>
+      <sql><![CDATA[
+-- name: CheckPublisherHasMasterZman :one
+SELECT EXISTS(
+    SELECT 1 FROM publisher_zmanim
+    WHERE publisher_id = $1
+      AND master_zman_id = $2
+      AND deleted_at IS NULL
+);
+      ]]></sql>
+    </query>
+
+    <query name="GetPublisherZmanById">
+      <description>Get publisher zman by ID for link/copy source</description>
+      <sql><![CDATA[
+-- name: GetPublisherZmanById :one
+SELECT id, publisher_id, master_zman_id, zman_key, hebrew_name,
+    english_name, description, formula_dsl
+FROM publisher_zmanim
+WHERE id = $1 AND deleted_at IS NULL;
+      ]]></sql>
+    </query>
+  </sqlc-queries>
+
+  <!-- ============================================================================ -->
+  <!-- BACKEND HANDLER PATTERN -->
+  <!-- ============================================================================ -->
+
+  <backend-handler-pattern>
+    <file>api/internal/handlers/publisher_registry.go</file>
+
+    <handler name="LinkPublisherZman">
+      <description>Link to another publisher's zman</description>
+      <pattern>6-step handler pattern</pattern>
+      <example><![CDATA[
+func (h *PublisherRegistryHandler) LinkPublisherZman(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+
+    // 1. Resolve publisher context (SECURITY CRITICAL)
+    pc := h.publisherResolver.MustResolve(w, r)
+    if pc == nil { return }
+
+    // 2. URL params (none for this endpoint)
+
+    // 3. Parse body
+    var req struct {
+        PublisherZmanimID int64 `json:"publisher_zmanim_id"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        RespondBadRequest(w, r, "Invalid request body")
+        return
+    }
+
+    // 4. Validate
+    if req.PublisherZmanimID == 0 {
+        RespondValidationError(w, r, "publisher_zmanim_id is required", nil)
+        return
+    }
+
+    // Get source zman
+    sourceZman, err := h.db.Queries.GetPublisherZmanById(ctx, req.PublisherZmanimID)
+    if err != nil {
+        RespondNotFound(w, r, "Source zman not found")
+        return
+    }
+
+    // Check if current publisher already has this master zman
+    exists, err := h.db.Queries.CheckPublisherHasMasterZman(ctx, db.CheckPublisherHasMasterZmanParams{
+        PublisherID:     pc.Publisher.ID,
+        MasterZmanimID: sourceZman.MasterZmanimID,
+    })
+    if err != nil {
+        slog.Error("failed to check ownership", "error", err)
+        RespondInternalError(w, r)
+        return
+    }
+    if exists {
+        RespondError(w, r, http.StatusBadRequest, ErrCodeConflict,
+            "You already have this master zman", nil)
+        return
+    }
+
+    // 5. SQLc query - Create linked zman
+    newZman, err := h.db.Queries.LinkPublisherZman(ctx, db.LinkPublisherZmanParams{
+        PublisherID:              pc.Publisher.ID,
+        MasterZmanimID:          sourceZman.MasterZmanimID,
+        LinkedFromPublisherZmanID: sql.NullInt64{Int64: req.PublisherZmanimID, Valid: true},
+        ZmanKey:                  sourceZman.ZmanKey,
+        HebrewName:               sourceZman.HebrewName,
+        EnglishName:              sourceZman.EnglishName,
+        Description:              sourceZman.Description,
+        FormulaDsl:               sourceZman.FormulaDsl,
+    })
+    if err != nil {
+        slog.Error("failed to link zman", "error", err)
+        RespondInternalError(w, r)
+        return
+    }
+
+    // 6. Respond
+    RespondJSON(w, r, http.StatusOK, map[string]interface{}{
+        "zman_key": newZman.ZmanKey,
+        "message":  "Zman linked successfully",
+    })
+}
+      ]]></example>
+    </handler>
+
+    <handler name="CopyPublisherZman">
+      <description>Copy from another publisher (similar pattern to Link)</description>
+      <note>Same pattern as LinkPublisherZman, but uses CopyPublisherZman query with copied_from_publisher_id instead of linked_from_publisher_zman_id</note>
+    </handler>
+
+    <handler name="ListValidatedPublishers">
+      <description>Get all validated publishers for autocomplete</description>
+      <note>Simple list query with publisher resolver, returns publishers with status = 'approved'</note>
+    </handler>
+
+    <handler name="GetPublisherCatalog">
+      <description>Get publisher's zmanim with ownership check and preview times</description>
+      <note>Uses ListPublisherZmanimForRegistry query, then calls UnifiedZmanimService to calculate preview times</note>
+    </handler>
+
+    <handler name="GetPublisherCoverage">
+      <description>Get localities covered by publisher</description>
+      <note>Uses GetPublisherCoverageLocalities query</note>
+    </handler>
+  </backend-handler-pattern>
+
+  <!-- ============================================================================ -->
+  <!-- FRONTEND COMPONENTS (NEW - TO BE CREATED) -->
+  <!-- ============================================================================ -->
+
+  <frontend-components>
+    <component name="RegistryPublisherBrowser">
+      <file>web/components/registry/RegistryPublisherBrowser.tsx</file>
+      <description>Main Publisher Examples tab component</description>
+      <features>
+        - Publisher search autocomplete
+        - Coverage-restricted location picker
+        - Filter panel (category, shita, status)
+        - Publisher zman cards with Link/Copy buttons
+        - Pagination
+      </features>
+      <state>
+        <field name="selectedPublisher" type="Publisher | null" />
+        <field name="selectedLocality" type="LocalitySelection | null" />
+        <field name="selectedDate" type="string" />
+        <field name="filters" type="{ category, shita, status, search }" />
+        <field name="page" type="number" />
+      </state>
+      <api-calls>
+        - GET /publisher/registry/publishers (search publishers)
+        - GET /publisher/registry/publishers/{id} (get catalog)
+        - GET /publisher/registry/coverage/{id} (get coverage)
+        - POST /publisher/registry/link
+        - POST /publisher/registry/copy
+      </api-calls>
+    </component>
+
+    <component name="PublisherZmanCard">
+      <file>web/components/registry/PublisherZmanCard.tsx</file>
+      <description>Display single publisher zman with Link/Copy buttons</description>
+      <props>
+        <prop name="zman" type="PublisherZmanForRegistry" />
+        <prop name="publisherName" type="string" />
+        <prop name="onLink" type="(zmanimId: number) => void" />
+        <prop name="onCopy" type="(zmanimId: number) => void" />
+        <prop name="onInfo" type="(zmanimId: number) => void" />
+      </props>
+      <features>
+        - Syntax-highlighted formula (reuse from ZmanCard)
+        - Preview time display (12-hour format)
+        - Master registry reference
+        - Badge for "Already in Your Catalog"
+        - Disabled Link/Copy buttons with tooltip
+      </features>
+    </component>
+
+    <component name="PublisherSearchAutocomplete">
+      <file>web/components/registry/PublisherSearchAutocomplete.tsx</file>
+      <description>Publisher search with autocomplete dropdown</description>
+      <pattern>Popover + Command (shadcn/ui)</pattern>
+      <features>
+        - Debounced search input
+        - Validated publishers only
+        - Empty state messaging
+      </features>
+    </component>
+
+    <component name="CoverageRestrictedLocationPicker">
+      <file>web/components/registry/CoverageRestrictedLocationPicker.tsx</file>
+      <description>Location picker restricted to publisher coverage</description>
+      <pattern>Extends LocalityPicker with publisherId filter</pattern>
+      <features>
+        - Auto-disable when no publisher selected
+        - Auto-clear when publisher changes and location not covered
+        - Helper text updates
+      </features>
+    </component>
+  </frontend-components>
+
+  <!-- ============================================================================ -->
+  <!-- REUSABLE COMPONENTS (FROM STORY 11.1) -->
+  <!-- ============================================================================ -->
+
+  <reusable-components>
+    <component name="LocalityPicker">
+      <file>web/components/shared/LocalityPicker.tsx</file>
+      <usage>Use publisherId prop to filter localities by publisher coverage</usage>
+      <props>
+        <prop name="publisherId" type="string" optional="true" description="Filter to publisher's coverage" />
+        <prop name="onSelect" type="(selection) => void" />
+        <prop name="mode" type="'single' | 'multi'" default="'single'" />
+      </props>
+    </component>
+
+    <component name="DatePickerDropdown">
+      <file>web/components/zmanim/DatePickerDropdown.tsx</file>
+      <usage>Date selector (shared with master tab)</usage>
+    </component>
+
+    <component name="HighlightedFormula">
+      <file>web/components/shared/HighlightedFormula.tsx</file>
+      <usage>DSL syntax highlighting using CodeMirror</usage>
+    </component>
+
+    <component name="RegistryFilters">
+      <file>web/components/registry/RegistryFilters.tsx</file>
+      <usage>Filter panel for category, shita, status (from Story 11.1)</usage>
+      <note>Extend with "Available" / "Already in Your Catalog" status filter</note>
+    </component>
+
+    <component name="Badge">
+      <file>web/components/ui/badge.tsx</file>
+      <usage>Status badges, category badges, shita badges</usage>
+    </component>
+  </reusable-components>
+
+  <!-- ============================================================================ -->
+  <!-- API CLIENT INTEGRATION -->
+  <!-- ============================================================================ -->
+
+  <api-client-integration>
+    <file>web/lib/api-client.ts</file>
+
+    <pattern>useApi() hook - REQUIRED for all API calls</pattern>
+
+    <example><![CDATA[
+'use client';
+import { useApi } from '@/lib/api-client';
+
+export function RegistryPublisherBrowser() {
+  const api = useApi();
+
+  // Get validated publishers
+  const publishers = await api.get('/publisher/registry/publishers');
+
+  // Get publisher catalog
+  const catalog = await api.get(`/publisher/registry/publishers/${publisherId}`, {
+    params: {
+      locality_id: localityId,
+      date: date,
+      category: filters.category,
+      page: page,
+      limit: 50
+    }
+  });
+
+  // Link zman
+  const result = await api.post('/publisher/registry/link', {
+    body: JSON.stringify({ publisher_zmanim_id: zmanimId })
+  });
+}
+    ]]></example>
+
+    <note>All requests automatically include auth token and X-Publisher-Id header</note>
+  </api-client-integration>
+
+  <!-- ============================================================================ -->
+  <!-- DUPLICATE PREVENTION LOGIC -->
+  <!-- ============================================================================ -->
+
+  <duplicate-prevention>
+    <layer name="Frontend">
+      <description>Disable Link/Copy buttons if already_have_master is true</description>
+      <implementation>
+        - Query returns already_have_master boolean for each zman
+        - Card component checks this flag
+        - Buttons disabled with tooltip: "You already have this master zman"
+        - Status badge shows "Already in Your Catalog"
+      </implementation>
+    </layer>
+
+    <layer name="Backend">
+      <description>Check ownership before insert</description>
+      <implementation>
+        - Call CheckPublisherHasMasterZman query
+        - Return 400 Conflict if master already exists
+        - Error message: "You already have this master zman"
+      </implementation>
+    </layer>
+
+    <layer name="Database">
+      <description>Unique constraint prevents duplicates</description>
+      <constraint>
+        UNIQUE (publisher_id, master_zmanim_id) WHERE deleted_at IS NULL
+      </constraint>
+      <note>This ensures NO duplicates can be created even if client logic is bypassed</note>
+    </layer>
+  </duplicate-prevention>
+
+  <!-- ============================================================================ -->
+  <!-- LINK VS COPY DISTINCTION -->
+  <!-- ============================================================================ -->
+
+  <link-vs-copy>
+    <link>
+      <description>Creates a linked reference to source publisher's zman</description>
+      <database-fields>
+        <field name="master_zmanim_id">From source publisher zman</field>
+        <field name="linked_from_publisher_zman_id">Source publisher_zmanim.id</field>
+        <field name="copied_from_publisher_id">NULL</field>
+      </database-fields>
+      <use-case>When you want to track the exact source zman and potentially receive updates</use-case>
+      <attribution>"Linked to [Publisher Name]'s [Zman Name]"</attribution>
+    </link>
+
+    <copy>
+      <description>Creates an independent copy with attribution</description>
+      <database-fields>
+        <field name="master_zmanim_id">From source publisher zman</field>
+        <field name="linked_from_publisher_zman_id">NULL</field>
+        <field name="copied_from_publisher_id">Source publisher.id</field>
+      </database-fields>
+      <use-case>When you want full ownership and independence from source</use-case>
+      <attribution>"Copied from [Publisher Name]"</attribution>
+    </copy>
+
+    <note>Both operations copy zman_key, names, description, and formula_dsl from source</note>
+  </link-vs-copy>
+
+  <!-- ============================================================================ -->
+  <!-- COVERAGE RESTRICTION LOGIC -->
+  <!-- ============================================================================ -->
+
+  <coverage-restriction>
+    <description>Location dropdown only shows localities within selected publisher's coverage</description>
+
+    <steps>
+      <step>1. User selects publisher from autocomplete</step>
+      <step>2. Frontend calls GET /publisher/registry/coverage/{publisher_id}</step>
+      <step>3. Backend queries publisher_coverage table (all levels: continent, country, region, locality)</step>
+      <step>4. Backend expands coverage to locality list (e.g., country -> all localities in that country)</step>
+      <step>5. Frontend populates location dropdown with coverage localities only</step>
+      <step>6. Location dropdown is enabled</step>
+    </steps>
+
+    <auto-clear>
+      <when>User switches to different publisher</when>
+      <check>Is currently selected locality in new publisher's coverage?</check>
+      <if-no>
+        - Clear location selection
+        - Show message: "Please select a location within [Publisher Name]'s coverage"
+        - Disable preview until location selected
+      </if-no>
+      <if-yes>
+        - Keep location selection
+        - Recalculate preview times for new publisher
+      </if-yes>
+    </auto-clear>
+  </coverage-restriction>
+
+  <!-- ============================================================================ -->
+  <!-- REDIRECT PATTERN -->
+  <!-- ============================================================================ -->
+
+  <redirect-pattern>
+    <description>After successful link or copy, redirect to algorithm page with focus parameter</description>
+
+    <implementation>
+      <frontend><![CDATA[
+import { useRouter } from 'next/navigation';
+
+const router = useRouter();
+
+const handleLink = async (zmanimId: number) => {
+  const result = await api.post('/publisher/registry/link', {
+    body: JSON.stringify({ publisher_zmanim_id: zmanimId })
+  });
+
+  // Show success toast
+  toast.success(`Linked to ${publisherName}'s ${zmanName}`);
+
+  // Redirect to algorithm page with focus parameter
+  router.push(`/publisher/algorithm?focus=${result.data.zman_key}`);
+};
+      ]]></frontend>
+
+      <algorithm-page>
+        - Parse ?focus= query parameter
+        - Scroll to zman card with data-zman-key attribute
+        - Apply highlight animation (green border, 3-second fade)
+        - This is implemented in Story 11.5
+      </algorithm-page>
+    </implementation>
+  </redirect-pattern>
+
+  <!-- ============================================================================ -->
+  <!-- PERFORMANCE CONSIDERATIONS -->
+  <!-- ============================================================================ -->
+
+  <performance>
+    <caching>
+      <strategy>Redis caching with filter-aware keys</strategy>
+      <keys>
+        <key>publisher_catalog:{publisher_id}:{locality_id}:{date}:{category}:{shita}:{status}:{page}</key>
+        <ttl>1 hour</ttl>
+      </keys>
+      <key>publisher_coverage:{publisher_id}</key>
+      <ttl>24 hours</ttl>
+      <key>zmanim_preview:{publisher_zman_id}:{locality_id}:{date}</key>
+      <ttl>24 hours</ttl>
+    </caching>
+
+    <pagination>
+      <page-size>50</page-size>
+      <implementation>LIMIT/OFFSET in SQL query</implementation>
+      <lazy-loading>Cards rendered as user scrolls (optional enhancement)</lazy-loading>
+    </pagination>
+
+    <query-optimization>
+      <indexes>
+        - idx_publisher_zmanim_publisher (publisher_id)
+        - idx_publisher_zmanim_master (master_zmanim_id)
+        - idx_publisher_coverage_publisher (publisher_id)
+        - idx_publisher_coverage_locality (locality_id)
+      </indexes>
+      <joins>Single query with LEFT JOINs for master registry and time categories</joins>
+      <ownership-check>Subquery EXISTS() for ownership check (no N+1)</ownership-check>
+    </query-optimization>
+
+    <targets>
+      <target>Publisher catalog load: &lt;2s (p95)</target>
+      <target>Preview calculation: &lt;500ms per zman</target>
+      <target>Search/filter: &lt;300ms</target>
+    </targets>
+  </performance>
+
+  <!-- ============================================================================ -->
+  <!-- TESTING GUIDANCE -->
+  <!-- ============================================================================ -->
+
+  <testing-guidance>
+    <unit-tests>
+      <file>api/internal/handlers/publisher_registry_test.go</file>
+      <tests>
+        - TestLinkPublisherZman_Success
+        - TestLinkPublisherZman_AlreadyHaveMaster
+        - TestLinkPublisherZman_SourceNotFound
+        - TestCopyPublisherZman_Success
+        - TestCopyPublisherZman_AlreadyHaveMaster
+        - TestCheckPublisherHasMasterZman
+        - TestListPublisherZmanimForRegistry_WithOwnershipCheck
+        - TestGetPublisherCoverageLocalities
+      </tests>
+    </unit-tests>
+
+    <integration-tests>
+      <description>Full workflow tests</description>
+      <scenarios>
+        - Search publishers -> select publisher -> view catalog -> link zman
+        - Search publishers -> select publisher -> view catalog -> copy zman
+        - Attempt to link already-owned master (should fail)
+        - Switch publishers -> location auto-clears if not covered
+      </scenarios>
+    </integration-tests>
+
+    <e2e-tests>
+      <file>tests/e2e/publisher/registry.spec.ts</file>
+      <note>Full E2E tests will be created in Story 11.7</note>
+      <scenarios>
+        - Publisher search and selection
+        - Coverage-restricted location selection
+        - Link button creates correct record
+        - Copy button creates correct record
+        - Duplicate prevention (buttons disabled)
+        - Location auto-clear on publisher switch
+        - Redirect to algorithm page with focus param
+      </scenarios>
+    </e2e-tests>
+  </testing-guidance>
+
+  <!-- ============================================================================ -->
+  <!-- CODING STANDARDS REFERENCE -->
+  <!-- ============================================================================ -->
+
+  <coding-standards>
+    <reference-file>docs/coding-standards.md</reference-file>
+
+    <critical-rules>
+      <rule>Backend: 6-step handler pattern (resolve publisher, URL params, parse body, validate, SQLc query, respond)</rule>
+      <rule>Backend: PublisherResolver.MustResolve() for all publisher endpoints (SECURITY CRITICAL)</rule>
+      <rule>Backend: SQLc queries ONLY - NO raw SQL</rule>
+      <rule>Backend: slog for logging (NO fmt.Printf)</rule>
+      <rule>Backend: Response helpers (RespondJSON, RespondError, RespondValidationError, etc.)</rule>
+      <rule>Frontend: useApi() hook for ALL API calls (NO raw fetch)</rule>
+      <rule>Frontend: Design tokens for colors (NO hardcoded colors)</rule>
+      <rule>Frontend: 12-hour time format (formatTime, formatTimeShort)</rule>
+      <rule>Frontend: Clerk isLoaded check before accessing user/token</rule>
+      <rule>Frontend: shadcn/ui components (NO native HTML select/input)</rule>
+      <rule>Database: Soft delete pattern (deleted_at, deleted_by columns)</rule>
+      <rule>Database: Integer IDs (SERIAL/BIGSERIAL) for all tables</rule>
+      <rule>Database: Lookup tables with id + key pattern</rule>
+    </critical-rules>
+
+    <forbidden-patterns>
+      <pattern>Raw fetch() in components</pattern>
+      <pattern>Hardcoded colors (e.g., text-[#1e3a5f])</pattern>
+      <pattern>24-hour time format</pattern>
+      <pattern>Raw SQL queries (use SQLc)</pattern>
+      <pattern>fmt.Printf or log.Printf (use slog)</pattern>
+      <pattern>TODO/FIXME comments (resolve before commit)</pattern>
+      <pattern>Native HTML select/input (use shadcn/ui)</pattern>
+    </forbidden-patterns>
+  </coding-standards>
+
+  <!-- ============================================================================ -->
+  <!-- DEFINITION OF DONE -->
+  <!-- ============================================================================ -->
+
+  <definition-of-done>
+    <backend>
+      <item>5 SQLc queries created in publisher_registry.sql</item>
+      <item>5 handlers in publisher_registry.go following 6-step pattern</item>
+      <item>All handlers use PublisherResolver.MustResolve()</item>
+      <item>All handlers use response helpers (RespondJSON, RespondError, etc.)</item>
+      <item>All database operations use SQLc-generated code</item>
+      <item>Logging uses slog with structured fields</item>
+      <item>Unit tests written for all handlers</item>
+      <item>Integration tests for link/copy workflows</item>
+    </backend>
+
+    <frontend>
+      <item>RegistryPublisherBrowser.tsx component created</item>
+      <item>PublisherZmanCard.tsx component created</item>
+      <item>PublisherSearchAutocomplete.tsx component created</item>
+      <item>CoverageRestrictedLocationPicker.tsx component created</item>
+      <item>All components use useApi() hook (NO raw fetch)</item>
+      <item>All components use design tokens (NO hardcoded colors)</item>
+      <item>All components use shadcn/ui primitives</item>
+      <item>Time formatting uses formatTime/formatTimeShort (12-hour)</item>
+      <item>TypeScript types defined for all API responses</item>
+      <item>Component INDEX.md updated</item>
+    </frontend>
+
+    <functionality>
+      <item>All 10 acceptance criteria pass manual testing</item>
+      <item>Publisher search shows validated publishers only</item>
+      <item>Location dropdown restricted to publisher coverage</item>
+      <item>Link button creates record with linked_from_publisher_zman_id</item>
+      <item>Copy button creates record with copied_from_publisher_id</item>
+      <item>Duplicate prevention works (400 error + disabled buttons)</item>
+      <item>Location auto-clears when switching publishers (if not covered)</item>
+      <item>Redirect to /publisher/algorithm?focus={zman_key} works</item>
+      <item>Toast notifications display correctly</item>
+    </functionality>
+
+    <quality>
+      <item>No console.log statements</item>
+      <item>No TODO/FIXME comments</item>
+      <item>TypeScript compiles without errors</item>
+      <item>Go builds without errors</item>
+      <item>All unit tests passing</item>
+      <item>All integration tests passing</item>
+      <item>Performance targets met (&lt;2s catalog load)</item>
+      <item>Code review completed</item>
+    </quality>
+  </definition-of-done>
+
+  <!-- ============================================================================ -->
+  <!-- RELATED DOCUMENTATION -->
+  <!-- ============================================================================ -->
+
+  <related-documentation>
+    <document>
+      <file>docs/epic-11-orchestrator-prompt.md</file>
+      <description>Epic 11 orchestration workflow and story dependencies</description>
+    </document>
+
+    <document>
+      <file>docs/coding-standards.md</file>
+      <description>Mandatory coding standards and patterns</description>
+    </document>
+
+    <document>
+      <file>docs/architecture.md</file>
+      <description>System architecture and technology stack</description>
+    </document>
+
+    <document>
+      <file>api/internal/handlers/INDEX.md</file>
+      <description>Handler registry and patterns</description>
+    </document>
+
+    <document>
+      <file>api/internal/db/queries/INDEX.md</file>
+      <description>SQLc query registry</description>
+    </document>
+
+    <document>
+      <file>web/components/INDEX.md</file>
+      <description>Component registry and patterns</description>
+    </document>
+
+    <document>
+      <file>api/internal/handlers/response.go</file>
+      <description>Standard API response format and error helpers</description>
+    </document>
+
+    <document>
+      <file>web/lib/api-client.ts</file>
+      <description>Unified API client with useApi() hook</description>
+    </document>
+  </related-documentation>
+
+  <!-- ============================================================================ -->
+  <!-- IMPLEMENTATION NOTES -->
+  <!-- ============================================================================ -->
+
+  <implementation-notes>
+    <note>
+      CRITICAL: All API requests MUST use useApi() hook. Raw fetch() is forbidden.
+    </note>
+
+    <note>
+      CRITICAL: All backend handlers MUST use PublisherResolver.MustResolve() to prevent tenant isolation attacks.
+    </note>
+
+    <note>
+      Database unique constraint (publisher_id, master_zmanim_id) prevents duplicates even if client logic bypassed.
+    </note>
+
+    <note>
+      Link vs Copy distinction: Link references source publisher_zman.id, Copy references source publisher.id.
+    </note>
+
+    <note>
+      Coverage restriction: Location dropdown populated by expanding all coverage levels (continent, country, region, locality) to locality list.
+    </note>
+
+    <note>
+      Auto-clear logic: When switching publishers, check if current location is in new publisher's coverage. If not, clear location and show helper message.
+    </note>
+
+    <note>
+      Preview times calculated server-side using UnifiedZmanimService for each zman in the catalog.
+    </note>
+
+    <note>
+      Pagination: 50 items per page with LIMIT/OFFSET in SQL query.
+    </note>
+
+    <note>
+      Reuse components from Story 11.1: LocalityPicker (with publisherId prop), RegistryFilters, HighlightedFormula, DatePickerDropdown.
+    </note>
+
+    <note>
+      Toast notifications use shadcn/ui toast system (imported from @/components/ui/use-toast).
+    </note>
+
+    <note>
+      Redirect pattern: After successful link/copy, use router.push(`/publisher/algorithm?focus=${zman_key}`). Algorithm page implements focus behavior in Story 11.5.
+    </note>
+
+    <note>
+      Performance: Cache publisher catalog (1hr TTL), coverage (24hr TTL), and preview times (24hr TTL) in Redis.
+    </note>
+  </implementation-notes>
+
+</story-context>

@@ -1,0 +1,155 @@
+<story-context id="8-5-external-api-list-publisher-zmanim" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>5</storyId>
+    <title>External API - List Publisher Zmanim</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-5-external-api-list-publisher-zmanim.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer integrating with Shtetl Zmanim</asA>
+    <iWant>to list available zmanim for a publisher</iWant>
+    <soThat>I know which zman IDs and versions to request</soThat>
+    <tasks>
+      <task id="1">Create handler GetExternalPublisherZmanim (AC: 1-4)</task>
+      <task id="2">Create SQLc query (AC: 2, 3)</task>
+      <task id="3">Add route to external API group (AC: 1)</task>
+      <task id="4">Add caching (AC: 5)</task>
+      <task id="5">Testing (AC: 1-6)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">GET /external/publishers/{id}/zmanim endpoint implemented</criterion>
+    <criterion id="AC2">Returns zman list with: master_zman_id, name_english, name_hebrew, version_id</criterion>
+    <criterion id="AC3">Only returns enabled zmanim (is_enabled=true)</criterion>
+    <criterion id="AC4">Includes formula metadata (type and summary for transparency)</criterion>
+    <criterion id="AC5">Response is cacheable with 1 hour TTL</criterion>
+    <criterion id="AC6">Endpoint is rate limited (from Story 8.4)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.5: External API - List Publisher Zmanim</section>
+        <snippet>Returns zman list with zman_key, master_zman_id, names, version_id, formula_type, and formula_summary.</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>PublisherResolver Pattern</section>
+        <snippet>For external API, publisher_id comes from URL param, not header. Validate UUID format.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/</path>
+        <kind>handler-directory</kind>
+        <reason>Location for new external_api.go</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publisher_zmanim.go</path>
+        <kind>handler</kind>
+        <symbol>GetPublisherZmanim</symbol>
+        <reason>Reference for existing zmanim query patterns</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/</path>
+        <kind>query-directory</kind>
+        <reason>Location for new external_api.sql SQLc queries</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/cache_service.go</path>
+        <kind>service</kind>
+        <symbol>CacheService</symbol>
+        <reason>Add caching for external zmanim list</reason>
+      </artifact>
+      <artifact>
+        <path>api/cmd/api/main.go</path>
+        <kind>entry-point</kind>
+        <reason>Register route under /external group</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/go-chi/chi/v5</package>
+        <package>github.com/jackc/pgx/v5</package>
+        <package>github.com/redis/go-redis/v9</package>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Only return zmanim where is_enabled=true AND deleted_at IS NULL</constraint>
+    <constraint>Cache key pattern: external:publisher:{publisher_id}:zmanim</constraint>
+    <constraint>Cache TTL: 1 hour</constraint>
+    <constraint>Must be rate limited (depends on Story 8.4)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>External Publisher Zmanim Endpoint</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /external/publishers/{id}/zmanim</signature>
+      <path>api/internal/handlers/external_api.go</path>
+    </interface>
+    <interface>
+      <name>Response Structure</name>
+      <kind>JSON response</kind>
+      <signature>
+        {
+          "publisher_id": "uuid",
+          "publisher_name": "Orthodox Union",
+          "zmanim": [
+            {
+              "zman_key": "alos_hashachar",
+              "master_zman_id": "uuid",
+              "name_english": "Dawn (Alos Hashachar)",
+              "name_hebrew": "עלות השחר",
+              "version_id": "v3",
+              "formula_type": "solar_angle",
+              "formula_summary": "16.1° below horizon"
+            }
+          ],
+          "total": 25,
+          "generated_at": "2025-12-10T10:00:00Z"
+        }
+      </signature>
+      <path>api/internal/handlers/external_api.go</path>
+    </interface>
+    <interface>
+      <name>SQLc Query</name>
+      <kind>database query</kind>
+      <signature>
+        -- name: GetPublisherZmanimForExternal :many
+        SELECT pz.zman_key, pz.master_zman_id, pz.name_english, pz.name_hebrew,
+               pz.formula_dsl, pz.is_enabled,
+               COALESCE(ps.version_number::text, 'v1') as version_id
+        FROM publisher_zmanim pz
+        LEFT JOIN publisher_snapshots ps ON ...
+        WHERE pz.publisher_id = $1 AND pz.is_enabled = true AND pz.deleted_at IS NULL
+      </signature>
+      <path>api/internal/db/queries/external_api.sql</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Unit tests for handler. Integration tests with test database. Verify caching behavior.</standards>
+    <locations>
+      <location>api/internal/handlers/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test endpoint returns 200 with valid publisher_id</idea>
+      <idea acRef="AC2">Test response includes all required fields</idea>
+      <idea acRef="AC3">Test disabled zmanim not returned</idea>
+      <idea acRef="AC4">Test formula_type and formula_summary present</idea>
+      <idea acRef="AC5">Test response cached for 1 hour</idea>
+      <idea acRef="AC6">Test rate limiting applied (requires 8.4)</idea>
+    </ideas>
+  </tests>
+</story-context>

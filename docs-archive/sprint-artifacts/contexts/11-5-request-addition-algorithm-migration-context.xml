@@ -1,0 +1,1135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>11.5</story-id>
+    <story-title>Request Addition Workflow &amp; Algorithm Page Migration</story-title>
+    <epic>Epic 11 - Publisher Zmanim Registry Interface</epic>
+    <date-generated>2025-12-22</date-generated>
+    <status>Ready for Development</status>
+    <priority>High</priority>
+  </metadata>
+
+  <!-- STORY OVERVIEW -->
+  <story-overview>
+    <user-story>
+      <as-a>publisher</as-a>
+      <i-want>to request new master zmanim from the registry interface and have a seamless way to navigate between the registry and my algorithm page</i-want>
+      <so-that>I can contribute to the platform and efficiently manage my zman catalog</so-that>
+    </user-story>
+
+    <key-deliverables>
+      <deliverable priority="1">Add "Request Addition" button on registry page (both Master Registry and Publisher Examples tabs)</deliverable>
+      <deliverable priority="1">Reuse RequestZmanModal component (pre-populate source field)</deliverable>
+      <deliverable priority="1">Remove "Add Zman" button and dialog from algorithm page</deliverable>
+      <deliverable priority="1">Add "Browse Registry" button on algorithm page</deliverable>
+      <deliverable priority="2">URL parameter focus handling (?focus={zman_key})</deliverable>
+      <deliverable priority="2">Scroll and highlight newly imported zman</deliverable>
+      <deliverable priority="2">Redirect to algorithm page after import/link/copy</deliverable>
+    </key-deliverables>
+
+    <scope>
+      <in-scope>
+        <item>Modify registry page header to include "Request Addition" button</item>
+        <item>Move RequestZmanModal to shared location if not already</item>
+        <item>Clean up algorithm page - remove all "Add Zman Mode" code</item>
+        <item>Add navigation between registry and algorithm pages</item>
+        <item>Implement URL focus parameter handling with highlighting</item>
+      </in-scope>
+      <out-of-scope>
+        <item>Creating new backend API endpoints (reuse existing)</item>
+        <item>Modifying import/link/copy backend logic</item>
+        <item>Changes to RequestZmanModal form fields or validation</item>
+        <item>Changes to master registry or publisher examples browsing</item>
+      </out-of-scope>
+    </scope>
+  </story-overview>
+
+  <!-- ACCEPTANCE CRITERIA -->
+  <acceptance-criteria>
+    <criterion id="AC1">
+      <given>I am on the Master Registry tab OR Publisher Examples tab</given>
+      <when>I see the page header</when>
+      <then>I see a "Request Addition" button (prominent, secondary style)</then>
+    </criterion>
+
+    <criterion id="AC2">
+      <given>I click the "Request Addition" button</given>
+      <when>the button is clicked</when>
+      <then>the existing RequestZmanModal component opens (reused from algorithm page)</then>
+      <and>the modal pre-populates the "source" field with value "registry"</and>
+      <and>I can fill out the request form (zman name, description, justification, tags, optional formula)</and>
+    </criterion>
+
+    <criterion id="AC3">
+      <given>I submit a request via the registry</given>
+      <when>the submission completes successfully</when>
+      <then>toast notification shows: "Request submitted for admin review"</then>
+      <and>modal closes</and>
+      <and>I remain on the registry page (no navigation)</and>
+    </criterion>
+
+    <criterion id="AC4">
+      <given>I navigate to /publisher/algorithm (Algorithm page)</given>
+      <when>the page loads</when>
+      <then>I see a prominent "Browse Registry" button in the header</then>
+      <and>NO "Add Zman" button exists</and>
+      <and>NO "Add Zman Mode" dialog exists</and>
+      <and>NO MasterZmanPicker or PublisherZmanPicker components exist</and>
+    </criterion>
+
+    <criterion id="AC5">
+      <given>I am on the algorithm page</given>
+      <when>I click the "Browse Registry" button</when>
+      <then>I navigate to /publisher/registry</then>
+    </criterion>
+
+    <criterion id="AC6">
+      <given>I import/link/copy a zman from the registry</given>
+      <when>the action completes successfully</when>
+      <then>I am redirected to /publisher/algorithm?focus={zman_key}</then>
+    </criterion>
+
+    <criterion id="AC7">
+      <given>I land on /publisher/algorithm?focus={zman_key} after import/link/copy</given>
+      <when>the page loads</when>
+      <then>the page scrolls to the newly added zman</then>
+      <and>the zman card is highlighted with green border (border-green-500)</and>
+      <and>subtle animation (fade-in or scale)</and>
+      <and>highlight remains for 3 seconds, then fades out</and>
+    </criterion>
+
+    <criterion id="AC8">
+      <given>the algorithm page URL includes ?focus={zman_key}</given>
+      <when>no matching zman exists in my catalog</when>
+      <then>no scroll or highlight occurs (graceful fallback)</then>
+    </criterion>
+  </acceptance-criteria>
+
+  <!-- ARCHITECTURE CONTEXT -->
+  <architecture-context>
+    <project-structure>
+      <frontend>
+        <path>web/</path>
+        <framework>Next.js 16 (App Router)</framework>
+        <language>TypeScript 5.4+</language>
+        <styling>Tailwind CSS 4.x</styling>
+        <ui-library>shadcn/ui + Radix</ui-library>
+        <state-management>TanStack Query 5.x</state-management>
+      </frontend>
+
+      <backend>
+        <path>api/</path>
+        <language>Go 1.24+</language>
+        <router>Chi 5.x</router>
+        <database-layer>SQLc (type-safe queries)</database-layer>
+        <logging>slog (structured logging)</logging>
+      </backend>
+    </project-structure>
+
+    <key-patterns>
+      <pattern name="6-Step Handler Pattern">
+        <step>1. Resolve publisher context (PublisherResolver.MustResolve)</step>
+        <step>2. Extract URL params</step>
+        <step>3. Parse request body</step>
+        <step>4. Validate inputs</step>
+        <step>5. Execute SQLc query</step>
+        <step>6. Respond with RespondJSON</step>
+      </pattern>
+
+      <pattern name="useApi Pattern">
+        <description>Unified API client for all HTTP calls</description>
+        <usage>const api = useApi(); await api.get('/endpoint');</usage>
+        <variants>
+          <variant>api.get() - Auth + X-Publisher-Id</variant>
+          <variant>api.public.get() - No auth</variant>
+          <variant>api.admin.get() - Auth only</variant>
+        </variants>
+      </pattern>
+
+      <pattern name="Design Tokens">
+        <description>MANDATORY use of Tailwind design tokens (no hardcoded colors)</description>
+        <examples>
+          <example>text-primary, bg-primary/90, text-muted-foreground</example>
+          <example>border-green-500 (acceptable for status colors with dark: variant)</example>
+        </examples>
+      </pattern>
+
+      <pattern name="Time Formatting">
+        <description>12-hour format ONLY</description>
+        <functions>
+          <function>formatTime('14:30:36') → "2:30:36 PM"</function>
+          <function>formatTimeShort('14:30:36') → "2:30 PM"</function>
+        </functions>
+      </pattern>
+    </key-patterns>
+  </architecture-context>
+
+  <!-- EXISTING CODE TO REFERENCE -->
+  <existing-code>
+    <component name="RequestZmanModal" path="web/components/publisher/RequestZmanModal.tsx">
+      <description>967-line modal for requesting new zman to be added to master registry</description>
+      <features>
+        <feature>Multi-step form with validation</feature>
+        <feature>Tag selection with tag type organization</feature>
+        <feature>DSL formula validation (optional field)</feature>
+        <feature>Zman key uniqueness validation</feature>
+        <feature>Request history view</feature>
+        <feature>Halachic source fields</feature>
+        <feature>Auto-add on approval toggle</feature>
+      </features>
+      <props>
+        <prop name="trigger" type="React.ReactNode" optional="true">Custom trigger element (uncontrolled mode)</prop>
+        <prop name="open" type="boolean" optional="true">Controlled mode: open state</prop>
+        <prop name="onOpenChange" type="(open: boolean) => void" optional="true">Controlled mode: open state change handler</prop>
+        <prop name="onSuccess" type="() => void" optional="true">Callback after successful submission</prop>
+        <prop name="onOpen" type="() => void" optional="true">Callback when modal opens</prop>
+      </props>
+      <current-usage>
+        <usage-location>web/app/publisher/algorithm/page.tsx</usage-location>
+        <usage-pattern>Controlled mode: open={showRequestZmanModal} onOpenChange={setShowRequestZmanModal}</usage-pattern>
+      </current-usage>
+      <modification-needed>
+        <item>Add "source" field to track where request originated (registry vs algorithm page)</item>
+        <item>Pass source="registry" when opened from registry page</item>
+        <item>Pass source="algorithm" when opened from algorithm page (if still used)</item>
+      </modification-needed>
+    </component>
+
+    <component name="Algorithm Page" path="web/app/publisher/algorithm/page.tsx">
+      <description>Main algorithm editor page with zmanim catalog management</description>
+      <current-features>
+        <feature>List and edit publisher zmanim</feature>
+        <feature>Add Zman Mode dialog (lines 1144-1238) - TO BE REMOVED</feature>
+        <feature>MasterZmanPicker component - TO BE REMOVED</feature>
+        <feature>PublisherZmanPicker component - TO BE REMOVED</feature>
+        <feature>RequestZmanModal integration - KEEP (controlled mode)</feature>
+        <feature>Week preview</feature>
+        <feature>Location picker</feature>
+        <feature>Version control dialogs</feature>
+        <feature>Year export dialog</feature>
+      </current-features>
+      <code-to-remove>
+        <section line-range="1144-1238">Add Zman Mode Selection Dialog</section>
+        <import>MasterZmanPicker from '@/components/publisher/MasterZmanPicker'</import>
+        <import>PublisherZmanPicker from '@/components/publisher/PublisherZmanPicker'</import>
+        <state>showAddZmanModeDialog</state>
+        <state>showZmanPicker</state>
+        <state>showPublisherZmanPicker</state>
+        <state>publisherZmanMode</state>
+        <handler>handlers related to Add Zman Mode dialog</handler>
+      </code-to-remove>
+      <code-to-add>
+        <button>
+          <label>Browse Registry</label>
+          <action>router.push('/publisher/registry')</action>
+          <placement>Header area (next to other action buttons)</placement>
+          <style>Prominent, primary or secondary variant</style>
+        </button>
+        <focus-handling>
+          <description>Parse ?focus={zman_key} from URL and highlight matching zman</description>
+          <implementation>
+            <step>1. Use useSearchParams() to get focus param</step>
+            <step>2. Use useEffect to scroll and highlight when focus param changes</step>
+            <step>3. Add data-zman-key attribute to zman cards</step>
+            <step>4. Query DOM for matching element</step>
+            <step>5. Scroll into view (smooth, center)</step>
+            <step>6. Add highlight class (border-green-500)</step>
+            <step>7. Remove highlight after 3 seconds</step>
+          </implementation>
+        </focus-handling>
+      </code-to-add>
+    </component>
+
+    <component name="Registry Page" path="web/app/publisher/registry/page.tsx">
+      <status>Does not exist yet (created in Story 11.1)</status>
+      <description>Master Registry browser and Publisher Examples browser with tabs</description>
+      <expected-structure>
+        <tabs>
+          <tab>Master Registry (default)</tab>
+          <tab>Publisher Examples</tab>
+        </tabs>
+        <shared-header>
+          <control>Location picker</control>
+          <control>Date selector</control>
+          <control>Location badge</control>
+          <control>Request Addition button - TO BE ADDED</control>
+        </shared-header>
+        <filters>Category, Shita, Status filters</filters>
+        <search>Search box</search>
+        <results>Paginated zman cards</results>
+      </expected-structure>
+      <modification-needed>
+        <item>Add "Request Addition" button to shared header</item>
+        <item>Integrate RequestZmanModal with source="registry"</item>
+        <item>Ensure button visible on BOTH tabs (Master Registry and Publisher Examples)</item>
+      </modification-needed>
+    </component>
+  </existing-code>
+
+  <!-- DATABASE SCHEMA -->
+  <database-schema>
+    <table name="publisher_zmanim">
+      <description>Publisher-specific zmanim catalog with formulas and settings</description>
+      <key-columns>
+        <column name="id" type="serial" constraint="primary key">Auto-increment ID</column>
+        <column name="publisher_id" type="integer" constraint="not null">FK to publishers table</column>
+        <column name="master_zmanim_id" type="integer" constraint="nullable">FK to master_zmanim_registry (direct import)</column>
+        <column name="linked_from_publisher_zman_id" type="integer" constraint="nullable">FK to publisher_zmanim (link from another publisher)</column>
+        <column name="copied_from_publisher_id" type="integer" constraint="nullable">FK to publishers (copy from another publisher)</column>
+        <column name="zman_key" type="varchar(100)" constraint="not null unique per publisher">Unique zman identifier</column>
+        <column name="hebrew_name" type="text" constraint="not null">Hebrew display name</column>
+        <column name="english_name" type="text" constraint="not null">English display name</column>
+        <column name="formula_dsl" type="text" constraint="not null">DSL calculation formula</column>
+        <column name="is_enabled" type="boolean" constraint="default true">Enable/disable zman</column>
+        <column name="is_published" type="boolean" constraint="default false">Publish to end-users</column>
+        <column name="deleted_at" type="timestamptz" constraint="default null">Soft delete timestamp</column>
+        <column name="created_at" type="timestamptz" constraint="default now()">Creation timestamp</column>
+        <column name="updated_at" type="timestamptz" constraint="default now()">Last update timestamp</column>
+      </key-columns>
+      <indexes>
+        <index>idx_publisher_zmanim_publisher_id ON publisher_id</index>
+        <index>idx_publisher_zmanim_master ON master_zmanim_id</index>
+        <index>idx_publisher_zmanim_active ON (id) WHERE deleted_at IS NULL</index>
+      </indexes>
+      <constraints>
+        <constraint>UNIQUE (publisher_id, master_zmanim_id) WHERE deleted_at IS NULL</constraint>
+        <constraint>UNIQUE (publisher_id, zman_key) WHERE deleted_at IS NULL</constraint>
+      </constraints>
+      <notes>
+        <note>Exactly ONE of (master_zmanim_id, linked_from_publisher_zman_id) must be non-NULL (no orphans)</note>
+        <note>All SELECT queries MUST filter WHERE deleted_at IS NULL</note>
+      </notes>
+    </table>
+
+    <table name="master_zmanim_registry">
+      <description>Canonical zmanim definitions with comprehensive documentation</description>
+      <key-columns>
+        <column name="id" type="serial" constraint="primary key">Auto-increment ID</column>
+        <column name="zman_key" type="varchar(100)" constraint="not null unique">Unique zman identifier</column>
+        <column name="hebrew_name" type="text" constraint="not null">Hebrew display name</column>
+        <column name="english_name" type="text" constraint="not null">English display name</column>
+        <column name="formula_dsl" type="text" constraint="not null">Canonical DSL formula</column>
+        <column name="full_description" type="text" constraint="nullable">Detailed description</column>
+        <column name="halachic_source" type="text" constraint="nullable">Halachic source references</column>
+        <column name="formula_explanation" type="text" constraint="nullable">Plain-language formula explanation</column>
+        <column name="usage_context" type="text" constraint="nullable">Usage notes</column>
+        <column name="related_zmanim_ids" type="integer[]" constraint="nullable">Array of related master zman IDs</column>
+        <column name="shita" type="varchar(50)" constraint="nullable">Shita/opinion (e.g., GRA, MGA, Baal Hatanya)</column>
+        <column name="category" type="varchar(50)" constraint="nullable">Category (e.g., ALOS, SHEMA, TZAIS)</column>
+        <column name="deleted_at" type="timestamptz" constraint="default null">Soft delete timestamp</column>
+      </key-columns>
+    </table>
+
+    <table name="zman_requests">
+      <description>Requests for new master zmanim to be added to registry</description>
+      <key-columns>
+        <column name="id" type="uuid" constraint="primary key">UUID identifier</column>
+        <column name="publisher_id" type="integer" constraint="not null">FK to publishers (requester)</column>
+        <column name="requested_key" type="varchar(100)" constraint="not null">Proposed zman key</column>
+        <column name="requested_hebrew_name" type="text" constraint="not null">Hebrew name</column>
+        <column name="requested_english_name" type="text" constraint="not null">English name</column>
+        <column name="transliteration" type="text" constraint="nullable">Transliteration</column>
+        <column name="time_category" type="varchar(50)" constraint="not null">Time category</column>
+        <column name="tag_ids" type="uuid[]" constraint="nullable">Array of tag IDs</column>
+        <column name="requested_new_tags" type="jsonb" constraint="nullable">Requested new tags [{name, type}]</column>
+        <column name="description" type="text" constraint="not null">Description/justification</column>
+        <column name="requested_formula_dsl" type="text" constraint="nullable">Optional suggested formula</column>
+        <column name="halachic_notes" type="text" constraint="nullable">Halachic notes</column>
+        <column name="halachic_source" type="text" constraint="nullable">Halachic source reference</column>
+        <column name="auto_add_on_approval" type="boolean" constraint="default true">Auto-add to requester's catalog on approval</column>
+        <column name="status" type="varchar(20)" constraint="default 'pending'">pending/approved/rejected</column>
+        <column name="reviewer_notes" type="text" constraint="nullable">Admin review notes</column>
+        <column name="reviewed_at" type="timestamptz" constraint="nullable">Review timestamp</column>
+        <column name="created_at" type="timestamptz" constraint="default now()">Request timestamp</column>
+      </key-columns>
+    </table>
+  </database-schema>
+
+  <!-- API ENDPOINTS -->
+  <api-endpoints>
+    <endpoint method="POST" path="/api/v1/publisher/zman-requests" auth="Publisher">
+      <description>Submit a new zman request to master registry</description>
+      <handler>api/internal/handlers/publisher_requests.go</handler>
+      <request-body>
+        <field name="requested_key" type="string" required="true">Proposed zman key</field>
+        <field name="requested_hebrew_name" type="string" required="true">Hebrew name</field>
+        <field name="requested_english_name" type="string" required="true">English name</field>
+        <field name="transliteration" type="string" optional="true">Transliteration</field>
+        <field name="time_category" type="string" required="true">Time category</field>
+        <field name="tag_ids" type="string[]" optional="true">Array of tag IDs</field>
+        <field name="requested_new_tags" type="object[]" optional="true">Array of {name: string, type: string}</field>
+        <field name="description" type="string" required="true">Description/justification</field>
+        <field name="requested_formula_dsl" type="string" optional="true">Optional suggested formula</field>
+        <field name="halachic_notes" type="string" optional="true">Halachic notes</field>
+        <field name="halachic_source" type="string" optional="true">Halachic source reference</field>
+        <field name="auto_add_on_approval" type="boolean" optional="true" default="true">Auto-add on approval</field>
+        <field name="source" type="string" optional="true">Source of request (registry/algorithm) - TO BE ADDED</field>
+      </request-body>
+      <response-success status="201">
+        <field name="id">Created request UUID</field>
+      </response-success>
+      <response-error status="400">Validation error</response-error>
+      <response-error status="401">Unauthorized</response-error>
+      <notes>
+        <note>REUSE EXISTING ENDPOINT - no backend changes needed for this story</note>
+        <note>Optional "source" field can be added to track request origin for analytics</note>
+      </notes>
+    </endpoint>
+
+    <endpoint method="GET" path="/api/v1/publisher/zman-requests" auth="Publisher">
+      <description>Get request history for current publisher</description>
+      <handler>api/internal/handlers/publisher_requests.go</handler>
+      <response-success status="200">
+        <field name="requests">Array of request objects</field>
+        <field name="total">Total count</field>
+      </response-success>
+    </endpoint>
+
+    <endpoint method="POST" path="/api/v1/publisher/registry/import" auth="Publisher">
+      <description>Import a master zman to publisher catalog</description>
+      <handler>api/internal/handlers/registry.go (Story 11.1)</handler>
+      <request-body>
+        <field name="master_zmanim_id" type="number" required="true">Master zman ID to import</field>
+      </request-body>
+      <response-success status="201">
+        <field name="zman_key">Created zman key</field>
+      </response-success>
+      <modification-needed>
+        <item>Return zman_key in response (for redirect focus parameter)</item>
+        <item>Frontend to redirect to /publisher/algorithm?focus={zman_key}</item>
+      </modification-needed>
+    </endpoint>
+
+    <endpoint method="POST" path="/api/v1/publisher/registry/link" auth="Publisher">
+      <description>Link to another publisher's zman</description>
+      <handler>api/internal/handlers/registry.go (Story 11.3)</handler>
+      <request-body>
+        <field name="publisher_zmanim_id" type="number" required="true">Source publisher zman ID</field>
+      </request-body>
+      <response-success status="201">
+        <field name="zman_key">Created zman key</field>
+      </response-success>
+      <modification-needed>
+        <item>Return zman_key in response (for redirect focus parameter)</item>
+        <item>Frontend to redirect to /publisher/algorithm?focus={zman_key}</item>
+      </modification-needed>
+    </endpoint>
+
+    <endpoint method="POST" path="/api/v1/publisher/registry/copy" auth="Publisher">
+      <description>Copy another publisher's zman</description>
+      <handler>api/internal/handlers/registry.go (Story 11.3)</handler>
+      <request-body>
+        <field name="publisher_zmanim_id" type="number" required="true">Source publisher zman ID</field>
+      </request-body>
+      <response-success status="201">
+        <field name="zman_key">Created zman key</field>
+      </response-success>
+      <modification-needed>
+        <item>Return zman_key in response (for redirect focus parameter)</item>
+        <item>Frontend to redirect to /publisher/algorithm?focus={zman_key}</item>
+      </modification-needed>
+    </endpoint>
+  </api-endpoints>
+
+  <!-- CODING STANDARDS -->
+  <coding-standards>
+    <frontend>
+      <standard>MANDATORY: Use useApi() hook for ALL API calls (no raw fetch)</standard>
+      <standard>MANDATORY: Use design tokens for colors (no hardcoded hex values)</standard>
+      <standard>MANDATORY: Check isLoaded before accessing Clerk user data</standard>
+      <standard>MANDATORY: Use shadcn/ui components (Select, not native select)</standard>
+      <standard>Use 12-hour time format (formatTime/formatTimeShort utils)</standard>
+      <standard>Component pattern: Hooks → Effects → Early returns (Loading/Error/Content)</standard>
+      <standard>Use useRouter for navigation, useSearchParams for URL params</standard>
+    </frontend>
+
+    <backend>
+      <standard>MANDATORY: Use PublisherResolver.MustResolve for publisher endpoints</standard>
+      <standard>MANDATORY: Use SQLc queries only (NO raw SQL)</standard>
+      <standard>MANDATORY: Use slog for logging (NO fmt.Printf)</standard>
+      <standard>MANDATORY: Use RespondJSON/RespondError helpers</standard>
+      <standard>MANDATORY: Filter deleted_at IS NULL in all queries</standard>
+      <standard>6-step handler pattern: Resolve → Extract → Parse → Validate → Query → Respond</standard>
+      <standard>Generic 500 error messages (no stack traces or DB errors exposed)</standard>
+    </backend>
+
+    <general>
+      <standard>ZERO TOLERANCE: No TODO, FIXME, @deprecated markers</standard>
+      <standard>ZERO TOLERANCE: No hardcoded secrets (use environment variables)</standard>
+      <standard>Delete old code, don't comment it out</standard>
+      <standard>One function per purpose (no duplication)</standard>
+    </general>
+  </coding-standards>
+
+  <!-- FILE CHANGES REQUIRED -->
+  <file-changes>
+    <modified-file path="web/app/publisher/algorithm/page.tsx">
+      <description>Main algorithm editor page</description>
+      <changes>
+        <change type="remove" priority="critical">
+          <description>Delete "Add Zman Mode" dialog (lines 1144-1238)</description>
+          <rationale>All zman addition now happens through registry interface</rationale>
+        </change>
+        <change type="remove" priority="critical">
+          <description>Remove MasterZmanPicker import and usage</description>
+        </change>
+        <change type="remove" priority="critical">
+          <description>Remove PublisherZmanPicker import and usage</description>
+        </change>
+        <change type="remove" priority="critical">
+          <description>Remove state: showAddZmanModeDialog, showZmanPicker, showPublisherZmanPicker, publisherZmanMode</description>
+        </change>
+        <change type="add" priority="high">
+          <description>Add "Browse Registry" button in header</description>
+          <code-sample><![CDATA[
+<Button
+  variant="outline"
+  onClick={() => router.push('/publisher/registry')}
+>
+  <Library className="h-4 w-4 mr-2" />
+  Browse Registry
+</Button>
+          ]]></code-sample>
+        </change>
+        <change type="add" priority="high">
+          <description>Add URL focus parameter handling</description>
+          <code-sample><![CDATA[
+import { useSearchParams } from 'next/navigation';
+
+const searchParams = useSearchParams();
+
+useEffect(() => {
+  const focusKey = searchParams.get('focus');
+  if (focusKey) {
+    const element = document.querySelector(`[data-zman-key="${focusKey}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('highlight-zman');
+      setTimeout(() => element.classList.remove('highlight-zman'), 3000);
+    }
+  }
+}, [searchParams]);
+          ]]></code-sample>
+        </change>
+        <change type="add" priority="medium">
+          <description>Add data-zman-key attribute to zman cards</description>
+          <code-sample><![CDATA[
+<div data-zman-key={zman.zman_key} className="zman-card">
+  {/* card content */}
+</div>
+          ]]></code-sample>
+        </change>
+        <change type="add" priority="medium">
+          <description>Add highlight CSS class (Tailwind utilities)</description>
+          <code-sample><![CDATA[
+.highlight-zman {
+  @apply border-green-500 border-2 animate-in fade-in duration-500;
+}
+          ]]></code-sample>
+        </change>
+      </changes>
+    </modified-file>
+
+    <modified-file path="web/app/publisher/registry/page.tsx">
+      <status>Created in Story 11.1</status>
+      <description>Registry browser with Master and Publisher Examples tabs</description>
+      <changes>
+        <change type="add" priority="high">
+          <description>Add "Request Addition" button in shared header</description>
+          <code-sample><![CDATA[
+import { RequestZmanModal } from '@/components/shared/RequestZmanModal';
+
+const [showRequestModal, setShowRequestModal] = useState(false);
+
+<div className="flex justify-between items-center mb-4">
+  <h1>Zmanim Registry</h1>
+  <Button
+    variant="secondary"
+    onClick={() => setShowRequestModal(true)}
+  >
+    <Plus className="h-4 w-4 mr-2" />
+    Request Addition
+  </Button>
+</div>
+
+<RequestZmanModal
+  open={showRequestModal}
+  onOpenChange={setShowRequestModal}
+  source="registry"
+  onSuccess={() => {
+    toast.success("Request submitted for admin review");
+    setShowRequestModal(false);
+  }}
+/>
+          ]]></code-sample>
+        </change>
+        <change type="verify" priority="medium">
+          <description>Ensure button visible on BOTH tabs (Master Registry and Publisher Examples)</description>
+          <note>Button should be in shared header outside tab content</note>
+        </change>
+      </changes>
+    </modified-file>
+
+    <modified-file path="web/components/shared/RequestZmanModal.tsx">
+      <status>Move from web/components/publisher/ if not already shared</status>
+      <description>Modal for requesting new zman addition to master registry</description>
+      <changes>
+        <change type="add" priority="low">
+          <description>Add optional "source" prop to track request origin</description>
+          <code-sample><![CDATA[
+interface RequestZmanModalProps {
+  trigger?: React.ReactNode;
+  onSuccess?: () => void;
+  onOpen?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  source?: 'registry' | 'algorithm'; // NEW: Track request origin
+}
+
+// In handleSubmit:
+await submitRequest.mutateAsync({
+  // ... existing fields
+  source: source, // Include source in request body
+});
+          ]]></code-sample>
+        </change>
+      </changes>
+    </modified-file>
+
+    <created-file path="web/app/publisher/registry/page.tsx">
+      <status>Created in Story 11.1 (prerequisite)</status>
+      <description>Registry page with tabs for Master Registry and Publisher Examples</description>
+      <note>This story assumes the page structure exists from Story 11.1. Only add Request Addition button.</note>
+    </created-file>
+  </file-changes>
+
+  <!-- IMPLEMENTATION STEPS -->
+  <implementation-steps>
+    <phase name="Phase 1: Registry Page Modification" priority="1">
+      <step order="1">
+        <description>Open web/app/publisher/registry/page.tsx</description>
+        <action>Verify page structure from Story 11.1 (tabs, shared header)</action>
+      </step>
+      <step order="2">
+        <description>Add "Request Addition" button to shared header</description>
+        <action>Import RequestZmanModal</action>
+        <action>Add button with onClick handler</action>
+        <action>Add state for modal open/close</action>
+      </step>
+      <step order="3">
+        <description>Integrate RequestZmanModal component</description>
+        <action>Use controlled mode (open/onOpenChange props)</action>
+        <action>Pass source="registry" prop</action>
+        <action>Add onSuccess handler with toast notification</action>
+      </step>
+      <step order="4">
+        <description>Verify button placement</description>
+        <action>Ensure button visible on Master Registry tab</action>
+        <action>Ensure button visible on Publisher Examples tab</action>
+      </step>
+    </phase>
+
+    <phase name="Phase 2: Algorithm Page Cleanup" priority="1">
+      <step order="1">
+        <description>Open web/app/publisher/algorithm/page.tsx</description>
+        <action>Locate lines 1144-1238 (Add Zman Mode dialog)</action>
+      </step>
+      <step order="2">
+        <description>Remove "Add Zman Mode" dialog code</description>
+        <action>Delete dialog JSX (lines 1144-1238)</action>
+        <action>Remove MasterZmanPicker import</action>
+        <action>Remove PublisherZmanPicker import</action>
+        <action>Remove state: showAddZmanModeDialog</action>
+        <action>Remove state: showZmanPicker</action>
+        <action>Remove state: showPublisherZmanPicker</action>
+        <action>Remove state: publisherZmanMode</action>
+        <action>Remove handlers related to Add Zman Mode</action>
+      </step>
+      <step order="3">
+        <description>Add "Browse Registry" button</description>
+        <action>Import useRouter from next/navigation</action>
+        <action>Add button in header area (next to other action buttons)</action>
+        <action>Set onClick to router.push('/publisher/registry')</action>
+      </step>
+      <step order="4">
+        <description>Test navigation</description>
+        <action>Click "Browse Registry" button</action>
+        <action>Verify navigation to /publisher/registry</action>
+      </step>
+    </phase>
+
+    <phase name="Phase 3: URL Focus Handling" priority="2">
+      <step order="1">
+        <description>Import URL parameter hooks</description>
+        <action>Import useSearchParams from next/navigation</action>
+      </step>
+      <step order="2">
+        <description>Add focus parameter parsing</description>
+        <action>Get focusKey from searchParams.get('focus')</action>
+        <action>Create useEffect with searchParams dependency</action>
+      </step>
+      <step order="3">
+        <description>Implement scroll and highlight logic</description>
+        <action>Query DOM for element with data-zman-key={focusKey}</action>
+        <action>If found: scrollIntoView with smooth behavior</action>
+        <action>Add 'highlight-zman' CSS class</action>
+        <action>setTimeout to remove class after 3000ms</action>
+        <action>If not found: silent fallback (no error)</action>
+      </step>
+      <step order="4">
+        <description>Add data-zman-key attribute to zman cards</description>
+        <action>Locate zman card rendering code</action>
+        <action>Add data-zman-key={zman.zman_key} to card wrapper</action>
+      </step>
+      <step order="5">
+        <description>Add highlight CSS class</description>
+        <action>Add Tailwind classes: border-green-500 border-2 animate-in fade-in duration-500</action>
+        <action>Consider adding global CSS class or inline Tailwind utilities</action>
+      </step>
+    </phase>
+
+    <phase name="Phase 4: Import/Link/Copy Redirect" priority="2">
+      <step order="1">
+        <description>Modify import success handler (Story 11.1)</description>
+        <action>After successful import, get zman_key from response</action>
+        <action>Call router.push(`/publisher/algorithm?focus=${zman_key}`)</action>
+        <action>Show toast: "Zman imported successfully"</action>
+      </step>
+      <step order="2">
+        <description>Modify link success handler (Story 11.3)</description>
+        <action>After successful link, get zman_key from response</action>
+        <action>Call router.push(`/publisher/algorithm?focus=${zman_key}`)</action>
+        <action>Show toast: "Linked to [Publisher Name]'s [Zman Name]"</action>
+      </step>
+      <step order="3">
+        <description>Modify copy success handler (Story 11.3)</description>
+        <action>After successful copy, get zman_key from response</action>
+        <action>Call router.push(`/publisher/algorithm?focus=${zman_key}`)</action>
+        <action>Show toast: "Copied [Zman Name] from [Publisher Name]"</action>
+      </step>
+    </phase>
+
+    <phase name="Phase 5: Testing" priority="3">
+      <step order="1">
+        <description>Manual testing - Registry Request Addition</description>
+        <action>Navigate to /publisher/registry</action>
+        <action>Click "Request Addition" button</action>
+        <action>Verify modal opens with source="registry"</action>
+        <action>Fill form and submit</action>
+        <action>Verify toast notification</action>
+        <action>Verify remain on registry page</action>
+      </step>
+      <step order="2">
+        <description>Manual testing - Algorithm Page Migration</description>
+        <action>Navigate to /publisher/algorithm</action>
+        <action>Verify "Browse Registry" button exists</action>
+        <action>Verify NO "Add Zman" button</action>
+        <action>Verify NO Add Zman Mode dialog</action>
+        <action>Click "Browse Registry" button</action>
+        <action>Verify navigation to /publisher/registry</action>
+      </step>
+      <step order="3">
+        <description>Manual testing - Focus Highlighting</description>
+        <action>Import a zman from registry</action>
+        <action>Verify redirect to /publisher/algorithm?focus={zman_key}</action>
+        <action>Verify scroll to zman card</action>
+        <action>Verify green border highlight</action>
+        <action>Wait 3 seconds, verify highlight fades out</action>
+      </step>
+      <step order="4">
+        <description>Manual testing - Focus Fallback</description>
+        <action>Navigate to /publisher/algorithm?focus=nonexistent_key</action>
+        <action>Verify no errors</action>
+        <action>Verify graceful fallback (no scroll/highlight)</action>
+      </step>
+    </phase>
+  </implementation-steps>
+
+  <!-- TESTING CHECKLIST -->
+  <testing-checklist>
+    <manual-tests>
+      <test id="MT1">
+        <description>Registry Request Addition button visibility</description>
+        <steps>
+          <step>Navigate to /publisher/registry (Master Registry tab)</step>
+          <step>Verify "Request Addition" button exists in header</step>
+          <step>Switch to Publisher Examples tab</step>
+          <step>Verify "Request Addition" button still visible</step>
+        </steps>
+      </test>
+
+      <test id="MT2">
+        <description>Request Addition modal opens and submits</description>
+        <steps>
+          <step>Click "Request Addition" button on registry page</step>
+          <step>Verify RequestZmanModal opens</step>
+          <step>Fill out form (required fields: key, Hebrew name, English name, category, description)</step>
+          <step>Submit form</step>
+          <step>Verify toast: "Request submitted for admin review"</step>
+          <step>Verify modal closes</step>
+          <step>Verify remain on registry page (no navigation)</step>
+        </steps>
+      </test>
+
+      <test id="MT3">
+        <description>Algorithm page cleanup verification</description>
+        <steps>
+          <step>Navigate to /publisher/algorithm</step>
+          <step>Verify "Browse Registry" button exists</step>
+          <step>Verify NO "Add Zman" button</step>
+          <step>Verify NO "Add Zman Mode" dialog (code inspection)</step>
+          <step>Verify NO MasterZmanPicker component (code inspection)</step>
+          <step>Verify NO PublisherZmanPicker component (code inspection)</step>
+        </steps>
+      </test>
+
+      <test id="MT4">
+        <description>Browse Registry navigation</description>
+        <steps>
+          <step>Navigate to /publisher/algorithm</step>
+          <step>Click "Browse Registry" button</step>
+          <step>Verify navigation to /publisher/registry</step>
+        </steps>
+      </test>
+
+      <test id="MT5">
+        <description>Import redirect and focus</description>
+        <steps>
+          <step>Navigate to /publisher/registry</step>
+          <step>Import a master zman (click Import button)</step>
+          <step>Verify redirect to /publisher/algorithm?focus={zman_key}</step>
+          <step>Verify page scrolls to newly added zman</step>
+          <step>Verify zman card has green border</step>
+          <step>Verify animation (fade-in or scale)</step>
+          <step>Wait 3 seconds</step>
+          <step>Verify highlight fades out</step>
+        </steps>
+      </test>
+
+      <test id="MT6">
+        <description>Link redirect and focus</description>
+        <steps>
+          <step>Navigate to /publisher/registry (Publisher Examples tab)</step>
+          <step>Select a publisher</step>
+          <step>Link to one of their zmanim</step>
+          <step>Verify redirect to /publisher/algorithm?focus={zman_key}</step>
+          <step>Verify scroll and highlight</step>
+        </steps>
+      </test>
+
+      <test id="MT7">
+        <description>Copy redirect and focus</description>
+        <steps>
+          <step>Navigate to /publisher/registry (Publisher Examples tab)</step>
+          <step>Select a publisher</step>
+          <step>Copy one of their zmanim</step>
+          <step>Verify redirect to /publisher/algorithm?focus={zman_key}</step>
+          <step>Verify scroll and highlight</step>
+        </steps>
+      </test>
+
+      <test id="MT8">
+        <description>Focus fallback for nonexistent zman</description>
+        <steps>
+          <step>Navigate to /publisher/algorithm?focus=nonexistent_zman_key</step>
+          <step>Verify page loads without errors</step>
+          <step>Verify no scroll occurs</step>
+          <step>Verify no highlight (graceful fallback)</step>
+        </steps>
+      </test>
+    </manual-tests>
+
+    <code-verification>
+      <check id="CV1">
+        <description>Verify Add Zman Mode dialog removed</description>
+        <action>Grep for "Add Zman Mode" in algorithm/page.tsx</action>
+        <expected>0 results</expected>
+      </check>
+
+      <check id="CV2">
+        <description>Verify MasterZmanPicker removed</description>
+        <action>Grep for "MasterZmanPicker" in algorithm/page.tsx</action>
+        <expected>0 results</expected>
+      </check>
+
+      <check id="CV3">
+        <description>Verify PublisherZmanPicker removed</description>
+        <action>Grep for "PublisherZmanPicker" in algorithm/page.tsx</action>
+        <expected>0 results</expected>
+      </check>
+
+      <check id="CV4">
+        <description>Verify showAddZmanModeDialog state removed</description>
+        <action>Grep for "showAddZmanModeDialog" in algorithm/page.tsx</action>
+        <expected>0 results</expected>
+      </check>
+
+      <check id="CV5">
+        <description>Verify Browse Registry button added</description>
+        <action>Grep for "Browse Registry" in algorithm/page.tsx</action>
+        <expected>1 result (button)</expected>
+      </check>
+
+      <check id="CV6">
+        <description>Verify useSearchParams imported</description>
+        <action>Check imports in algorithm/page.tsx</action>
+        <expected>import { useSearchParams } from 'next/navigation'</expected>
+      </check>
+
+      <check id="CV7">
+        <description>Verify data-zman-key attributes added</description>
+        <action>Grep for "data-zman-key" in algorithm/page.tsx</action>
+        <expected>At least 1 result in zman card rendering</expected>
+      </check>
+
+      <check id="CV8">
+        <description>Verify highlight-zman CSS class defined</description>
+        <action>Check for highlight-zman class definition</action>
+        <expected>Class with border-green-500, fade-in animation</expected>
+      </check>
+    </code-verification>
+  </testing-checklist>
+
+  <!-- DEPENDENCIES -->
+  <dependencies>
+    <prerequisite story="11.1">
+      <description>Master Registry Browser &amp; Import Flow</description>
+      <reason>Provides /publisher/registry page structure and import action</reason>
+      <required-elements>
+        <element>Registry page with tabs (Master Registry, Publisher Examples)</element>
+        <element>Import button and handler</element>
+        <element>Shared header structure</element>
+      </required-elements>
+    </prerequisite>
+
+    <prerequisite story="11.3">
+      <description>Publisher Examples Browser &amp; Link/Copy Flow</description>
+      <reason>Provides link and copy actions that redirect to algorithm page</reason>
+      <required-elements>
+        <element>Link button and handler</element>
+        <element>Copy button and handler</element>
+        <element>Publisher Examples tab structure</element>
+      </required-elements>
+    </prerequisite>
+
+    <dependent-story story="11.6">
+      <description>Publisher Zmanim Report (PDF Export)</description>
+      <reason>PDF Export button placement on algorithm page (next to Browse Registry)</reason>
+    </dependent-story>
+  </dependencies>
+
+  <!-- EDGE CASES & ERROR HANDLING -->
+  <edge-cases>
+    <case id="EC1">
+      <scenario>Focus parameter exists but zman was deleted</scenario>
+      <expected-behavior>Graceful fallback - no scroll, no highlight, no error</expected>
+      <implementation>Check if element exists before scrollIntoView</implementation>
+    </case>
+
+    <case id="EC2">
+      <scenario>Focus parameter with special characters</scenario>
+      <expected-behavior>Safe DOM query using data attribute selector</expected>
+      <implementation>Use querySelector with proper escaping</implementation>
+    </case>
+
+    <case id="EC3">
+      <scenario>Multiple focus parameters in URL (?focus=key1&amp;focus=key2)</scenario>
+      <expected-behavior>Focus on first parameter only</expected>
+      <implementation>Use searchParams.get('focus') which returns first value</implementation>
+    </case>
+
+    <case id="EC4">
+      <scenario>User navigates to algorithm page with focus, then navigates away, then back button</scenario>
+      <expected-behavior>Focus parameter preserved in browser history, highlight reapplies</expected>
+      <implementation>useEffect re-runs when searchParams changes</implementation>
+    </case>
+
+    <case id="EC5">
+      <scenario>Request Addition modal submission fails (network error)</scenario>
+      <expected-behavior>Error toast notification, modal stays open, form data preserved</expected>
+      <implementation>RequestZmanModal already handles errors via mutation</implementation>
+    </case>
+
+    <case id="EC6">
+      <scenario>User clicks "Request Addition" while not logged in</scenario>
+      <expected-behavior>Auth middleware redirects to login (handled by layout)</expected>
+      <implementation>No additional handling needed - layout protects route</implementation>
+    </case>
+  </edge-cases>
+
+  <!-- PERFORMANCE CONSIDERATIONS -->
+  <performance>
+    <consideration>
+      <metric>Focus highlighting should complete in &lt;200ms</metric>
+      <implementation>Use CSS animations (hardware-accelerated)</implementation>
+      <verification>Test with Chrome DevTools Performance panel</verification>
+    </consideration>
+
+    <consideration>
+      <metric>Navigation to registry page should be instant (&lt;100ms)</metric>
+      <implementation>Use client-side router.push (no full page reload)</implementation>
+      <verification>Monitor Network tab - should be 0 HTTP requests</verification>
+    </consideration>
+
+    <consideration>
+      <metric>RequestZmanModal should open in &lt;100ms</metric>
+      <implementation>Already client-side component, no lazy loading</implementation>
+      <verification>Measure state change to modal render</verification>
+    </consideration>
+  </performance>
+
+  <!-- ACCESSIBILITY -->
+  <accessibility>
+    <requirement>
+      <description>Keyboard navigation support</description>
+      <implementation>
+        <item>Tab to "Request Addition" button</item>
+        <item>Enter/Space to activate button</item>
+        <item>Escape to close modal</item>
+        <item>Tab to "Browse Registry" button</item>
+      </implementation>
+    </requirement>
+
+    <requirement>
+      <description>Screen reader support</description>
+      <implementation>
+        <item>ARIA label for "Request Addition" button</item>
+        <item>ARIA label for "Browse Registry" button</item>
+        <item>ARIA live region for toast notifications</item>
+        <item>Focus trap in RequestZmanModal (already implemented)</item>
+      </implementation>
+    </requirement>
+
+    <requirement>
+      <description>Focus management</description>
+      <implementation>
+        <item>Focus returns to trigger button after modal closes</item>
+        <item>Highlight does NOT interfere with keyboard navigation</item>
+        <item>Visible focus indicator on highlighted zman card</item>
+      </implementation>
+    </requirement>
+
+    <requirement>
+      <description>Color contrast</description>
+      <implementation>
+        <item>Green border (border-green-500) meets 3:1 contrast ratio</item>
+        <item>Button text meets 4.5:1 contrast ratio</item>
+      </implementation>
+    </requirement>
+  </accessibility>
+
+  <!-- FRS COVERED -->
+  <frs-covered>
+    <fr id="FR38">
+      <description>Request Addition button available on registry</description>
+      <acceptance-criteria>Button visible on Master Registry tab AND Publisher Examples tab</acceptance-criteria>
+    </fr>
+
+    <fr id="FR39">
+      <description>Opens RequestZmanModal component</description>
+      <acceptance-criteria>Clicking button opens modal with form</acceptance-criteria>
+    </fr>
+
+    <fr id="FR40">
+      <description>Pre-populates source field with "registry"</description>
+      <acceptance-criteria>Modal receives source="registry" prop</acceptance-criteria>
+    </fr>
+
+    <fr id="FR41">
+      <description>Available on both tabs</description>
+      <acceptance-criteria>Button in shared header outside tab content</acceptance-criteria>
+    </fr>
+
+    <fr id="FR48">
+      <description>Algorithm page has "Browse Registry" button</description>
+      <acceptance-criteria>Button exists in header, navigates to /publisher/registry</acceptance-criteria>
+    </fr>
+
+    <fr id="FR49">
+      <description>Algorithm page NO "Add Zman" button</description>
+      <acceptance-criteria>Add Zman button removed, no Add Zman Mode dialog</acceptance-criteria>
+    </fr>
+
+    <fr id="FR50">
+      <description>Algorithm page URL param ?focus= handling</description>
+      <acceptance-criteria>Parses focus param, scrolls to zman, highlights for 3 seconds</acceptance-criteria>
+    </fr>
+
+    <fr id="FR51">
+      <description>Algorithm page ZERO addition functionality (edit only)</description>
+      <acceptance-criteria>No MasterZmanPicker, no PublisherZmanPicker, no add dialog</acceptance-criteria>
+    </fr>
+  </frs-covered>
+
+  <!-- ADDITIONAL RESOURCES -->
+  <resources>
+    <documentation>
+      <doc path="/home/daniel/repos/zmanim/docs/coding-standards.md">Coding standards and patterns</doc>
+      <doc path="/home/daniel/repos/zmanim/docs/architecture.md">Architecture overview</doc>
+      <doc path="/home/daniel/repos/zmanim/docs/epic-11-publisher-zmanim-registry.md">Epic 11 full specification</doc>
+    </documentation>
+
+    <reference-code>
+      <file path="/home/daniel/repos/zmanim/web/components/publisher/RequestZmanModal.tsx">Request zman modal component (967 lines)</file>
+      <file path="/home/daniel/repos/zmanim/web/app/publisher/algorithm/page.tsx">Algorithm page (current implementation)</file>
+      <file path="/home/daniel/repos/zmanim/api/internal/handlers/INDEX.md">Handler registry and patterns</file>
+      <file path="/home/daniel/repos/zmanim/api/internal/db/queries/INDEX.md">SQLc query registry</file>
+    </reference-code>
+
+    <utilities>
+      <util path="/home/daniel/repos/zmanim/web/lib/api-client.ts">useApi() hook for HTTP calls</util>
+      <util path="/home/daniel/repos/zmanim/web/lib/utils/time-format.ts">formatTime() and formatTimeShort() utilities</util>
+    </utilities>
+  </resources>
+
+  <!-- SUCCESS METRICS -->
+  <success-metrics>
+    <metric>
+      <name>Behavioral Success</name>
+      <target>50%+ of new publishers use "Browse Registry" button within first week</target>
+      <measurement>Analytics event tracking on button click</measurement>
+    </metric>
+
+    <metric>
+      <name>Reduced Confusion</name>
+      <target>Zero support questions about "Add Zman" button (removed)</target>
+      <measurement>Support ticket tracking</measurement>
+    </metric>
+
+    <metric>
+      <name>Increased Contributions</name>
+      <target>20%+ increase in Request Addition submissions</target>
+      <measurement>Count of zman_requests records with source="registry"</measurement>
+    </metric>
+
+    <metric>
+      <name>Seamless Navigation</name>
+      <target>80%+ of users successfully navigate registry → algorithm → registry</target>
+      <measurement>Session tracking with page view sequences</measurement>
+    </metric>
+
+    <metric>
+      <name>Zero Regressions</name>
+      <target>Algorithm page edit functionality works perfectly</target>
+      <measurement>Manual QA testing, E2E tests passing</measurement>
+    </metric>
+
+    <metric>
+      <name>Zero Dead Code</name>
+      <target>All Add Zman Mode code removed (MasterZmanPicker, PublisherZmanPicker, dialog)</target>
+      <measurement>Code grep verification, build size reduction</measurement>
+    </metric>
+
+    <metric>
+      <name>Performance</name>
+      <target>Focus highlighting completes in &lt;200ms</target>
+      <measurement>Chrome DevTools Performance panel</measurement>
+    </metric>
+
+    <metric>
+      <name>Mobile UX</name>
+      <target>Request Addition workflow works on mobile devices</target>
+      <measurement>Manual testing on iOS and Android</measurement>
+    </metric>
+  </success-metrics>
+</story-context>

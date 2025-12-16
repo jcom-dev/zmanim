@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.8" title="Local Test Environment Parity">
+  <summary>
+    This context file provides all information needed to create local test scripts that mirror
+    the GitHub Actions CI pipeline exactly, enabling developers to catch issues before pushing.
+  </summary>
+
+  <current-state>
+    <description>
+      Developers run inconsistent test commands locally. No single script mirrors the full CI pipeline.
+      This leads to "works on my machine" failures and wasted CI cycles.
+    </description>
+
+    <problem>
+      - Developer A: cd api && go test ./...
+      - Developer B: cd web && npm run lint && npm run type-check
+      - Developer C: ./restart.sh (just services, no tests)
+      - CI runs comprehensive checks that aren't replicated locally
+    </problem>
+  </current-state>
+
+  <target-state>
+    <description>
+      Two scripts that enable developers to run exact CI checks locally:
+      1. ./scripts/test-local.sh - Full CI pipeline mirror
+      2. ./scripts/pre-commit-check.sh - Fast subset for pre-commit
+    </description>
+  </target-state>
+
+  <files>
+    <file path="/home/coder/workspace/zmanim/.github/workflows/pr-checks.yml" relevance="primary">
+      <description>
+        PR check workflow to mirror. Contains exact commands and flags for:
+        - Frontend: type-check, lint, unit tests, build
+        - Backend: build, test with coverage, vet, golangci-lint
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/.github/workflows/pr-e2e.yml" relevance="primary">
+      <description>
+        E2E test workflow. Shows services needed and Playwright commands.
+      </description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/api/.golangci.yml" relevance="reference">
+      <description>golangci-lint configuration - must match CI</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/web/.eslintrc.json" relevance="reference">
+      <description>ESLint configuration - must match CI</description>
+    </file>
+
+    <file path="/home/coder/workspace/zmanim/tests/playwright.config.ts" relevance="reference">
+      <description>Playwright configuration - must match CI usage</description>
+    </file>
+  </files>
+
+  <ci-commands>
+    <section name="Frontend (pr-checks.yml)">
+      <commands><![CDATA[
+npm ci
+npm run type-check
+npm run lint
+npm run test
+npm run build
+      ]]></commands>
+    </section>
+
+    <section name="Backend (pr-checks.yml)">
+      <commands><![CDATA[
+go mod download
+go mod verify
+go build -v ./...
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -func=coverage.out
+go vet ./...
+golangci-lint run ./... --timeout 5m
+      ]]></commands>
+    </section>
+
+    <section name="E2E (pr-e2e.yml)">
+      <commands><![CDATA[
+# Services via restart.sh (PostgreSQL 17 + PostGIS, Redis 7)
+cd tests && npx playwright test
+      ]]></commands>
+    </section>
+  </ci-commands>
+
+  <scripts-to-create>
+    <script name="test-local.sh">
+      <path>/home/coder/workspace/zmanim/scripts/test-local.sh</path>
+      <purpose>Full CI pipeline mirror</purpose>
+      <features>
+        - All CI checks in correct order
+        - --skip-e2e flag for faster iteration
+        - --verbose flag for detailed output
+        - Colored output with timing
+        - Summary report at end
+        - Version checks for required tools
+      </features>
+    </script>
+
+    <script name="pre-commit-check.sh">
+      <path>/home/coder/workspace/zmanim/scripts/pre-commit-check.sh</path>
+      <purpose>Fast pre-commit validation</purpose>
+      <features>
+        - ESLint + type-check + go fmt only
+        - Under 30 second target
+        - Catches most common issues
+      </features>
+    </script>
+  </scripts-to-create>
+
+  <expected-runtimes>
+    <step name="Backend lint (golangci-lint)">30-60s</step>
+    <step name="Frontend lint (ESLint)">5-10s</step>
+    <step name="Type check">10-15s</step>
+    <step name="Backend build">20-30s</step>
+    <step name="Backend tests">30-60s</step>
+    <step name="Go vet">5-10s</step>
+    <step name="Frontend build">60-90s</step>
+    <step name="E2E tests">120-180s</step>
+    <total full="5-8 minutes" skip-e2e="2-3 minutes" pre-commit="20-30s"/>
+  </expected-runtimes>
+
+  <tool-requirements>
+    <tool name="Go" version="1.24+" check="go version"/>
+    <tool name="Node" version="20" check="node --version"/>
+    <tool name="golangci-lint" version="latest" check="golangci-lint --version">
+      <install>curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin</install>
+    </tool>
+    <tool name="Playwright" version="matches package.json" check="npx playwright --version">
+      <install>cd tests && npm ci && npx playwright install chromium --with-deps</install>
+    </tool>
+  </tool-requirements>
+
+  <verification-commands>
+    <command name="Run Full Test Suite">
+      <code>./scripts/test-local.sh</code>
+    </command>
+
+    <command name="Run Without E2E">
+      <code>./scripts/test-local.sh --skip-e2e</code>
+    </command>
+
+    <command name="Run Pre-commit Check">
+      <code>./scripts/pre-commit-check.sh</code>
+    </command>
+
+    <command name="Verify Script Matches CI">
+      <description>Output should match CI results</description>
+    </command>
+  </verification-commands>
+
+  <documentation-updates>
+    <file path="README.md">Add "Running CI Locally" section</file>
+    <file path="scripts/README.md">Document new scripts</file>
+  </documentation-updates>
+
+  <references>
+    <reference type="documentation">
+      golangci-lint: https://golangci-lint.run/usage/install/
+    </reference>
+    <reference type="documentation">
+      Playwright: https://playwright.dev/docs/intro
+    </reference>
+    <reference type="code">
+      Coding Standards: /home/coder/workspace/zmanim/docs/coding-standards.md
+    </reference>
+  </references>
+</story-context>

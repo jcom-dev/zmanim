@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-12-backend-slog-migration" epic="5" generated="2025-12-02">
+  <summary>
+    Migrate ~100 log.Printf and fmt.Printf calls to slog structured logging
+    for consistent, searchable, context-rich logs.
+  </summary>
+
+  <violation-count>~100 log.Printf/fmt.Printf calls</violation-count>
+  <detection-command>grep -rEn "log\.Printf|fmt\.Printf|fmt\.Println" api/internal/handlers api/internal/services --include="*.go"</detection-command>
+  <exemptions>api/cmd/ directory is EXEMPT (CLI tools)</exemptions>
+
+  <key-files>
+    <file path="api/internal/handlers/*.go" action="modify">
+      HTTP handlers - primary migration target
+    </file>
+    <file path="api/internal/services/*.go" action="modify">
+      Business logic services
+    </file>
+    <file path="api/internal/middleware/*.go" action="modify">
+      Middleware logging
+    </file>
+    <file path="api/internal/dsl/*.go" action="modify">
+      DSL parser logging
+    </file>
+    <file path="api/internal/cache/*.go" action="modify">
+      Cache operations logging
+    </file>
+  </key-files>
+
+  <migration-patterns>
+    <pattern name="Error logging - Before">
+      <code>log.Printf("Error fetching publisher %s: %v", publisherID, err)</code>
+    </pattern>
+    <pattern name="Error logging - After">
+      <code>
+slog.Error("failed to fetch publisher",
+    "error", err,
+    "publisher_id", publisherID,
+)
+      </code>
+    </pattern>
+
+    <pattern name="Info logging - Before">
+      <code>fmt.Printf("Processing request for user %s\n", userID)</code>
+    </pattern>
+    <pattern name="Info logging - After">
+      <code>
+slog.Info("processing request",
+    "user_id", userID,
+)
+      </code>
+    </pattern>
+
+    <pattern name="Warning logging - After">
+      <code>
+slog.Warn("deprecated endpoint called",
+    "endpoint", r.URL.Path,
+    "user_id", userID,
+)
+      </code>
+    </pattern>
+  </migration-patterns>
+
+  <log-levels>
+    <level name="slog.Error">
+      When: Operation failed with user impact
+      Examples: Database error, auth failure, validation error
+    </level>
+    <level name="slog.Warn">
+      When: Recoverable issue, no user impact
+      Examples: Deprecated endpoint, rate limit hit, cache miss
+    </level>
+    <level name="slog.Info">
+      When: Successful operation, audit trail
+      Examples: User created, profile updated, request processed
+    </level>
+    <level name="slog.Debug">
+      When: Developer debugging only
+      Examples: Query timing, cache hit/miss, internal state
+    </level>
+  </log-levels>
+
+  <logging-boundaries>
+    <rule name="Log at handler boundary">
+      Service layer: Return error, don't log
+      Handler layer: Log the error with context
+    </rule>
+    <code>
+// Service layer - return error only
+func (s *Service) DoSomething() error {
+    if err != nil {
+        return fmt.Errorf("failed to do something: %w", err)
+    }
+    return nil
+}
+
+// Handler layer - log with context
+if err != nil {
+    slog.Error("operation failed",
+        "error", err,
+        "user_id", userID,
+        "publisher_id", publisherID,
+    )
+    RespondInternalError(w, r, "Failed to process request")
+    return
+}
+    </code>
+  </logging-boundaries>
+
+  <context-fields>
+    <field name="error">Always include for error logs</field>
+    <field name="user_id">When user context available</field>
+    <field name="publisher_id">When publisher context available</field>
+    <field name="request_id">From middleware if available</field>
+    <field name="endpoint">For request logging</field>
+    <field name="duration">For performance logging</field>
+  </context-fields>
+
+  <priority-files>
+    <priority level="P1" dir="api/internal/handlers/" count="~40"/>
+    <priority level="P1" dir="api/internal/services/" count="~30"/>
+    <priority level="P2" dir="api/internal/middleware/" count="~15"/>
+    <priority level="P2" dir="api/internal/dsl/" count="~10"/>
+    <priority level="P3" dir="api/internal/cache/" count="~5"/>
+    <priority level="EXEMPT" dir="api/cmd/" count="~20"/>
+  </priority-files>
+
+  <commands>
+    <command purpose="Find violations">grep -rEn "log\.Printf|fmt\.Printf|fmt\.Println" api/internal/handlers api/internal/services --include="*.go"</command>
+    <command purpose="Build">cd api && go build ./...</command>
+    <command purpose="Test">cd api && go test ./...</command>
+    <command purpose="Restart">./restart.sh</command>
+    <command purpose="Verify zero violations">grep -rE "log\.Printf|fmt\.Printf|fmt\.Println" api/internal/handlers api/internal/services --include="*.go" | wc -l</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Zero violations in api/internal/handlers</item>
+    <item>Zero violations in api/internal/services</item>
+    <item>All slog calls include appropriate context fields</item>
+    <item>Log at handler boundary pattern followed</item>
+    <item>Go build passes with no errors</item>
+    <item>Go tests pass</item>
+    <item>Sample logs verified for correct format</item>
+  </acceptance-checklist>
+</story-context>

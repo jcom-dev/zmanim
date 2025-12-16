@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-14-e2e-parallel-mode" epic="5" generated="2025-12-02">
+  <summary>
+    Add parallel mode configuration to 23 E2E test files for faster CI runs.
+    Requires shared fixtures instead of per-test data creation.
+  </summary>
+
+  <violation-count>23 test files missing parallel mode</violation-count>
+  <detection-command>grep -rL "mode: 'parallel'" tests/e2e --include="*.spec.ts" | wc -l</detection-command>
+  <dependency>Story 5.13 (deterministic waits) should be completed first</dependency>
+
+  <key-files>
+    <file path="tests/e2e/**/*.spec.ts" action="modify">
+      Add test.describe.configure({ mode: 'parallel' })
+    </file>
+    <file path="tests/e2e/utils/shared-fixtures.ts" action="reference">
+      Use getSharedPublisher() for test data
+    </file>
+    <file path="tests/playwright.config.ts" action="modify">
+      Configure workers count
+    </file>
+  </key-files>
+
+  <required-pattern>
+    <description>Every spec file must have this at the top</description>
+    <code>
+import { test, expect } from '@playwright/test';
+import { getSharedPublisher, loginAsPublisher, BASE_URL } from '../utils';
+
+// REQUIRED: Enable parallel mode
+test.describe.configure({ mode: 'parallel' });
+
+test.describe('Feature Name', () => {
+  test('test case', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    // Test logic...
+  });
+});
+    </code>
+  </required-pattern>
+
+  <anti-patterns>
+    <pattern name="Data creation per test (WRONG)">
+      <code>
+let testPublisher: Publisher;
+
+test.beforeEach(async () => {
+  testPublisher = await createTestPublisherEntity({ name: 'Test' });
+});
+
+test.afterEach(async () => {
+  await cleanupTestData();
+});
+      </code>
+    </pattern>
+
+    <pattern name="Shared fixtures (CORRECT)">
+      <code>
+test.describe.configure({ mode: 'parallel' });
+
+test('should do something', async ({ page }) => {
+  const publisher = getSharedPublisher('verified-1');
+  await loginAsPublisher(page, publisher.id);
+});
+      </code>
+    </pattern>
+  </anti-patterns>
+
+  <shared-fixture-types>
+    <type key="verified-1" description="General tests needing auth"/>
+    <type key="verified-2" description="General tests needing auth"/>
+    <type key="verified-3" description="General tests needing auth"/>
+    <type key="verified-4" description="General tests needing auth"/>
+    <type key="verified-5" description="General tests needing auth"/>
+    <type key="pending" description="Testing pending status flows"/>
+    <type key="suspended" description="Testing suspended status flows"/>
+    <type key="with-algorithm-1" description="Algorithm editor tests"/>
+    <type key="with-algorithm-2" description="Algorithm editor tests"/>
+    <type key="with-coverage" description="Coverage page tests"/>
+    <type key="empty-1" description="Onboarding/empty state tests"/>
+    <type key="empty-2" description="Onboarding/empty state tests"/>
+    <type key="empty-3" description="Onboarding/empty state tests"/>
+  </shared-fixture-types>
+
+  <files-to-update>
+    <priority level="P1">
+      <file>tests/e2e/publisher/dashboard.spec.ts</file>
+      <file>tests/e2e/publisher/algorithm-editor.spec.ts</file>
+      <file>tests/e2e/publisher/coverage.spec.ts</file>
+      <file>tests/e2e/publisher/profile.spec.ts</file>
+    </priority>
+    <priority level="P2">
+      <file>tests/e2e/admin/dashboard.spec.ts</file>
+      <file>tests/e2e/admin/publishers.spec.ts</file>
+      <file>tests/e2e/admin/impersonation.spec.ts</file>
+    </priority>
+    <priority level="P3">
+      <file>tests/e2e/auth/authentication.spec.ts</file>
+      <file>tests/e2e/public/public-pages.spec.ts</file>
+      <file>All other spec files</file>
+    </priority>
+  </files-to-update>
+
+  <commands>
+    <command purpose="Find violations">grep -rL "mode: 'parallel'" tests/e2e --include="*.spec.ts" | wc -l</command>
+    <command purpose="List violations">grep -rL "mode: 'parallel'" tests/e2e --include="*.spec.ts"</command>
+    <command purpose="Run parallel">npx playwright test --workers=4</command>
+    <command purpose="Check flakiness">npx playwright test && npx playwright test && npx playwright test</command>
+    <command purpose="Verify fixed">grep -L "mode: 'parallel'" tests/e2e/**/*.spec.ts 2>/dev/null | wc -l</command>
+  </commands>
+
+  <performance-targets>
+    <metric name="Local test time" before="~5 min" after="~2 min"/>
+    <metric name="CI test time" before="~8 min" after="~3 min"/>
+    <metric name="Worker utilization" before="1 core" after="4 cores"/>
+  </performance-targets>
+
+  <acceptance-checklist>
+    <item>All spec files have mode: 'parallel' configured</item>
+    <item>No beforeEach/afterEach data creation</item>
+    <item>All tests use shared fixtures (getSharedPublisher)</item>
+    <item>Tests pass locally in parallel</item>
+    <item>Tests pass 3 consecutive runs (no data conflicts)</item>
+    <item>CI tests pass in parallel mode</item>
+    <item>Test run time improved (measured)</item>
+  </acceptance-checklist>
+</story-context>

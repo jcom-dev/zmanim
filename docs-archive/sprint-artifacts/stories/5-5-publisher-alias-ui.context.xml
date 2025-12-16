@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-5-publisher-alias-ui" epic="5" generated="2025-12-02">
+  <summary>
+    Frontend UI for publishers to rename zmanim in Advanced DSL editor mode.
+    Shows custom name prominently while keeping canonical name visible as reference.
+  </summary>
+
+  <key-files>
+    <file path="web/components/publisher/ZmanAliasEditor.tsx" action="create">
+      Form component for editing Hebrew/English/Transliteration
+    </file>
+    <file path="web/app/publisher/algorithm/edit/[zman_key]/page.tsx" action="modify">
+      Integration point - show editor in Advanced mode only
+    </file>
+    <file path="web/components/publisher/ZmanCard.tsx" action="modify">
+      Display custom names prominently with canonical as subtitle
+    </file>
+    <file path="web/lib/hooks/usePublisherAliases.ts" action="create">
+      API hooks for alias CRUD operations
+    </file>
+  </key-files>
+
+  <component-props>
+    <typescript>
+interface ZmanAliasEditorProps {
+  zmanKey: string;
+  canonicalHebrewName: string;
+  canonicalEnglishName: string;
+  existingAlias?: {
+    customHebrewName: string;
+    customEnglishName: string;
+    customTransliteration?: string;
+  };
+  onSave: (alias: AliasData) => Promise&lt;void&gt;;
+  onRemove: () => Promise&lt;void&gt;;
+}
+    </typescript>
+  </component-props>
+
+  <ui-requirements>
+    <requirement>Only visible in Advanced DSL editor mode, NOT in Guided Builder</requirement>
+    <requirement>Section appears below formula editor on zman edit page</requirement>
+    <requirement>Shows "Original: [canonical name]" in subtle gray text</requirement>
+    <requirement>Hebrew name field has dir="rtl" for proper RTL input</requirement>
+    <requirement>Save button saves via PUT /api/v1/publisher/zmanim/{key}/alias</requirement>
+    <requirement>"Remove Custom Name" button appears only when alias exists</requirement>
+    <requirement>Toast notifications for save success/error</requirement>
+  </ui-requirements>
+
+  <zman-card-display>
+    <note>In algorithm list, show custom name prominently if alias exists</note>
+    <example>
+      Custom: "עמוד השחר" / "Dawn Column"
+      Canonical (subtitle): "(עלות השחר / Dawn)"
+    </example>
+    <logic>
+      displayName = zman.customEnglishName || zman.canonicalEnglishName;
+      hasAlias = customName !== canonicalName;
+      if (hasAlias) show canonical as subtitle
+    </logic>
+  </zman-card-display>
+
+  <api-integration>
+    <note>Use useApi() hook, NOT raw fetch()</note>
+    <note>Consider usePublisherMutation for save/delete with cache invalidation</note>
+    <hooks>
+      <hook name="useAlias">Fetch existing alias for a zman</hook>
+      <hook name="useSaveAlias">PUT mutation</hook>
+      <hook name="useDeleteAlias">DELETE mutation</hook>
+    </hooks>
+  </api-integration>
+
+  <styling>
+    <note>Use design tokens from Tailwind config</note>
+    <note>Border/background: border rounded-lg p-4 bg-muted/30</note>
+    <note>Section title: font-medium mb-2</note>
+    <note>Canonical reference: text-sm text-muted-foreground</note>
+    <note>NO hardcoded colors</note>
+  </styling>
+
+  <reusable-component-opportunity>
+    Consider creating HebrewEnglishNameEditor component for the triplet pattern.
+    Reused in: ZmanAliasEditor (this story), ZmanRequestForm (Story 5.7)
+  </reusable-component-opportunity>
+
+  <commands>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Lint">cd web && npm run lint</command>
+    <command purpose="Restart">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>ZmanAliasEditor component created</item>
+    <item>Only visible in Advanced DSL mode</item>
+    <item>Canonical name always visible as reference</item>
+    <item>Hebrew input has RTL support (dir="rtl")</item>
+    <item>Save creates/updates alias via API</item>
+    <item>Remove button deletes alias</item>
+    <item>Zman cards show custom names prominently</item>
+    <item>Toast notifications for feedback</item>
+    <item>Uses useApi() hook (not raw fetch)</item>
+  </acceptance-checklist>
+</story-context>

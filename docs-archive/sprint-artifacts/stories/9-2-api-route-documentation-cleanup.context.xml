@@ -1,0 +1,579 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="9.2" title="API Route Documentation & Cleanup">
+  <summary>
+    This context file provides all technical details needed to document API patterns
+    and clean up Epic 8 deprecated code. Includes version history patterns (algorithm
+    and zman), soft-delete patterns, route structure, and documentation standards.
+  </summary>
+
+  <files>
+    <file path="api/internal/handlers/version_history.go" relevance="primary">
+      <purpose>Algorithm version history - global versioning pattern</purpose>
+      <key-functions>
+        <!-- List Handler: GET /publisher/algorithm/history -->
+        - GetVersionHistory (lines 54-127): Lists all algorithm versions with current version indicator
+        - GetVersionDetail (lines 131-181): Returns full version details including config snapshot
+        - GetVersionDiff (lines 185-254): Compares two algorithm versions and returns diff
+        - RollbackVersion (lines 258-377): Rolls back to previous version (creates new version)
+        - CreateVersionSnapshot (lines 381-451): Creates snapshot on save
+      </key-functions>
+      <data-structures>
+        - VersionHistoryEntry: Version list item with ID, version_number, status, is_current flag
+        - VersionDetail: Full version with config snapshot (JSON)
+        - DiffResponse: Comparison result between two versions
+        - RollbackRequest: Target version + status (draft/published)
+      </data-structures>
+      <pattern-notes>
+        - Global versioning: All algorithm changes create new version
+        - Version numbers increment sequentially (1, 2, 3...)
+        - Rollback creates NEW version (not destructive)
+        - Each version has status: draft or published
+        - Config stored as JSON snapshot
+        - Diff uses internal/diff package
+      </pattern-notes>
+    </file>
+
+    <file path="api/internal/handlers/master_registry.go" relevance="primary">
+      <purpose>Zman version history - per-resource versioning pattern</purpose>
+      <key-functions>
+        <!-- Per-Zman Version History: GET /publisher/zmanim/{zmanKey}/history -->
+        - GetZmanVersionHistory (lines 1128-1172): Lists all versions for a specific zman
+        - GetZmanVersionDetail (lines 1182-1236): Returns specific version of a zman
+        - RollbackZmanVersion (lines 1246-1355): Rolls back zman to previous version
+
+        <!-- Soft-Delete Pattern -->
+        - SoftDeletePublisherZman (lines 1365-1465): Soft deletes zman (sets deleted_at, deleted_by)
+        - RestorePublisherZman (lines 1473-1528): Restores soft-deleted zman
+        - PermanentDeletePublisherZman (lines 1536-1593): Permanently deletes zman
+        - GetDeletedZmanim (referenced in routes): Lists soft-deleted zmanim
+      </key-functions>
+      <data-structures>
+        - ZmanVersion (lines 97-106): Version metadata with version_number, formula_dsl, created info
+        - RollbackZmanRequest (lines 146-148): Contains target version_number
+      </data-structures>
+      <pattern-notes>
+        - Per-resource versioning: Each zman has independent version history
+        - Version created automatically on formula_dsl update
+        - Rollback updates formula to target version (triggers new version)
+        - Soft-delete sets deleted_at timestamp and deleted_by user ID
+        - Restore clears deleted_at and deleted_by
+        - Permanent delete only works on already soft-deleted records
+      </pattern-notes>
+    </file>
+
+    <file path="api/internal/handlers/publisher_zmanim.go" relevance="secondary">
+      <purpose>Publisher zmanim management with soft-delete</purpose>
+      <key-functions>
+        - UpdatePublisherZman (lines 1129-1224): Updates zman, triggers version creation
+        - DeletePublisherZman (lines 1228-1273): DEPRECATED - now redirects to soft-delete
+      </key-functions>
+      <pattern-notes>
+        - Soft-delete is the default for publisher zmanim
+        - Updates invalidate cache
+        - Dependencies extracted from formula_dsl automatically
+      </pattern-notes>
+    </file>
+
+    <file path="api/internal/handlers/publisher_snapshots.go" relevance="secondary">
+      <purpose>Publisher snapshot system - version control for entire publisher state</purpose>
+      <key-functions>
+        - SavePublisherSnapshot (lines 146-188): Creates snapshot of current state
+        - RestorePublisherSnapshot (lines 278-324): Restores from snapshot (auto-saves current first)
+        - DeletePublisherSnapshot (lines 328-373): Deletes saved snapshot
+        - ExportPublisherSnapshot (lines 16-55): Exports as JSON download
+        - ImportPublisherSnapshot (lines 59-142): Imports from JSON
+      </key-functions>
+      <pattern-notes>
+        - Snapshot includes all zmanim for a publisher
+        - Restore auto-saves current state before restoring
+        - Export/import for backup/migration
+        - NOT the same as soft-delete (different purpose)
+      </pattern-notes>
+    </file>
+
+    <file path="api/internal/handlers/publisher_algorithm.go" relevance="secondary">
+      <purpose>Algorithm lifecycle with versioning</purpose>
+      <key-functions>
+        - PublishAlgorithm (lines 502-609): Publishes draft, archives active, invalidates cache
+        - GetAlgorithmVersions (lines 613-650): Lists all algorithm versions
+        - DeprecateAlgorithmVersion (lines 654-703): Marks version as deprecated
+      </key-functions>
+      <pattern-notes>
+        - Draft/Active/Deprecated status flow
+        - Publishing archives current active version
+        - Cache invalidation on publish
+      </pattern-notes>
+    </file>
+
+    <file path="api/cmd/api/main.go" relevance="primary">
+      <purpose>Route registration - complete API structure</purpose>
+      <key-routes>
+        <!-- Algorithm Version History (lines 386-391) -->
+        r.Get("/algorithm/history", h.GetVersionHistory)
+        r.Get("/algorithm/history/{version}", h.GetVersionDetail)
+        r.Get("/algorithm/diff", h.GetVersionDiff)
+        r.Post("/algorithm/rollback", h.RollbackVersion)
+        r.Post("/algorithm/snapshot", h.CreateVersionSnapshot)
+
+        <!-- Zman Version History (lines 365-367) -->
+        r.Get("/zmanim/{zmanKey}/history", h.GetZmanVersionHistory)
+        r.Get("/zmanim/{zmanKey}/history/{version}", h.GetZmanVersionDetail)
+        r.Post("/zmanim/{zmanKey}/rollback", h.RollbackZmanVersion)
+
+        <!-- Soft-Delete Pattern (lines 359-363) -->
+        r.Delete("/zmanim/{zmanKey}", h.SoftDeletePublisherZman)
+        r.Get("/zmanim/deleted", h.GetDeletedZmanim)
+        r.Post("/zmanim/{zmanKey}/restore", h.RestorePublisherZman)
+        r.Delete("/zmanim/{zmanKey}/permanent", h.PermanentDeletePublisherZman)
+
+        <!-- Snapshot Routes (lines 424-430) -->
+        r.Get("/snapshot/export", h.ExportPublisherSnapshot)
+        r.Post("/snapshot/import", h.ImportPublisherSnapshot)
+        r.Get("/snapshots", h.ListPublisherSnapshots)
+        r.Post("/snapshot", h.SavePublisherSnapshot)
+        r.Get("/snapshot/{id}", h.GetPublisherSnapshot)
+        r.Post("/snapshot/{id}/restore", h.RestorePublisherSnapshot)
+        r.Delete("/snapshot/{id}", h.DeletePublisherSnapshot)
+      </key-routes>
+      <middleware-stack>
+        1. RequestID - Trace requests
+        2. RealIP - Extract real client IP
+        3. OriginVerify - Verify API Gateway origin
+        4. LogFailedRequestBodies - Debug failed requests
+        5. Logger - Request logging
+        6. Recoverer - Panic recovery
+        7. Timeout - 30s timeout
+        8. SecurityHeaders - Security headers
+        9. CORS - Cross-origin handling
+        10. ContentType - application/json enforcement (on /api/v1)
+        11. RequireRole - Auth + role checking (per route group)
+      </middleware-stack>
+    </file>
+
+    <file path="docs/coding-standards.md" relevance="reference">
+      <purpose>Backend handler patterns and database standards</purpose>
+      <key-sections>
+        - Backend Standards (lines 228-277): 6-step handler pattern
+        - Soft Delete Pattern (lines 376-567): Database schema + query patterns
+        - Response Format (lines 272-276): RespondJSON usage
+      </key-sections>
+      <handler-pattern>
+        1. Resolve publisher context
+        2. Extract URL params
+        3. Parse body
+        4. Validate
+        5. SQLc query (NO RAW SQL)
+        6. Respond
+      </handler-pattern>
+    </file>
+  </files>
+
+  <patterns>
+    <pattern name="Version History - Algorithm (Global)">
+      <description>
+        Algorithm-wide versioning where every save creates a new version.
+        Used for tracking complete algorithm configuration changes over time.
+      </description>
+
+      <when-to-use>
+        - Global resource versioning (entire publisher algorithm)
+        - Need to compare/diff between versions
+        - Rollback affects entire algorithm config
+        - Status workflow: draft → published
+      </when-to-use>
+
+      <database-schema>
+        <!-- Table: algorithm_versions -->
+        - id (SERIAL PRIMARY KEY)
+        - algorithm_id (FK to algorithms)
+        - version_number (incremental: 1, 2, 3...)
+        - status (draft | published)
+        - config_snapshot (JSONB)
+        - description (TEXT)
+        - created_by (TEXT - Clerk user ID)
+        - created_at (TIMESTAMPTZ)
+        - published_at (TIMESTAMPTZ NULLABLE)
+      </database-schema>
+
+      <key-queries>
+        - ListVersionHistory: SELECT all versions for algorithm_id, ORDER BY version_number DESC
+        - GetVersionDetail: SELECT WHERE algorithm_id = $1 AND version_number = $2
+        - GetVersionConfig: SELECT config_snapshot WHERE algorithm_id = $1 AND version_number = $2
+        - CreateVersionSnapshot: INSERT new version with incremented version_number
+        - GetNextVersionNumber: SELECT MAX(version_number) + 1 FROM algorithm_versions
+        - GetCurrentVersionNumber: SELECT version_number FROM algorithms WHERE id = $1
+      </key-queries>
+
+      <api-routes>
+        GET  /publisher/algorithm/history              → List all versions
+        GET  /publisher/algorithm/history/{version}    → Get version detail
+        GET  /publisher/algorithm/diff?v1=X&amp;v2=Y      → Compare versions
+        POST /publisher/algorithm/rollback             → Rollback to version
+        POST /publisher/algorithm/snapshot             → Create snapshot
+      </api-routes>
+
+      <implementation-notes>
+        - Rollback is NOT destructive - creates new version with old config
+        - Diff uses internal/diff/AlgorithmDiff
+        - Version numbers never reused
+        - Current version stored in main algorithms table
+        - Config snapshot is complete JSON (not delta)
+      </implementation-notes>
+
+      <code-example>
+        // Create version on save
+        nextVersion, err := h.db.Queries.GetNextVersionNumber(ctx, algorithmID)
+        result, err := h.db.Queries.CreateVersionSnapshot(ctx, sqlcgen.CreateVersionSnapshotParams{
+            AlgorithmID:    algorithmID,
+            VersionNumber:  nextVersion,
+            Status:         "draft",
+            ConfigSnapshot: configJSON,
+            Description:    &amp;description,
+            CreatedBy:      &amp;userID,
+        })
+
+        // Rollback to previous version
+        targetConfig, err := h.db.Queries.GetVersionConfig(ctx, sqlcgen.GetVersionConfigParams{
+            AlgorithmID:   algorithmID,
+            VersionNumber: int32(targetVersion),
+        })
+        // Create new version with old config
+        newVersion := currentVersion + 1
+        result, err := h.db.Queries.CreateVersionSnapshot(ctx, sqlcgen.CreateVersionSnapshotParams{
+            AlgorithmID:    algorithmID,
+            VersionNumber:  newVersion,
+            ConfigSnapshot: targetConfig,
+            Description:    &amp;"Rolled back from v" + strconv.Itoa(targetVersion),
+        })
+      </code-example>
+    </pattern>
+
+    <pattern name="Version History - Zman (Per-Resource)">
+      <description>
+        Per-resource versioning where each zman has independent version history.
+        Automatic version creation on formula changes. Used for fine-grained tracking.
+      </description>
+
+      <when-to-use>
+        - Per-resource versioning (individual zmanim)
+        - Automatic versioning on specific field changes (formula_dsl)
+        - Independent rollback per resource
+        - Formula evolution tracking
+      </when-to-use>
+
+      <database-schema>
+        <!-- Table: publisher_zmanim_versions -->
+        - id (SERIAL PRIMARY KEY)
+        - publisher_zman_id (FK to publisher_zmanim)
+        - version_number (incremental per zman: 1, 2, 3...)
+        - formula_dsl (TEXT)
+        - created_by (TEXT - Clerk user ID)
+        - created_at (TIMESTAMPTZ)
+        - comment (TEXT NULLABLE)
+      </database-schema>
+
+      <key-queries>
+        - GetZmanVersionHistory: SELECT WHERE publisher_zman_id = $1 ORDER BY version_number DESC
+        - GetZmanVersion: SELECT WHERE publisher_zman_id = $1 AND version_number = $2
+        - GetVersionFormula: SELECT formula_dsl WHERE publisher_zman_id = $1 AND version_number = $2
+        - CreateInitialZmanVersion: INSERT version 1 when zman created
+        - CreateVersionForRollback: INSERT new version after rollback
+        - RollbackPublisherZmanFormula: UPDATE publisher_zmanim SET formula_dsl WHERE id = $1
+      </key-queries>
+
+      <api-routes>
+        GET  /publisher/zmanim/{zmanKey}/history           → List zman versions
+        GET  /publisher/zmanim/{zmanKey}/history/{version} → Get version detail
+        POST /publisher/zmanim/{zmanKey}/rollback          → Rollback zman
+      </api-routes>
+
+      <implementation-notes>
+        - Version created automatically when formula_dsl changes (trigger/application code)
+        - Each zman has independent version_number sequence (1, 2, 3...)
+        - Rollback updates current formula_dsl + creates new version
+        - Only formula_dsl versioned (not all fields)
+        - Cache invalidation required after rollback
+      </implementation-notes>
+
+      <code-example>
+        // Get version history for a zman
+        rows, err := h.db.Queries.GetZmanVersionHistory(ctx, db.GetZmanVersionHistoryParams{
+            PublisherID: publisherID,
+            ZmanKey:     zmanKey,
+        })
+
+        // Rollback to previous version
+        targetFormula, err := h.db.Queries.GetVersionFormula(ctx, db.GetVersionFormulaParams{
+            PublisherID:   publisherID,
+            ZmanKey:       zmanKey,
+            VersionNumber: int32(req.VersionNumber),
+        })
+
+        // Update current zman with target formula (triggers new version)
+        row, err := h.db.Queries.RollbackPublisherZmanFormula(ctx, db.RollbackPublisherZmanFormulaParams{
+            FormulaDsl:  targetFormula,
+            PublisherID: publisherID,
+            ZmanKey:     zmanKey,
+        })
+
+        // Create version for rollback
+        err = h.db.Queries.CreateVersionForRollback(ctx, db.CreateVersionForRollbackParams{
+            PublisherZmanID: zmanID,
+            FormulaDsl:      targetFormula,
+            CreatedBy:       sql.NullString{String: pc.UserID, Valid: true},
+        })
+      </code-example>
+    </pattern>
+
+    <pattern name="Soft Delete">
+      <description>
+        Audit-trail safe deletion pattern. Records marked as deleted but retained in database.
+        Supports restore and permanent deletion. Used across all user-facing resources.
+      </description>
+
+      <when-to-use>
+        - User-generated content (publisher zmanim, snapshots, publishers)
+        - Audit trail required (who deleted, when)
+        - Restore functionality needed
+        - Compliance/regulatory data retention
+        - Historical data queries (include deleted records)
+      </when-to-use>
+
+      <database-schema>
+        <!-- Required columns on all soft-deletable tables -->
+        - deleted_at (TIMESTAMPTZ DEFAULT NULL)
+        - deleted_by (TEXT DEFAULT NULL - Clerk user ID)
+        - created_at (TIMESTAMPTZ DEFAULT now())
+        - updated_at (TIMESTAMPTZ DEFAULT now())
+
+        <!-- Required index for performance -->
+        CREATE INDEX idx_{table}_active ON {table}(id) WHERE deleted_at IS NULL;
+
+        <!-- Optional: Unique constraint with soft-delete -->
+        CREATE UNIQUE INDEX idx_{table}_unique_active
+        ON {table}(unique_field)
+        WHERE deleted_at IS NULL;
+      </database-schema>
+
+      <key-queries>
+        <!-- Soft Delete -->
+        UPDATE {table}
+        SET deleted_at = now(),
+            deleted_by = $1
+        WHERE id = $2
+          AND deleted_at IS NULL;
+
+        <!-- Restore -->
+        UPDATE {table}
+        SET deleted_at = NULL,
+            deleted_by = NULL,
+            updated_at = now()
+        WHERE id = $1
+          AND deleted_at IS NOT NULL;
+
+        <!-- Permanent Delete -->
+        DELETE FROM {table}
+        WHERE id = $1
+          AND deleted_at IS NOT NULL;
+
+        <!-- List Active (ALWAYS filter) -->
+        SELECT * FROM {table}
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC;
+
+        <!-- List Deleted -->
+        SELECT * FROM {table}
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC;
+      </key-queries>
+
+      <api-routes>
+        <!-- Publisher Zmanim -->
+        DELETE /publisher/zmanim/{key}           → SoftDeletePublisherZman
+        POST   /publisher/zmanim/{key}/restore   → RestorePublisherZman
+        DELETE /publisher/zmanim/{key}/permanent → PermanentDeletePublisherZman
+        GET    /publisher/zmanim/deleted         → GetDeletedZmanim
+
+        <!-- Publisher Snapshots -->
+        DELETE /publisher/snapshot/{id}          → DeletePublisherSnapshot (soft)
+        POST   /publisher/snapshot/{id}/restore  → RestorePublisherSnapshot
+
+        <!-- Admin Publishers -->
+        DELETE /admin/publishers/{id}            → AdminSoftDeletePublisher
+        PUT    /admin/publishers/{id}/restore    → AdminRestorePublisher
+        DELETE /admin/publishers/{id}/permanent  → AdminPermanentDeletePublisher
+      </api-routes>
+
+      <implementation-notes>
+        - ALWAYS filter deleted_at IS NULL in SELECT queries
+        - Partial index (WHERE deleted_at IS NULL) REQUIRED for performance
+        - Restore clears both deleted_at AND deleted_by
+        - Permanent delete ONLY works if already soft-deleted (safety check)
+        - Cache invalidation required after soft-delete/restore
+        - Use sql.NullString for deleted_by (nullable text)
+      </implementation-notes>
+
+      <handler-pattern>
+        // 6-Step Handler Pattern for Soft Delete
+        func (h *Handlers) SoftDeleteEntity(w http.ResponseWriter, r *http.Request) {
+            ctx := r.Context()
+
+            // 1. Resolve publisher context
+            pc := h.publisherResolver.MustResolve(w, r)
+            if pc == nil { return }
+
+            // 2. Extract URL params
+            entityKey := chi.URLParam(r, "key")
+
+            // 3. Parse body - none for DELETE
+
+            // 4. Validate - convert IDs
+            publisherID, err := stringToInt32(pc.PublisherID)
+            if err != nil {
+                RespondBadRequest(w, r, "Invalid publisher ID")
+                return
+            }
+
+            // 5. SQLc query - soft delete
+            err = h.db.Queries.SoftDeleteEntity(ctx, sqlcgen.SoftDeleteEntityParams{
+                PublisherID: publisherID,
+                EntityKey:   entityKey,
+                DeletedBy:   sql.NullString{String: pc.UserID, Valid: true},
+            })
+            if err != nil {
+                slog.Error("soft delete failed", "error", err)
+                RespondInternalError(w, r, "Failed to delete")
+                return
+            }
+
+            // Cache invalidation
+            if h.cache != nil {
+                h.cache.InvalidatePublisherCache(ctx, pc.PublisherID)
+            }
+
+            // 6. Respond
+            RespondJSON(w, r, http.StatusOK, map[string]string{"status": "deleted"})
+        }
+      </handler-pattern>
+
+      <resources-using-pattern>
+        - publisher_zmanim
+        - publisher_snapshots
+        - publishers
+        - publisher_coverage (potentially)
+        - correction_requests (status-based, not soft-delete)
+      </resources-using-pattern>
+    </pattern>
+  </patterns>
+
+  <implementation-notes>
+    <documentation-structure>
+      Create new directory: /api/internal/docs/patterns/
+
+      Files to create:
+      1. README.md - Index of all patterns with brief descriptions
+      2. version-history.md - Detailed documentation of both version history patterns
+      3. soft-delete.md - Detailed soft-delete pattern documentation
+
+      Each pattern doc should include:
+      - Overview and when to use
+      - Database schema requirements
+      - SQLc query examples
+      - Handler code examples
+      - Route registration examples
+      - Key files reference
+      - Common pitfalls
+      - Testing considerations
+    </documentation-structure>
+
+    <epic-8-cleanup-targets>
+      Search patterns to find and remove:
+
+      1. TODO markers:
+         grep -r "TODO.*Epic 8" api/
+         grep -r "TODO.*Remove after" api/
+
+      2. Commented-out code:
+         grep -r "^[[:space:]]*//.*Deprecated" api/internal/handlers/
+         grep -r "^[[:space:]]*//.*LEGACY" api/internal/handlers/
+
+      3. Old route registrations:
+         Look for routes marked with comments like:
+         // DEPRECATED - use /new/route instead
+
+      4. Debug logging:
+         grep -r "slog.Debug.*Epic 8" api/
+         grep -r "slog.Info.*DEBUG" api/
+
+      5. Temporary test code:
+         grep -r "FIXME" api/
+         grep -r "HACK" api/
+
+      Files most likely to have cleanup:
+      - api/internal/handlers/master_registry.go
+      - api/internal/handlers/publisher_zmanim.go
+      - api/internal/handlers/version_history.go
+      - api/cmd/api/main.go (old routes)
+    </epic-8-cleanup-targets>
+
+    <coding-standards-updates>
+      Add to /docs/coding-standards.md:
+
+      Section: "Backend Standards - API Patterns"
+      Link to: /api/internal/docs/patterns/README.md
+
+      New subsections:
+      - Version History Pattern (link to version-history.md)
+      - Soft Delete Pattern (link to soft-delete.md)
+
+      Update existing "Soft Delete Pattern" section to reference new docs.
+    </coding-standards-updates>
+
+    <verification-steps>
+      1. Run tests: cd api &amp;&amp; go test ./...
+      2. Build API: cd api &amp;&amp; go build ./cmd/api
+      3. Check types: cd web &amp;&amp; npm run type-check
+      4. Verify routes:
+         - Start API with ./restart.sh
+         - Test version history endpoints
+         - Test soft-delete endpoints
+      5. Check documentation:
+         - Verify all file paths are correct
+         - Ensure no broken links
+         - Test code examples compile
+    </verification-steps>
+  </implementation-notes>
+
+  <key-files-index>
+    <!-- Primary Implementation Files -->
+    /api/internal/handlers/version_history.go          - Algorithm version history (507 lines)
+    /api/internal/handlers/master_registry.go          - Zman version history + soft-delete (3000+ lines)
+    /api/internal/handlers/publisher_algorithm.go      - Algorithm lifecycle (765 lines)
+    /api/internal/handlers/publisher_zmanim.go         - Zman CRUD + soft-delete (2000+ lines)
+    /api/internal/handlers/publisher_snapshots.go      - Snapshot system (374 lines)
+    /api/internal/handlers/admin.go                    - Admin soft-delete patterns
+
+    <!-- Route Registration -->
+    /api/cmd/api/main.go                               - All route definitions
+
+    <!-- Database Queries -->
+    /api/internal/db/queries/algorithms.sql            - Algorithm + version queries
+    /api/internal/db/queries/zmanim.sql                - Zman + version queries
+
+    <!-- Documentation References -->
+    /docs/coding-standards.md                          - 6-step handler pattern, soft-delete pattern
+    /CLAUDE.md                                         - API overview, key patterns
+
+    <!-- NEW Files to Create -->
+    /api/internal/docs/patterns/README.md              - Pattern index
+    /api/internal/docs/patterns/version-history.md     - Version history documentation
+    /api/internal/docs/patterns/soft-delete.md         - Soft-delete documentation
+  </key-files-index>
+
+  <related-stories>
+    - Story 8-1: Algorithm version history implementation
+    - Story 8-20: Technical analysis (source of this documentation task)
+    - Story 4-13: Per-zman version history implementation
+    - Epic 9: API restructuring and cleanup (parent epic)
+  </related-stories>
+</story-context>

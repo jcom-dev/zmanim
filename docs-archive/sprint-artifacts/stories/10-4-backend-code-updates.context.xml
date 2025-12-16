@@ -1,0 +1,127 @@
+<story-context id="10-4-backend-code-updates" v="1.0">
+  <metadata>
+    <epicId>10</epicId>
+    <storyId>4</storyId>
+    <title>Backend Code Updates (SQLc, Handlers, Commands)</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-16</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/10-4-backend-code-updates.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>backend code updated to use the new geo_localities schema</iWant>
+    <soThat>existing API endpoints continue to work with the new data structure</soThat>
+    <tasks>
+      <task id="1">Create localities.sql with SQLc queries (GetLocalityByID, ListLocalities, GetLocalitiesNearPoint, SearchLocalities, UpdateLocalityElevation)</task>
+      <task id="2">Create/update localities.go handlers with 6-step pattern</task>
+      <task id="3">Update cities.go to internally use localities queries with backward-compatible mapping</task>
+      <task id="4">Update import-elevation command to use geo_localities instead of geo_cities</task>
+      <task id="5">Update seed-geodata command geoTables list (remove geo_cities, add geo_localities)</task>
+      <task id="6">Update geo-hierarchy command for new flexible hierarchy model</task>
+      <task id="7">Add locality_id support to coverage.sql queries</task>
+      <task id="8">Run sqlc generate and verify all queries compile</task>
+      <task id="9">Run go build, go test, go vet, golangci-lint</task>
+      <task id="10">Verify /cities/* endpoints still return valid responses</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">localities.sql with all required queries compiles without error</criterion>
+    <criterion id="AC2">localities.go handlers use 6-step pattern (PublisherResolver if needed, URL params, body, validate, SQLc, respond)</criterion>
+    <criterion id="AC3">API backward compatibility: /cities/* endpoints work with mapped locality data</criterion>
+    <criterion id="AC4">import-elevation uses geo_localities, UpdateLocalityElevation query</criterion>
+    <criterion id="AC5">seed-geodata geoTables updated for new schema</criterion>
+    <criterion id="AC6">geo-hierarchy uses new parent_region_id, parent_locality_id model</criterion>
+    <criterion id="AC7">coverage queries support locality_id alongside city_id</criterion>
+    <criterion id="AC8">Response helpers used (RespondJSON, RespondError) - no json.Marshal + w.Write</criterion>
+    <criterion id="AC9">No log.Printf/fmt.Printf (slog only)</criterion>
+    <criterion id="AC10">go build ./..., go test ./..., go vet ./..., golangci-lint run ./... all pass</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-artifacts/epic-10-tech-spec.md" title="Epic 10 Tech Spec" section="Backend Code Changes" snippet="SQLc queries for localities.sql, handler updates, backward compatibility mapping from locality to city response format." />
+      <doc path="docs/coding-standards.md" title="Coding Standards" section="Backend Standards" snippet="6-step handler pattern: 1. PublisherResolver 2. URL params 3. Parse body 4. Validate 5. SQLc query 6. Respond. slog only, no raw SQL." />
+      <doc path="api/internal/docs/patterns/security-patterns.md" title="Security Patterns" snippet="PublisherResolver for publisher endpoints to prevent IDOR. Generic 500 messages." />
+    </docs>
+    <code>
+      <file path="api/internal/db/queries/cities.sql" kind="sqlc-query" symbol="*" lines="1-254" reason="Current city queries - reference for localities.sql structure" />
+      <file path="api/internal/handlers/cities.go" kind="handler" symbol="GetCity,ListCities,SearchCities" lines="1-379" reason="Current city handlers - will internally use localities queries with mapping" />
+      <file path="api/internal/handlers/locations.go" kind="handler" symbol="SearchLocations" lines="1-289" reason="Current unified search - will use new SearchLocalities query" />
+      <file path="api/internal/db/queries/coverage.sql" kind="sqlc-query" symbol="*" lines="1-274" reason="Coverage queries - need locality_id support added" />
+      <file path="api/internal/handlers/coverage.go" kind="handler" symbol="*" lines="1-777" reason="Coverage handlers - need locality_id support" />
+      <file path="api/cmd/import-elevation/main.go" kind="cli-command" symbol="main" reason="Elevation import - change geo_cities → geo_localities" />
+      <file path="api/cmd/seed-geodata/main.go" kind="cli-command" symbol="geoTables" reason="Geo data seeding - update table list" />
+      <file path="api/cmd/geo-hierarchy/main.go" kind="cli-command" symbol="main" reason="Hierarchy tools - update for flexible parent_region_id model" />
+    </code>
+    <dependencies>
+      <go>
+        <package name="github.com/go-chi/chi/v5" version="v5.x" purpose="HTTP router" />
+        <package name="github.com/jackc/pgx/v5" version="v5.x" purpose="PostgreSQL driver" />
+        <package name="github.com/sqlc-dev/sqlc" version="v1.x" purpose="SQL code generation" />
+        <package name="log/slog" version="stdlib" purpose="Structured logging (required, no log.Printf)" />
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>6-step handler pattern is MANDATORY per coding standards</constraint>
+    <constraint>PublisherResolver for publisher endpoints (not raw X-Publisher-Id header)</constraint>
+    <constraint>SQLc for ALL queries - no raw SQL, no string concatenation for SQL</constraint>
+    <constraint>slog for ALL logging - no log.Printf, no fmt.Printf in production code</constraint>
+    <constraint>Response helpers (RespondJSON, RespondError) - no direct json.Marshal + w.Write</constraint>
+    <constraint>Generic error messages for 500s - no stack traces exposed to clients</constraint>
+    <constraint>No interface{}/any where typed struct is appropriate</constraint>
+    <constraint>Maintain /cities/* API backward compatibility during transition</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="GetLocalityByID" kind="sqlc-query">
+      <signature>
+        -- name: GetLocalityByID :one
+        SELECT l.*, lt.code as locality_type_code, lt.name as locality_type_name,
+               r.name as region_name, c.name as country_name, c.code as country_code
+        FROM geo_localities l
+        LEFT JOIN geo_locality_types lt ON l.locality_type_id = lt.id
+        LEFT JOIN geo_regions r ON l.region_id = r.id
+        JOIN geo_countries c ON l.country_id = c.id
+        WHERE l.id = @id;
+      </signature>
+      <path>api/internal/db/queries/localities.sql</path>
+    </interface>
+    <interface name="GetLocality handler" kind="http-handler">
+      <signature>
+        func (h *Handlers) GetLocality(w http.ResponseWriter, r *http.Request)
+        // GET /localities/{id}
+        // Returns: LocalityResponse with type info and hierarchy
+      </signature>
+      <path>api/internal/handlers/localities.go</path>
+    </interface>
+    <interface name="mapLocalityToCity" kind="go-function">
+      <signature>
+        func mapLocalityToCity(l sqlcgen.GetLocalityByIDRow) CityResponse
+        // Maps new locality data to old city response format for backward compatibility
+      </signature>
+      <path>api/internal/handlers/cities.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Go tests with go test ./..., go vet ./..., golangci-lint run ./.... API endpoint testing with curl or httptest.</standards>
+    <locations>
+      <location>api/internal/handlers/*_test.go</location>
+      <location>api/internal/db/queries/*.sql (sqlc compile)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">cd api && sqlc generate -- Expected: no errors</idea>
+      <idea ac="AC3">curl http://localhost:8080/api/v1/cities/1234 -- Expected: valid city response</idea>
+      <idea ac="AC3">curl "http://localhost:8080/api/v1/cities/search?q=Jerusalem" -- Expected: search results</idea>
+      <idea ac="AC4">grep -r "geo_cities" api/cmd/import-elevation/ -- Expected: no matches</idea>
+      <idea ac="AC5">grep -A 20 "geoTables" api/cmd/seed-geodata/main.go -- Expected: geo_localities in list</idea>
+      <idea ac="AC9">grep -r "log\.Printf\|fmt\.Printf" api/internal/handlers/localities.go -- Expected: no matches</idea>
+      <idea ac="AC10">cd api && go build ./... && go test ./... && go vet ./... && golangci-lint run ./...</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,126 @@
+<story-context id="4-11-publisher-onboarding" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.11</storyId>
+    <title>Publisher Onboarding Wizard</title>
+    <status>ready-for-dev</status>
+    <storyPoints>8</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-11-publisher-onboarding.md</sourceStoryPath>
+    <dependencies>Story 4.4 (Guided Formula Builder), Story 4.3 (Bilingual Naming)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>new publisher</asA>
+    <iWant>a guided onboarding wizard that walks me through setting up my first algorithm</iWant>
+    <soThat>I can quickly start publishing zmanim without feeling overwhelmed by all the options</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.11.1" title="Wizard Flow">
+      <item>Multi-step wizard with progress indicator</item>
+      <item>Steps: Welcome → Template Selection → Customize Key Zmanim → Coverage Setup → Review and Publish</item>
+      <item>Can navigate back to previous steps</item>
+      <item>Progress saved if wizard abandoned (resume later)</item>
+    </criterion>
+    <criterion id="AC-4.11.2" title="Welcome Step">
+      <item>Explains what the publisher will accomplish</item>
+      <item>Shows estimated time to complete (5-10 minutes)</item>
+      <item>Video or animated demo option</item>
+      <item>"Skip wizard" option for experienced users</item>
+    </criterion>
+    <criterion id="AC-4.11.3" title="Template Selection">
+      <item>Present 4 base templates: GRA Standard, Magen Avraham, Rabbeinu Tam, Custom</item>
+      <item>Each template shows preview of key zmanim</item>
+      <item>Brief explanation of each approach</item>
+      <item>"Help me choose" option with questionnaire</item>
+    </criterion>
+    <criterion id="AC-4.11.4" title="Customize Key Zmanim">
+      <item>Focus on 5-7 most common zmanim only</item>
+      <item>Simplified controls (not full formula builder)</item>
+      <item>Live preview of today's times as changes made</item>
+      <item>"Advanced customization" link for power users</item>
+      <item>Bilingual names pre-filled from template</item>
+    </criterion>
+    <criterion id="AC-4.11.5" title="Coverage Setup">
+      <item>Simplified coverage selection (city search)</item>
+      <item>Suggest common cities based on locale</item>
+      <item>Map visualization of selected coverage</item>
+      <item>"Add more coverage later" messaging</item>
+    </criterion>
+    <criterion id="AC-4.11.6" title="Review and Publish">
+      <item>Summary of all selections</item>
+      <item>Preview of how zmanim will appear to users</item>
+      <item>"Publish" button to make algorithm live</item>
+      <item>Confetti or celebration animation on success</item>
+      <item>Next steps guidance (add more zmanim, expand coverage)</item>
+    </criterion>
+    <criterion id="AC-4.11.7" title="Onboarding State">
+      <item>Track onboarding completion status per publisher</item>
+      <item>Show "Complete Setup" prompt if not finished</item>
+      <item>Hide wizard for publishers who completed or skipped</item>
+      <item>Admin can reset onboarding state</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.11</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-ui-wireframes.md</path>
+        <section>Onboarding Wizard</section>
+      </doc>
+    </docs>
+    <newDependencies>
+      <npm>react-confetti - Celebration animation</npm>
+    </newDependencies>
+  </artifacts>
+
+  <componentStructure>
+    <directory path="web/components/onboarding/">
+      <file>OnboardingWizard.tsx - Main container</file>
+      <file>WizardProgress.tsx - Step progress indicator</file>
+      <directory path="steps/">
+        <file>WelcomeStep.tsx</file>
+        <file>TemplateSelectionStep.tsx</file>
+        <file>CustomizeZmanimStep.tsx</file>
+        <file>CoverageSetupStep.tsx</file>
+        <file>ReviewPublishStep.tsx</file>
+      </directory>
+      <file>Confetti.tsx - Success celebration</file>
+    </directory>
+  </componentStructure>
+
+  <templates>
+    <template id="gra" name="GRA Standard" nameHebrew="גר״א סטנדרטי">
+      <description>Based on the Vilna Gaon, uses sunrise to sunset for proportional hours</description>
+      <zmanimPreview>
+        <zman key="alos" formula="solar(16.1, before_sunrise)"/>
+        <zman key="sunrise" formula="sunrise"/>
+        <zman key="sof_zman_shema" formula="sunrise + shaos(3, gra)"/>
+        <zman key="chatzos" formula="solar_noon"/>
+        <zman key="sunset" formula="sunset"/>
+        <zman key="tzais" formula="solar(8.5, after_sunset)"/>
+      </zmanimPreview>
+    </template>
+    <template id="mga" name="Magen Avraham" nameHebrew="מגן אברהם">
+      <description>Uses dawn to nightfall (72 minutes) for proportional hours</description>
+    </template>
+    <template id="rabbeinu_tam" name="Rabbeinu Tam" nameHebrew="רבינו תם">
+      <description>Uses 72 minutes after sunset for nightfall</description>
+    </template>
+    <template id="custom" name="Custom" nameHebrew="מותאם אישית">
+      <description>Start from scratch with full control</description>
+    </template>
+  </templates>
+
+  <constraints>
+    <constraint type="ux">Estimated completion time: 5-10 minutes</constraint>
+    <constraint type="ux">Progress saved on each step completion</constraint>
+    <constraint type="ux">Mobile-responsive wizard layout</constraint>
+  </constraints>
+</story-context>

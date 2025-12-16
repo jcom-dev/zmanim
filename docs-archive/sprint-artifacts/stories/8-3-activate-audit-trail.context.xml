@@ -1,0 +1,147 @@
+<story-context id="8-3-activate-audit-trail" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>3</storyId>
+    <title>Activate Audit Trail</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-3-activate-audit-trail.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>to see a log of changes to my account</iWant>
+    <soThat>I can track what was modified and when</soThat>
+    <tasks>
+      <task id="1">Create ActivityService wrapper (AC: 1-3)</task>
+      <task id="2">Integrate into profile handlers (AC: 1)</task>
+      <task id="3">Integrate into algorithm handlers (AC: 2)</task>
+      <task id="4">Integrate into coverage handlers (AC: 3)</task>
+      <task id="5">Update activity endpoint (AC: 4, 5)</task>
+      <task id="6">Update frontend (AC: 6)</task>
+      <task id="7">Testing (AC: 1-6)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Profile updates logged to actions table</criterion>
+    <criterion id="AC2">Algorithm saves/publishes logged to actions table</criterion>
+    <criterion id="AC3">Coverage add/remove logged to actions table</criterion>
+    <criterion id="AC4">Activity endpoint returns real data from actions table</criterion>
+    <criterion id="AC5">Admin impersonation shows "Admin (Support)" as actor</criterion>
+    <criterion id="AC6">Activity page displays log entries correctly</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.3: Activate Audit Trail</section>
+        <snippet>The actions table exists with full schema. SQLc queries exist (RecordAction, CompleteAction, GetEntityActionHistory). Just need to call them from handlers.</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>Key Tables</section>
+        <snippet>actions table stores audit trail for all state changes.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/services/</path>
+        <kind>service-directory</kind>
+        <reason>Location for new activity_service.go</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/actions.sql</path>
+        <kind>sqlc-query</kind>
+        <symbol>RecordAction, CompleteAction, GetEntityActionHistory</symbol>
+        <reason>Existing SQLc queries for action logging</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publisher_profile.go</path>
+        <kind>handler</kind>
+        <symbol>UpdatePublisherProfile</symbol>
+        <reason>Add activity logging for profile updates</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publisher_zmanim.go</path>
+        <kind>handler</kind>
+        <symbol>SaveAlgorithm, PublishAlgorithm</symbol>
+        <reason>Add activity logging for algorithm changes</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/coverage.go</path>
+        <kind>handler</kind>
+        <symbol>AddCoverage, RemoveCoverage</symbol>
+        <reason>Add activity logging for coverage changes</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/publisher/activity/page.tsx</path>
+        <kind>page</kind>
+        <symbol>ActivityPage</symbol>
+        <reason>Remove "Coming Soon" banner, display real activity data</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/jackc/pgx/v5</package>
+        <package>log/slog</package>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use existing actions table and SQLc queries - no schema changes</constraint>
+    <constraint>ActivityService must handle impersonation context</constraint>
+    <constraint>Include old/new values in action metadata for auditing</constraint>
+    <constraint>Use slog for logging (not log.Printf)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>ActivityService</name>
+      <kind>Go service</kind>
+      <signature>
+        type ActivityService struct
+        func (s *ActivityService) LogAction(ctx context.Context, actionType, entityType string, entityID uuid.UUID, metadata map[string]any) error
+        func (s *ActivityService) resolveActor(ctx context.Context) (actorID, actorName string)
+      </signature>
+      <path>api/internal/services/activity_service.go</path>
+    </interface>
+    <interface>
+      <name>Action Types</name>
+      <kind>Go constants</kind>
+      <signature>
+        ActionProfileUpdate = "profile_update"
+        ActionAlgorithmSave = "algorithm_save"
+        ActionAlgorithmPublish = "algorithm_publish"
+        ActionCoverageAdd = "coverage_add"
+        ActionCoverageRemove = "coverage_remove"
+        ActionZmanCreate = "zman_create"
+        ActionZmanUpdate = "zman_update"
+        ActionZmanDelete = "zman_delete"
+      </signature>
+      <path>api/internal/services/activity_service.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Unit tests for ActivityService. Integration tests verify action records created. E2E tests verify activity page displays data.</standards>
+    <locations>
+      <location>api/internal/services/*_test.go</location>
+      <location>api/internal/handlers/*_test.go</location>
+      <location>tests/e2e/publisher/</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test profile update creates action record with old/new values</idea>
+      <idea acRef="AC2">Test algorithm save creates action record with version</idea>
+      <idea acRef="AC3">Test coverage add/remove creates action records</idea>
+      <idea acRef="AC4">Test activity endpoint returns real actions from database</idea>
+      <idea acRef="AC5">Test admin impersonation shows "Admin (Support)" as actor</idea>
+      <idea acRef="AC6">E2E: Visit activity page, verify log entries display</idea>
+    </ideas>
+  </tests>
+</story-context>

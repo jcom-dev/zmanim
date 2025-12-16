@@ -1,0 +1,58 @@
+<story-context id="8-25-master-registry-auth-aware-consolidation" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>25</storyId>
+    <title>Master Registry Auth-Aware Consolidation</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a single master registry endpoint that serves public/admin based on role</iWant>
+    <soThat>we reduce API duplication and simplify maintenance</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Single GET /registry/zmanim endpoint serves both public and admin</criterion>
+    <criterion id="AC2">Public users see only visible zmanim</criterion>
+    <criterion id="AC3">Admin users see all zmanim including hidden</criterion>
+    <criterion id="AC4">Query param include_hidden=true only honored for admin</criterion>
+    <criterion id="AC5">Admin CRUD operations remain on /admin/registry/*</criterion>
+    <criterion id="AC6">Old admin GET endpoint redirects</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/registry.go</path>
+        <kind>handler</kind>
+        <symbol>GetMasterZmanim</symbol>
+        <reason>Handler to enhance with role-aware logic</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/admin.go</path>
+        <kind>handler</kind>
+        <symbol>AdminGetMasterZmanim</symbol>
+        <reason>Handler to deprecate and redirect</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/master_zmanim.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>May need new query for including hidden</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/admin/registry/page.tsx</path>
+        <kind>component</kind>
+        <reason>Admin UI to update endpoint</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>Must not break public API contract</constraint>
+    <constraint>Admin CRUD must remain on /admin/* path</constraint>
+    <constraint>Security: include_hidden must be admin-only</constraint>
+  </constraints>
+</story-context>

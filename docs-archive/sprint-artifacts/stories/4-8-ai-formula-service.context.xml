@@ -1,0 +1,140 @@
+<story-context id="4-8-ai-formula-service" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.8</storyId>
+    <title>AI Formula Service (Claude Integration)</title>
+    <status>ready-for-dev</status>
+    <storyPoints>8</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-8-ai-formula-service.md</sourceStoryPath>
+    <dependencies>Story 4.2 (DSL Parser), Story 4.7 (RAG Context System)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>to describe a zman calculation in natural language and have AI generate the DSL formula</iWant>
+    <soThat>I can quickly create accurate formulas without memorizing syntax</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.8.1" title="Claude API Integration">
+      <item>Anthropic Claude API integrated (claude-3-5-sonnet or claude-3-5-haiku)</item>
+      <item>API key securely configured via environment variable</item>
+      <item>Rate limiting implemented (tokens/minute, requests/minute)</item>
+      <item>Error handling for API failures with graceful degradation</item>
+    </criterion>
+    <criterion id="AC-4.8.2" title="Natural Language Input">
+      <item>Text area for natural language description</item>
+      <item>Example prompts shown as suggestions</item>
+      <item>Hebrew input supported</item>
+      <item>Character limit: 500 characters</item>
+    </criterion>
+    <criterion id="AC-4.8.3" title="Formula Generation">
+      <item>AI generates syntactically valid DSL formula</item>
+      <item>Generated formula is automatically validated via parser</item>
+      <item>If invalid, AI prompted to self-correct (max 2 retries)</item>
+      <item>Response includes confidence score</item>
+    </criterion>
+    <criterion id="AC-4.8.4" title="Context Enhancement">
+      <item>RAG context automatically included in prompt</item>
+      <item>Relevant DSL examples provided to model</item>
+      <item>Halachic context included when applicable</item>
+      <item>System prompt optimized for zmanim domain</item>
+    </criterion>
+    <criterion id="AC-4.8.5" title="User Interface">
+      <item>"Generate with AI" button in formula builder</item>
+      <item>Loading state during generation</item>
+      <item>Generated formula displayed with Accept/Edit/Regenerate options</item>
+      <item>Usage tracking displayed (requests remaining)</item>
+    </criterion>
+    <criterion id="AC-4.8.6" title="Audit Logging">
+      <item>All AI requests logged (input, output, tokens used)</item>
+      <item>Logs include publisher ID for attribution</item>
+      <item>Logs queryable by admin</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.8</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-dsl-specification.md</path>
+        <section>DSL reference for system prompt</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>api/internal/ai/search.go</path>
+        <kind>service</kind>
+        <reason>RAG search from Story 4.7</reason>
+      </file>
+      <file>
+        <path>api/internal/ai/context.go</path>
+        <kind>service</kind>
+        <reason>Context assembly from Story 4.7</reason>
+      </file>
+      <file>
+        <path>api/internal/dsl/</path>
+        <kind>package</kind>
+        <reason>DSL parser for formula validation from Story 4.2</reason>
+      </file>
+    </code>
+    <newDependencies>
+      <go>github.com/anthropics/anthropic-sdk-go - Claude API client</go>
+    </newDependencies>
+  </artifacts>
+
+  <databaseSchema>
+    <table name="ai_audit_logs">
+      <column name="id" type="UUID" primary="true"/>
+      <column name="publisher_id" type="UUID" references="publishers(id)"/>
+      <column name="request_type" type="VARCHAR(50)" description="generate_formula, explain_formula"/>
+      <column name="input_text" type="TEXT"/>
+      <column name="output_text" type="TEXT"/>
+      <column name="tokens_used" type="INT"/>
+      <column name="model" type="VARCHAR(100)"/>
+      <column name="success" type="BOOLEAN"/>
+      <column name="error_message" type="TEXT"/>
+      <column name="created_at" type="TIMESTAMP"/>
+    </table>
+  </databaseSchema>
+
+  <serviceStructure>
+    <directory path="api/internal/ai/">
+      <file>claude.go - Claude API integration</file>
+      <file>prompts.go - System prompts for generation</file>
+      <file>audit.go - Audit logging service</file>
+    </directory>
+    <directory path="web/components/formula-builder/">
+      <file>AIGeneratePanel.tsx - AI generation UI</file>
+    </directory>
+  </serviceStructure>
+
+  <examplePrompts>
+    <prompt>Alos 72 minutes before sunrise</prompt>
+    <prompt>Sunrise when sun is 16.1 degrees below horizon</prompt>
+    <prompt>End of Shema 3 proportional hours after sunrise (GRA)</prompt>
+    <prompt>Tzeis when 3 medium stars visible (8.5 degrees)</prompt>
+    <prompt>Plag HaMincha 1.25 hours before sunset</prompt>
+  </examplePrompts>
+
+  <systemPromptStructure>
+    <section name="Role">Expert in Jewish prayer times and Zmanim DSL</section>
+    <section name="DSL Reference">Injected from documentation</section>
+    <section name="RAG Context">Injected from semantic search</section>
+    <section name="Instructions">Generate valid formula, handle ambiguity, return structured response</section>
+    <section name="Response Format">Formula wrapped in code blocks</section>
+  </systemPromptStructure>
+
+  <constraints>
+    <constraint type="security">API key via ANTHROPIC_API_KEY env var</constraint>
+    <constraint type="rate-limit">Token bucket rate limiting</constraint>
+    <constraint type="validation">All generated formulas validated via DSL parser</constraint>
+    <constraint type="retry">Max 2 self-correction retries on invalid formula</constraint>
+    <constraint type="cost">Use haiku for simple requests, sonnet for complex</constraint>
+  </constraints>
+</story-context>

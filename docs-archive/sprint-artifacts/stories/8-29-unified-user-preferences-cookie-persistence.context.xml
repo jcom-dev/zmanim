@@ -1,0 +1,118 @@
+<story-context id="8-29-unified-user-preferences-cookie-persistence" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>29</storyId>
+    <title>Unified User Preferences with Cookie Persistence</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>my preferences (selected city, theme, publisher) to persist across sessions and devices</iWant>
+    <soThat>I don't have to re-configure my settings every time I visit the site</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">PreferencesContext created to centralize all user preferences</criterion>
+    <criterion id="AC2">Cookie-based persistence for city (90-day TTL), publisher (30-day), theme (1-year)</criterion>
+    <criterion id="AC3">localStorage retained for transient/preview settings</criterion>
+    <criterion id="AC4">SSR compatibility - Server reads cookies to hydrate initial state</criterion>
+    <criterion id="AC5">Cross-tab sync - Preferences sync across browser tabs</criterion>
+    <criterion id="AC6">usePreferences hook provides unified API for all preference access</criterion>
+    <criterion id="AC7">Migration - Existing localStorage values migrated to cookies on first load</criterion>
+    <criterion id="AC8">Home page auto-selects last city from cookie</criterion>
+    <criterion id="AC9">Theme persists in cookie for SSR-friendly dark mode</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>web/lib/contexts/PreferencesContext.tsx</path>
+        <kind>context</kind>
+        <reason>New file - central preferences provider</reason>
+        <exists>false</exists>
+      </artifact>
+      <artifact>
+        <path>web/providers/PublisherContext.tsx</path>
+        <kind>context</kind>
+        <reason>Existing - needs to delegate storage to PreferencesContext</reason>
+        <currentStorage>localStorage (selectedPublisherId, line 119)</currentStorage>
+        <requiredChange>Integrate with PreferencesContext for cookie persistence</requiredChange>
+      </artifact>
+      <artifact>
+        <path>web/app/layout.tsx</path>
+        <kind>layout</kind>
+        <reason>Add PreferencesProvider, read cookies server-side for SSR hydration</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/page.tsx</path>
+        <kind>page</kind>
+        <reason>Use usePreferences() for city auto-selection</reason>
+      </artifact>
+      <artifact>
+        <path>web/components/theme-provider.tsx</path>
+        <kind>component</kind>
+        <reason>Sync theme to cookie for SSR</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <currentStorageAudit>
+    <storage key="theme" location="localStorage (next-themes)" status="ok">Managed by library</storage>
+    <storage key="zmanim_selected_{continent,country,region,city}" location="localStorage" status="migrate">No TTL, no SSR, no cross-device</storage>
+    <storage key="selectedPublisherId" location="localStorage + sessionStorage" status="migrate">Duplicated in multiple places</storage>
+    <storage key="zmanim_selected_publisher" location="localStorage" status="remove">Redundant with ID</storage>
+    <storage key="zmanim-preview-date" location="localStorage" status="keep">Transient preview</storage>
+    <storage key="zmanim-preview-location-{publisherId}" location="localStorage" status="keep">Per-publisher transient</storage>
+    <storage key="impersonating" location="sessionStorage" status="keep">Admin feature</storage>
+  </currentStorageAudit>
+
+  <cookieSpec>
+    <cookie name="zmanim_city_id">
+      <value>city ID (int)</value>
+      <ttl>90 days</ttl>
+      <httpOnly>false</httpOnly>
+      <purpose>Last viewed city for home page auto-selection</purpose>
+    </cookie>
+    <cookie name="zmanim_publisher_id">
+      <value>publisher ID (string)</value>
+      <ttl>30 days</ttl>
+      <httpOnly>true (via API)</httpOnly>
+      <purpose>Selected publisher (ties to Story 8-27)</purpose>
+    </cookie>
+    <cookie name="zmanim_theme">
+      <value>light | dark | system</value>
+      <ttl>1 year</ttl>
+      <httpOnly>false</httpOnly>
+      <purpose>Theme preference for SSR-friendly dark mode</purpose>
+    </cookie>
+  </cookieSpec>
+
+  <apiDesign>
+    <interface name="UserPreferences">
+      <field name="cityId" type="number | null">Last selected city</field>
+      <field name="continentId" type="number | null">For breadcrumb restoration</field>
+      <field name="countryId" type="number | null">For breadcrumb restoration</field>
+      <field name="regionId" type="number | null">For breadcrumb restoration</field>
+      <field name="theme" type="'light' | 'dark' | 'system'">Theme preference</field>
+      <field name="publisherId" type="string | null">Delegates to Story 8-27</field>
+    </interface>
+    <hook name="usePreferences">
+      <returns>preferences, setCity, setTheme, clearCity, isLoading</returns>
+    </hook>
+  </apiDesign>
+
+  <constraints>
+    <constraint>httpOnly cookie (publisher) must be set via backend API</constraint>
+    <constraint>Must preserve existing localStorage keys during migration period</constraint>
+    <constraint>Theme cookie must be readable server-side for SSR</constraint>
+    <constraint>Cross-tab sync via storage events (debounced)</constraint>
+  </constraints>
+
+  <dependencies>
+    <dependency storyId="8-27" required="true">Multi-Publisher Switcher (cookie naming alignment)</dependency>
+    <dependency storyId="8-26" required="true">Publisher Access Validation (secure publisher cookie)</dependency>
+  </dependencies>
+</story-context>

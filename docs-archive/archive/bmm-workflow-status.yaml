@@ -1,0 +1,38 @@
+# Workflow Status - BMad Method Tracking
+# This tracks progress through BMM methodology Analysis, Planning, and Solutioning phases.
+# Implementation phase is tracked separately in sprint-status.yaml
+
+# STATUS DEFINITIONS:
+# ==================
+# Initial Status (before completion):
+#   - required: Must be completed to progress
+#   - optional: Can be completed but not required
+#   - recommended: Strongly suggested but not required
+#   - conditional: Required only if certain conditions met (e.g., if_has_ui)
+#
+# Completion Status:
+#   - {file-path}: File created/found (e.g., "docs/prd.md")
+#   - skipped: Optional/conditional workflow that was skipped
+
+generated: "2025-11-25"
+project: "zmanim"
+project_type: "web-application"
+selected_track: "method"
+field_type: "brownfield"
+workflow_path: "method-brownfield"
+
+workflow_status:
+  # Analysis Phase
+  document-project: "docs/index.md"
+
+  # Planning Phase
+  prd: "docs/prd.md"
+  create-ux-design: "docs/ux-design-specification.md"
+
+  # Solutioning Phase
+  create-architecture: "docs/architecture.md"
+  create-epics-and-stories: "docs/epics.md"
+  implementation-readiness: "docs/implementation-readiness-report-2025-11-25.md"
+
+  # Implementation Phase (tracked in sprint-status.yaml after sprint-planning)
+  sprint-planning: "docs/sprint-artifacts/sprint-status.yaml"

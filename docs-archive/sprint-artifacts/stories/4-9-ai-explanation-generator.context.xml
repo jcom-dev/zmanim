@@ -1,0 +1,142 @@
+<story-context id="4-9-ai-explanation-generator" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.9</storyId>
+    <title>AI Explanation Generator</title>
+    <status>ready-for-dev</status>
+    <storyPoints>5</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-9-ai-explanation-generator.md</sourceStoryPath>
+    <dependencies>Story 4.8 (AI Formula Service)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>end user viewing zmanim</asA>
+    <iWant>AI-generated explanations of how each time is calculated</iWant>
+    <soThat>I can understand the halachic basis without needing to read technical formulas</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.9.1" title="Explanation Generation API">
+      <item>POST /api/ai/explain-formula endpoint accepts DSL formula</item>
+      <item>Returns human-readable explanation in requested language (Hebrew/English)</item>
+      <item>Explanation includes calculation method summary</item>
+      <item>Explanation includes relevant halachic context</item>
+      <item>Response cached to avoid repeated API calls</item>
+    </criterion>
+    <criterion id="AC-4.9.2" title="Explanation Content">
+      <item>Explains what the zman represents halachically</item>
+      <item>Describes the calculation method in plain language</item>
+      <item>Mentions parameters (degrees, minutes, hours)</item>
+      <item>References halachic sources when available</item>
+      <item>Appropriate for non-technical audience</item>
+    </criterion>
+    <criterion id="AC-4.9.3" title="Bilingual Support">
+      <item>Explanations can be generated in English</item>
+      <item>Explanations can be generated in Hebrew</item>
+      <item>Hebrew explanations use proper terminology</item>
+      <item>Language selection based on user preference</item>
+    </criterion>
+    <criterion id="AC-4.9.4" title="Formula Panel Integration">
+      <item>Explanation appears in Formula Reveal panel</item>
+      <item>"Explain" button triggers generation if not cached</item>
+      <item>Loading state during generation</item>
+      <item>Graceful fallback if AI unavailable</item>
+    </criterion>
+    <criterion id="AC-4.9.5" title="Publisher Customization">
+      <item>Publisher can provide custom explanation override</item>
+      <item>Custom explanation takes precedence over AI</item>
+      <item>Publisher can regenerate AI explanation</item>
+      <item>Publisher can edit AI-generated explanation</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.9</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-ui-wireframes.md</path>
+        <section>Formula Panel</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>api/internal/ai/claude.go</path>
+        <kind>service</kind>
+        <reason>Claude integration from Story 4.8</reason>
+      </file>
+      <file>
+        <path>api/internal/ai/context.go</path>
+        <kind>service</kind>
+        <reason>RAG context assembly from Story 4.7</reason>
+      </file>
+      <file>
+        <path>web/components/zmanim/FormulaPanel.tsx</path>
+        <kind>component</kind>
+        <reason>Integration point for explanation display</reason>
+      </file>
+    </code>
+  </artifacts>
+
+  <databaseSchema>
+    <table name="explanation_cache">
+      <column name="id" type="UUID" primary="true"/>
+      <column name="formula_hash" type="VARCHAR(64)"/>
+      <column name="language" type="VARCHAR(10)"/>
+      <column name="explanation" type="TEXT"/>
+      <column name="created_at" type="TIMESTAMP"/>
+      <column name="expires_at" type="TIMESTAMP"/>
+      <uniqueConstraint columns="formula_hash, language"/>
+    </table>
+  </databaseSchema>
+
+  <serviceStructure>
+    <directory path="api/internal/ai/">
+      <file>explainer.go - Explanation generation service</file>
+      <file>prompts_explain.go - Explanation prompts (EN/HE)</file>
+    </directory>
+  </serviceStructure>
+
+  <promptTemplates>
+    <template language="en">
+You are explaining a Jewish prayer time (zman) calculation to someone who is religiously observant but not technically trained.
+
+Keep the explanation:
+- 2-4 sentences for simple formulas
+- 4-6 sentences for complex formulas
+- Avoid technical jargon
+- Use respectful religious terminology
+
+Do not mention "DSL", "formula", or "code" - describe it as "this calculation" or "this method".
+    </template>
+    <template language="he">
+אתה מסביר חישוב זמן תפילה יהודי לאדם שומר מצוות אך לא טכני.
+
+שמור על הסבר:
+- 2-4 משפטים לנוסחאות פשוטות
+- 4-6 משפטים לנוסחאות מורכבות
+- הימנע ממונחים טכניים
+- השתמש בטרמינולוגיה דתית מכובדת
+    </template>
+  </promptTemplates>
+
+  <exampleExplanations>
+    <example formula="solar(16.1, before_sunrise)" language="en">
+This calculation determines Alos HaShachar (dawn), the earliest time for certain morning prayers. It is calculated as the moment when the sun is 16.1 degrees below the eastern horizon, before it rises. This method follows the opinion that dawn begins approximately 72 minutes before sunrise at equatorial latitudes.
+    </example>
+    <example formula="solar(16.1, before_sunrise)" language="he">
+חישוב זה קובע את עלות השחר, הזמן המוקדם ביותר לתפילות בוקר מסוימות. הוא מחושב כרגע שבו השמש נמצאת 16.1 מעלות מתחת לאופק המזרחי, לפני זריחתה. שיטה זו מבוססת על הדעה שעלות השחר מתחילה כ-72 דקות לפני הזריחה בקו המשווה.
+    </example>
+  </exampleExplanations>
+
+  <constraints>
+    <constraint type="cache">7-day TTL for cached explanations</constraint>
+    <constraint type="cache">Cache key = hash(formula + language)</constraint>
+    <constraint type="ux">Custom explanations take precedence over AI</constraint>
+    <constraint type="i18n">RTL support for Hebrew explanations</constraint>
+  </constraints>
+</story-context>

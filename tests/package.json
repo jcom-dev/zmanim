@@ -1,0 +1,53 @@
+{
+  "name": "zmanim-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for Shtetl Zmanim using Playwright with Clerk auth helpers",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:chromium": "playwright test --project=chromium",
+    "test:mobile": "playwright test --project=mobile-chrome",
+    "test:demo": "playwright test --project=chromium demo/",
+    "test:auth": "playwright test --project=chromium demo/auth-",
+    "test:admin": "playwright test --project=chromium e2e/admin/",
+    "test:publisher": "playwright test --project=chromium e2e/publisher/",
+    "test:user": "playwright test --project=chromium e2e/user/",
+    "test:registration": "playwright test --project=chromium e2e/registration/",
+    "test:email": "playwright test --project=chromium e2e/email/",
+    "test:errors": "playwright test --project=chromium e2e/errors/",
+    "test:suite": "playwright test --project=chromium e2e/",
+    "test:no-cleanup": "SKIP_CLEANUP=true playwright test",
+    "lint": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
+    "cleanup": "npx tsx cleanup-test-data.ts",
+    "cleanup:clerk": "npx tsx cleanup-clerk-users.ts",
+    "cleanup:all": "npx tsx cleanup-test-data.ts && npx tsx cleanup-clerk-users.ts",
+    "report": "playwright show-report test-results/html-report",
+    "install:browsers": "playwright install chromium"
+  },
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "zmanim",
+    "clerk",
+    "auth"
+  ],
+  "author": "Shtetl Zmanim",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@clerk/backend": "^2.24.0",
+    "@clerk/testing": "^1.13.19",
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.15.6",
+    "dotenv": "^17.2.3",
+    "mailslurp-client": "^16.0.0",
+    "pg": "^8.16.3",
+    "typescript": "^5.9.3"
+  }
+}

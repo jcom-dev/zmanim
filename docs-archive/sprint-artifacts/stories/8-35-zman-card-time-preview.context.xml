@@ -1,0 +1,265 @@
+<story-context id="8-35-zman-card-time-preview" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>35</storyId>
+    <title>Zman Card Time Preview for Selected Date</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>publisher editing my algorithm</asA>
+    <iWant>each zman card to show a preview of the calculated time for the currently selected date and location</iWant>
+    <soThat>I can immediately see the effect of my formula changes without navigating away</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Each zman card displays calculated time preview for page's selected date</criterion>
+    <criterion id="AC2">Preview shows time for page's selected location</criterion>
+    <criterion id="AC3">Preview respects display preferences (seconds/rounding from Story 8.34)</criterion>
+    <criterion id="AC4">Preview updates when formula is modified (debounced 300ms)</criterion>
+    <criterion id="AC5">Preview updates when date picker changes</criterion>
+    <criterion id="AC6">Preview updates when location changes</criterion>
+    <criterion id="AC7">Shows "Invalid formula" if DSL parsing fails</criterion>
+    <criterion id="AC8">Shows "Select location" if no city selected</criterion>
+    <criterion id="AC9">Shows loading spinner while calculating</criterion>
+    <criterion id="AC10">Visually distinct preview (badge style) positioned in card header</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <!-- ZmanCard - Component to extend -->
+      <artifact>
+        <path>web/components/publisher/ZmanCard.tsx</path>
+        <kind>component</kind>
+        <symbol>ZmanCard</symbol>
+        <reason>884-line component - add ZmanTimePreview in header area</reason>
+        <lines>1-150</lines>
+        <currentProps><![CDATA[
+interface ZmanCardProps {
+  zman: PublisherZman;
+  category: 'essential' | 'optional';
+  displayLanguage?: 'hebrew' | 'english' | 'both';
+  // ... other props
+}
+        ]]></currentProps>
+        <requiredChange>Add pageDate, pageCityId, pageCityName props to pass context for preview</requiredChange>
+        <integrationPoint><![CDATA[
+// In CardHeader, after the title:
+<div className="flex items-center justify-between">
+  <h3 className="text-lg font-semibold">{displayName}</h3>
+  <ZmanTimePreview
+    formula={draftFormula ?? zman.formula_dsl}
+    date={pageDate}
+    cityId={pageCityId}
+    cityName={pageCityName}
+  />
+</div>
+        ]]></integrationPoint>
+      </artifact>
+
+      <!-- New component: ZmanTimePreview -->
+      <artifact>
+        <path>web/components/publisher/ZmanTimePreview.tsx</path>
+        <kind>component</kind>
+        <symbol>ZmanTimePreview</symbol>
+        <reason>NEW FILE - Live time preview badge with debounced calculation</reason>
+        <props><![CDATA[
+interface ZmanTimePreviewProps {
+  formula: string;
+  date: DateTime;
+  cityId: number | null;
+  cityName?: string;
+  className?: string;
+}
+        ]]></props>
+        <states>
+          <state name="calculatedTime" type="DateTime | null" />
+          <state name="error" type="string | null" />
+          <state name="isLoading" type="boolean" />
+        </states>
+        <features>
+          <feature>Debounced formula input (300ms)</feature>
+          <feature>Client-side calculation for simple formulas</feature>
+          <feature>API fallback for complex formulas</feature>
+          <feature>Display preferences integration (showSeconds, roundingMode)</feature>
+        </features>
+      </artifact>
+
+      <!-- Existing DSL preview endpoint -->
+      <artifact>
+        <path>api/internal/handlers/dsl.go</path>
+        <kind>handler</kind>
+        <symbol>PreviewHandler</symbol>
+        <reason>Existing POST /auth/dsl/preview endpoint - reuse for fallback</reason>
+        <currentEndpoint>POST /api/v1/auth/dsl/preview</currentEndpoint>
+        <requestBody><![CDATA[
+{
+  "formula": "sunrise + 18min",
+  "latitude": 40.7128,
+  "longitude": -74.0060,
+  "date": "2025-12-14"
+}
+        ]]></requestBody>
+        <responseBody><![CDATA[
+{
+  "result": "06:42:30",
+  "is_valid": true,
+  "error_message": null
+}
+        ]]></responseBody>
+      </artifact>
+
+      <!-- Existing calculation preview component for reference -->
+      <artifact>
+        <path>web/components/formula-builder/preview/CalculationPreview.tsx</path>
+        <kind>component</kind>
+        <symbol>CalculationPreview</symbol>
+        <reason>REFERENCE - existing pattern for debounced formula preview</reason>
+        <pattern><![CDATA[
+// Debounce pattern (lines 50-85):
+const debouncedFormula = useDebounce(formula, 300);
+
+useEffect(() => {
+  if (!isValid || !debouncedFormula) return;
+  fetchPreview();
+}, [debouncedFormula, dateString, latitude, longitude]);
+
+const fetchPreview = async () => {
+  const data = await api.post('/auth/dsl/preview', {
+    formula, latitude, longitude, date: dateString,
+  });
+  setResult({ time: data?.time, success: true });
+};
+        ]]></pattern>
+      </artifact>
+
+      <!-- Algorithm page - passes context to cards -->
+      <artifact>
+        <path>web/app/publisher/algorithm/page.tsx</path>
+        <kind>page</kind>
+        <reason>Parent page - provides date picker and location selection context</reason>
+        <contextToPass>
+          <prop name="selectedDate">DateTime from date picker</prop>
+          <prop name="selectedCityId">number from location search</prop>
+          <prop name="selectedCityName">string for display</prop>
+        </contextToPass>
+      </artifact>
+
+      <!-- PreferencesContext for display settings -->
+      <artifact>
+        <path>web/lib/contexts/PreferencesContext.tsx</path>
+        <kind>context</kind>
+        <symbol>usePreferences</symbol>
+        <reason>Read showSeconds and roundingMode for formatting preview time</reason>
+        <usage><![CDATA[
+const { preferences } = usePreferences();
+const formattedTime = formatZmanTime(
+  calculatedTime,
+  preferences.showSeconds ?? true,  // Algorithm page default: ON
+  preferences.roundingMode ?? 'math'
+);
+        ]]></usage>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <clientSideCalculation>
+    <description>Optional: Client-side DSL calculation for simple formulas using kosher-zmanim</description>
+    <library>kosher-zmanim (npm package)</library>
+    <supportedFormulas>
+      <formula pattern="sunrise">calendar.getSunrise()</formula>
+      <formula pattern="sunset">calendar.getSunset()</formula>
+      <formula pattern="noon">calendar.getChatzos()</formula>
+      <formula pattern="solar(-16.1)">calendar.getSunriseOffsetByDegrees(90 + 16.1)</formula>
+      <formula pattern="sunrise + 72min">getSunrise().plus({ minutes: 72 })</formula>
+    </supportedFormulas>
+    <unsupportedFormulas>
+      <formula>@zman_key references (require server lookup)</formula>
+      <formula>proportional_hours() (complex calculation)</formula>
+      <formula>midpoint() with references</formula>
+    </unsupportedFormulas>
+    <fallbackStrategy>On parse error or unsupported formula, call API endpoint</fallbackStrategy>
+  </clientSideCalculation>
+
+  <debounceStrategy>
+    <debounceMs>300</debounceMs>
+    <triggers>
+      <trigger>Formula text change</trigger>
+      <trigger>Date change (no debounce, immediate)</trigger>
+      <trigger>Location change (no debounce, immediate)</trigger>
+    </triggers>
+    <caching>
+      <key>formula + date.toISODate() + cityId</key>
+      <ttl>Component lifecycle (clear on unmount)</ttl>
+    </caching>
+  </debounceStrategy>
+
+  <errorStates>
+    <state condition="!cityId" display="Select location" icon="MapPin" />
+    <state condition="!formula" display="No formula" icon="AlertCircle" />
+    <state condition="parseError" display="Invalid formula" icon="AlertTriangle" />
+    <state condition="apiError" display="Calculation failed" icon="XCircle" />
+  </errorStates>
+
+  <uiDesign>
+    <position>Card header, right side (after title)</position>
+    <component>Badge with outline variant</component>
+    <icon>Clock (lucide-react)</icon>
+    <loading>Loader2 with animate-spin</loading>
+    <example><![CDATA[
+<Badge variant="outline" className="font-mono text-sm">
+  <Clock className="h-3 w-3 mr-1" />
+  6:42:30 AM
+</Badge>
+<span className="text-xs text-muted-foreground">@ Jerusalem</span>
+    ]]></example>
+  </uiDesign>
+
+  <dependencies>
+    <dependency>luxon (DateTime) - already installed</dependency>
+    <dependency>kosher-zmanim - optional, for client-side calculation</dependency>
+    <dependency>Story 8.34 - formatZmanTime utility and display preferences</dependency>
+    <dependency>Existing /auth/dsl/preview API endpoint</dependency>
+    <dependency>useDebounce hook - implement or use existing</dependency>
+  </dependencies>
+
+  <testingStrategy>
+    <unit>
+      <test>Client-side DSL parser handles primitives</test>
+      <test>Client-side DSL parser handles arithmetic</test>
+      <test>Client-side DSL parser handles solar angles</test>
+      <test>Unsupported formulas throw to trigger API fallback</test>
+    </unit>
+    <component>
+      <test>ZmanTimePreview renders loading state</test>
+      <test>ZmanTimePreview renders error states</test>
+      <test>ZmanTimePreview renders calculated time</test>
+      <test>Debounce prevents excessive API calls</test>
+    </component>
+    <e2e>
+      <test>Modify formula -> preview updates after debounce</test>
+      <test>Change date -> all previews update</test>
+      <test>Invalid formula -> shows error message</test>
+      <test>No location -> shows "Select location"</test>
+    </e2e>
+  </testingStrategy>
+
+  <performance>
+    <concern>Many cards on page = many parallel calculations</concern>
+    <mitigation>
+      <strategy>Debounce per-card (300ms)</strategy>
+      <strategy>Cache results by formula+date+city</strategy>
+      <strategy>Client-side calculation for simple formulas</strategy>
+      <strategy>Batch API requests if implementing server-side</strategy>
+    </mitigation>
+  </performance>
+
+  <constraints>
+    <constraint>Must not block card rendering while calculating</constraint>
+    <constraint>Must respect display preferences from Story 8.34</constraint>
+    <constraint>Must handle API errors gracefully</constraint>
+    <constraint>Must work with draft (unsaved) formulas</constraint>
+  </constraints>
+</story-context>

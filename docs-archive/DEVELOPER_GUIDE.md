@@ -1,0 +1,1044 @@
+# Shtetl Zmanim - Developer Onboarding Guide
+
+## Welcome! 🎉
+
+This guide will help you get started with developing Shtetl Zmanim, a multi-publisher platform for calculating Jewish prayer times (zmanim). Whether you're working on the Go backend, Next.js frontend, or both, this guide has you covered.
+
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+2. [Project Structure](#project-structure)
+3. [Local Development Setup](#local-development-setup)
+4. [Development Workflow](#development-workflow)
+5. [Code Standards](#code-standards)
+6. [Testing](#testing)
+7. [Common Tasks](#common-tasks)
+8. [Troubleshooting](#troubleshooting)
+
+---
+
+## Prerequisites
+
+### Required Software
+
+**Backend Development:**
+- Go 1.21 or higher
+- Docker & Docker Compose
+- PostgreSQL client tools
+- Git
+
+**Frontend Development:**
+- Node.js 18.x or higher
+- npm or yarn
+- Git
+
+**Database:**
+- PostgreSQL client (psql)
+- PostgreSQL 15+ (or use Docker)
+
+### Database (PostgreSQL)
+```sql
+-- PostgreSQL 15+
+-- PostGIS extension (geographic calculations)
+-- pg_cron (scheduled jobs)
+-- Object Storage (algorithm assets)
+```
+
+### Recommended Tools
+
+- VS Code with extensions:
+  - Go extension
+  - TypeScript and JavaScript extension
+  - ESLint
+  - Prettier
+  - Docker extension
+- Postman or Insomnia (API testing)
+- pgAdmin or DBeaver (database GUI)
+
+### Sign up for Services
+
+1. **PostgreSQL** - Ensure you have access to a PostgreSQL instance
+2. **Upstash Redis** (optional for local dev) - https://upstash.com
+3. **Vercel** (for deployment) - https://vercel.com
+
+---
+
+## Project Structure
+
+```
+zmanim/
+├── backend/                    # Go backend service
+│   ├── cmd/
+│   │   └── api/               # API entry point
+│   ├── internal/
+│   │   ├── handlers/          # HTTP request handlers
+│   │   ├── services/          # Business logic
+│   │   ├── models/            # Data models
+│   │   ├── db/                # Database queries (sqlc)
+│   │   ├── middleware/        # HTTP middleware
+│   │   └── config/            # Configuration
+│   ├── migrations/            # Database migrations
+│   ├── pkg/                   # Public packages
+│   ├── go.mod
+│   └── Dockerfile
+│
+├── frontend/                   # Next.js web application
+│   ├── app/                   # Next.js 16 app router
+│   ├── components/            # React components
+│   ├── lib/                   # Utilities and helpers
+│   ├── public/                # Static assets
+│   ├── styles/                # Global styles
+│   └── package.json
+│
+├── admin/                      # Admin panel (Next.js)
+│   ├── app/
+│   ├── components/
+│   ├── lib/
+│   └── package.json
+│
+├── docs/                       # Documentation
+│   ├── ARCHITECTURE.md        # System architecture
+│   ├── DEVELOPER_GUIDE.md     # This file
+│   └── API.md                 # API documentation
+│
+├── scripts/                    # Utility scripts
+├── docker-compose.yml         # Local development services
+└── README.md
+```
+
+---
+
+## Local Development Setup
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/your-org/zmanim.git
+cd zmanim
+```
+
+### Step 2: Set Up Database
+
+**Option A: Use Cloud PostgreSQL**
+
+1. Create a new PostgreSQL database
+2. Save your connection URL
+3. Apply the database schema:
+
+```bash
+# Copy schema from docs/ARCHITECTURE.md database section
+# Execute in your database
+```
+
+**Option B: Use Local PostgreSQL**
+
+```bash
+# Ensure PostgreSQL is running locally
+
+# Create database
+createdb zmanim
+
+# Apply migrations
+# (Use your preferred migration tool or the provided scripts)
+```
+
+### Step 3: Set Up Backend (Go)
+
+```bash
+cd backend
+
+# Install dependencies
+go mod download
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your values
+nano .env
+```
+
+**.env file example:**
+```bash
+# Server
+PORT=8080
+ENVIRONMENT=development
+
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5432/zmanim
+
+# Redis Cache
+REDIS_URL=redis://localhost:6379
+REDIS_PASSWORD=
+
+# JWT
+JWT_SECRET=your-secret-key-here
+
+# CORS
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+```
+
+**Run the backend:**
+
+```bash
+# Development mode with hot reload
+go run cmd/api/main.go
+
+# Or use air for auto-reload
+air
+
+# Run tests
+go test ./...
+
+# Build
+go build -o bin/api cmd/api/main.go
+```
+
+### Step 4: Set Up Frontend (Next.js)
+
+**Web Application:**
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Copy environment template
+cp .env.local.example .env.local
+
+# Edit .env.local
+nano .env.local
+```
+
+**.env.local example:**
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+```
+
+**Run the web app:**
+
+```bash
+npm run dev
+# Opens at http://localhost:3000
+```
+
+**Admin Panel:**
+
+```bash
+cd admin
+
+npm install
+cp .env.local.example .env.local
+nano .env.local
+
+npm run dev
+# Opens at http://localhost:3001
+```
+
+### Step 5: Start Services with Docker (Optional)
+
+If you prefer using Docker for all services:
+
+```bash
+# From project root
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**docker-compose.yml:**
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: zmanim
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/zmanim
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+---
+
+## Development Workflow
+
+### 1. Create a New Feature Branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+### 2. Make Your Changes
+
+Follow the code standards (see below) and write tests.
+
+### 3. Run Tests
+
+**Backend:**
+```bash
+cd backend
+go test ./... -v
+go test -race ./...  # Race condition detection
+go test -cover ./... # Coverage report
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm test
+npm run lint
+npm run type-check
+```
+
+### 4. Commit Your Changes
+
+```bash
+git add .
+git commit -m "feat: add zmanim calculation endpoint"
+```
+
+**Commit Message Format:**
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation changes
+- `style:` Code style changes (formatting)
+- `refactor:` Code refactoring
+- `test:` Adding or updating tests
+- `chore:` Maintenance tasks
+
+### 5. Push and Create PR
+
+```bash
+git push origin feature/your-feature-name
+```
+
+Then create a Pull Request on GitHub.
+
+---
+
+## Code Standards
+
+### Go Backend
+
+**Code Style:**
+- Follow [Effective Go](https://golang.org/doc/effective_go)
+- Run `gofmt` and `golint` before committing
+- Use meaningful variable names
+- Keep functions small and focused
+
+**Project Structure:**
+```go
+// internal/handlers/zmanim_handler.go
+package handlers
+
+import (
+    "net/http"
+    "encoding/json"
+    "github.com/your-org/zmanim/internal/services"
+)
+
+type ZmanimHandler struct {
+    service *services.CalculationService
+}
+
+func NewZmanimHandler(service *services.CalculationService) *ZmanimHandler {
+    return &ZmanimHandler{service: service}
+}
+
+func (h *ZmanimHandler) Calculate(w http.ResponseWriter, r *http.Request) {
+    // Handler logic
+}
+```
+
+**Error Handling:**
+```go
+// Always handle errors explicitly
+result, err := service.Calculate(ctx, req)
+if err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+}
+```
+
+**Testing:**
+```go
+// internal/handlers/zmanim_handler_test.go
+func TestZmanimHandler_Calculate(t *testing.T) {
+    // Arrange
+    handler := NewZmanimHandler(mockService)
+    req := httptest.NewRequest("POST", "/calculate", body)
+    w := httptest.NewRecorder()
+
+    // Act
+    handler.Calculate(w, req)
+
+    // Assert
+    assert.Equal(t, http.StatusOK, w.Code)
+}
+```
+
+### Next.js Frontend
+
+**Component Structure:**
+```tsx
+// components/ZmanimCard.tsx
+import { FC } from 'react';
+
+interface ZmanimCardProps {
+  zman: Zman;
+  onSelect?: (id: string) => void;
+}
+
+export const ZmanimCard: FC<ZmanimCardProps> = ({ zman, onSelect }) => {
+  return (
+    <div className="rounded-lg border p-4">
+      {/* Component content */}
+    </div>
+  );
+};
+```
+
+**API Calls:**
+```typescript
+// lib/api/zmanim.ts
+import axios from 'axios';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+
+export const zmanimAPI = {
+  calculate: async (params: CalculateParams) => {
+    const response = await axios.post(`${API_BASE}/zmanim/calculate`, params);
+    return response.data;
+  },
+
+  getPublishers: async (locationId: string) => {
+    const response = await axios.get(`${API_BASE}/locations/${locationId}/publishers`);
+    return response.data;
+  },
+};
+```
+
+**State Management:**
+```typescript
+// lib/store/zmanim-store.ts
+import { create } from 'zustand';
+
+interface ZmanimStore {
+  selectedLocation: Location | null;
+  selectedPublisher: Publisher | null;
+  zmanim: Zmanim | null;
+  setLocation: (location: Location) => void;
+  setPublisher: (publisher: Publisher) => void;
+  setZmanim: (zmanim: Zmanim) => void;
+}
+
+export const useZmanimStore = create<ZmanimStore>((set) => ({
+  selectedLocation: null,
+  selectedPublisher: null,
+  zmanim: null,
+  setLocation: (location) => set({ selectedLocation: location }),
+  setPublisher: (publisher) => set({ selectedPublisher: publisher }),
+  setZmanim: (zmanim) => set({ zmanim }),
+}));
+```
+
+---
+
+## Testing
+
+### Backend Testing
+
+**Unit Tests:**
+```go
+// internal/services/calculation_service_test.go
+func TestCalculationService_Calculate(t *testing.T) {
+    tests := []struct {
+        name    string
+        input   CalculationRequest
+        want    *Zmanim
+        wantErr bool
+    }{
+        {
+            name: "valid calculation for Jerusalem",
+            input: CalculationRequest{
+                LocationID: "uuid",
+                Date:       "2024-11-24",
+            },
+            want:    &expectedZmanim,
+            wantErr: false,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            service := NewCalculationService(mockDB, mockCache)
+            got, err := service.Calculate(context.Background(), tt.input)
+
+            if tt.wantErr {
+                assert.Error(t, err)
+                return
+            }
+
+            assert.NoError(t, err)
+            assert.Equal(t, tt.want, got)
+        })
+    }
+}
+```
+
+**Integration Tests:**
+```go
+// internal/handlers/integration_test.go
+func TestZmanimAPI_Integration(t *testing.T) {
+    // Set up test database
+    db := setupTestDB(t)
+    defer db.Close()
+
+    // Create test server
+    server := setupTestServer(db)
+
+    // Make request
+    resp, err := http.Post(
+        server.URL+"/api/v1/zmanim/calculate",
+        "application/json",
+        bytes.NewBuffer(requestBody),
+    )
+
+    assert.NoError(t, err)
+    assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+```
+
+### Frontend Testing
+
+**Component Tests:**
+```typescript
+// components/__tests__/ZmanimCard.test.tsx
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ZmanimCard } from '../ZmanimCard';
+
+describe('ZmanimCard', () => {
+  it('renders zman information', () => {
+    const zman = {
+      name: 'Sunrise',
+      time: '2024-11-24T06:03:45Z',
+    };
+
+    render(<ZmanimCard zman={zman} />);
+
+    expect(screen.getByText('Sunrise')).toBeInTheDocument();
+    expect(screen.getByText(/06:03/)).toBeInTheDocument();
+  });
+
+  it('calls onSelect when clicked', () => {
+    const onSelect = jest.fn();
+    render(<ZmanimCard zman={mockZman} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByRole('button'));
+    expect(onSelect).toHaveBeenCalledWith(mockZman.id);
+  });
+});
+```
+
+---
+
+## Common Tasks
+
+### Adding a New API Endpoint
+
+**1. Define the route:**
+```go
+// cmd/api/routes.go
+func (s *Server) routes() http.Handler {
+    r := chi.NewRouter()
+
+    r.Route("/api/v1", func(r chi.Router) {
+        r.Post("/zmanim/calculate", s.handlers.Zmanim.Calculate)
+        r.Get("/publishers", s.handlers.Publisher.List)
+        // Add your new route here
+    })
+
+    return r
+}
+```
+
+**2. Create the handler:**
+```go
+// internal/handlers/your_handler.go
+func (h *YourHandler) YourMethod(w http.ResponseWriter, r *http.Request) {
+    // Parse request
+    var req YourRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request", http.StatusBadRequest)
+        return
+    }
+
+    // Call service
+    result, err := h.service.YourMethod(r.Context(), req)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // Send response
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(result)
+}
+```
+
+**3. Add the service logic:**
+```go
+// internal/services/your_service.go
+func (s *YourService) YourMethod(ctx context.Context, req YourRequest) (*YourResponse, error) {
+    // Business logic here
+    return &result, nil
+}
+```
+
+**4. Write tests:**
+```go
+// internal/handlers/your_handler_test.go
+func TestYourHandler_YourMethod(t *testing.T) {
+    // Test implementation
+}
+```
+
+### Adding a Database Migration
+
+**1. Create migration file:**
+```bash
+cd backend/migrations
+touch 003_add_new_table.up.sql
+touch 003_add_new_table.down.sql
+```
+
+**2. Write migration:**
+```sql
+-- 003_add_new_table.up.sql
+CREATE TABLE your_table (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_your_table_name ON your_table(name);
+```
+
+```sql
+-- 003_add_new_table.down.sql
+DROP TABLE IF EXISTS your_table;
+```
+
+**3. Apply migration:**
+```bash
+# Using golang-migrate
+migrate -path migrations -database "${DATABASE_URL}" up
+
+# Or using migration tool
+migrate -path migrations -database "${DATABASE_URL}" up
+```
+
+### Adding a New Frontend Component
+
+**1. Create component file:**
+```tsx
+// components/NewComponent.tsx
+import { FC } from 'react';
+
+interface NewComponentProps {
+  data: YourData;
+}
+
+export const NewComponent: FC<NewComponentProps> = ({ data }) => {
+  return (
+    <div>
+      {/* Component JSX */}
+    </div>
+  );
+};
+```
+
+**2. Create test file:**
+```tsx
+// components/__tests__/NewComponent.test.tsx
+import { render, screen } from '@testing-library/react';
+import { NewComponent } from '../NewComponent';
+
+describe('NewComponent', () => {
+  it('renders correctly', () => {
+    render(<NewComponent data={mockData} />);
+    expect(screen.getByText('Expected Text')).toBeInTheDocument();
+  });
+});
+```
+
+**3. Export from index:**
+```typescript
+// components/index.ts
+export { NewComponent } from './NewComponent';
+```
+
+---
+
+## Troubleshooting
+
+### Backend Issues
+
+**Problem: Database connection fails**
+```bash
+# Check if PostgreSQL is running
+pg_isready -h localhost -p 5432
+
+# Check connection string
+echo $DATABASE_URL
+
+# Test connection
+psql "${DATABASE_URL}"
+```
+
+**Problem: Redis connection fails**
+```bash
+# Check if Redis is running
+redis-cli ping
+# Should respond with: PONG
+
+# Check Redis URL
+echo $REDIS_URL
+```
+
+**Problem: Hot reload not working**
+```bash
+# Install air for hot reload
+go install github.com/cosmtrek/air@latest
+
+# Create .air.toml config
+air init
+
+# Run with air
+air
+```
+
+### Frontend Issues
+
+**Problem: Module not found**
+```bash
+# Clear node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Problem: Build fails**
+```bash
+# Check TypeScript errors
+npm run type-check
+
+# Clear Next.js cache
+rm -rf .next
+npm run build
+```
+
+**Problem: API calls fail with CORS error**
+
+Check backend CORS configuration:
+```go
+// internal/middleware/cors.go
+func CORS(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+
+        next.ServeHTTP(w, r)
+    })
+}
+```
+
+### Database Issues
+
+**Problem: Migration fails**
+```bash
+# Check current migration version
+migrate -path migrations -database "${DATABASE_URL}" version
+
+# Force to specific version (use with caution!)
+migrate -path migrations -database "${DATABASE_URL}" force VERSION
+
+# Roll back one migration
+migrate -path migrations -database "${DATABASE_URL}" down 1
+```
+
+**Problem: Slow queries**
+```sql
+-- Enable query logging in PostgreSQL
+ALTER SYSTEM SET log_statement = 'all';
+SELECT pg_reload_conf();
+
+-- Check slow queries
+SELECT query, calls, total_time, mean_time
+FROM pg_stat_statements
+ORDER BY mean_time DESC
+LIMIT 10;
+
+-- Analyze table
+ANALYZE your_table;
+```
+
+---
+
+## Useful Commands
+
+### Backend
+```bash
+# Format code
+go fmt ./...
+
+# Lint code
+golint ./...
+
+# Run specific test
+go test -run TestName ./internal/services
+
+# Generate test coverage HTML
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
+# Build for production
+CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
+```
+
+### Frontend
+```bash
+# Format code
+npm run format
+
+# Lint code
+npm run lint
+npm run lint:fix
+
+# Type check
+npm run type-check
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Analyze bundle size
+npm run analyze
+```
+
+### Database
+```bash
+# Dump database
+pg_dump $DATABASE_URL > backup.sql
+
+# Restore database
+psql $DATABASE_URL < backup.sql
+
+# Connect to database
+psql $DATABASE_URL
+
+# Run SQL file
+psql $DATABASE_URL -f script.sql
+```
+
+---
+
+## Resources
+
+### Documentation
+- [Go Documentation](https://golang.org/doc/)
+- [Next.js Documentation](https://nextjs.org/docs)
+
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [PostGIS Documentation](https://postgis.net/documentation/)
+
+### Tools
+- [Go Playground](https://play.golang.org/)
+- [TypeScript Playground](https://www.typescriptlang.org/play)
+- [Regex101](https://regex101.com/)
+- [JSON Formatter](https://jsonformatter.org/)
+
+### Learning
+- [Effective Go](https://golang.org/doc/effective_go)
+- [Go by Example](https://gobyexample.com/)
+- [React Documentation](https://react.dev/)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
+
+---
+
+## Getting Help
+
+### Internal Resources
+- Architecture Documentation: `docs/ARCHITECTURE.md`
+- API Documentation: `docs/API.md`
+- Contributing Guidelines: `CONTRIBUTING.md`
+
+### Communication
+- GitHub Issues: Report bugs and request features
+- GitHub Discussions: Ask questions and share ideas
+- Slack Channel: `#zmanim-dev` (if available)
+
+### Code Review Checklist
+- [ ] Code follows style guidelines
+- [ ] All tests pass
+- [ ] New tests added for new features
+- [ ] Documentation updated
+- [ ] No console.log or debugging code
+- [ ] Error handling implemented
+- [ ] Performance considerations addressed
+- [ ] Security best practices followed
+
+---
+
+## AI Dev Agent Workflow (BMad Method)
+
+This section documents the development workflow used by the AI Dev Agent when implementing stories.
+
+### Service Management
+
+**Restart Script:**
+The project uses a `restart.sh` script to manage local services:
+
+```bash
+# Restart all services (kills tmux session and starts fresh)
+./restart.sh
+```
+
+This script:
+1. Kills existing tmux session `zmanim`
+2. Stops any stray Go API or Next.js processes
+3. Frees ports 8080 and 3001
+4. Starts services in a new tmux session via `.coder/start-services.sh`
+
+**Service URLs:**
+- Web App: http://localhost:3001
+- Go API: http://localhost:8080
+
+**View Service Logs:**
+```bash
+tmux attach -t zmanim
+# Switch panes: Ctrl+B then 0 (api) or 1 (web)
+# Detach: Ctrl+B then D
+```
+
+### Playwright E2E Testing
+
+**REQUIRED:** After completing each story implementation, run Playwright E2E tests.
+
+**Test Workflow:**
+```bash
+# 1. Ensure services are running
+./restart.sh
+
+# 2. Run tests for the specific story
+cd web
+npx playwright test tests/<story-name>.spec.ts --reporter=list
+
+# 3. Run all tests to verify no regressions
+npx playwright test --reporter=list
+```
+
+**Test File Naming Convention:**
+- Story tests: `web/tests/<story-id>.spec.ts`
+- Example: `web/tests/publisher-profile.spec.ts` for Story 1.4
+
+**Playwright Configuration:**
+- Config file: `web/playwright.config.ts`
+- Base URL: http://localhost:3001
+- Test directory: `web/tests/`
+
+**Writing Tests for Protected Routes:**
+Routes protected by Clerk authentication will redirect to sign-in. Tests should:
+1. Verify route protection (redirects to sign-in)
+2. Test API endpoints return 401 without auth
+3. Verify UI components render correctly when accessible
+
+Example test structure:
+```typescript
+test.describe('Protected Feature', () => {
+  test('should redirect to sign-in without auth', async ({ page }) => {
+    await page.goto('/protected/route');
+    await page.waitForURL(/sign-in|clerk/, { timeout: 15000 });
+  });
+
+  test('API should return 401 without auth', async ({ page }) => {
+    const response = await page.request.get('http://localhost:8080/api/v1/protected');
+    expect(response.status()).toBe(401);
+  });
+});
+```
+
+### Story Completion Checklist
+
+When completing a story, the AI Dev Agent must:
+
+1. **Implement all tasks** in the story file
+2. **Run Playwright tests** for the story
+3. **Verify builds pass:**
+   ```bash
+   cd api && go build ./...
+   cd web && npm run build
+   ```
+4. **Update story file:**
+   - Mark all tasks as complete `[x]`
+   - Update Status to `review`
+   - Fill in Dev Agent Record section
+5. **Update sprint-status.yaml:**
+   - Change story status from `in-progress` to `review`
+6. **Commit and push:**
+   ```bash
+   git add .
+   git commit -m "feat(story-X.X): <description>"
+   git push origin main
+   ```
+
+### Dev Agent Commands
+
+From the Dev Agent menu:
+- `*develop-story` - Execute story implementation
+- `*story-done` - Mark story as done (moves to DONE)
+- `*code-review` - Perform code review on completed story
+- `*workflow-status` - Check current workflow status
+
+---
+
+## Welcome to the Team! 🚀
+
+You're now ready to start developing Shtetl Zmanim. If you have any questions or run into issues, don't hesitate to reach out to the team. Happy coding!

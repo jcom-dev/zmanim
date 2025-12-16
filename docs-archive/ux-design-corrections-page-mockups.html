@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zmanim Corrections Page - Design Mockups</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        body.dark {
+            background: #0f172a;
+            color: #ffffff;
+        }
+
+        .controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            z-index: 1000;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark .controls {
+            background: #1e293b;
+            border-bottom-color: #334155;
+        }
+
+        .control-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e2e8f0;
+            background: white;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        body.dark .control-btn {
+            background: #0f172a;
+            border-color: #475569;
+            color: #ffffff;
+        }
+
+        .control-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .mockup-container {
+            margin-top: 80px;
+            padding: 2rem;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .mockup-card {
+            display: none;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        body.dark .mockup-card {
+            background: #1e293b;
+        }
+
+        .mockup-card.active {
+            display: block;
+        }
+
+        .mockup-header {
+            background: #2563eb;
+            color: white;
+            padding: 1.5rem;
+        }
+
+        .mockup-header h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .mockup-header p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .mockup-content {
+            padding: 2rem;
+        }
+
+        /* Corrections Main Page Styles */
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            color: #64748b;
+            font-size: 1rem;
+        }
+
+        body.dark .page-subtitle {
+            color: #94a3b8;
+        }
+
+        .search-bar {
+            margin-bottom: 2rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 0.5rem;
+            background: white;
+        }
+
+        body.dark .search-input {
+            background: #0f172a;
+            border-color: #475569;
+            color: #ffffff;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .empty-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        body.dark .empty-card {
+            background: #0f172a;
+            border-color: #334155;
+        }
+
+        .empty-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .empty-description {
+            color: #64748b;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        body.dark .empty-description {
+            color: #94a3b8;
+        }
+
+        .when-to-use {
+            background: #eff6ff;
+            border-left: 3px solid #2563eb;
+            padding: 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            color: #1e40af;
+            margin-top: 1rem;
+        }
+
+        body.dark .when-to-use {
+            background: #172554;
+            color: #93c5fd;
+        }
+
+        /* Table Styles */
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        body.dark .data-table {
+            border-color: #334155;
+        }
+
+        .data-table thead {
+            background: #f8fafc;
+        }
+
+        body.dark .data-table thead {
+            background: #0f172a;
+        }
+
+        .data-table th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        body.dark .data-table th {
+            color: #94a3b8;
+        }
+
+        .data-table tbody tr {
+            border-top: 1px solid #e2e8f0;
+            transition: background 0.2s;
+        }
+
+        body.dark .data-table tbody tr {
+            border-top-color: #334155;
+        }
+
+        .data-table tbody tr:hover {
+            background: #f8fafc;
+            cursor: pointer;
+        }
+
+        body.dark .data-table tbody tr:hover {
+            background: #0f172a;
+        }
+
+        .data-table td {
+            padding: 1rem;
+        }
+
+        .location-cell {
+            font-weight: 500;
+        }
+
+        .location-detail {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        body.dark .location-detail {
+            color: #94a3b8;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-coordinates {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        body.dark .badge-coordinates {
+            background: #1e3a8a;
+            color: #93c5fd;
+        }
+
+        .badge-elevation {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        body.dark .badge-elevation {
+            background: #064e3b;
+            color: #6ee7b7;
+        }
+
+        .badge-both {
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        body.dark .badge-both {
+            background: #581c87;
+            color: #d8b4fe;
+        }
+
+        .badge-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        body.dark .badge-pending {
+            background: #78350f;
+            color: #fde047;
+        }
+
+        .badge-approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        body.dark .badge-approved {
+            background: #064e3b;
+            color: #6ee7b7;
+        }
+
+        .badge-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        body.dark .badge-rejected {
+            background: #7f1d1d;
+            color: #fca5a5;
+        }
+
+        .action-icons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .icon-btn {
+            padding: 0.375rem;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 0.25rem;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: #f1f5f9;
+            color: #2563eb;
+        }
+
+        body.dark .icon-btn {
+            color: #94a3b8;
+        }
+
+        body.dark .icon-btn:hover {
+            background: #0f172a;
+            color: #60a5fa;
+        }
+
+        .icon-btn.destructive:hover {
+            color: #ef4444;
+        }
+
+        /* Search & Action View */
+        .two-column {
+            display: grid;
+            grid-template-columns: 40% 60%;
+            gap: 2rem;
+            height: 600px;
+        }
+
+        .left-panel {
+            overflow-y: auto;
+        }
+
+        .right-panel {
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            position: relative;
+        }
+
+        body.dark .right-panel {
+            background: #0f172a;
+        }
+
+        .map-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.125rem;
+            position: relative;
+        }
+
+        .map-pin {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .map-pin.blue {
+            background: #2563eb;
+            top: 45%;
+            left: 48%;
+        }
+
+        .map-pin.purple {
+            background: #7c3aed;
+            top: 50%;
+            left: 52%;
+        }
+
+        .map-pin.red {
+            background: #ef4444;
+            top: 43%;
+            left: 47%;
+        }
+
+        .map-pin.green {
+            background: #10b981;
+            top: 48%;
+            left: 53%;
+        }
+
+        .map-distance {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .location-details {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        body.dark .location-details {
+            background: #0f172a;
+            border-color: #334155;
+        }
+
+        .location-name {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .location-meta {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+
+        body.dark .location-meta {
+            color: #94a3b8;
+        }
+
+        .data-section {
+            margin-top: 1rem;
+        }
+
+        .data-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+
+        body.dark .data-label {
+            color: #94a3b8;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            font-size: 0.875rem;
+        }
+
+        .data-key {
+            font-weight: 500;
+        }
+
+        .data-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: #64748b;
+        }
+
+        body.dark .data-value {
+            color: #94a3b8;
+        }
+
+        .action-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        body.dark .action-card {
+            background: #0f172a;
+            border-color: #334155;
+        }
+
+        .action-card:hover {
+            border-color: #2563eb;
+        }
+
+        .action-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .action-icon {
+            font-size: 1.5rem;
+        }
+
+        .action-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .action-description {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+        }
+
+        body.dark .action-description {
+            color: #94a3b8;
+        }
+
+        .action-status {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+
+        body.dark .action-status {
+            color: #94a3b8;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid #2563eb;
+            color: #2563eb;
+        }
+
+        body.dark .btn-secondary {
+            border-color: #60a5fa;
+            color: #60a5fa;
+        }
+
+        .btn-secondary:hover {
+            background: #eff6ff;
+        }
+
+        body.dark .btn-secondary:hover {
+            background: #1e3a8a;
+        }
+
+        .btn-destructive {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-destructive:hover {
+            background: #dc2626;
+        }
+
+        /* Form Expanded State */
+        .action-card.expanded {
+            background: white;
+            border: 2px solid #2563eb;
+        }
+
+        body.dark .action-card.expanded {
+            background: #1e293b;
+            border-color: #60a5fa;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.375rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+
+        body.dark .form-input {
+            background: #0f172a;
+            border-color: #475569;
+            color: #ffffff;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #2563eb;
+            border-width: 2px;
+        }
+
+        .form-input:disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+        }
+
+        body.dark .form-input:disabled {
+            background: #0f172a;
+            color: #64748b;
+        }
+
+        .form-hint {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        body.dark .form-hint {
+            color: #94a3b8;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .warning-banner {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        body.dark .warning-banner {
+            background: #78350f;
+            border-left-color: #fde047;
+        }
+
+        .warning-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            max-width: 500px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        body.dark .modal {
+            background: #1e293b;
+        }
+
+        .modal-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .modal-content {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 1.5rem;
+        }
+
+        body.dark .modal-content {
+            color: #94a3b8;
+        }
+
+        .modal-details {
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        body.dark .modal-details {
+            background: #0f172a;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+
+        @media (max-width: 1024px) {
+            .two-column {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .right-panel {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button class="control-btn active" onclick="showMockup(1)">Main Page (Empty)</button>
+        <button class="control-btn" onclick="showMockup(2)">Main Page (Active)</button>
+        <button class="control-btn" onclick="showMockup(3)">Search View</button>
+        <button class="control-btn" onclick="showMockup(4)">Override Form</button>
+        <button class="control-btn" onclick="showMockup(5)">Success Modal</button>
+        <button class="control-btn" onclick="toggleTheme()">🌙 Toggle Dark</button>
+    </div>
+
+    <div class="mockup-container">
+        <!-- Mockup 1: Main Page Empty State -->
+        <div class="mockup-card active" id="mockup-1">
+            <div class="mockup-header">
+                <h2>Corrections Page - Empty State</h2>
+                <p>First-time user or publisher with no correction history yet</p>
+            </div>
+            <div class="mockup-content">
+                <div class="page-header">
+                    <h1 class="page-title">Location Corrections</h1>
+                    <p class="page-subtitle">Fix location data issues or override coordinates for your publisher</p>
+                </div>
+
+                <div class="search-bar">
+                    <input type="text" class="search-input" placeholder="🔍 Search for a location...">
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">My Publisher Overrides</h2>
+                    <div class="empty-card">
+                        <div class="empty-icon">🔧</div>
+                        <div class="empty-title">No Location Overrides</div>
+                        <div class="empty-description">
+                            Override coordinates or elevation for specific locations that only affect your publisher's zmanim calculations. The public database remains unchanged.
+                        </div>
+                        <div class="when-to-use">
+                            <strong>When to use:</strong> Use this when the public data is correct for most publishers, but you need different values for your calculation methodology.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">My Public Correction Requests</h2>
+                    <div class="empty-card">
+                        <div class="empty-icon">🌍</div>
+                        <div class="empty-title">No Correction Requests</div>
+                        <div class="empty-description">
+                            Request corrections to location coordinates or elevation in the public database. When approved, all publishers using this location will benefit from accurate data.
+                        </div>
+                        <div class="when-to-use">
+                            <strong>When to use:</strong> Use this when you've verified the coordinates or elevation are factually incorrect.
+                        </div>
+                        <div style="margin-top: 1rem; font-size: 0.875rem; color: #64748b;">
+                            <strong>Status Legend:</strong> <span class="badge badge-pending">🟡 Pending</span> <span class="badge badge-approved">🟢 Approved</span> <span class="badge badge-rejected">🔴 Rejected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mockup 2: Main Page Active State -->
+        <div class="mockup-card" id="mockup-2">
+            <div class="mockup-header">
+                <h2>Corrections Page - Active State</h2>
+                <p>Publisher with existing overrides and correction requests</p>
+            </div>
+            <div class="mockup-content">
+                <div class="page-header">
+                    <h1 class="page-title">Location Corrections</h1>
+                    <p class="page-subtitle">Fix location data issues or override coordinates for your publisher</p>
+                </div>
+
+                <div class="search-bar">
+                    <input type="text" class="search-input" placeholder="🔍 Search for a location...">
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">My Publisher Overrides</h2>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>Override Type</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <div class="location-cell">Salford</div>
+                                    <div class="location-detail">Greater Manchester, United Kingdom</div>
+                                </td>
+                                <td><span class="badge badge-coordinates">Coordinates</span></td>
+                                <td>Dec 15, 2025</td>
+                                <td>
+                                    <div class="action-icons">
+                                        <button class="icon-btn" title="View on Map">🗺️</button>
+                                        <button class="icon-btn" title="Edit">✏️</button>
+                                        <button class="icon-btn destructive" title="Remove">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="location-cell">Manchester</div>
+                                    <div class="location-detail">Greater Manchester, United Kingdom</div>
+                                </td>
+                                <td><span class="badge badge-both">Both</span></td>
+                                <td>Dec 10, 2025</td>
+                                <td>
+                                    <div class="action-icons">
+                                        <button class="icon-btn" title="View on Map">🗺️</button>
+                                        <button class="icon-btn" title="Edit">✏️</button>
+                                        <button class="icon-btn destructive" title="Remove">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="location-cell">Leeds</div>
+                                    <div class="location-detail">West Yorkshire, United Kingdom</div>
+                                </td>
+                                <td><span class="badge badge-elevation">Elevation</span></td>
+                                <td>Nov 28, 2025</td>
+                                <td>
+                                    <div class="action-icons">
+                                        <button class="icon-btn" title="View on Map">🗺️</button>
+                                        <button class="icon-btn" title="Edit">✏️</button>
+                                        <button class="icon-btn destructive" title="Remove">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">My Public Correction Requests</h2>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>Correction Type</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <div class="location-cell">Birmingham</div>
+                                    <div class="location-detail">West Midlands, United Kingdom</div>
+                                </td>
+                                <td><span class="badge badge-coordinates">Coordinates</span></td>
+                                <td><span class="badge badge-pending">🟡 Pending</span></td>
+                                <td>Dec 18, 2025</td>
+                                <td>
+                                    <div class="action-icons">
+                                        <button class="icon-btn" title="View Details">👁️</button>
+                                        <button class="icon-btn" title="View on Map">🗺️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="location-cell">Liverpool</div>
+                                    <div class="location-detail">Merseyside, United Kingdom</div>
+                                </td>
+                                <td><span class="badge badge-elevation">Elevation</span></td>
+                                <td><span class="badge badge-approved">🟢 Approved</span></td>
+                                <td>Nov 30, 2025</td>
+                                <td>
+                                    <div class="action-icons">
+                                        <button class="icon-btn" title="View Details">👁️</button>
+                                        <button class="icon-btn" title="View on Map">🗺️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="location-cell">Sheffield</div>
+                                    <div class="location-detail">South Yorkshire, United Kingdom</div>
+                                </td>
+                                <td><span class="badge badge-both">Both</span></td>
+                                <td><span class="badge badge-rejected">🔴 Rejected</span></td>
+                                <td>Nov 15, 2025</td>
+                                <td>
+                                    <div class="action-icons">
+                                        <button class="icon-btn" title="View Details">👁️</button>
+                                        <button class="icon-btn" title="View on Map">🗺️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mockup 3: Search & Action View -->
+        <div class="mockup-card" id="mockup-3">
+            <div class="mockup-header">
+                <h2>Search & Action View</h2>
+                <p>Publisher searched for "Salford" and selected the location</p>
+            </div>
+            <div class="mockup-content">
+                <div class="two-column">
+                    <div class="left-panel">
+                        <div class="search-bar">
+                            <input type="text" class="search-input" value="Salford" placeholder="🔍 Search for a location...">
+                        </div>
+
+                        <div class="location-details">
+                            <div class="location-name">Salford</div>
+                            <div class="location-meta">Greater Manchester, United Kingdom • Locality ID: 4993250</div>
+
+                            <div class="data-section">
+                                <div class="data-label">Current Data</div>
+                                <div class="data-row">
+                                    <span class="data-key">Latitude:</span>
+                                    <span class="data-value">53.4875° N</span>
+                                </div>
+                                <div class="data-row">
+                                    <span class="data-key">Longitude:</span>
+                                    <span class="data-value">-2.2901° W</span>
+                                </div>
+                                <div class="data-row">
+                                    <span class="data-key">Elevation:</span>
+                                    <span class="data-value">42m</span>
+                                </div>
+                                <div class="data-row">
+                                    <span class="data-key">Source:</span>
+                                    <span class="data-value">Overture Maps</span>
+                                </div>
+                                <div class="data-row">
+                                    <span class="data-key">Last Updated:</span>
+                                    <span class="data-value">Nov 2024</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-card">
+                            <div class="action-card-header">
+                                <span class="action-icon">🔧</span>
+                                <span class="action-title">Override for My Publisher</span>
+                            </div>
+                            <div class="action-description">
+                                Use different coordinates or elevation for YOUR publisher only
+                            </div>
+                            <div class="action-status">Status: No override set</div>
+                            <button class="btn btn-primary">Create Override</button>
+                        </div>
+
+                        <div class="action-card">
+                            <div class="action-card-header">
+                                <span class="action-icon">🌍</span>
+                                <span class="action-title">Request Public Correction</span>
+                            </div>
+                            <div class="action-description">
+                                Request a correction to the public database for all publishers
+                            </div>
+                            <div class="action-status">Status: No requests submitted</div>
+                            <button class="btn btn-primary">Request Correction</button>
+                        </div>
+                    </div>
+
+                    <div class="right-panel">
+                        <div class="map-placeholder">
+                            🗺️ Interactive Map
+                            <div class="map-pin blue"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mockup 4: Override Form Expanded -->
+        <div class="mockup-card" id="mockup-4">
+            <div class="mockup-header">
+                <h2>Override Form - Expanded State</h2>
+                <p>Publisher clicked "Create Override" - form expanded with map showing two pins</p>
+            </div>
+            <div class="mockup-content">
+                <div class="two-column">
+                    <div class="left-panel">
+                        <div class="search-bar">
+                            <input type="text" class="search-input" value="Salford" placeholder="🔍 Search for a location...">
+                        </div>
+
+                        <div class="location-details">
+                            <div class="location-name">Salford</div>
+                            <div class="location-meta">Greater Manchester, United Kingdom • Locality ID: 4993250</div>
+
+                            <div class="data-section">
+                                <div class="data-label">Current Data</div>
+                                <div class="data-row">
+                                    <span class="data-key">Coordinates:</span>
+                                    <span class="data-value">53.4875° N, -2.2901° W</span>
+                                </div>
+                                <div class="data-row">
+                                    <span class="data-key">Elevation:</span>
+                                    <span class="data-value">42m</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-card expanded">
+                            <div class="action-card-header">
+                                <span class="action-icon">🔧</span>
+                                <span class="action-title">Override Location Data</span>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="form-label">What would you like to override?</div>
+                                <div class="radio-group">
+                                    <label class="radio-option">
+                                        <input type="radio" name="override-type" value="coordinates" checked>
+                                        Coordinates
+                                    </label>
+                                    <label class="radio-option">
+                                        <input type="radio" name="override-type" value="elevation">
+                                        Elevation
+                                    </label>
+                                    <label class="radio-option">
+                                        <input type="radio" name="override-type" value="both">
+                                        Both
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="data-section">
+                                <div class="data-label">Current Coordinates</div>
+                                <div class="form-group">
+                                    <input type="text" class="form-input" value="53.4875° N" disabled>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" class="form-input" value="-2.2901° W" disabled>
+                                </div>
+                            </div>
+
+                            <div class="data-section">
+                                <div class="data-label">Your Override Coordinates</div>
+                                <div class="form-group">
+                                    <label class="form-label">Latitude</label>
+                                    <input type="text" class="form-input" placeholder="53.4880" value="53.4880">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Longitude</label>
+                                    <input type="text" class="form-input" placeholder="-2.2905" value="-2.2905">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Reason for Override (optional)</label>
+                                <textarea class="form-input" rows="3" placeholder="Why are you using different values? This helps your team understand your methodology."></textarea>
+                                <div class="form-hint">Explain why you need different values for your calculation methodology</div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button class="btn btn-primary">Save Override</button>
+                                <button class="btn btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="right-panel">
+                        <div class="map-placeholder">
+                            🗺️ Interactive Map
+                            <div class="map-pin blue" title="Current public location"></div>
+                            <div class="map-pin purple" title="Your override location"></div>
+                            <div class="map-distance">15.2m difference</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mockup 5: Success Modal -->
+        <div class="mockup-card" id="mockup-5">
+            <div class="mockup-header">
+                <h2>Success Modal</h2>
+                <p>Confirmation after successfully creating an override</p>
+            </div>
+            <div class="mockup-content" style="background: rgba(0, 0, 0, 0.3); padding: 4rem; display: flex; align-items: center; justify-content: center; min-height: 500px;">
+                <div class="modal">
+                    <div class="modal-icon">✅</div>
+                    <h2 class="modal-title">Override Created Successfully</h2>
+                    <div class="modal-content">
+                        Location override has been saved for <strong>Salford, United Kingdom</strong>
+                    </div>
+                    <div class="modal-details">
+                        <strong>What was overridden:</strong>
+                        <div style="margin-top: 0.5rem;">
+                            <div>• Coordinates: 53.4875° N, -2.2901° W → 53.4880° N, -2.2905° W</div>
+                        </div>
+                        <div style="margin-top: 0.75rem; color: #64748b; font-size: 0.875rem;">
+                            This override only affects your publisher's zmanim calculations.
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary">View My Overrides</button>
+                        <button class="btn btn-secondary">Search Another Location</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showMockup(num) {
+            // Hide all mockups
+            document.querySelectorAll('.mockup-card').forEach(card => {
+                card.classList.remove('active');
+            });
+
+            // Show selected mockup
+            document.getElementById('mockup-' + num).classList.add('active');
+
+            // Update button states
+            document.querySelectorAll('.control-btn:not(:last-child)').forEach((btn, index) => {
+                btn.classList.remove('active');
+                if (index + 1 === num) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+            const btn = event.target;
+            btn.textContent = document.body.classList.contains('dark') ? '☀️ Toggle Light' : '🌙 Toggle Dark';
+        }
+    </script>
+</body>
+</html>

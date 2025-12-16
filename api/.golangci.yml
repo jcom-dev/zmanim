@@ -1,0 +1,73 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - vendor
+    - testdata
+
+linters:
+  disable-all: true
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    # Additional useful linters
+    - gofmt
+    - goimports
+
+linters-settings:
+  errcheck:
+    # Report about not checking errors in type assertions
+    check-type-assertions: false
+    # Don't report about assignment of errors to blank identifier
+    check-blank: false
+  staticcheck:
+    # SAxxxx checks in https://staticcheck.io/docs/checks/
+    checks:
+      - all
+      - -SA1019 # Ignore deprecation warnings (strings.Title)
+      - -SA1026 # Ignore marshal warnings for pgx types
+      - -SA4006 # Ignore "value never used" (common in dynamic SQL builders)
+      - -SA9003 # Ignore empty branch warnings
+
+issues:
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    # Exclude unused from test files
+    - path: _test\.go
+      linters:
+        - unused
+        - gosimple
+    # Exclude unused code in astro package (future use)
+    - path: internal/astro/
+      linters:
+        - unused
+    # Exclude unused code in dsl package (parser utilities)
+    - path: internal/dsl/
+      linters:
+        - unused
+    # Exclude unused code in handlers package (helper functions for future use)
+    - path: internal/handlers/
+      linters:
+        - unused
+        - ineffassign
+        - gosimple
+      text: "S1025:|S1016:"
+    # Exclude deprecated warnings
+    - linters:
+        - staticcheck
+      text: "SA1019:"
+    # Exclude errcheck for cmd/ tools (import/migration scripts)
+    # These are one-off data tools where strict error checking is less critical
+    - path: cmd/
+      linters:
+        - errcheck
+        - gofmt
+        - goimports
+        - gosimple

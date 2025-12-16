@@ -1,0 +1,157 @@
+<story-context id="8-9-ultra-fast-geo-search-index" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>9</storyId>
+    <title>Ultra-Fast Geo Search Index (Materialized View)</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-9-ultra-fast-geo-search-index.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>lightning-fast city search with intelligent results</iWant>
+    <soThat>I find the right location in milliseconds</soThat>
+    <tasks>
+      <task id="1">Create materialized view geo_search_index (AC: 1-4)</task>
+      <task id="2">Create GIN trigram index (AC: 5)</task>
+      <task id="3">Create B-tree indexes (AC: 6)</task>
+      <task id="4">Create refresh function (AC: 7)</task>
+      <task id="5">Update seed-geodata script (AC: 7)</task>
+      <task id="6">Performance testing (AC: 5)</task>
+      <task id="7">Create SQLc queries (AC: 1-6)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">geo_search_index materialized view created</criterion>
+    <criterion id="AC2">Includes: primary names, alternative names, foreign names from Stories 8.8</criterion>
+    <criterion id="AC3">Full hierarchy IDs: city_id, district_id, region_id, country_id, continent_id</criterion>
+    <criterion id="AC4">Population column for ranking</criterion>
+    <criterion id="AC5">GIN trigram index for fuzzy matching (&lt;10ms search)</criterion>
+    <criterion id="AC6">B-tree indexes for hierarchy filtering</criterion>
+    <criterion id="AC7">Refresh function for updates</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.9: Ultra-Fast Geo Search Index</section>
+        <snippet>Denormalized materialized view combining cities, alternative names, foreign names with full hierarchy. Target &lt;10ms search.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/db/migrations/</path>
+        <kind>migration-directory</kind>
+        <reason>Location for new materialized view migration</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/geo_search.sql</path>
+        <kind>sqlc-query</kind>
+        <reason>New SQLc queries using geo_search_index</reason>
+      </artifact>
+      <artifact>
+        <path>scripts/seed-geodata/</path>
+        <kind>script-directory</kind>
+        <reason>Update to refresh materialized view after import</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/jackc/pgx/v5</package>
+      </go>
+      <postgresql>
+        <extension>pg_trgm</extension>
+      </postgresql>
+      <stories>
+        <depends-on>8.8 (geo_alternative_names, geo_foreign_names tables)</depends-on>
+      </stories>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Requires Story 8.8 completed (names tables)</constraint>
+    <constraint>Use REFRESH MATERIALIZED VIEW CONCURRENTLY for non-blocking refresh</constraint>
+    <constraint>UNIQUE index required for CONCURRENTLY refresh</constraint>
+    <constraint>Performance target: &lt;10ms for common searches</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>geo_search_index materialized view</name>
+      <kind>materialized-view</kind>
+      <signature>
+        entity_type TEXT (city, region, country)
+        entity_id INTEGER
+        city_id INTEGER (NULL for non-city)
+        district_id INTEGER
+        region_id INTEGER
+        country_id INTEGER
+        continent_id INTEGER
+        search_name TEXT
+        name_type TEXT (primary, alternative, foreign)
+        population INTEGER
+        latitude NUMERIC
+        longitude NUMERIC
+        timezone TEXT
+        country_code TEXT
+        country_name TEXT
+        region_name TEXT
+        district_name TEXT
+
+        UNION ALL of:
+        - Cities with primary names
+        - Cities via alternative names
+        - Cities via foreign names
+        - Regions (for region-level search)
+        - Countries with primary/alternative names
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+    <interface>
+      <name>Indexes</name>
+      <kind>database-indexes</kind>
+      <signature>
+        idx_geo_search_trgm USING gin (search_name gin_trgm_ops)
+        idx_geo_search_country ON (country_id)
+        idx_geo_search_country_code ON (country_code)
+        idx_geo_search_region ON (region_id)
+        idx_geo_search_population ON (population DESC NULLS LAST)
+        idx_geo_search_name_country ON (search_name text_pattern_ops, country_id)
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+    <interface>
+      <name>Refresh Function</name>
+      <kind>SQL function</kind>
+      <signature>
+        CREATE OR REPLACE FUNCTION refresh_geo_search_index() RETURNS void AS $$
+        BEGIN
+            REFRESH MATERIALIZED VIEW CONCURRENTLY geo_search_index;
+        END;
+        $$ LANGUAGE plpgsql;
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Performance benchmarks required. Test fuzzy matching accuracy. Verify refresh doesn't block.</standards>
+    <locations>
+      <location>api/internal/handlers/*_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test materialized view contains expected data</idea>
+      <idea acRef="AC2">Test cities searchable by primary, alternative, and foreign names</idea>
+      <idea acRef="AC3">Test hierarchy IDs populated correctly</idea>
+      <idea acRef="AC4">Test population column present and sortable</idea>
+      <idea acRef="AC5">Benchmark: common search &lt;10ms</idea>
+      <idea acRef="AC6">Test filtering by country_id, region_id works</idea>
+      <idea acRef="AC7">Test refresh_geo_search_index() completes without error</idea>
+    </ideas>
+  </tests>
+</story-context>

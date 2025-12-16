@@ -1,0 +1,119 @@
+<story-context id="4-3-bilingual-naming" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.3</storyId>
+    <title>Bilingual Naming System</title>
+    <status>ready-for-dev</status>
+    <storyPoints>5</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-3-bilingual-naming.md</sourceStoryPath>
+    <dependencies>Story 4.2 (DSL Parser)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>mandatory Hebrew and English names for each zman I configure</iWant>
+    <soThat>my algorithm serves both Hebrew-speaking and English-speaking communities with authentic terminology</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.3.1" title="Database Schema Update">
+      <item>zman_definitions table includes name_hebrew (required, RTL text)</item>
+      <item>zman_definitions table includes name_english (required)</item>
+      <item>zman_definitions table includes transliteration (optional)</item>
+      <item>Migration runs successfully without data loss</item>
+    </criterion>
+    <criterion id="AC-4.3.2" title="API Support">
+      <item>POST /api/publisher/zmanim requires both name_hebrew and name_english</item>
+      <item>PUT /api/publisher/zmanim/{id} allows updating names</item>
+      <item>GET /api/zmanim returns all name fields</item>
+      <item>API validates Hebrew contains actual Hebrew characters (U+0590-U+05FF)</item>
+      <item>API returns validation error if Hebrew name missing Hebrew characters</item>
+    </criterion>
+    <criterion id="AC-4.3.3" title="Frontend Display">
+      <item>Zman names display in user's preferred language (from locale)</item>
+      <item>Hebrew names render with proper RTL alignment</item>
+      <item>Transliteration shown as tooltip/subtitle when available</item>
+      <item>Font supports Hebrew characters (Noto Sans Hebrew)</item>
+    </criterion>
+    <criterion id="AC-4.3.4" title="Editor Integration">
+      <item>Formula editor shows bilingual name fields side-by-side</item>
+      <item>Hebrew input field has RTL direction</item>
+      <item>Character counter shows Hebrew character validation status</item>
+      <item>Common zman name suggestions available (autocomplete)</item>
+    </criterion>
+    <criterion id="AC-4.3.5" title="Seed Data">
+      <item>Standard zmanim seeded with Hebrew + English names</item>
+      <item>At least 20 common zmanim pre-populated</item>
+      <item>Names sourced from authoritative halachic sources</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Database Schema, Story 4.3</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-ui-wireframes.md</path>
+        <section>Bilingual Support</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>api/internal/algorithm/types.go</path>
+        <kind>types</kind>
+        <symbol>ZmanDisplayNames</symbol>
+        <reason>Existing English-only display names to extend</reason>
+      </file>
+      <file>
+        <path>web/components/publisher/ZmanConfigModal.tsx</path>
+        <kind>component</kind>
+        <reason>Add bilingual name input fields</reason>
+      </file>
+      <file>
+        <path>web/components/publisher/ZmanList.tsx</path>
+        <kind>component</kind>
+        <reason>Update to show bilingual names</reason>
+      </file>
+    </code>
+  </artifacts>
+
+  <interfaces>
+    <interface>
+      <name>Hebrew Validation (New)</name>
+      <kind>Go function</kind>
+      <signature>
+func ContainsHebrew(s string) bool
+func ValidateHebrewName(name string) error
+      </signature>
+      <path>api/internal/validation/hebrew.go</path>
+    </interface>
+    <interface>
+      <name>ZmanName Component (New)</name>
+      <kind>React component</kind>
+      <path>web/components/shared/ZmanName.tsx</path>
+    </interface>
+  </interfaces>
+
+  <seedData>
+    <zman key="alos_hashachar" hebrew="עלות השחר" english="Dawn" transliteration="Alos HaShachar"/>
+    <zman key="sunrise" hebrew="נץ החמה" english="Sunrise" transliteration="Netz HaChama"/>
+    <zman key="sof_zman_shma_gra" hebrew="סוף זמן שמע גר״א" english="Latest Shema (GRA)" transliteration="Sof Zman Shma GRA"/>
+    <zman key="sof_zman_shma_mga" hebrew="סוף זמן שמע מג״א" english="Latest Shema (MGA)" transliteration="Sof Zman Shma MGA"/>
+    <zman key="chatzos" hebrew="חצות היום" english="Midday" transliteration="Chatzos HaYom"/>
+    <zman key="mincha_gedola" hebrew="מנחה גדולה" english="Earliest Mincha" transliteration="Mincha Gedolah"/>
+    <zman key="mincha_ketana" hebrew="מנחה קטנה" english="Small Mincha" transliteration="Mincha Ketanah"/>
+    <zman key="plag_hamincha" hebrew="פלג המנחה" english="Plag HaMincha" transliteration="Plag HaMincha"/>
+    <zman key="sunset" hebrew="שקיעת החמה" english="Sunset" transliteration="Shkias HaChama"/>
+    <zman key="tzeis_hakochavim" hebrew="צאת הכוכבים" english="Nightfall" transliteration="Tzeis HaKochavim"/>
+  </seedData>
+
+  <constraints>
+    <constraint type="i18n">Hebrew Unicode block U+0590-U+05FF</constraint>
+    <constraint type="i18n">RTL direction for Hebrew text</constraint>
+    <constraint type="font">Noto Sans Hebrew font required</constraint>
+  </constraints>
+</story-context>

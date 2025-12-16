@@ -1,0 +1,151 @@
+<story-context id="10-6-performance-cleanup-and-epic-dod" v="1.0">
+  <metadata>
+    <epicId>10</epicId>
+    <storyId>6</storyId>
+    <title>Performance Optimization, Cleanup and Epic DoD Validation</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-16</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/10-6-performance-cleanup-and-epic-dod.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>product owner</asA>
+    <iWant>the Epic 10 deliverables fully validated against DoD and coding standards</iWant>
+    <soThat>we ship a clean, performant, well-documented product with no technical debt</soThat>
+    <tasks>
+      <task id="1">Enable PostgreSQL slow query logging (&gt;100ms threshold)</task>
+      <task id="2">Run EXPLAIN ANALYZE on search queries, verify index usage</task>
+      <task id="3">Benchmark: exact keyword search &lt;5ms, fuzzy search &lt;30ms, API response &lt;100ms</task>
+      <task id="4">Drop old tables: geo_cities, geo_districts, geo_city_boundaries, geo_district_boundaries</task>
+      <task id="5">Drop orphan FK columns: publisher_coverage.city_id, publisher_coverage.district_id</task>
+      <task id="6">Rename auxiliary tables: geo_city_coordinates → geo_locality_coordinates, geo_city_elevations → geo_locality_elevations</task>
+      <task id="7">Verify no geo_cities/geo_districts references remain in Go code</task>
+      <task id="8">Verify no TODO/FIXME/DEPRECATED markers in backend code</task>
+      <task id="9">Verify no log.Printf/fmt.Printf in backend code</task>
+      <task id="10">Verify old frontend components (LocationSearch, CoverageSearchPanel, CitySelector) are deleted</task>
+      <task id="11">Verify no raw fetch() in frontend code</task>
+      <task id="12">Verify no hardcoded colors in frontend code</task>
+      <task id="13">Run all E2E tests (locality search, coverage management)</task>
+      <task id="14">Document performance benchmarks in docs/architecture/geo-search-performance.md</task>
+      <task id="15">Document import-overture CLI with README.md</task>
+      <task id="16">Run validate-ci-checks.sh, verify-type-sync.sh</task>
+      <task id="17">Verify epic metrics: 500k+ localities, 10+ languages, search latency targets</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1.1">Search query performance: exact &lt;5ms, fuzzy &lt;30ms (verified with EXPLAIN ANALYZE)</criterion>
+    <criterion id="AC1.2">Search index refresh completes in &lt;5 minutes</criterion>
+    <criterion id="AC1.3">API response times: /cities/search &lt;100ms, /cities/{id} &lt;50ms</criterion>
+    <criterion id="AC1.4">No slow queries (&gt;100ms) in PostgreSQL log after full test run</criterion>
+    <criterion id="AC2.1">Old tables DROPPED: geo_cities, geo_districts, geo_city_boundaries, geo_district_boundaries</criterion>
+    <criterion id="AC2.2">Orphan FK columns DROPPED: publisher_coverage.city_id, publisher_coverage.district_id</criterion>
+    <criterion id="AC2.3">Auxiliary tables RENAMED: geo_city_* → geo_locality_*</criterion>
+    <criterion id="AC3.1">No geo_cities/geo_districts references in any .go file</criterion>
+    <criterion id="AC3.2">Zero TODO/FIXME/DEPRECATED/Legacy markers in api/internal/</criterion>
+    <criterion id="AC3.3">Zero log.Printf/fmt.Printf in production code</criterion>
+    <criterion id="AC3.4">No raw SQL in handlers (SQLc only)</criterion>
+    <criterion id="AC3.5">go build, go test, go vet, golangci-lint all pass</criterion>
+    <criterion id="AC4.1">Old components DELETED: LocationSearch.tsx, CoverageSearchPanel.tsx, CitySelector.tsx</criterion>
+    <criterion id="AC4.2">No orphan imports of deleted components</criterion>
+    <criterion id="AC4.3">No raw fetch() calls in components</criterion>
+    <criterion id="AC4.4">No hardcoded colors (hex/rgb/rgba) in components</criterion>
+    <criterion id="AC4.5">No TODO/FIXME/DEPRECATED in web/</criterion>
+    <criterion id="AC4.6">npm run type-check, npm run build, npm run lint all pass</criterion>
+    <criterion id="AC5.1">E2E tests pass: location search (English, Hebrew), hierarchy display, single/multi select</criterion>
+    <criterion id="AC5.2">E2E tests pass: coverage management (add, remove, type filter, quick select)</criterion>
+    <criterion id="AC5.3">Full E2E regression passes in &lt;10 minutes</criterion>
+    <criterion id="AC6.1">Migration file has header comments</criterion>
+    <criterion id="AC6.2">import-overture CLI has README.md with examples</criterion>
+    <criterion id="AC6.3">Performance benchmarks documented in docs/architecture/geo-search-performance.md</criterion>
+    <criterion id="AC6.4">Swagger/OpenAPI updated for locality endpoints</criterion>
+    <criterion id="AC7.1">validate-ci-checks.sh passes</criterion>
+    <criterion id="AC7.2">SQLc generated code is committed and in sync</criterion>
+    <criterion id="AC8.1">All prior stories (10.1-10.5) marked DONE</criterion>
+    <criterion id="AC8.2">Epic metrics: 500k+ localities, 10+ languages, search latency targets met</criterion>
+    <criterion id="AC8.3">No new technical debt (zero TODO/FIXME, no deprecated code)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-artifacts/epic-10-overture-geographic-migration.md" title="Epic 10 Overview" section="Definition of Done" snippet="Epic-level DoD checklist: 500k+ localities, search latency targets, unified LocalityPicker, all E2E tests pass." />
+      <doc path="docs/sprint-artifacts/epic-10-tech-spec.md" title="Epic 10 Tech Spec" section="Performance Benchmarks" snippet="Target metrics: exact keyword &lt;5ms, fuzzy &lt;30ms, filtered &lt;5ms. Slow query logging setup. EXPLAIN ANALYZE template." />
+      <doc path="docs/coding-standards.md" title="Coding Standards" section="All Sections" snippet="Complete coding standards for verification: no raw SQL, no log.Printf, no raw fetch, design tokens only, etc." />
+    </docs>
+    <code>
+      <file path="db/migrations/00000000000003_overture_schema.sql" kind="migration" symbol="drop_old_tables" reason="Add DROP statements for old tables after verification" />
+      <file path="api/internal/handlers/" kind="directory" symbol="all_handlers" reason="Verify no TODO/FIXME, no log.Printf, no raw SQL" />
+      <file path="api/internal/db/queries/" kind="directory" symbol="all_queries" reason="Verify no geo_cities references" />
+      <file path="web/app/" kind="directory" symbol="all_pages" reason="Verify no raw fetch, no hardcoded colors" />
+      <file path="web/components/" kind="directory" symbol="all_components" reason="Verify old components deleted, no orphan imports" />
+      <file path="scripts/validate-ci-checks.sh" kind="script" symbol="validate_ci" reason="Run for CI validation" />
+      <file path="scripts/verify-type-sync.sh" kind="script" symbol="verify_types" reason="Run for type sync validation" />
+    </code>
+    <dependencies>
+      <tools>
+        <tool name="pg_stat_statements" purpose="PostgreSQL query statistics extension" />
+        <tool name="golangci-lint" purpose="Go linting" />
+        <tool name="playwright" purpose="E2E testing" />
+      </tools>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>This is a GATING story - epic cannot close without all ACs met</constraint>
+    <constraint>All prior stories (10.1-10.5) MUST be complete before this story</constraint>
+    <constraint>Zero new technical debt - no TODO/FIXME markers</constraint>
+    <constraint>Performance targets are hard requirements, not aspirational</constraint>
+    <constraint>Clean git history - each story has dedicated commit with proper message</constraint>
+    <constraint>Documentation is required, not optional</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="Drop Old Tables Migration" kind="sql-migration">
+      <signature>
+        DROP TABLE IF EXISTS geo_city_boundaries CASCADE;
+        DROP TABLE IF EXISTS geo_district_boundaries CASCADE;
+        DROP TABLE IF EXISTS geo_districts CASCADE;
+        DROP TABLE IF EXISTS geo_cities CASCADE;
+        ALTER TABLE publisher_coverage DROP COLUMN IF EXISTS city_id;
+        ALTER TABLE publisher_coverage DROP COLUMN IF EXISTS district_id;
+        ALTER TABLE IF EXISTS geo_city_coordinates RENAME TO geo_locality_coordinates;
+        ALTER TABLE IF EXISTS geo_city_elevations RENAME TO geo_locality_elevations;
+      </signature>
+      <path>db/migrations/00000000000003_overture_schema.sql (addendum)</path>
+    </interface>
+    <interface name="Performance Documentation" kind="markdown-doc">
+      <signature>
+        # Geographic Search Performance Benchmarks
+        ## Test Environment: PostgreSQL 17.x, 500k+ localities
+        ## Query Benchmarks: exact keyword, fuzzy, filtered
+        ## EXPLAIN ANALYZE Results
+        ## Index Strategy
+      </signature>
+      <path>docs/architecture/geo-search-performance.md</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Comprehensive verification using grep commands, SQL queries, CI scripts, and E2E tests. All checks must pass with zero exceptions.</standards>
+    <locations>
+      <location>Inline verification commands</location>
+      <location>tests/e2e/*.spec.ts</location>
+      <location>scripts/validate-ci-checks.sh</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1.1">EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM geo_search_index WHERE keywords @> ARRAY['london']; -- Expected: &lt;5ms</idea>
+      <idea ac="AC1.4">SELECT query, mean_exec_time FROM pg_stat_statements WHERE mean_exec_time > 100 ORDER BY mean_exec_time DESC LIMIT 10;</idea>
+      <idea ac="AC2.1">SELECT table_name FROM information_schema.tables WHERE table_name IN ('geo_cities', 'geo_districts'); -- Expected: 0 rows</idea>
+      <idea ac="AC3.1">grep -r "geo_cities\|geo_districts" api/internal --include="*.go" -- Expected: no matches</idea>
+      <idea ac="AC3.2">grep -rn "TODO\|FIXME\|DEPRECATED\|Legacy" api/internal --include="*.go" | grep -v "_test.go" -- Expected: no matches</idea>
+      <idea ac="AC3.3">grep -rn "log\.Printf\|fmt\.Printf" api/internal --include="*.go" | grep -v "_test.go" -- Expected: no matches</idea>
+      <idea ac="AC4.1">ls web/components/shared/LocationSearch.tsx 2>&1 -- Expected: No such file</idea>
+      <idea ac="AC4.3">grep -rn "await fetch\(" web/app web/components --include="*.tsx" | grep -v "api-client.ts" -- Expected: no matches</idea>
+      <idea ac="AC5.3">cd tests && npx playwright test --reporter=list -- Expected: all pass, &lt;10 minutes</idea>
+      <idea ac="AC7.1">./scripts/validate-ci-checks.sh -- Expected: pass</idea>
+      <idea ac="AC8.2">SELECT COUNT(*) FROM geo_localities; -- Expected: 500,000+</idea>
+      <idea ac="AC8.2">SELECT COUNT(DISTINCT language_code) FROM geo_names; -- Expected: 10+</idea>
+    </ideas>
+  </tests>
+</story-context>

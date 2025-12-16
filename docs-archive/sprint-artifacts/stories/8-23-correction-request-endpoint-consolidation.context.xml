@@ -1,0 +1,50 @@
+<story-context id="8-23-correction-request-endpoint-consolidation" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>23</storyId>
+    <title>Correction Request Endpoint Consolidation</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>unified correction request endpoints with role-based filtering</iWant>
+    <soThat>the API is simpler and more maintainable</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Single /correction-requests endpoint serves both publisher and admin</criterion>
+    <criterion id="AC2">Publisher sees only their own requests</criterion>
+    <criterion id="AC3">Admin sees all requests with status filters</criterion>
+    <criterion id="AC4">Status change works via PUT with role check</criterion>
+    <criterion id="AC5">Old endpoints return 301 redirect</criterion>
+    <criterion id="AC6">Frontend updated to use new endpoint</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/correction_requests.go</path>
+        <kind>handler</kind>
+        <reason>Handlers to consolidate</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/publisher/correction-requests/page.tsx</path>
+        <kind>component</kind>
+        <reason>Publisher UI to update</reason>
+      </artifact>
+      <artifact>
+        <path>web/app/admin/correction-requests/page.tsx</path>
+        <kind>component</kind>
+        <reason>Admin UI to update</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>Must maintain backwards compatibility via redirects</constraint>
+    <constraint>Role-based filtering must be secure</constraint>
+  </constraints>
+</story-context>

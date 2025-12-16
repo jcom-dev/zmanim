@@ -1,0 +1,265 @@
+<story-context id="8-2-implement-calculation-logging" v="1.1">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>2</storyId>
+    <title>Implement Calculation Logging</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <updatedAt>2025-12-13</updatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-2-implement-calculation-logging.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>real calculation statistics on my dashboard</iWant>
+    <soThat>I can see how my zmanim are being used</soThat>
+    <tasks>
+      <task id="1">Create database migration for calculation_logs table (AC: 1, 8)</task>
+      <task id="2">Create calculation logging service with batched inserts (AC: 2, 5, 7)</task>
+      <task id="3">Update zmanim handlers to use logging service (AC: 2, 7)</task>
+      <task id="4">Create SQLc queries for stats aggregation (AC: 3, 4, 8)</task>
+      <task id="5">Update publisher analytics endpoint (AC: 3, 4, 5)</task>
+      <task id="6">Update admin stats endpoint (AC: 6)</task>
+      <task id="7">Performance testing (AC: 7, 8)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">calculation_logs table created with proper schema and indexes</criterion>
+    <criterion id="AC2">Every zmanim calculation logged asynchronously (non-blocking)</criterion>
+    <criterion id="AC3">Dashboard shows real "Total Calculations" count from database</criterion>
+    <criterion id="AC4">Dashboard shows real "This Month" count from database</criterion>
+    <criterion id="AC5">Cache hit/miss ratio tracked in logs</criterion>
+    <criterion id="AC6">Admin dashboard shows platform-wide calculation stats</criterion>
+    <criterion id="AC7" priority="critical">Bulk API calls log efficiently with single batch insert</criterion>
+    <criterion id="AC8" priority="critical">System handles millions of log records with sub-100ms aggregation queries</criterion>
+  </acceptanceCriteria>
+
+  <performanceRequirements>
+    <requirement priority="critical">
+      <name>Zero Latency Impact</name>
+      <description>Logging MUST NOT add any latency to API responses. Use fire-and-forget pattern with buffered channels.</description>
+      <target>0ms added latency</target>
+    </requirement>
+    <requirement priority="critical">
+      <name>Batch Insert Throughput</name>
+      <description>Use pgx COPY protocol for maximum insert performance. Batch inserts every 100 records OR 1 second.</description>
+      <target>10,000+ inserts/second</target>
+    </requirement>
+    <requirement priority="critical">
+      <name>Dashboard Query Performance</name>
+      <description>Use pre-aggregated stats table for dashboard queries. Never query raw logs for dashboard.</description>
+      <target>Less than 10ms for dashboard queries</target>
+    </requirement>
+    <requirement>
+      <name>Raw Table Query (fallback)</name>
+      <description>If querying raw table needed, must use proper indexes and remain performant.</description>
+      <target>Less than 100ms with 1M+ rows</target>
+    </requirement>
+    <requirement>
+      <name>Memory Efficiency</name>
+      <description>Buffer size limited to prevent memory issues under load.</description>
+      <target>Max 10,000 buffered entries (~1MB)</target>
+    </requirement>
+  </performanceRequirements>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-8-finalize-and-external-api.md</path>
+        <title>Epic 8 Definition</title>
+        <section>Story 8.2: Implement Calculation Logging</section>
+        <snippet>Create calculation_logs table with indexes for publisher_id, created_at, and monthly aggregation. Log asynchronously using goroutines.</snippet>
+      </doc>
+      <doc>
+        <path>docs/coding-standards.md</path>
+        <title>Coding Standards</title>
+        <section>SQLc patterns</section>
+        <snippet>Use SQLc for all database access. Run 'sqlc generate' after adding new queries.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>api/internal/db/migrations/</path>
+        <kind>migration-directory</kind>
+        <reason>Location for NNNN_create_calculation_logs.sql and NNNN_create_calculation_stats_daily.sql</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/db/queries/calculation_logs.sql</path>
+        <kind>query-file</kind>
+        <reason>SQLc queries for calculation log operations and stats aggregation</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/calculation_log_service.go</path>
+        <kind>service</kind>
+        <symbol>CalculationLogService, Log, LogBatch, flush, Close</symbol>
+        <reason>New service for high-performance async logging with batched inserts</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/zmanim.go</path>
+        <kind>handler</kind>
+        <symbol>GetZmanimForCity, CalculateZmanim, CalculateBulkZmanim</symbol>
+        <reason>Add async logging call after calculation completes. Bulk endpoint uses LogBatch.</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publisher_analytics.go</path>
+        <kind>handler</kind>
+        <symbol>GetPublisherStats</symbol>
+        <reason>Update to return real stats from calculation_stats_daily (pre-aggregated)</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/admin.go</path>
+        <kind>handler</kind>
+        <symbol>GetAdminStats</symbol>
+        <reason>Add platform-wide calculation stats from pre-aggregated table</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/services/cache_service.go</path>
+        <kind>service</kind>
+        <symbol>CacheService</symbol>
+        <reason>Reference for cache hit/miss tracking</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <go>
+        <package>github.com/jackc/pgx/v5</package>
+        <package>github.com/jackc/pgx/v5/pgxpool</package>
+        <package>github.com/google/uuid</package>
+      </go>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint priority="critical">Logging MUST be async (buffered channel + worker) - NEVER block the response</constraint>
+    <constraint priority="critical">Use pgx COPY protocol for batch inserts (10x faster than individual INSERTs)</constraint>
+    <constraint priority="critical">Dashboard queries MUST use pre-aggregated stats table, not raw logs</constraint>
+    <constraint>Use BRIN index for time-series data (much smaller than B-tree for sorted data)</constraint>
+    <constraint>Use BIGSERIAL not UUID for primary key (faster inserts, smaller index)</constraint>
+    <constraint>Use SMALLINT for response_time_ms and zman_count (sufficient range, smaller storage)</constraint>
+    <constraint>Use integer enum for source field (1=web, 2=api, 3=external)</constraint>
+    <constraint>Buffer size limited to 10,000 entries to prevent memory issues</constraint>
+    <constraint>Graceful shutdown must flush pending log entries</constraint>
+    <constraint>Follow SQLc patterns - no raw SQL in Go code except for COPY</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>calculation_logs table</name>
+      <kind>database-table</kind>
+      <signature>
+        id BIGSERIAL PRIMARY KEY
+        publisher_id UUID NOT NULL REFERENCES publishers(id) ON DELETE CASCADE
+        city_id BIGINT NOT NULL (no FK for performance)
+        date_calculated DATE NOT NULL
+        cache_hit BOOLEAN NOT NULL DEFAULT false
+        response_time_ms SMALLINT
+        zman_count SMALLINT
+        source SMALLINT NOT NULL (1=web, 2=api, 3=external)
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+
+        INDEXES:
+        - BRIN on created_at (time-series optimal)
+        - B-tree on publisher_id
+        - Partial index on (publisher_id, created_at) WHERE created_at > now() - 90 days
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+    <interface>
+      <name>calculation_stats_daily table</name>
+      <kind>database-table</kind>
+      <signature>
+        publisher_id UUID NOT NULL REFERENCES publishers(id) ON DELETE CASCADE
+        date DATE NOT NULL
+        total_calculations INTEGER NOT NULL DEFAULT 0
+        cache_hits INTEGER NOT NULL DEFAULT 0
+        total_response_time_ms BIGINT NOT NULL DEFAULT 0
+        source_web INTEGER NOT NULL DEFAULT 0
+        source_api INTEGER NOT NULL DEFAULT 0
+        source_external INTEGER NOT NULL DEFAULT 0
+        PRIMARY KEY (publisher_id, date)
+
+        INDEXES:
+        - B-tree on date
+      </signature>
+      <path>api/internal/db/migrations/</path>
+    </interface>
+    <interface>
+      <name>CalculationLogService</name>
+      <kind>Go service</kind>
+      <signature>
+        type CalculationLogEntry struct {
+            PublisherID    uuid.UUID
+            CityID         int64
+            DateCalculated time.Time
+            CacheHit       bool
+            ResponseTimeMs int16
+            ZmanCount      int16
+            Source         int16
+        }
+
+        type CalculationLogService struct {
+            // Internal: buffered channel, worker goroutine
+        }
+
+        func NewCalculationLogService(db *pgxpool.Pool) *CalculationLogService
+        func (s *CalculationLogService) Log(entry CalculationLogEntry)  // Non-blocking
+        func (s *CalculationLogService) LogBatch(entries []CalculationLogEntry)  // For bulk API
+        func (s *CalculationLogService) Close()  // Graceful shutdown
+      </signature>
+      <path>api/internal/services/calculation_log_service.go</path>
+    </interface>
+    <interface>
+      <name>Publisher Stats Response</name>
+      <kind>JSON response</kind>
+      <signature>
+        {
+          "total_calculations": number,
+          "this_month": number,
+          "cache_hit_ratio": number,
+          "avg_response_ms": number
+        }
+      </signature>
+      <path>api/internal/handlers/publisher_analytics.go</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Unit tests for logging service. Integration tests for batch inserts. Performance benchmarks for throughput. Verify zero latency impact.</standards>
+    <locations>
+      <location>api/internal/handlers/*_test.go</location>
+      <location>api/internal/services/calculation_log_service_test.go</location>
+    </locations>
+    <ideas>
+      <idea acRef="AC1">Test migration creates tables with correct schema and indexes</idea>
+      <idea acRef="AC2">Test async logging doesn't block calculation response (measure latency)</idea>
+      <idea acRef="AC3">Test GetPublisherTotalCalculations returns correct count from pre-aggregated table</idea>
+      <idea acRef="AC4">Test GetPublisherMonthlyCalculations filters correctly</idea>
+      <idea acRef="AC5">Test cache_hit field populated correctly</idea>
+      <idea acRef="AC6">Test admin stats aggregates across all publishers</idea>
+      <idea acRef="AC7" priority="critical">Test bulk API call (100 cities) creates single batch insert</idea>
+      <idea acRef="AC7" priority="critical">Test buffer full scenario logs warning but doesn't block</idea>
+      <idea acRef="AC8" priority="critical">Benchmark: batch insert throughput exceeds 10,000 rows/sec</idea>
+      <idea acRef="AC8" priority="critical">Benchmark: dashboard query from pre-aggregated table under 10ms</idea>
+      <idea acRef="AC8">Test graceful shutdown flushes all pending log entries</idea>
+    </ideas>
+  </tests>
+
+  <architectureNotes>
+    <note title="Why Buffered Channel + Worker">
+      Using a buffered channel with a dedicated worker goroutine ensures that logging calls never block the main request handling. The Log() method uses a non-blocking send with select/default - if the buffer is full, it logs a warning and drops the entry rather than blocking. This guarantees zero latency impact on API responses.
+    </note>
+    <note title="Why pgx COPY Protocol">
+      PostgreSQL's COPY protocol is 5-10x faster than individual INSERT statements for bulk data. By batching 100 entries at a time, we achieve maximum throughput while keeping memory usage bounded. The pgx.CopyFromSlice function provides a clean API for this.
+    </note>
+    <note title="Why Pre-Aggregated Stats Table">
+      With millions of rows, COUNT(*) and SUM() queries on the raw logs table become slow. By maintaining a daily rollup table (calculation_stats_daily), dashboard queries become simple SUM() operations on a much smaller table - guaranteed sub-10ms response times regardless of log volume.
+    </note>
+    <note title="Why BRIN Index for Time-Series">
+      BRIN (Block Range Index) indexes are much smaller than B-tree indexes for time-series data where rows are naturally ordered by time. For a table with millions of rows, a BRIN index on created_at might be 1000x smaller than a B-tree while providing similar query performance for range scans.
+    </note>
+    <note title="Future: Table Partitioning">
+      When the table exceeds 10M rows, consider partitioning by month. This allows efficient pruning of old data (just DROP PARTITION) and better query performance for recent data queries.
+    </note>
+  </architectureNotes>
+</story-context>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-9-reference-panel-enhancements" epic="5" generated="2025-12-02">
+  <summary>
+    Enhance DSL Reference Panel with contextual highlighting and quick-insert chips.
+    Shows "You are here" indicator when user is inside a function.
+  </summary>
+
+  <key-files>
+    <file path="web/components/editor/DSLReferencePanel.tsx" action="modify">
+      Add contextual highlighting and "you are here" indicator
+    </file>
+    <file path="web/components/editor/QuickInsertChip.tsx" action="use">
+      Reuse from Story 5.3 for inline value chips
+    </file>
+    <file path="web/lib/dsl-context-helper.ts" action="use">
+      Reuse context detection from Story 5.2
+    </file>
+    <file path="web/components/editor/CodeMirrorDSLEditor.tsx" action="modify">
+      Pass current context to reference panel
+    </file>
+  </key-files>
+
+  <contextual-highlighting>
+    <behavior>When cursor is inside a function, highlight that function in reference panel</behavior>
+    <visual>
+      Active function: Blue background, border highlight
+      Parameters: Show "YOU ARE HERE" indicator on current parameter
+    </visual>
+    <example>
+      User types: solar(16.1, |)  (cursor at |)
+      Reference panel highlights: solar() function
+      Shows: degrees parameter, "direction ← YOU ARE HERE"
+    </example>
+  </contextual-highlighting>
+
+  <you-are-here-indicator>
+    <design>
+      Small badge or arrow pointing to current parameter
+      Text: "← YOU ARE HERE" or just an arrow indicator
+      Color: Primary blue to stand out
+    </design>
+    <position>Next to the parameter name in the function documentation</position>
+  </you-are-here-indicator>
+
+  <quick-insert-chips>
+    <location>Inside each function's reference section</location>
+    <label>"Quick insert:"</label>
+    <layout>Horizontal scrollable row of chips</layout>
+    <behavior>Click chip → insert value at cursor position</behavior>
+
+    <chip-groups>
+      <group function="solar" label="Quick insert degrees:">
+        [8.5°] [11°] [16.1°] [18°]
+      </group>
+      <group function="solar" label="Quick insert direction:">
+        [before_sunrise] [after_sunset]
+      </group>
+      <group function="proportional_hours" label="Quick insert hours:">
+        [3] [4] [6] [9.5] [10.75]
+      </group>
+      <group function="proportional_hours" label="Quick insert base:">
+        [gra] [mga]
+      </group>
+    </chip-groups>
+  </quick-insert-chips>
+
+  <reference-panel-layout>
+    <section name="Search">[Search input at top]</section>
+    <section name="Functions">
+      <item expanded="when-active">
+        <header>🔵 solar(degrees, direction)</header>
+        <parameters>
+          <param name="degrees">0-90 (sun angle) ← YOU ARE HERE</param>
+          <param name="direction">before_sunrise, after_sunset...</param>
+        </parameters>
+        <quick-insert>
+          Quick insert: [8.5°] [11°] [16.1°] [18°]
+        </quick-insert>
+      </item>
+    </section>
+    <section name="Primitives">sunrise, sunset, etc.</section>
+    <section name="Operators">+, -, min, max, etc.</section>
+  </reference-panel-layout>
+
+  <context-passing>
+    <from>CodeMirrorDSLEditor (has cursor position)</from>
+    <to>DSLReferencePanel (needs to know what to highlight)</to>
+    <data>
+      {
+        currentFunction: 'solar' | 'proportional_hours' | null,
+        currentParameter: 'degrees' | 'direction' | 'hours' | 'base' | null,
+        parameterIndex: 0 | 1
+      }
+    </data>
+  </context-passing>
+
+  <styling>
+    <highlighted-function>
+      bg-blue-50 border-l-4 border-blue-500 rounded-r
+    </highlighted-function>
+    <you-are-here-badge>
+      text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full
+    </you-are-here-badge>
+    <quick-insert-chips>
+      See QuickInsertChip component styling
+    </quick-insert-chips>
+  </styling>
+
+  <commands>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Lint">cd web && npm run lint</command>
+    <command purpose="Restart">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>Current function highlighted when cursor inside</item>
+    <item>"YOU ARE HERE" indicator shows current parameter</item>
+    <item>Quick-insert chips appear for each function</item>
+    <item>Clicking chip inserts value at cursor</item>
+    <item>Chips are context-aware (show relevant to current param)</item>
+    <item>Highlighting updates as user types</item>
+    <item>Search still works correctly</item>
+    <item>Mobile scrolling works for chips</item>
+  </acceptance-checklist>
+</story-context>

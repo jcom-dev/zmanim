@@ -1,0 +1,69 @@
+<story-context id="8-17-api-path-restructuring-gateway-authentication" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>17</storyId>
+    <title>API Path Restructuring for Gateway Authentication</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-17-api-path-restructuring-gateway-authentication.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>platform operator</asA>
+    <iWant>clear path-based separation between public and authenticated endpoints</iWant>
+    <soThat>API Gateway can enforce authentication at the path level</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">All public endpoints under /api/v1/public/*</criterion>
+    <criterion id="AC2">All authenticated endpoints under /api/v1/auth/*</criterion>
+    <criterion id="AC3">External API under /api/v1/auth/external/*</criterion>
+    <criterion id="AC4">/api/v1/auth/publisher/* for publisher routes</criterion>
+    <criterion id="AC5">/api/v1/auth/admin/* for admin routes</criterion>
+    <criterion id="AC6">Old routes return 301 redirect with deprecation header</criterion>
+    <criterion id="AC7">API Gateway uses only 2 path patterns</criterion>
+    <criterion id="AC8">Swagger documentation updated</criterion>
+    <criterion id="AC9">Frontend API client updated</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/cmd/api/main.go</path>
+        <kind>entry-point</kind>
+        <reason>Restructure all routes</reason>
+      </artifact>
+      <artifact>
+        <path>web/lib/api-client.ts</path>
+        <kind>client</kind>
+        <reason>Update base paths</reason>
+      </artifact>
+      <artifact>
+        <path>infrastructure/lib/api-gateway-stack.ts</path>
+        <kind>cdktf</kind>
+        <reason>Simplify to 2 path patterns</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>API Gateway simplified to only 2 rules: /public/* (no auth) and /auth/* (JWT)</constraint>
+    <constraint>Old routes must continue working with 301 redirect</constraint>
+    <constraint>6-month sunset for deprecated routes</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>New Path Structure</name>
+      <kind>API paths</kind>
+      <signature>
+        /api/v1/public/* - NO AUTH
+        /api/v1/auth/* - JWT REQUIRED
+        /api/v1/auth/publisher/* - Publisher role
+        /api/v1/auth/admin/* - Admin role
+        /api/v1/auth/external/* - M2M JWT
+      </signature>
+    </interface>
+  </interfaces>
+</story-context>

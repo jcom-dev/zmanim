@@ -1,0 +1,60 @@
+<story-context id="8-22-version-history-pattern-standardization" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>22</storyId>
+    <title>Version History Pattern Standardization</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-14</generatedAt>
+    <generator>Claude Opus 4.5</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/8-22-version-history-pattern-standardization.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>consistent version history patterns across zman and algorithm</iWant>
+    <soThat>I have a predictable UX for tracking and reverting changes</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Algorithm version history handlers refactored to use PublisherResolver pattern</criterion>
+    <criterion id="AC2">Version history E2E tests pass without workarounds</criterion>
+    <criterion id="AC3">Both zman and algorithm history use same response format</criterion>
+    <criterion id="AC4">Rollback functionality works for both resources</criterion>
+    <criterion id="AC5">Swagger documentation updated for version history endpoints</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <code>
+      <artifact>
+        <path>api/internal/handlers/version_history.go</path>
+        <kind>handler</kind>
+        <symbol>GetVersionHistory, GetVersionDetail, GetVersionDiff, RollbackVersion, CreateVersionSnapshot</symbol>
+        <reason>Handlers that need PublisherResolver refactoring</reason>
+      </artifact>
+      <artifact>
+        <path>tests/e2e/publisher/version-history.spec.ts</path>
+        <kind>test</kind>
+        <reason>E2E tests created in Story 8-1 that currently fail</reason>
+      </artifact>
+      <artifact>
+        <path>api/internal/handlers/publisher_zmanim.go</path>
+        <kind>handler</kind>
+        <symbol>GetZmanVersionHistory, GetZmanVersionDetail, RollbackZmanVersion</symbol>
+        <reason>Reference implementation using correct pattern</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint>MUST use PublisherResolver pattern - coding standard #3</constraint>
+    <constraint>MUST NOT break existing zman version history</constraint>
+    <constraint>Response format should match zman history for consistency</constraint>
+  </constraints>
+
+  <tests>
+    <locations>
+      <location>tests/e2e/publisher/version-history.spec.ts</location>
+      <location>api/internal/handlers/*_test.go</location>
+    </locations>
+  </tests>
+</story-context>

@@ -1,0 +1,98 @@
+<story-context id="4-5-halachic-documentation" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.5</storyId>
+    <title>Halachic Documentation Comments</title>
+    <status>ready-for-dev</status>
+    <storyPoints>5</storyPoints>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-5-halachic-documentation.md</sourceStoryPath>
+    <dependencies>Story 4.3 (Bilingual Naming), Story 4.4 (Guided Formula Builder)</dependencies>
+  </metadata>
+
+  <story>
+    <asA>publisher</asA>
+    <iWant>a rich text comments field for each zman that supports Hebrew and Markdown</iWant>
+    <soThat>I can document the halachic sources and reasoning behind my calculation choices</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-4.5.1" title="Database Schema">
+      <item>zman_definitions table includes halachic_notes field (TEXT, nullable)</item>
+      <item>Field supports UTF-8 with Hebrew characters</item>
+      <item>Field supports Markdown syntax storage</item>
+    </criterion>
+    <criterion id="AC-4.5.2" title="Rich Text Editor">
+      <item>Textarea with Markdown preview toggle</item>
+      <item>Supports bold, italic, headers, links, and lists</item>
+      <item>Hebrew text input with RTL support</item>
+      <item>Mixed Hebrew/English content renders correctly</item>
+      <item>Character limit: 5000 characters with counter</item>
+    </criterion>
+    <criterion id="AC-4.5.3" title="Source Citations">
+      <item>Autocomplete for common halachic sources (Shulchan Aruch, Mishnah Berurah, etc.)</item>
+      <item>Citation format helper: [Source: Chapter:Section]</item>
+      <item>Link to external resources (HebrewBooks, Sefaria) when applicable</item>
+    </criterion>
+    <criterion id="AC-4.5.4" title="Display Integration">
+      <item>Halachic notes appear in Formula Reveal panel</item>
+      <item>Markdown renders as formatted HTML</item>
+      <item>Hebrew portions render with proper RTL</item>
+      <item>Expandable if content is long</item>
+    </criterion>
+    <criterion id="AC-4.5.5" title="API Support">
+      <item>PUT /api/publisher/zmanim/{id} accepts halachic_notes field</item>
+      <item>GET /api/zmanim returns halachic_notes with zman data</item>
+      <item>Notes sanitized for XSS before storage and display</item>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-comprehensive-plan.md</path>
+        <section>Story 4.5</section>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/epic-4-ui-wireframes.md</path>
+        <section>Documentation Panel</section>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>web/components/zmanim/FormulaPanel.tsx</path>
+        <kind>component</kind>
+        <reason>Update to show halachic notes</reason>
+      </file>
+      <file>
+        <path>api/internal/handlers/publisher_zmanim.go</path>
+        <kind>handler</kind>
+        <reason>Update for halachic_notes CRUD</reason>
+      </file>
+    </code>
+    <newDependencies>
+      <go>github.com/microcosm-cc/bluemonday - HTML sanitizer</go>
+      <npm>react-markdown - Markdown rendering</npm>
+    </newDependencies>
+  </artifacts>
+
+  <halachicSources>
+    <source id="sa" name="Shulchan Aruch" hebrew="שולחן ערוך"/>
+    <source id="mb" name="Mishnah Berurah" hebrew="משנה ברורה"/>
+    <source id="rema" name="Rema" hebrew="רמ״א"/>
+    <source id="rambam" name="Rambam" hebrew="רמב״ם"/>
+    <source id="tur" name="Tur" hebrew="טור"/>
+    <source id="gemara" name="Talmud Bavli" hebrew="תלמוד בבלי"/>
+    <source id="igm" name="Igros Moshe" hebrew="אגרות משה"/>
+    <source id="yosef" name="Yalkut Yosef" hebrew="ילקוט יוסף"/>
+    <source id="bhl" name="Biur Halacha" hebrew="ביאור הלכה"/>
+  </halachicSources>
+
+  <constraints>
+    <constraint type="security">XSS sanitization via bluemonday (Go) required</constraint>
+    <constraint type="security">Client-side sanitization before display</constraint>
+    <constraint type="i18n">RTL support for Hebrew text via dir="auto"</constraint>
+    <constraint type="limit">5000 character limit on notes</constraint>
+  </constraints>
+</story-context>

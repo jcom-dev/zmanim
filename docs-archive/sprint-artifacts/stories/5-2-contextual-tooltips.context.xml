@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-2-contextual-tooltips" epic="5" generated="2025-12-02">
+  <summary>
+    Smart floating tooltips that appear based on cursor position in DSL editor,
+    showing exactly what values are valid for the current parameter.
+  </summary>
+
+  <key-files>
+    <file path="web/lib/dsl-context-helper.ts" action="create">
+      Cursor position analysis to determine context (function, parameter index)
+    </file>
+    <file path="web/components/editor/ContextualTooltip.tsx" action="create">
+      Floating tooltip component with clickable options
+    </file>
+    <file path="web/components/editor/CodeMirrorDSLEditor.tsx" action="modify">
+      Add cursor listener and tooltip positioning
+    </file>
+    <file path="docs/ux-dsl-editor-inline-guidance.md" action="reference">
+      UX specification sections 2.1.1-2.1.3
+    </file>
+  </key-files>
+
+  <context-types>
+    <context type="empty_editor" trigger="Empty editor after 2 seconds">
+      Shows quick start examples: sunrise - 72min, solar(16.1, before_sunrise), etc.
+    </context>
+    <context type="solar_degrees" trigger="Cursor after solar(">
+      Title: "📐 Degrees: Sun angle below horizon (0-90)"
+      Values: 8.5° (tzeis), 11° (misheyakir), 16.1° (alos), 18° (astronomical)
+    </context>
+    <context type="solar_direction" trigger="Cursor after solar(X,">
+      Title: "🧭 Direction: When does this angle occur?"
+      Clickable buttons: before_sunrise, after_sunset, before_noon, after_noon
+    </context>
+    <context type="proportional_hours" trigger="Cursor after proportional_hours(">
+      Values: 3 (Shema), 4 (Tefila), 6 (Chatzos), 9.5 (Mincha Ketana), 10.75 (Plag)
+    </context>
+    <context type="proportional_base" trigger="Cursor after proportional_hours(X,">
+      Options: gra, mga, mga_90, mga_120 with descriptions
+    </context>
+  </context-types>
+
+  <tooltip-behavior>
+    <behavior name="appear">100ms after cursor enters trigger zone</behavior>
+    <behavior name="position">Above cursor line (or below if near top)</behavior>
+    <behavior name="dismiss">Escape key, click outside, or continue typing</behavior>
+    <behavior name="insert">Clicking option inserts value at cursor</behavior>
+    <behavior name="mobile">Tap to show, tap option to insert</behavior>
+  </tooltip-behavior>
+
+  <codemirror-integration>
+    <typescript>
+// Cursor listener extension
+const cursorListener = EditorView.updateListener.of((update) => {
+  if (update.selectionSet || update.docChanged) {
+    const pos = update.state.selection.main.head;
+    const doc = update.state.doc.toString();
+    const context = getDSLContext(doc, pos);
+    const coords = update.view.coordsAtPos(pos);
+    setTooltipContext(context);
+    setTooltipPosition(coords);
+  }
+});
+    </typescript>
+  </codemirror-integration>
+
+  <edge-cases>
+    <case name="nested-parentheses">
+      solar(midpoint(a, b), before_sunrise) - detect innermost context
+    </case>
+    <case name="viewport-boundaries">
+      Tooltip should flip above/below based on available space
+    </case>
+    <case name="performance">
+      Debounce cursor updates to prevent lag on fast typing
+    </case>
+  </edge-cases>
+
+  <accessibility>
+    <feature>ARIA live regions announce tooltip content</feature>
+    <feature>Arrow keys navigate tooltip options</feature>
+    <feature>Enter selects highlighted option</feature>
+    <feature>Tab advances to next logical position</feature>
+    <feature>High contrast (4.5:1 minimum)</feature>
+  </accessibility>
+
+  <commands>
+    <command purpose="Type check">cd web && npm run type-check</command>
+    <command purpose="Restart services">./restart.sh</command>
+  </commands>
+
+  <acceptance-checklist>
+    <item>DSL context helper correctly detects all contexts</item>
+    <item>Tooltips appear for solar(), proportional_hours(), empty editor</item>
+    <item>Clicking option inserts value and dismisses tooltip</item>
+    <item>Keyboard navigation works (Arrow, Enter, Escape)</item>
+    <item>Nested parentheses handled correctly</item>
+    <item>Viewport boundary flipping works</item>
+    <item>No visible lag on cursor movement</item>
+    <item>Mobile tap interactions work</item>
+  </acceptance-checklist>
+</story-context>
