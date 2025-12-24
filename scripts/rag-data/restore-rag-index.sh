@@ -50,8 +50,9 @@ gunzip -c "$SCRIPT_DIR/embeddings.csv.gz" > "$TMP_DIR/embeddings.csv"
 echo "Truncating tables and bulk loading..."
 psql "$DATABASE_URL" <<EOF
 -- Truncate in correct order (embeddings references ai_content_sources)
-TRUNCATE embeddings CASCADE;
-TRUNCATE ai_content_sources CASCADE;
+-- RESTART IDENTITY resets sequences to 1, then setval adjusts after data load
+TRUNCATE embeddings RESTART IDENTITY CASCADE;
+TRUNCATE ai_content_sources RESTART IDENTITY CASCADE;
 
 -- Bulk load ai_content_sources
 \COPY ai_content_sources FROM '$TMP_DIR/ai_content_sources.csv' WITH CSV HEADER
@@ -59,7 +60,7 @@ TRUNCATE ai_content_sources CASCADE;
 -- Bulk load embeddings
 \COPY embeddings FROM '$TMP_DIR/embeddings.csv' WITH CSV HEADER
 
--- Reset sequences
+-- Reset sequences to match restored data (IDs preserved from CSV)
 SELECT setval('ai_content_sources_id_seq', (SELECT COALESCE(MAX(id), 1) FROM ai_content_sources));
 SELECT setval('embeddings_id_seq', (SELECT COALESCE(MAX(id), 1) FROM embeddings));
 

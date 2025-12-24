@@ -215,6 +215,14 @@ func cmdSeed(args []string) {
 		log.Fatalf("Restore failed: %v", err)
 	}
 
+	// Reset sequences to match restored data
+	log.Printf("Resetting sequences to match restored data...")
+	if err := resetGeoSequences(ctx, pool); err != nil {
+		log.Printf("Warning: Failed to reset sequences: %v", err)
+	} else {
+		log.Printf("✓ Sequences reset")
+	}
+
 	// Analyze tables for query optimization
 	log.Printf("Running VACUUM ANALYZE on geo tables...")
 	if err := analyzeGeoTables(ctx, pool); err != nil {
@@ -720,6 +728,53 @@ func resetGeoData(ctx context.Context, pool *pgxpool.Pool) error {
 		_, err := pool.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", table))
 		if err != nil {
 			return fmt.Errorf("failed to truncate %s: %w", table, err)
+		}
+	}
+
+	return nil
+}
+
+func resetGeoSequences(ctx context.Context, pool *pgxpool.Pool) error {
+	// Map of table names to their sequence names
+	// Only tables with serial/identity columns need sequence resets
+	geoSequences := []struct {
+		table    string
+		sequence string
+	}{
+		{"geo_continents", "geo_continents_id_seq"},
+		{"geo_countries", "geo_countries_id_seq"},
+		{"geo_regions", "geo_regions_id_seq"},
+		{"geo_localities", "geo_localities_id_seq"},
+		{"geo_locality_locations", "geo_locality_locations_id_seq"},
+		{"geo_locality_elevations", "geo_locality_elevations_id_seq"},
+		{"geo_names", "geo_names_id_seq"},
+		{"geo_search_index", "geo_search_index_id_seq"},
+		{"geo_locality_types", "geo_locality_types_id_seq"},
+		{"geo_region_types", "geo_region_types_id_seq"},
+		{"geo_data_sources", "geo_data_sources_id_seq"},
+	}
+
+	for _, s := range geoSequences {
+		// Check if table exists and has data
+		var maxID *int64
+		err := pool.QueryRow(ctx, fmt.Sprintf("SELECT MAX(id) FROM %s", s.table)).Scan(&maxID)
+		if err != nil {
+			log.Printf("  Skipping %s (table may not exist): %v", s.sequence, err)
+			continue
+		}
+
+		if maxID == nil {
+			// Table is empty, reset to 1
+			_, err = pool.Exec(ctx, fmt.Sprintf("SELECT setval('%s', 1, false)", s.sequence))
+		} else {
+			// Set sequence to max ID
+			_, err = pool.Exec(ctx, fmt.Sprintf("SELECT setval('%s', %d)", s.sequence, *maxID))
+		}
+
+		if err != nil {
+			log.Printf("  Warning: failed to reset %s: %v", s.sequence, err)
+		} else if maxID != nil {
+			log.Printf("  %s → %d", s.sequence, *maxID)
 		}
 	}
 
