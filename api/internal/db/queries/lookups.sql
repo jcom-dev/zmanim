@@ -82,18 +82,6 @@ SELECT id, key, display_name_hebrew, display_name_english, description, color
 FROM request_statuses
 WHERE key = $1;
 
--- Jewish Event Types --
-
--- name: GetJewishEventTypes :many
-SELECT id, key, display_name_hebrew, display_name_english, description, sort_order
-FROM jewish_event_types
-ORDER BY sort_order;
-
--- name: GetJewishEventTypeByKey :one
-SELECT id, key, display_name_hebrew, display_name_english, description
-FROM jewish_event_types
-WHERE key = $1;
-
 -- Tag Types --
 
 -- name: GetTagTypes :many

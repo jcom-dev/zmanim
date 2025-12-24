@@ -46,11 +46,9 @@ SEED_TABLES=(
   # Note: master_zman_day_types and master_zman_events are DEPRECATED (empty, tag-driven instead)
 
   # Jewish Calendar & Events
-  "jewish_event_types"
-  "jewish_events"
+  # Note: jewish_events, jewish_event_types, event_categories, fast_start_types REMOVED
+  # (consolidated into zman_tags - see migration 20241224120000)
   "day_types"
-  "event_categories"
-  "fast_start_types"
 
   # Tags & Mappings
   "tag_types"
@@ -182,6 +180,8 @@ echo "  Lines: $line_count"
 echo ""
 echo "SEED TABLES ($total_tables tables):"
 printf '%s\n' "${SEED_TABLES[@]}" | sort | sed 's/^/  - /'
+echo ""
+echo "-- Do not make changes to this file after initial creation - create new migration files instead"
 echo ""
 echo "EXCLUDED (imported separately or generated dynamically):"
 echo "  - geo_continents, geo_data_sources, geo_locality_types, geo_region_types"

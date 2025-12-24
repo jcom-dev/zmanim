@@ -54,48 +54,6 @@ func (q *Queries) GetAllDisplayGroups(ctx context.Context) ([]DisplayGroup, erro
 	return items, nil
 }
 
-const getAllEventCategories = `-- name: GetAllEventCategories :many
-
-SELECT id, key, display_name_hebrew, display_name_english,
-       description, icon_name, color, sort_order, created_at
-FROM event_categories
-ORDER BY sort_order
-`
-
-// ============================================================================
-// EVENT CATEGORIES
-// ============================================================================
-// Get all event categories ordered by sort_order
-func (q *Queries) GetAllEventCategories(ctx context.Context) ([]EventCategory, error) {
-	rows, err := q.db.Query(ctx, getAllEventCategories)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []EventCategory{}
-	for rows.Next() {
-		var i EventCategory
-		if err := rows.Scan(
-			&i.ID,
-			&i.Key,
-			&i.DisplayNameHebrew,
-			&i.DisplayNameEnglish,
-			&i.Description,
-			&i.IconName,
-			&i.Color,
-			&i.SortOrder,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getAllTagTypes = `-- name: GetAllTagTypes :many
 
 SELECT id, key, display_name_hebrew, display_name_english,
@@ -238,56 +196,6 @@ func (q *Queries) GetDisplayGroupByKey(ctx context.Context, key string) (Display
 		&i.Color,
 		&i.SortOrder,
 		&i.TimeCategories,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getEventCategoryByID = `-- name: GetEventCategoryByID :one
-SELECT id, key, display_name_hebrew, display_name_english,
-       description, icon_name, color, sort_order, created_at
-FROM event_categories
-WHERE id = $1
-`
-
-// Get an event category by its ID
-func (q *Queries) GetEventCategoryByID(ctx context.Context, id int32) (EventCategory, error) {
-	row := q.db.QueryRow(ctx, getEventCategoryByID, id)
-	var i EventCategory
-	err := row.Scan(
-		&i.ID,
-		&i.Key,
-		&i.DisplayNameHebrew,
-		&i.DisplayNameEnglish,
-		&i.Description,
-		&i.IconName,
-		&i.Color,
-		&i.SortOrder,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getEventCategoryByKey = `-- name: GetEventCategoryByKey :one
-SELECT id, key, display_name_hebrew, display_name_english,
-       description, icon_name, color, sort_order, created_at
-FROM event_categories
-WHERE key = $1
-`
-
-// Get an event category by its key
-func (q *Queries) GetEventCategoryByKey(ctx context.Context, key string) (EventCategory, error) {
-	row := q.db.QueryRow(ctx, getEventCategoryByKey, key)
-	var i EventCategory
-	err := row.Scan(
-		&i.ID,
-		&i.Key,
-		&i.DisplayNameHebrew,
-		&i.DisplayNameEnglish,
-		&i.Description,
-		&i.IconName,
-		&i.Color,
-		&i.SortOrder,
 		&i.CreatedAt,
 	)
 	return i, err

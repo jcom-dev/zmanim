@@ -44,4 +44,4 @@ export const CATEGORY_COLORS = {
   },
 };
 
-// NOTE: Zmanim time/event categories are now database-driven via useTimeCategories/useEventCategories hooks
+// NOTE: Zmanim time categories are now database-driven via useTimeCategories hook

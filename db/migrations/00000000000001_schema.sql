@@ -1,6 +1,7 @@
 -- Migration: Initial Schema
 -- Generated from database dump on 2025-12-23
 -- This migration creates the complete database schema for the Zmanim application
+-- Do not make changes to this file after initial creation - create new migration files instead
 
 -- ============================================
 -- EXTENSIONS
@@ -696,14 +697,7 @@ BEGIN
     v_deleted_counts := v_deleted_counts || jsonb_build_object('publisher_zman_tags', v_count);
     v_total := v_total + v_count;
 
-    -- 3. Delete publisher_zman_day_types (cascades from publisher_zmanim)
-    DELETE FROM publisher_zman_day_types
-    WHERE publisher_zman_id IN (SELECT id FROM publisher_zmanim WHERE publisher_id = p_publisher_id);
-    GET DIAGNOSTICS v_count = ROW_COUNT;
-    v_deleted_counts := v_deleted_counts || jsonb_build_object('publisher_zman_day_types', v_count);
-    v_total := v_total + v_count;
-
-    -- 4. Delete publisher_zman_events (cascades from publisher_zmanim)
+    -- 3. Delete publisher_zman_events (cascades from publisher_zmanim)
     DELETE FROM publisher_zman_events
     WHERE publisher_zman_id IN (SELECT id FROM publisher_zmanim WHERE publisher_id = p_publisher_id);
     GET DIAGNOSTICS v_count = ROW_COUNT;
@@ -1458,15 +1452,6 @@ $$;
 -- Name: update_master_registry_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 
 CREATE FUNCTION public.update_master_registry_updated_at() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN NEW.updated_at = now(); RETURN NEW; END;
-$$;
-
-
--- Name: update_publisher_zman_day_types_updated_at(); Type: FUNCTION; Schema: public; Owner: -
-
-CREATE FUNCTION public.update_publisher_zman_day_types_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
@@ -2243,36 +2228,6 @@ ALTER TABLE public.data_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     NO MAXVALUE
     CACHE 1
 );
-
-
--- Name: day_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.day_types (
-    id integer NOT NULL,
-    key character varying(100) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    description text,
-    parent_id integer,
-    sort_order integer DEFAULT 0,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
--- Name: day_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.day_types_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: day_types_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.day_types_id_seq OWNED BY public.day_types.id;
 
 
 -- Name: display_groups; Type: TABLE; Schema: public; Owner: -
@@ -3144,31 +3099,6 @@ CREATE SEQUENCE public.location_correction_requests_id_seq
 ALTER SEQUENCE public.location_correction_requests_id_seq OWNED BY public.location_correction_requests.id;
 
 
--- Name: master_zman_day_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.master_zman_day_types (
-    id integer NOT NULL,
-    master_zman_id integer,
-    day_type_id integer
-);
-
-
--- Name: master_zman_day_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.master_zman_day_types_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: master_zman_day_types_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.master_zman_day_types_id_seq OWNED BY public.master_zman_day_types.id;
-
-
 -- Name: master_zman_events; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.master_zman_events (
@@ -3775,19 +3705,6 @@ CREATE SEQUENCE public.publisher_zman_aliases_id_seq
 ALTER SEQUENCE public.publisher_zman_aliases_id_seq OWNED BY public.publisher_zman_aliases.id;
 
 
--- Name: publisher_zman_day_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.publisher_zman_day_types (
-    publisher_zman_id integer NOT NULL,
-    day_type_id integer NOT NULL,
-    override_formula_dsl text,
-    override_hebrew_name text,
-    override_english_name text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
 -- Name: publisher_zman_events; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.publisher_zman_events (
@@ -4361,11 +4278,6 @@ ALTER TABLE ONLY public.calculation_logs ALTER COLUMN id SET DEFAULT nextval('pu
 ALTER TABLE ONLY public.correction_request_history ALTER COLUMN id SET DEFAULT nextval('public.correction_request_history_id_seq'::regclass);
 
 
--- Name: day_types id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.day_types ALTER COLUMN id SET DEFAULT nextval('public.day_types_id_seq'::regclass);
-
-
 -- Name: display_groups id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.display_groups ALTER COLUMN id SET DEFAULT nextval('public.display_groups_id_seq'::regclass);
@@ -4399,11 +4311,6 @@ ALTER TABLE ONLY public.jewish_events ALTER COLUMN id SET DEFAULT nextval('publi
 -- Name: location_correction_requests id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.location_correction_requests ALTER COLUMN id SET DEFAULT nextval('public.location_correction_requests_id_seq'::regclass);
-
-
--- Name: master_zman_day_types id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.master_zman_day_types ALTER COLUMN id SET DEFAULT nextval('public.master_zman_day_types_id_seq'::regclass);
 
 
 -- Name: master_zman_events id; Type: DEFAULT; Schema: public; Owner: -
@@ -4643,18 +4550,6 @@ ALTER TABLE ONLY public.data_types
     ADD CONSTRAINT data_types_pkey PRIMARY KEY (id);
 
 
--- Name: day_types day_types_name_key; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.day_types
-    ADD CONSTRAINT day_types_name_key UNIQUE (key);
-
-
--- Name: day_types day_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.day_types
-    ADD CONSTRAINT day_types_pkey PRIMARY KEY (id);
-
-
 -- Name: display_groups display_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.display_groups
@@ -4841,12 +4736,6 @@ ALTER TABLE ONLY public.location_correction_requests
     ADD CONSTRAINT location_correction_requests_pkey PRIMARY KEY (id);
 
 
--- Name: master_zman_day_types master_zman_day_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.master_zman_day_types
-    ADD CONSTRAINT master_zman_day_types_pkey PRIMARY KEY (id);
-
-
 -- Name: master_zman_events master_zman_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.master_zman_events
@@ -4979,12 +4868,6 @@ ALTER TABLE ONLY public.publisher_zman_aliases
     ADD CONSTRAINT publisher_zman_aliases_unique UNIQUE (publisher_id, alias_hebrew);
 
 
--- Name: publisher_zman_day_types publisher_zman_day_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.publisher_zman_day_types
-    ADD CONSTRAINT publisher_zman_day_types_pkey PRIMARY KEY (publisher_zman_id, day_type_id);
-
-
 -- Name: publisher_zman_events publisher_zman_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.publisher_zman_events
@@ -5043,5 +4926,3 @@ ALTER TABLE ONLY public.publishers
 
 ALTER TABLE ONLY public.request_statuses
     ADD CONSTRAINT request_statuses_pkey PRIMARY KEY (id);
-
-

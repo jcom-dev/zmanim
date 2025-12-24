@@ -26,31 +26,6 @@ FROM time_categories
 WHERE id = $1;
 
 -- ============================================================================
--- EVENT CATEGORIES
--- ============================================================================
-
--- name: GetAllEventCategories :many
--- Get all event categories ordered by sort_order
-SELECT id, key, display_name_hebrew, display_name_english,
-       description, icon_name, color, sort_order, created_at
-FROM event_categories
-ORDER BY sort_order;
-
--- name: GetEventCategoryByKey :one
--- Get an event category by its key
-SELECT id, key, display_name_hebrew, display_name_english,
-       description, icon_name, color, sort_order, created_at
-FROM event_categories
-WHERE key = $1;
-
--- name: GetEventCategoryByID :one
--- Get an event category by its ID
-SELECT id, key, display_name_hebrew, display_name_english,
-       description, icon_name, color, sort_order, created_at
-FROM event_categories
-WHERE id = $1;
-
--- ============================================================================
 -- TAG TYPES
 -- ============================================================================
 

@@ -305,7 +305,6 @@ const mutation = usePublisherMutation<Result, Payload>(
 | `useLocationSearch()` | Search with debounce |
 | `useUserRoles()` | Admin/publisher roles |
 | `useTimeCategories()` | Time categories |
-| `useEventCategories()` | Event categories |
 | `usePublisherCoverage()` | Coverage CRUD |
 | `usePublisherSnapshots()` | Snapshot management |
 | `useDebounce()` | Debounce values |

@@ -300,6 +300,8 @@ export default function AlgorithmEditorPage() {
   const currentViewZmanim = viewMode === 'everyday' ? everydayZmanim : eventZmanim;
   const currentViewPublishedCount = currentViewZmanim.filter(z => z.is_published).length;
   const currentViewDraftCount = currentViewZmanim.filter(z => !z.is_published).length;
+  // Total published count across all zmanim (for header badge)
+  const totalPublishedCount = zmanim.filter(z => z.is_published).length;
   const currentViewCoreCount = currentViewZmanim.filter(z => z.display_status === 'core').length;
   const currentViewOptionalCount = currentViewZmanim.filter(z => z.display_status === 'optional').length;
   const currentViewHiddenCount = currentViewZmanim.filter(z => z.display_status === 'hidden').length;
@@ -366,7 +368,7 @@ export default function AlgorithmEditorPage() {
                     {zmanim.length} Zmanim
                   </Badge>
                   <Badge variant="secondary" className="text-sm">
-                    {currentViewPublishedCount} Published
+                    {totalPublishedCount} Published
                   </Badge>
                 </>
               )}

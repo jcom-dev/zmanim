@@ -10,6 +10,7 @@
 'use client';
 
 import { usePublisherQuery } from '@/lib/hooks/useApiQuery';
+import { usePublisherCalculationSettings, getShabbatLabel, getErevShabbatLabel } from '@/lib/hooks/usePublisherSettings';
 import { useApi } from '@/lib/api-client';
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -238,6 +239,9 @@ function getHolidayBadgeClass(category: string): string {
 export function WeekPreview({ localityId, displayName, initialDate, displayLanguage }: WeekPreviewProps) {
   const api = useApi();
   const { preferences } = usePreferences();
+  const { data: calculationSettings } = usePublisherCalculationSettings();
+  const shabbatLabel = getShabbatLabel(calculationSettings?.transliteration_style);
+  const erevShabbatLabel = getErevShabbatLabel(calculationSettings?.transliteration_style);
   // Publisher algorithm page defaults to seconds ON (true) when no preference is set
   // Backend returns both `time` (exact with seconds) and `time_rounded` (rounded per rounding_mode)
   const showSeconds = preferences.showSeconds ?? true;
@@ -540,7 +544,7 @@ export function WeekPreview({ localityId, displayName, initialDate, displayLangu
           <div className="flex items-center gap-1"><EyeOff className="h-3 w-3" /><span>Draft</span></div>
           <div className="flex items-center gap-1"><div className="w-3 h-3 rounded border border-primary bg-primary/20" /><span>Today</span></div>
           <div className="flex items-center gap-1"><div className="w-3 h-3 rounded border border-purple-500 bg-purple-500/20" /><span>Yom Tov</span></div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded border border-amber-500 bg-amber-500/20" /><span>Shabbat</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded border border-amber-500 bg-amber-500/20" /><span>{shabbatLabel}</span></div>
           <div className="flex items-center gap-1"><FlaskConical className="h-3 w-3 text-amber-500" /><span>Beta</span></div>
         </div>
       </div>
@@ -631,8 +635,8 @@ export function WeekPreview({ localityId, displayName, initialDate, displayLangu
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex flex-wrap items-center gap-2">
                     {isToday(day.date) && <Badge variant="default" className="text-xs">Today</Badge>}
-                    {isShabbat(day.date) && <Badge variant="solid" className="text-xs bg-orange-500 text-white border-orange-600"><Moon className="h-3 w-3 mr-1" />Shabbat</Badge>}
-                    {isFriday(day.date) && !day.isYomTov && <Badge variant="solid" className="text-xs bg-orange-400 text-black border-orange-500"><Sun className="h-3 w-3 mr-1" />Erev Shabbat</Badge>}
+                    {isShabbat(day.date) && <Badge variant="solid" className="text-xs bg-orange-500 text-white border-orange-600"><Moon className="h-3 w-3 mr-1" />{shabbatLabel}</Badge>}
+                    {isFriday(day.date) && !day.isYomTov && <Badge variant="solid" className="text-xs bg-orange-400 text-black border-orange-500"><Sun className="h-3 w-3 mr-1" />{erevShabbatLabel}</Badge>}
                     {day.holidays.map((holiday, idx) => (
                       <Badge key={idx} variant="solid" className={`text-xs ${getHolidayBadgeClass(holiday.category)}`}>
                         {holiday.yomtov && <Star className="h-3 w-3 mr-1" />}{holiday.name}

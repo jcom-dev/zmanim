@@ -15,22 +15,8 @@ import (
 )
 
 // ============================================
-// TYPES FOR EVENT MODEL
+// TYPES FOR CALENDAR RESPONSES
 // ============================================
-
-// JewishEventResponse represents a Jewish event for API responses
-type JewishEventResponse struct {
-	ID                   string  `json:"id"`
-	Code                 string  `json:"code"`
-	NameHebrew           string  `json:"name_hebrew"`
-	NameEnglish          string  `json:"name_english"`
-	EventType            string  `json:"event_type"`
-	DurationDaysIsrael   int     `json:"duration_days_israel"`
-	DurationDaysDiaspora int     `json:"duration_days_diaspora"`
-	FastStartType        *string `json:"fast_start_type,omitempty"`
-	ParentEventCode      *string `json:"parent_event_code,omitempty"`
-	SortOrder            int     `json:"sort_order"`
-}
 
 // WeekCalendarResponse represents the weekly calendar API response
 type WeekCalendarResponse struct {
@@ -213,67 +199,8 @@ func parseFloatValue(s string) (float64, error) {
 }
 
 // ============================================
-// JEWISH EVENTS HANDLERS (NEW EVENT MODEL)
+// CALENDAR EVENT INFO HANDLERS
 // ============================================
-
-// GetJewishEvents returns all Jewish events from the database
-// GET /api/v1/calendar/events
-func (h *Handlers) GetJewishEvents(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	eventType := r.URL.Query().Get("type")
-
-	var events []JewishEventResponse
-
-	if eventType != "" {
-		rows, err := h.db.Queries.GetJewishEventsByType(ctx, eventType)
-		if err != nil {
-			RespondInternalError(w, r, "Failed to get Jewish events")
-			return
-		}
-
-		for _, row := range rows {
-			events = append(events, JewishEventResponse{
-				ID:                   intToString(row.ID),
-				Code:                 row.Code,
-				NameHebrew:           row.NameHebrew,
-				NameEnglish:          row.NameEnglish,
-				EventType:            stringPtrToString(row.EventType),
-				DurationDaysIsrael:   int32PtrToInt(row.DurationDaysIsrael),
-				DurationDaysDiaspora: int32PtrToInt(row.DurationDaysDiaspora),
-				FastStartType:        row.FastStartType,
-				ParentEventCode:      row.ParentEventCode,
-				SortOrder:            int32PtrToInt(row.SortOrder),
-			})
-		}
-	} else {
-		rows, err := h.db.Queries.GetAllJewishEvents(ctx)
-		if err != nil {
-			RespondInternalError(w, r, "Failed to get Jewish events")
-			return
-		}
-
-		for _, row := range rows {
-			events = append(events, JewishEventResponse{
-				ID:                   intToString(row.ID),
-				Code:                 row.Code,
-				NameHebrew:           row.NameHebrew,
-				NameEnglish:          row.NameEnglish,
-				EventType:            stringPtrToString(row.EventType),
-				DurationDaysIsrael:   int32PtrToInt(row.DurationDaysIsrael),
-				DurationDaysDiaspora: int32PtrToInt(row.DurationDaysDiaspora),
-				FastStartType:        row.FastStartType,
-				ParentEventCode:      row.ParentEventCode,
-				SortOrder:            int32PtrToInt(row.SortOrder),
-			})
-		}
-	}
-
-	if events == nil {
-		events = []JewishEventResponse{}
-	}
-
-	RespondJSON(w, r, http.StatusOK, events)
-}
 
 // GetEventDayInfo returns event information for a specific date and location
 // GET /api/v1/calendar/day-info?date=YYYY-MM-DD&latitude=X&longitude=Y

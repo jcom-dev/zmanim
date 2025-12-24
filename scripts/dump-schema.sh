@@ -65,6 +65,7 @@ cat > "$MIGRATION_FILE" << 'EOF'
 -- Migration: Initial Schema
 -- Generated from database dump on DATE_PLACEHOLDER
 -- This migration creates the complete database schema for the Zmanim application
+-- Do not make changes to this file after initial creation - create new migration files instead
 
 -- ============================================
 -- EXTENSIONS

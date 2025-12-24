@@ -25,6 +25,10 @@ export interface CommonConfig {
   availabilityZone: string;
   /** Default tags for all resources */
   defaultTags: Record<string, string>;
+  /** SSH key pair name for EC2 instances */
+  sshKeyName: string;
+  /** SSH public key material */
+  sshKeyPublic: string;
 }
 
 /**
@@ -44,4 +48,6 @@ export const commonConfig: CommonConfig = {
     ManagedBy: "terraform",
     Project: "shtetl",
   },
+  sshKeyName: "dniasoff_keypair",
+  sshKeyPublic: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDOhNxmkXI3lthcD9ufxEhrHqGnKI4kHosKb/ALYnlRwTl3ClVLSGgrGIwHlq7Zr/ozd7Ctoo0PWTyZo0+omqkSTW2zPdtbE+WpXgqyPEgsfKGYZOFcC5K4sM8GdMrwA0QHdI3nV4KN3Qo0P1VwnOSk4LzvGMs4YoSoiIKvWS7AsGselUOm2CzOrhG2lvmvrqbcAXrd7L6J/GTa7J/3twwjMB/YPKvgrb1Q9gUHMrr5i7bFdln66ci6DAxA+2/t3hyTDduVSc41NuIe8/Mp2Xl9cO8G1e5NVF4FyIKpqkbRl/fXQ/lb77CppqmymR1L9RNypYSMGH4fMerOnu8FpiGJ",
 };

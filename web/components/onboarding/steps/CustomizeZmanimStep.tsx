@@ -35,7 +35,7 @@ import {
   MasterZman,
   GroupedMasterZmanim,
 } from '@/lib/hooks/useZmanimList';
-import { useTimeCategories, useEventCategories } from '@/lib/hooks/useCategories';
+import { useTimeCategories } from '@/lib/hooks/useCategories';
 import { getIcon } from '@/lib/icons';
 import type { OnboardingState, SelectedZmanCustomization } from '../OnboardingWizard';
 
@@ -110,9 +110,8 @@ export function CustomizeZmanimStep({ state, onUpdate, onNext, onBack }: Customi
 
   // Fetch categories from database
   const { data: timeCategories, isLoading: loadingTimeCategories } = useTimeCategories();
-  const { data: eventCategories, isLoading: loadingEventCategories } = useEventCategories();
 
-  // Fetch zmanim from registry (no day_types filter - gets all zmanim)
+  // Fetch zmanim from registry
   const { data: everydayZmanim, isLoading: loadingEveryday } = useMasterZmanimGrouped();
   const { data: eventZmanim, isLoading: loadingEvents } = useEventZmanimGrouped();
 
@@ -129,18 +128,23 @@ export function CustomizeZmanimStep({ state, onUpdate, onNext, onBack }: Customi
     }, {} as Record<string, { icon: React.ElementType; label: string; description: string }>);
   }, [timeCategories]);
 
+  // For event zmanim, use zman_tags instead of event_categories
+  // Event zmanim are grouped by purpose (candles, havdalah, etc.) via tags
   const eventCategoryMap = useMemo(() => {
-    if (!eventCategories) return {};
-    return eventCategories.reduce((acc, ec) => {
-      acc[ec.key] = {
-        icon: getIcon(ec.icon_name),
-        label: ec.display_name_english,
-        hebrewLabel: ec.display_name_hebrew,
-        description: ec.description || '',
+    if (!eventZmanim) return {};
+    // Build a map of event categories from the actual data
+    const map: Record<string, { icon: React.ElementType; label: string; hebrewLabel: string; description: string }> = {};
+    Object.keys(eventZmanim).forEach((key) => {
+      // Use generic icon/label for event categories
+      map[key] = {
+        icon: getIcon('flame'),
+        label: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+        hebrewLabel: '',
+        description: '',
       };
-      return acc;
-    }, {} as Record<string, { icon: React.ElementType; label: string; hebrewLabel: string; description: string }>);
-  }, [eventCategories]);
+    });
+    return map;
+  }, [eventZmanim]);
 
   // Category order from database (sorted by sort_order)
   const everydayCategoryOrder = useMemo(() => {
@@ -148,12 +152,12 @@ export function CustomizeZmanimStep({ state, onUpdate, onNext, onBack }: Customi
   }, [timeCategories]);
 
   const eventCategoryOrder = useMemo(() => {
-    return eventCategories?.map(ec => ec.key) || [];
-  }, [eventCategories]);
+    return eventZmanim ? Object.keys(eventZmanim) : [];
+  }, [eventZmanim]);
 
   const isLoading = viewMode === 'everyday'
     ? loadingEveryday || loadingTimeCategories
-    : loadingEvents || loadingEventCategories;
+    : loadingEvents;
   const rawGroups = viewMode === 'everyday' ? everydayZmanim : eventZmanim;
   const categoryOrder = viewMode === 'everyday' ? everydayCategoryOrder : eventCategoryOrder;
   const categoryConfig = viewMode === 'everyday' ? timeCategoryMap : eventCategoryMap;

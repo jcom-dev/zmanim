@@ -46,17 +46,14 @@ export { useUserRoles, useHasPublisherAccess, type UserRoles } from './useUserRo
 // Category Hooks (database-driven zmanim configuration)
 export {
   useTimeCategories,
-  useEventCategories,
   useTagTypes,
   useDisplayGroups,
   useAllCategories,
   useTimeCategoryByKey,
-  useEventCategoryByKey,
   useTagTypeByKey,
   useCategoryMaps,
   useDisplayGroupMapping,
   type TimeCategory,
-  type EventCategory,
   type TagType,
   type DisplayGroup,
 } from './useCategories';
@@ -81,3 +78,11 @@ export {
   type UsePreviewToolbarOptions,
   type PreviewToolbarState,
 } from './usePreviewToolbar';
+
+// Publisher Settings Hook
+export {
+  usePublisherCalculationSettings,
+  getShabbatLabel,
+  getErevShabbatLabel,
+  type CalculationSettings,
+} from './usePublisherSettings';

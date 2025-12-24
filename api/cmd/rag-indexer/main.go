@@ -25,16 +25,11 @@
 //
 // Current indexed sources:
 //
-//	DSL specification documentation
-//	DSL design story
-//	DSL parser story
+//	docs/ folder markdown files (DSL guide, architecture, API reference, etc.)
+//	DSL code from api/internal/dsl/*.go and web/lib/*dsl*.ts
 //	Master zmanim registry from database
 //	Inline DSL examples with halachic context
-//
-// Future enhancements (requires external repo cloning):
-//
-//	KosherJava zmanim library documentation
-//	hebcal-go library documentation
+//	KosherJava zmanim library (all Java source files)
 package main
 
 import (
@@ -101,7 +96,7 @@ func main() {
 
 	// Clear existing embeddings (optional - for reindexing)
 	log.Println("🗑️  Clearing existing embeddings...")
-	_, err = pool.Exec(ctx, "DELETE FROM embeddings")
+	_, err = pool.Exec(ctx, "TRUNCATE embeddings RESTART IDENTITY")
 	if err != nil {
 		log.Printf("Warning: Could not clear embeddings: %v", err)
 	}
@@ -141,11 +136,21 @@ func main() {
 		log.Printf("✅ Indexed DSL examples: %d chunks, ~%d tokens", examplesChunks, examplesTokens)
 	}
 
+	// Index DSL-related code from api/internal/dsl/*.go and web/lib/*dsl*.ts
+	dslChunks, dslTokens, err := indexDSLCode(ctx, pool, embeddings, chunker, projectRoot)
+	if err != nil {
+		log.Printf("❌ Failed to index DSL code: %v", err)
+	} else {
+		totalChunks += dslChunks
+		totalTokens += dslTokens
+		log.Printf("✅ Indexed DSL code: %d chunks, ~%d tokens", dslChunks, dslTokens)
+	}
+
 	// Clone and index external repositories
 	tempDir := filepath.Join("/tmp", "rag-indexer-"+uuid.New().String())
 	log.Printf("📦 Cloning external repositories to %s...", tempDir)
 
-	// Index KosherJava zmanim library
+	// Index KosherJava zmanim library (all Java source files)
 	kosherJavaChunks, kosherJavaTokens, err := indexKosherJava(ctx, pool, embeddings, chunker, tempDir)
 	if err != nil {
 		log.Printf("❌ Failed to index KosherJava: %v", err)
@@ -153,16 +158,6 @@ func main() {
 		totalChunks += kosherJavaChunks
 		totalTokens += kosherJavaTokens
 		log.Printf("✅ Indexed KosherJava: %d chunks, ~%d tokens", kosherJavaChunks, kosherJavaTokens)
-	}
-
-	// Index hebcal-go library
-	hebcalChunks, hebcalTokens, err := indexHebcalGo(ctx, pool, embeddings, chunker, tempDir)
-	if err != nil {
-		log.Printf("❌ Failed to index hebcal-go: %v", err)
-	} else {
-		totalChunks += hebcalChunks
-		totalTokens += hebcalTokens
-		log.Printf("✅ Indexed hebcal-go: %d chunks, ~%d tokens", hebcalChunks, hebcalTokens)
 	}
 
 	// Cleanup temp directory
@@ -193,6 +188,7 @@ func findProjectRoot() string {
 }
 
 // findDocuments scans the docs/ directory for all markdown files to index
+// Only indexes docs/ folder (not docs-archive/)
 func findDocuments(projectRoot string) ([]DocumentSource, error) {
 	var sources []DocumentSource
 	docsDir := filepath.Join(projectRoot, "docs")
@@ -204,14 +200,6 @@ func findDocuments(projectRoot string) ([]DocumentSource, error) {
 
 		// Skip directories
 		if info.IsDir() {
-			// Skip archive directory - contains outdated docs
-			if info.Name() == "archive" {
-				return filepath.SkipDir
-			}
-			// Skip sprint-artifacts - too detailed for RAG
-			if info.Name() == "sprint-artifacts" {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 
@@ -231,10 +219,10 @@ func findDocuments(projectRoot string) ([]DocumentSource, error) {
 
 		// Determine content type based on path
 		contentType := "documentation"
-		if strings.Contains(path, "api") {
+		if strings.Contains(path, "api") || strings.Contains(path, "API") {
 			contentType = "api-reference"
-		} else if strings.Contains(path, "proposal") {
-			contentType = "proposal"
+		} else if strings.Contains(path, "dsl") || strings.Contains(path, "DSL") {
+			contentType = "dsl-documentation"
 		}
 
 		sources = append(sources, DocumentSource{
@@ -613,6 +601,350 @@ Major fasts (Yom Kippur, Tisha B'Av) begin at sunset the night before.
 	return indexedCount, totalTokens, nil
 }
 
+// indexDSLCode indexes DSL-related source code from api/internal/dsl/*.go and web/lib/*dsl*.ts
+func indexDSLCode(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.EmbeddingService, chunker *ai.Chunker, projectRoot string) (int, int, error) {
+	totalChunks := 0
+	totalTokens := 0
+
+	// Index Go DSL files from api/internal/dsl/
+	dslGoDir := filepath.Join(projectRoot, "api", "internal", "dsl")
+	goFiles, err := filepath.Glob(filepath.Join(dslGoDir, "*.go"))
+	if err != nil {
+		log.Printf("   Warning: Failed to find Go DSL files: %v", err)
+	}
+
+	log.Printf("   Found %d Go DSL files to index", len(goFiles))
+
+	for _, goFile := range goFiles {
+		baseName := filepath.Base(goFile)
+		// Skip test files
+		if strings.HasSuffix(baseName, "_test.go") {
+			continue
+		}
+
+		content, err := os.ReadFile(goFile)
+		if err != nil {
+			log.Printf("   Warning: Failed to read %s: %v", baseName, err)
+			continue
+		}
+
+		sourceKey := makeSourceKey("dsl-go", baseName)
+		extracted := formatGoCodeForIndex(string(content), baseName)
+		if extracted == "" {
+			continue
+		}
+
+		chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceKey, "dsl-code")
+		if err != nil {
+			log.Printf("   Warning: Failed to index %s: %v", baseName, err)
+		} else if chunks > 0 {
+			totalChunks += chunks
+			totalTokens += tokens
+			log.Printf("   Indexed %s: %d chunks", baseName, chunks)
+		}
+	}
+
+	// Index TypeScript DSL files from web/lib/
+	webLibDir := filepath.Join(projectRoot, "web", "lib")
+	tsPatterns := []string{
+		filepath.Join(webLibDir, "*dsl*.ts"),
+		filepath.Join(webLibDir, "codemirror", "*dsl*.ts"),
+	}
+
+	for _, pattern := range tsPatterns {
+		tsFiles, err := filepath.Glob(pattern)
+		if err != nil {
+			log.Printf("   Warning: Failed to find TS files with pattern %s: %v", pattern, err)
+			continue
+		}
+
+		log.Printf("   Found %d TypeScript DSL files matching %s", len(tsFiles), filepath.Base(pattern))
+
+		for _, tsFile := range tsFiles {
+			baseName := filepath.Base(tsFile)
+			content, err := os.ReadFile(tsFile)
+			if err != nil {
+				log.Printf("   Warning: Failed to read %s: %v", baseName, err)
+				continue
+			}
+
+			sourceKey := makeSourceKey("dsl-ts", baseName)
+			extracted := formatTSCodeForIndex(string(content), baseName)
+			if extracted == "" {
+				continue
+			}
+
+			chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceKey, "dsl-code")
+			if err != nil {
+				log.Printf("   Warning: Failed to index %s: %v", baseName, err)
+			} else if chunks > 0 {
+				totalChunks += chunks
+				totalTokens += tokens
+				log.Printf("   Indexed %s: %d chunks", baseName, chunks)
+			}
+		}
+	}
+
+	return totalChunks, totalTokens, nil
+}
+
+// formatGoCodeForIndex formats Go source code for RAG indexing
+func formatGoCodeForIndex(content, filename string) string {
+	var result strings.Builder
+
+	result.WriteString(fmt.Sprintf("# DSL Go Source: %s\n\n", strings.TrimSuffix(filename, ".go")))
+
+	// Extract package documentation
+	packageDocPattern := regexp.MustCompile(`(?s)^((?:\s*//[^\n]*\n)+)\s*package\s+(\w+)`)
+	if match := packageDocPattern.FindStringSubmatch(content); len(match) >= 3 {
+		doc := strings.TrimSpace(match[1])
+		doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
+		if doc != "" {
+			result.WriteString("## Package Documentation\n\n")
+			result.WriteString(doc)
+			result.WriteString("\n\n")
+		}
+	}
+
+	// Extract constants
+	constBlockPattern := regexp.MustCompile(`(?s)const\s*\(([^)]+)\)`)
+	constMatches := constBlockPattern.FindAllStringSubmatch(content, -1)
+	if len(constMatches) > 0 {
+		result.WriteString("## Constants\n\n```go\n")
+		for _, m := range constMatches {
+			if len(m) >= 2 {
+				result.WriteString("const (\n")
+				result.WriteString(m[1])
+				result.WriteString(")\n\n")
+			}
+		}
+		result.WriteString("```\n\n")
+	}
+
+	// Extract single const declarations
+	singleConstPattern := regexp.MustCompile(`(?m)^const\s+(\w+)\s*=\s*(.+)$`)
+	singleConstMatches := singleConstPattern.FindAllStringSubmatch(content, -1)
+	if len(singleConstMatches) > 0 {
+		result.WriteString("## Single Constants\n\n")
+		for _, m := range singleConstMatches {
+			if len(m) >= 3 {
+				result.WriteString(fmt.Sprintf("- `%s = %s`\n", m[1], m[2]))
+			}
+		}
+		result.WriteString("\n")
+	}
+
+	// Extract var declarations with maps/slices (often contain DSL definitions)
+	varBlockPattern := regexp.MustCompile(`(?s)((?://[^\n]*\n)*)var\s+(\w+)\s*=\s*(map\[[^\]]+\][^\{]+\{[^}]+\}|(?:\[\][^\{]+\{[^}]+\}))`)
+	varMatches := varBlockPattern.FindAllStringSubmatch(content, -1)
+	if len(varMatches) > 0 {
+		result.WriteString("## Variable Definitions\n\n")
+		for _, m := range varMatches {
+			if len(m) >= 4 {
+				doc := ""
+				if m[1] != "" {
+					doc = strings.TrimSpace(m[1])
+					doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
+				}
+				result.WriteString(fmt.Sprintf("### %s\n\n", m[2]))
+				if doc != "" {
+					result.WriteString(doc)
+					result.WriteString("\n\n")
+				}
+				result.WriteString("```go\n")
+				result.WriteString(fmt.Sprintf("var %s = %s", m[2], m[3]))
+				result.WriteString("\n```\n\n")
+			}
+		}
+	}
+
+	// Extract type definitions with their docs
+	typeDocPattern := regexp.MustCompile(`(?m)((?://[^\n]*\n)+)\s*(type\s+\w+\s+(?:struct|interface|int|string|float64)[^\{]*(?:\{[^}]*\})?)`)
+	typeMatches := typeDocPattern.FindAllStringSubmatch(content, -1)
+	if len(typeMatches) > 0 {
+		result.WriteString("## Types\n\n")
+		for _, match := range typeMatches {
+			if len(match) >= 3 {
+				doc := strings.TrimSpace(match[1])
+				doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
+				typeDef := strings.TrimSpace(match[2])
+
+				result.WriteString("### ")
+				result.WriteString(extractGoTypeName(typeDef))
+				result.WriteString("\n\n")
+				result.WriteString("```go\n")
+				result.WriteString(typeDef)
+				result.WriteString("\n```\n\n")
+				result.WriteString(doc)
+				result.WriteString("\n\n---\n\n")
+			}
+		}
+	}
+
+	// Extract function/method documentation
+	funcDocPattern := regexp.MustCompile(`(?m)((?://[^\n]*\n)+)\s*(func\s+(?:\([^)]+\)\s*)?\w+[^\{]+)`)
+	funcMatches := funcDocPattern.FindAllStringSubmatch(content, -1)
+
+	if len(funcMatches) > 0 {
+		result.WriteString("## Functions\n\n")
+		for _, match := range funcMatches {
+			if len(match) >= 3 {
+				doc := strings.TrimSpace(match[1])
+				doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
+				signature := strings.TrimSpace(match[2])
+
+				// Skip short/trivial docs
+				if len(doc) < 10 {
+					continue
+				}
+
+				result.WriteString("### ")
+				result.WriteString(extractGoFuncName(signature))
+				result.WriteString("\n\n")
+				result.WriteString("```go\n")
+				result.WriteString(signature)
+				result.WriteString("\n```\n\n")
+				result.WriteString(doc)
+				result.WriteString("\n\n---\n\n")
+			}
+		}
+	}
+
+	return result.String()
+}
+
+// formatTSCodeForIndex formats TypeScript source code for RAG indexing
+func formatTSCodeForIndex(content, filename string) string {
+	var result strings.Builder
+
+	result.WriteString(fmt.Sprintf("# DSL TypeScript Source: %s\n\n", strings.TrimSuffix(filename, ".ts")))
+
+	// Extract file-level JSDoc comments
+	fileDocPattern := regexp.MustCompile(`(?s)^/\*\*(.+?)\*/`)
+	if match := fileDocPattern.FindStringSubmatch(content); len(match) >= 2 {
+		doc := strings.TrimSpace(match[1])
+		doc = regexp.MustCompile(`(?m)^\s*\*\s?`).ReplaceAllString(doc, "")
+		if doc != "" {
+			result.WriteString("## File Documentation\n\n")
+			result.WriteString(doc)
+			result.WriteString("\n\n")
+		}
+	}
+
+	// Extract const/export const declarations
+	constPattern := regexp.MustCompile(`(?m)^(?:export\s+)?const\s+(\w+)(?:\s*:\s*[^=]+)?\s*=\s*(.+)$`)
+	constMatches := constPattern.FindAllStringSubmatch(content, -1)
+	if len(constMatches) > 0 {
+		result.WriteString("## Constants\n\n")
+		for _, m := range constMatches {
+			if len(m) >= 3 {
+				result.WriteString(fmt.Sprintf("- `%s = %s`\n", m[1], m[2]))
+			}
+		}
+		result.WriteString("\n")
+	}
+
+	// Extract interface/type definitions
+	typePattern := regexp.MustCompile(`(?s)((?:/\*\*[^*]*\*+(?:[^/*][^*]*\*+)*/\s*)?)((?:export\s+)?(?:interface|type)\s+\w+[^{]*\{[^}]*\})`)
+	typeMatches := typePattern.FindAllStringSubmatch(content, -1)
+	if len(typeMatches) > 0 {
+		result.WriteString("## Types and Interfaces\n\n")
+		for _, match := range typeMatches {
+			if len(match) >= 3 {
+				doc := ""
+				if match[1] != "" {
+					doc = strings.TrimSpace(match[1])
+					doc = regexp.MustCompile(`(?s)/\*\*(.+?)\*/`).ReplaceAllString(doc, "$1")
+					doc = regexp.MustCompile(`(?m)^\s*\*\s?`).ReplaceAllString(doc, "")
+				}
+				typeDef := strings.TrimSpace(match[2])
+
+				// Extract name
+				namePattern := regexp.MustCompile(`(?:interface|type)\s+(\w+)`)
+				if nameMatch := namePattern.FindStringSubmatch(typeDef); len(nameMatch) >= 2 {
+					result.WriteString(fmt.Sprintf("### %s\n\n", nameMatch[1]))
+				}
+
+				result.WriteString("```typescript\n")
+				result.WriteString(typeDef)
+				result.WriteString("\n```\n\n")
+				if doc != "" {
+					result.WriteString(doc)
+					result.WriteString("\n\n")
+				}
+				result.WriteString("---\n\n")
+			}
+		}
+	}
+
+	// Extract function definitions with JSDoc
+	funcPattern := regexp.MustCompile(`(?s)((?:/\*\*[^*]*\*+(?:[^/*][^*]*\*+)*/\s*)?)((?:export\s+)?(?:async\s+)?function\s+\w+[^{]+)`)
+	funcMatches := funcPattern.FindAllStringSubmatch(content, -1)
+	if len(funcMatches) > 0 {
+		result.WriteString("## Functions\n\n")
+		for _, match := range funcMatches {
+			if len(match) >= 3 {
+				doc := ""
+				if match[1] != "" {
+					doc = strings.TrimSpace(match[1])
+					doc = regexp.MustCompile(`(?s)/\*\*(.+?)\*/`).ReplaceAllString(doc, "$1")
+					doc = regexp.MustCompile(`(?m)^\s*\*\s?`).ReplaceAllString(doc, "")
+				}
+				signature := strings.TrimSpace(match[2])
+
+				// Extract name
+				namePattern := regexp.MustCompile(`function\s+(\w+)`)
+				if nameMatch := namePattern.FindStringSubmatch(signature); len(nameMatch) >= 2 {
+					result.WriteString(fmt.Sprintf("### %s\n\n", nameMatch[1]))
+				}
+
+				result.WriteString("```typescript\n")
+				result.WriteString(signature)
+				result.WriteString("\n```\n\n")
+				if doc != "" {
+					result.WriteString(doc)
+					result.WriteString("\n\n")
+				}
+				result.WriteString("---\n\n")
+			}
+		}
+	}
+
+	// Extract array/object definitions (often contain DSL reference data)
+	dataPattern := regexp.MustCompile(`(?s)((?://[^\n]*\n|/\*\*[^*]*\*+(?:[^/*][^*]*\*+)*/\s*)?)(?:export\s+)?const\s+(\w+)\s*(?::\s*[^=]+)?\s*=\s*(\[[^\]]+\]|\{[^}]+\})`)
+	dataMatches := dataPattern.FindAllStringSubmatch(content, -1)
+	if len(dataMatches) > 0 {
+		result.WriteString("## Data Definitions\n\n")
+		for _, match := range dataMatches {
+			if len(match) >= 4 {
+				doc := ""
+				if match[1] != "" {
+					doc = strings.TrimSpace(match[1])
+					doc = regexp.MustCompile(`(?s)/\*\*(.+?)\*/`).ReplaceAllString(doc, "$1")
+					doc = regexp.MustCompile(`(?m)^(?://\s?|\s*\*\s?)`).ReplaceAllString(doc, "")
+				}
+				name := match[2]
+				value := match[3]
+
+				result.WriteString(fmt.Sprintf("### %s\n\n", name))
+				if doc != "" {
+					result.WriteString(doc)
+					result.WriteString("\n\n")
+				}
+				// Truncate long values
+				if len(value) > 500 {
+					value = value[:500] + "..."
+				}
+				result.WriteString("```typescript\n")
+				result.WriteString(fmt.Sprintf("const %s = %s", name, value))
+				result.WriteString("\n```\n\n---\n\n")
+			}
+		}
+	}
+
+	return result.String()
+}
+
 // cloneRepo clones a git repository to the specified directory
 func cloneRepo(repoURL, destDir string) error {
 	cmd := exec.Command("git", "clone", "--depth", "1", repoURL, destDir)
@@ -861,286 +1193,6 @@ func extractMethodName(signature string) string {
 		return match[1]
 	}
 	return "Unknown"
-}
-
-// indexHebcalGo clones the hebcal-go library and indexes ALL relevant packages
-func indexHebcalGo(ctx context.Context, pool *pgxpool.Pool, embeddings *ai.EmbeddingService, chunker *ai.Chunker, tempDir string) (int, int, error) {
-	repoDir := filepath.Join(tempDir, "hebcal-go")
-
-	log.Println("   Cloning hebcal-go library...")
-	err := cloneRepo("https://github.com/hebcal/hebcal-go.git", repoDir)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to clone hebcal-go: %w", err)
-	}
-
-	totalChunks := 0
-	totalTokens := 0
-
-	// Index README
-	readmePath := filepath.Join(repoDir, "README.md")
-	if content, err := os.ReadFile(readmePath); err == nil {
-		chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, string(content), "hc:readme", "documentation")
-		if err != nil {
-			log.Printf("   Warning: Failed to index hebcal-go README: %v", err)
-		} else {
-			totalChunks += chunks
-			totalTokens += tokens
-			log.Printf("   Indexed hebcal-go README: %d chunks", chunks)
-		}
-	}
-
-	// Priority packages - these contain the most relevant content for zmanim
-	priorityPackages := map[string]bool{
-		"zmanim":  true, // Zmanim calculations
-		"hdate":   true, // Hebrew dates
-		"event":   true, // Calendar events
-		"sedra":   true, // Torah portions
-		"molad":   true, // New moon calculations
-		"locales": true, // Hebrew/English naming
-	}
-
-	// Files that should have full content indexed (not just doc comments)
-	fullContentFiles := map[string]bool{
-		"zmanim.go":   true,
-		"location.go": true,
-		"hdate.go":    true,
-		"holiday.go":  true,
-	}
-
-	// Find and index Go files with package documentation
-	goFiles, err := findGoFiles(repoDir)
-	if err != nil {
-		log.Printf("   Warning: Failed to find Go files: %v", err)
-	}
-
-	log.Printf("   Found %d Go files to index", len(goFiles))
-
-	for _, goFile := range goFiles {
-		content, err := os.ReadFile(goFile)
-		if err != nil {
-			continue
-		}
-
-		relPath, _ := filepath.Rel(repoDir, goFile)
-		baseName := filepath.Base(goFile)
-		pkgDir := filepath.Dir(relPath)
-
-		// Skip files not in priority packages unless they're doc.go
-		if !priorityPackages[pkgDir] && baseName != "doc.go" {
-			continue
-		}
-
-		sourceKey := makeSourceKey("hc", relPath)
-
-		var extracted string
-		var contentType string
-
-		if baseName == "doc.go" {
-			// doc.go files contain package-level documentation
-			extracted = extractGoPackageDoc(string(content), pkgDir)
-			contentType = "documentation"
-		} else if fullContentFiles[baseName] {
-			// Index full content for key files
-			extracted = formatGoForIndex(string(content), relPath)
-			contentType = "reference"
-		} else {
-			// Extract doc comments for other files
-			extracted = extractGoDocContent(string(content), goFile)
-			contentType = "reference"
-		}
-
-		if extracted == "" {
-			continue
-		}
-
-		chunks, tokens, err := indexContent(ctx, pool, embeddings, chunker, extracted, sourceKey, contentType)
-		if err != nil {
-			log.Printf("   Warning: Failed to index %s: %v", relPath, err)
-		} else if chunks > 0 {
-			totalChunks += chunks
-			totalTokens += tokens
-			log.Printf("   Indexed %s: %d chunks", relPath, chunks)
-		}
-	}
-
-	return totalChunks, totalTokens, nil
-}
-
-// extractGoPackageDoc extracts package-level documentation from doc.go files
-func extractGoPackageDoc(content, pkgName string) string {
-	var result strings.Builder
-
-	result.WriteString(fmt.Sprintf("# hebcal-go Package: %s\n\n", pkgName))
-
-	// Extract all comments before the package declaration
-	packageDocPattern := regexp.MustCompile(`(?s)^((?:\s*//[^\n]*\n)+)\s*package`)
-	if match := packageDocPattern.FindStringSubmatch(content); len(match) >= 2 {
-		doc := strings.TrimSpace(match[1])
-		doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
-		result.WriteString(doc)
-		result.WriteString("\n")
-	}
-
-	return result.String()
-}
-
-// formatGoForIndex formats a Go file for RAG indexing, keeping key content
-func formatGoForIndex(content, filename string) string {
-	var result strings.Builder
-
-	result.WriteString(fmt.Sprintf("# hebcal-go: %s\n\n", filename))
-
-	// Extract package documentation
-	packageDocPattern := regexp.MustCompile(`(?s)^((?:\s*//[^\n]*\n)+)\s*package\s+(\w+)`)
-	if match := packageDocPattern.FindStringSubmatch(content); len(match) >= 3 {
-		doc := strings.TrimSpace(match[1])
-		doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
-		if doc != "" {
-			result.WriteString("## Package Documentation\n\n")
-			result.WriteString(doc)
-			result.WriteString("\n\n")
-		}
-	}
-
-	// Extract constants (important values)
-	constBlockPattern := regexp.MustCompile(`(?s)const\s*\(([^)]+)\)`)
-	constMatches := constBlockPattern.FindAllStringSubmatch(content, -1)
-	if len(constMatches) > 0 {
-		result.WriteString("## Constants\n\n```go\n")
-		for _, m := range constMatches {
-			if len(m) >= 2 {
-				result.WriteString("const (\n")
-				result.WriteString(m[1])
-				result.WriteString(")\n\n")
-			}
-		}
-		result.WriteString("```\n\n")
-	}
-
-	// Extract type definitions with their docs
-	typeDocPattern := regexp.MustCompile(`(?m)((?://[^\n]*\n)+)\s*(type\s+\w+\s+(?:struct|interface|int|string|float64)[^\{]*(?:\{[^}]*\})?)`)
-	typeMatches := typeDocPattern.FindAllStringSubmatch(content, -1)
-	if len(typeMatches) > 0 {
-		result.WriteString("## Types\n\n")
-		for _, match := range typeMatches {
-			if len(match) >= 3 {
-				doc := strings.TrimSpace(match[1])
-				doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
-				typeDef := strings.TrimSpace(match[2])
-
-				result.WriteString("### ")
-				result.WriteString(extractGoTypeName(typeDef))
-				result.WriteString("\n\n")
-				result.WriteString("```go\n")
-				result.WriteString(typeDef)
-				result.WriteString("\n```\n\n")
-				result.WriteString(doc)
-				result.WriteString("\n\n---\n\n")
-			}
-		}
-	}
-
-	// Also include function docs
-	funcDocs := extractGoDocContent(content, filename)
-	if funcDocs != "" {
-		result.WriteString("## Functions\n\n")
-		result.WriteString(funcDocs)
-	}
-
-	return result.String()
-}
-
-// findGoFiles recursively finds all .go files in a directory (excluding test files)
-func findGoFiles(dir string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip files we can't access
-		}
-		if info.IsDir() {
-			// Skip vendor and test directories
-			if info.Name() == "vendor" || info.Name() == "testdata" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
-}
-
-// extractGoDocContent extracts Go documentation comments from source
-func extractGoDocContent(content, filename string) string {
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("# File: %s\n\n", filepath.Base(filename)))
-
-	// Extract package documentation (comments before package declaration)
-	packageDocPattern := regexp.MustCompile(`(?s)^((?://[^\n]*\n)+)\s*package\s+(\w+)`)
-	if match := packageDocPattern.FindStringSubmatch(content); len(match) >= 3 {
-		doc := strings.TrimSpace(match[1])
-		doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
-		if doc != "" {
-			result.WriteString("## Package Documentation\n\n")
-			result.WriteString(doc)
-			result.WriteString("\n\n")
-		}
-	}
-
-	// Extract function/type documentation
-	funcDocPattern := regexp.MustCompile(`(?m)((?://[^\n]*\n)+)\s*(func\s+(?:\([^)]+\)\s*)?\w+[^\{]+)`)
-	matches := funcDocPattern.FindAllStringSubmatch(content, -1)
-
-	for _, match := range matches {
-		if len(match) >= 3 {
-			doc := strings.TrimSpace(match[1])
-			doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
-			signature := strings.TrimSpace(match[2])
-
-			// Skip short/trivial docs
-			if len(doc) < 20 {
-				continue
-			}
-
-			result.WriteString("### ")
-			result.WriteString(extractGoFuncName(signature))
-			result.WriteString("\n\n")
-			result.WriteString("```go\n")
-			result.WriteString(signature)
-			result.WriteString("\n```\n\n")
-			result.WriteString(doc)
-			result.WriteString("\n\n---\n\n")
-		}
-	}
-
-	// Extract type documentation
-	typeDocPattern := regexp.MustCompile(`(?m)((?://[^\n]*\n)+)\s*(type\s+\w+\s+(?:struct|interface)[^\{]*)`)
-	typeMatches := typeDocPattern.FindAllStringSubmatch(content, -1)
-
-	for _, match := range typeMatches {
-		if len(match) >= 3 {
-			doc := strings.TrimSpace(match[1])
-			doc = regexp.MustCompile(`(?m)^//\s?`).ReplaceAllString(doc, "")
-			signature := strings.TrimSpace(match[2])
-
-			if len(doc) < 20 {
-				continue
-			}
-
-			result.WriteString("### ")
-			result.WriteString(extractGoTypeName(signature))
-			result.WriteString("\n\n")
-			result.WriteString("```go\n")
-			result.WriteString(signature)
-			result.WriteString("\n```\n\n")
-			result.WriteString(doc)
-			result.WriteString("\n\n---\n\n")
-		}
-	}
-
-	return result.String()
 }
 
 // extractGoFuncName extracts the function name from a Go function signature

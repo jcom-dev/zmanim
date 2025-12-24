@@ -18,18 +18,6 @@ type TimeCategory struct {
 	IsEveryday         bool    `json:"is_everyday"`
 }
 
-// EventCategory represents an event-based category for special zmanim
-type EventCategory struct {
-	ID                 string  `json:"id"`
-	Key                string  `json:"key"`
-	DisplayNameHebrew  string  `json:"display_name_hebrew"`
-	DisplayNameEnglish string  `json:"display_name_english"`
-	Description        *string `json:"description,omitempty"`
-	IconName           *string `json:"icon_name,omitempty"`
-	Color              *string `json:"color,omitempty"`
-	SortOrder          int32   `json:"sort_order"`
-}
-
 // TagType represents a type of tag used to categorize zmanim
 type TagType struct {
 	ID                 string  `json:"id"`
@@ -86,44 +74,6 @@ func (h *Handlers) GetTimeCategories(w http.ResponseWriter, r *http.Request) {
 			Color:              c.Color,
 			SortOrder:          c.SortOrder,
 			IsEveryday:         c.IsEveryday != nil && *c.IsEveryday,
-		}
-	}
-
-	RespondJSON(w, r, http.StatusOK, result)
-}
-
-// GetEventCategories returns all event categories
-// GET /api/v1/categories/events
-//
-//	@Summary		Get event categories
-//	@Description	Returns all event-based categories for special zmanim (public endpoint, cached)
-//	@Tags			Categories
-//	@Produce		json
-//	@Success		200	{object}	APIResponse{data=[]EventCategory}	"List of event categories"
-//	@Failure		500	{object}	APIResponse{error=APIError}			"Internal server error"
-//	@Router			/categories/events [get]
-func (h *Handlers) GetEventCategories(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	categories, err := h.db.Queries.GetAllEventCategories(ctx)
-	if err != nil {
-		slog.Error("failed to get event categories", "error", err)
-		RespondInternalError(w, r, "Failed to retrieve event categories")
-		return
-	}
-
-	// Convert to response type
-	result := make([]EventCategory, len(categories))
-	for i, c := range categories {
-		result[i] = EventCategory{
-			ID:                 int32ToString(c.ID),
-			Key:                c.Key,
-			DisplayNameHebrew:  c.DisplayNameHebrew,
-			DisplayNameEnglish: c.DisplayNameEnglish,
-			Description:        c.Description,
-			IconName:           c.IconName,
-			Color:              c.Color,
-			SortOrder:          c.SortOrder,
 		}
 	}
 

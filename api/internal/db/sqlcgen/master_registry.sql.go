@@ -147,7 +147,6 @@ func (q *Queries) AdminCreateMasterZman(ctx context.Context, arg AdminCreateMast
 }
 
 const adminCreateMasterZmanWithAudit = `-- name: AdminCreateMasterZmanWithAudit :one
-
 INSERT INTO master_zmanim_registry (
     zman_key, canonical_hebrew_name, canonical_english_name,
     transliteration, description, halachic_notes, halachic_source,
@@ -195,17 +194,6 @@ type AdminCreateMasterZmanWithAuditRow struct {
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
-// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-// REMOVED QUERY: GetMasterZmanDayTypesForDetail
-// Get day types for master zman with is_default filter
-// SELECT dt.id, dt.key as name, dt.display_name_hebrew, dt.display_name_english,
-//
-//	dt.description, dt.parent_id as parent_type, dt.sort_order
-//
-// FROM day_types dt
-// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-// WHERE mzdt.master_zman_id = $1 AND mzdt.is_default = true
-// ORDER BY dt.sort_order;
 // Create master zman with audit fields
 func (q *Queries) AdminCreateMasterZmanWithAudit(ctx context.Context, arg AdminCreateMasterZmanWithAuditParams) (AdminCreateMasterZmanWithAuditRow, error) {
 	row := q.db.QueryRow(ctx, adminCreateMasterZmanWithAudit,
@@ -1547,101 +1535,6 @@ func (q *Queries) GetAllAstronomicalPrimitives(ctx context.Context) ([]GetAllAst
 	return items, nil
 }
 
-const getAllDayTypes = `-- name: GetAllDayTypes :many
-
-SELECT id, key, display_name_hebrew, display_name_english,
-    description, parent_id, sort_order
-FROM day_types
-ORDER BY sort_order, key
-`
-
-type GetAllDayTypesRow struct {
-	ID                 int32   `json:"id"`
-	Key                string  `json:"key"`
-	DisplayNameHebrew  string  `json:"display_name_hebrew"`
-	DisplayNameEnglish string  `json:"display_name_english"`
-	Description        *string `json:"description"`
-	ParentID           *int32  `json:"parent_id"`
-	SortOrder          *int32  `json:"sort_order"`
-}
-
-// ============================================
-// DAY TYPE QUERIES
-// ============================================
-func (q *Queries) GetAllDayTypes(ctx context.Context) ([]GetAllDayTypesRow, error) {
-	rows, err := q.db.Query(ctx, getAllDayTypes)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetAllDayTypesRow{}
-	for rows.Next() {
-		var i GetAllDayTypesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Key,
-			&i.DisplayNameHebrew,
-			&i.DisplayNameEnglish,
-			&i.Description,
-			&i.ParentID,
-			&i.SortOrder,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllDayTypesAdmin = `-- name: GetAllDayTypesAdmin :many
-SELECT id, key as name, display_name_hebrew, display_name_english,
-    description, parent_id as parent_type, sort_order
-FROM day_types
-ORDER BY sort_order, name
-`
-
-type GetAllDayTypesAdminRow struct {
-	ID                 int32   `json:"id"`
-	Name               string  `json:"name"`
-	DisplayNameHebrew  string  `json:"display_name_hebrew"`
-	DisplayNameEnglish string  `json:"display_name_english"`
-	Description        *string `json:"description"`
-	ParentType         *int32  `json:"parent_type"`
-	SortOrder          *int32  `json:"sort_order"`
-}
-
-// Get all day types for admin
-func (q *Queries) GetAllDayTypesAdmin(ctx context.Context) ([]GetAllDayTypesAdminRow, error) {
-	rows, err := q.db.Query(ctx, getAllDayTypesAdmin)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetAllDayTypesAdminRow{}
-	for rows.Next() {
-		var i GetAllDayTypesAdminRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.DisplayNameHebrew,
-			&i.DisplayNameEnglish,
-			&i.Description,
-			&i.ParentType,
-			&i.SortOrder,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getAllMasterZmanim = `-- name: GetAllMasterZmanim :many
 
 
@@ -2028,52 +1921,6 @@ func (q *Queries) GetAstronomicalPrimitivesGrouped(ctx context.Context) ([]GetAs
 			&i.SortOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDayTypesByParent = `-- name: GetDayTypesByParent :many
-SELECT id, key, display_name_hebrew, display_name_english,
-    description, parent_id, sort_order
-FROM day_types
-WHERE parent_id = $1
-ORDER BY sort_order, key
-`
-
-type GetDayTypesByParentRow struct {
-	ID                 int32   `json:"id"`
-	Key                string  `json:"key"`
-	DisplayNameHebrew  string  `json:"display_name_hebrew"`
-	DisplayNameEnglish string  `json:"display_name_english"`
-	Description        *string `json:"description"`
-	ParentID           *int32  `json:"parent_id"`
-	SortOrder          *int32  `json:"sort_order"`
-}
-
-func (q *Queries) GetDayTypesByParent(ctx context.Context, parentID *int32) ([]GetDayTypesByParentRow, error) {
-	rows, err := q.db.Query(ctx, getDayTypesByParent, parentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetDayTypesByParentRow{}
-	for rows.Next() {
-		var i GetDayTypesByParentRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Key,
-			&i.DisplayNameHebrew,
-			&i.DisplayNameEnglish,
-			&i.Description,
-			&i.ParentID,
-			&i.SortOrder,
 		); err != nil {
 			return nil, err
 		}
@@ -3529,8 +3376,6 @@ func (q *Queries) GetTagsForMasterZman(ctx context.Context, masterZmanID int32) 
 
 const getVersionFormula = `-- name: GetVersionFormula :one
 
-
-
 SELECT pzv.formula_dsl
 FROM publisher_zman_versions pzv
 JOIN publisher_zmanim pz ON pz.id = pzv.publisher_zman_id
@@ -3543,32 +3388,9 @@ type GetVersionFormulaParams struct {
 	VersionNumber int32  `json:"version_number"`
 }
 
-// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-// REMOVED QUERY: GetMasterZmanDayTypesWithDetails
-// Get day types for a specific master zman with full details
-// SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
-//
-//	dt.description, dt.parent_id, dt.sort_order
-//
-// FROM day_types dt
-// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-// WHERE mzdt.master_zman_id = $1
-// ORDER BY dt.sort_order;
 // ============================================
 // ADDITIONAL QUERIES FOR MASTER_REGISTRY HANDLER
 // ============================================
-// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-// REMOVED QUERY: GetZmanApplicableDayTypesByKey
-// Get applicable day types for a specific zman by zman_key with is_default filter
-// SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
-//
-//	dt.description, dt.parent_id, dt.sort_order
-//
-// FROM day_types dt
-// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-// JOIN master_zmanim_registry mr ON mr.id = mzdt.master_zman_id
-// WHERE mr.zman_key = $1 AND mzdt.is_default = true
-// ORDER BY dt.sort_order;
 // Get formula from a specific version for rollback
 func (q *Queries) GetVersionFormula(ctx context.Context, arg GetVersionFormulaParams) (*string, error) {
 	row := q.db.QueryRow(ctx, getVersionFormula, arg.PublisherID, arg.ZmanKey, arg.VersionNumber)
@@ -4952,7 +4774,6 @@ func (q *Queries) SoftDeletePublisherZmanExec(ctx context.Context, arg SoftDelet
 
 const softDeleteZman = `-- name: SoftDeleteZman :exec
 
-
 UPDATE publisher_zmanim
 SET deleted_at = NOW(), deleted_by = $3, updated_at = NOW()
 WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NULL
@@ -4964,18 +4785,6 @@ type SoftDeleteZmanParams struct {
 	DeletedBy   *string `json:"deleted_by"`
 }
 
-// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-// REMOVED QUERY: GetZmanDayTypes
-// Get applicable day types for a specific zman by zman_key
-// SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
-//
-//	dt.description, dt.parent_id, dt.sort_order
-//
-// FROM day_types dt
-// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-// JOIN master_zmanim_registry mr ON mr.id = mzdt.master_zman_id
-// WHERE mr.zman_key = $1
-// ORDER BY dt.sort_order;
 // ============================================
 // SOFT DELETE QUERIES (ADDITIONAL)
 // ============================================

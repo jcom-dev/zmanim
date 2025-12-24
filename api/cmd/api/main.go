@@ -334,7 +334,6 @@ func main() {
 
 			// Categories (public, for UI rendering)
 			r.Get("/categories/time", h.GetTimeCategories)
-			r.Get("/categories/events", h.GetEventCategories)
 			r.Get("/categories/display-groups", h.GetDisplayGroups)
 			r.Get("/tag-types", h.GetTagTypes)
 		})

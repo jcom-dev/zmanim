@@ -693,19 +693,6 @@ export const useZmanTags = () => {
 // Jewish Events Types & Hooks
 // =============================================================================
 
-export interface JewishEvent {
-  id: string;
-  code: string;
-  name_hebrew: string;
-  name_english: string;
-  event_type: 'weekly' | 'yom_tov' | 'fast' | 'informational';
-  duration_days_israel: number;
-  duration_days_diaspora: number;
-  fast_start_type: 'dawn' | 'sunset' | null;
-  parent_event_code: string | null;
-  sort_order: number;
-}
-
 export interface EventDayInfo {
   gregorian_date: string;
   hebrew_date: {
@@ -755,19 +742,6 @@ export interface ZmanimContext {
   display_contexts: string[];
   active_event_codes: string[];
 }
-
-/**
- * Hook: Get all Jewish events
- */
-export const useJewishEvents = (eventType?: string) =>
-  useGlobalQuery<JewishEvent[]>(
-    ['jewish-events', eventType],
-    '/calendar/events',
-    {
-      params: { type: eventType },
-      staleTime: 1000 * 60 * 60, // 1 hour - events don't change
-    }
-  );
 
 /**
  * Hook: Get event day info for a specific date and location
@@ -857,25 +831,6 @@ export const useMasterZmanimByEvent = (eventCode: string | null, dayNumber?: num
         day_number: dayNumber !== undefined ? String(dayNumber) : undefined,
       },
       enabled: !!eventCode,
-      staleTime: 1000 * 60 * 60, // 1 hour
-    }
-  );
-
-/**
- * Hook: Get applicable events for a specific zman
- */
-export const useZmanApplicableEvents = (zmanKey: string | null) =>
-  useGlobalQuery<Array<{
-    event: JewishEvent;
-    applies_to_day: number | null;
-    is_default: boolean;
-    notes: string | null;
-  }>>(
-    ['zman-applicable-events', zmanKey],
-    '/registry/zman-events',
-    {
-      params: { zman_key: zmanKey || undefined },
-      enabled: !!zmanKey,
       staleTime: 1000 * 60 * 60, // 1 hour
     }
   );

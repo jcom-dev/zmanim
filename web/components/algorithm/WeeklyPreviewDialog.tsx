@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn, formatTime, formatTimeShort } from '@/lib/utils';
 import { usePreviewWeek, type DayPreview, type PreviewLocation } from '@/lib/hooks/useZmanimList';
+import { usePublisherCalculationSettings, getShabbatLabel } from '@/lib/hooks/usePublisherSettings';
 
 interface WeeklyPreviewDialogProps {
   open: boolean;
@@ -76,6 +77,8 @@ export function WeeklyPreviewDialog({
   const [days, setDays] = useState<DayPreview[]>([]);
 
   const previewWeek = usePreviewWeek();
+  const { data: calculationSettings } = usePublisherCalculationSettings();
+  const shabbatLabel = getShabbatLabel(calculationSettings?.transliteration_style);
 
   // Fetch weekly preview when dialog opens or date changes
   const fetchPreview = useCallback(async () => {
@@ -236,7 +239,7 @@ export function WeeklyPreviewDialog({
         <div className="flex items-center gap-4 text-xs text-muted-foreground py-2 border-b">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded border border-primary/50 bg-primary/10" />
-            <span>Shabbat</span>
+            <span>{shabbatLabel}</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded border border-amber-500/50 bg-amber-50 dark:bg-amber-950" />

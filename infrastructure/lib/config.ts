@@ -23,6 +23,7 @@ export interface ZmanimConfig {
   dataVolumeSize: number;
   /** Default tags for all resources */
   defaultTags: Record<string, string>;
+  // Note: SSH key is now managed by shtetl-common stack and referenced via remote state
 }
 
 /**

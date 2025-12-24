@@ -22,15 +22,6 @@ type Querier interface {
 	AdminCountAlgorithms(ctx context.Context, dollar_1 string) (int64, error)
 	AdminCountPublishers(ctx context.Context, dollar_1 string) (int64, error)
 	AdminCreateMasterZman(ctx context.Context, arg AdminCreateMasterZmanParams) (AdminCreateMasterZmanRow, error)
-	// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-	// REMOVED QUERY: GetMasterZmanDayTypesForDetail
-	// Get day types for master zman with is_default filter
-	// SELECT dt.id, dt.key as name, dt.display_name_hebrew, dt.display_name_english,
-	//     dt.description, dt.parent_id as parent_type, dt.sort_order
-	// FROM day_types dt
-	// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-	// WHERE mzdt.master_zman_id = $1 AND mzdt.is_default = true
-	// ORDER BY dt.sort_order;
 	// Create master zman with audit fields
 	AdminCreateMasterZmanWithAudit(ctx context.Context, arg AdminCreateMasterZmanWithAuditParams) (AdminCreateMasterZmanWithAuditRow, error)
 	// Publisher Creation --
@@ -365,29 +356,11 @@ type Querier interface {
 	// Current coordinates/elevation resolved with priority: admin > default (for display)
 	// Uses LATERAL joins to avoid materializing the full resolved_coords view for 4M+ localities
 	GetAllCorrectionRequests(ctx context.Context, status *string) ([]GetAllCorrectionRequestsRow, error)
-	// ============================================
-	// DAY TYPE QUERIES
-	// ============================================
-	GetAllDayTypes(ctx context.Context) ([]GetAllDayTypesRow, error)
-	// Get all day types for admin
-	GetAllDayTypesAdmin(ctx context.Context) ([]GetAllDayTypesAdminRow, error)
 	// ============================================================================
 	// DISPLAY GROUPS
 	// ============================================================================
 	// Get all display groups ordered by sort_order
 	GetAllDisplayGroups(ctx context.Context) ([]DisplayGroup, error)
-	// ============================================================================
-	// EVENT CATEGORIES
-	// ============================================================================
-	// Get all event categories ordered by sort_order
-	GetAllEventCategories(ctx context.Context) ([]EventCategory, error)
-	// Calendar and Jewish Events SQL Queries
-	// SQLc will generate type-safe Go code from these queries
-	// ============================================
-	// JEWISH EVENTS QUERIES
-	// ============================================
-	// Get all Jewish events with their type information
-	GetAllJewishEvents(ctx context.Context) ([]GetAllJewishEventsRow, error)
 	// Master Zmanim Registry SQL Queries
 	// SQLc will generate type-safe Go code from these queries
 	// ============================================
@@ -525,7 +498,6 @@ type Querier interface {
 	GetCoverageLevels(ctx context.Context) ([]GetCoverageLevelsRow, error)
 	// Version history queries --
 	GetCurrentVersionNumber(ctx context.Context, algorithmID int32) (interface{}, error)
-	GetDayTypesByParent(ctx context.Context, parentID *int32) ([]GetDayTypesByParentRow, error)
 	// Get the default publisher (highest subscriber count) with their active algorithm
 	GetDefaultPublisherWithAlgorithm(ctx context.Context) (GetDefaultPublisherWithAlgorithmRow, error)
 	GetDeletedPublisherZmanim(ctx context.Context, publisherID int32) ([]GetDeletedPublisherZmanimRow, error)
@@ -547,10 +519,6 @@ type Querier interface {
 	GetEntityActionHistory(ctx context.Context, arg GetEntityActionHistoryParams) ([]GetEntityActionHistoryRow, error)
 	// Returns full audit trail for a specific entity
 	GetEntityAuditTrail(ctx context.Context, arg GetEntityAuditTrailParams) ([]GetEntityAuditTrailRow, error)
-	// Get an event category by its ID
-	GetEventCategoryByID(ctx context.Context, id int32) (EventCategory, error)
-	// Get an event category by its key
-	GetEventCategoryByKey(ctx context.Context, key string) (EventCategory, error)
 	// ============================================
 	// ADDITIONAL MASTER REGISTRY QUERIES
 	// ============================================
@@ -566,11 +534,6 @@ type Querier interface {
 	// Get all event tags that represent Jewish days/holidays (for calendar filtering)
 	// Note: Jewish day tags are now part of 'event' type after tag consolidation
 	GetJewishDayTags(ctx context.Context) ([]GetJewishDayTagsRow, error)
-	GetJewishEventTypeByKey(ctx context.Context, key string) (GetJewishEventTypeByKeyRow, error)
-	// Jewish Event Types --
-	GetJewishEventTypes(ctx context.Context) ([]GetJewishEventTypesRow, error)
-	// Get Jewish events filtered by event type
-	GetJewishEventsByType(ctx context.Context, key string) ([]GetJewishEventsByTypeRow, error)
 	// Get algorithm ID for publisher --
 	GetLatestAlgorithmByPublisher(ctx context.Context, publisherID int32) (int32, error)
 	GetLatestPublisherSnapshot(ctx context.Context, publisherID int32) (PublisherSnapshot, error)
@@ -984,28 +947,9 @@ type Querier interface {
 	GetVerifiedRegistrations(ctx context.Context) ([]PublisherRegistrationToken, error)
 	GetVersionConfig(ctx context.Context, arg GetVersionConfigParams) ([]byte, error)
 	GetVersionDetail(ctx context.Context, arg GetVersionDetailParams) (GetVersionDetailRow, error)
-	// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-	// REMOVED QUERY: GetMasterZmanDayTypesWithDetails
-	// Get day types for a specific master zman with full details
-	// SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
-	//     dt.description, dt.parent_id, dt.sort_order
-	// FROM day_types dt
-	// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-	// WHERE mzdt.master_zman_id = $1
-	// ORDER BY dt.sort_order;
 	// ============================================
 	// ADDITIONAL QUERIES FOR MASTER_REGISTRY HANDLER
 	// ============================================
-	// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-	// REMOVED QUERY: GetZmanApplicableDayTypesByKey
-	// Get applicable day types for a specific zman by zman_key with is_default filter
-	// SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
-	//     dt.description, dt.parent_id, dt.sort_order
-	// FROM day_types dt
-	// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-	// JOIN master_zmanim_registry mr ON mr.id = mzdt.master_zman_id
-	// WHERE mr.zman_key = $1 AND mzdt.is_default = true
-	// ORDER BY dt.sort_order;
 	// Get formula from a specific version for rollback
 	GetVersionFormula(ctx context.Context, arg GetVersionFormulaParams) (*string, error)
 	// ============================================
@@ -1224,16 +1168,6 @@ type Querier interface {
 	SoftDeletePublisherZman(ctx context.Context, arg SoftDeletePublisherZmanParams) (SoftDeletePublisherZmanRow, error)
 	// Soft delete a publisher zman (exec version)
 	SoftDeletePublisherZmanExec(ctx context.Context, arg SoftDeletePublisherZmanExecParams) error
-	// DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
-	// REMOVED QUERY: GetZmanDayTypes
-	// Get applicable day types for a specific zman by zman_key
-	// SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
-	//     dt.description, dt.parent_id, dt.sort_order
-	// FROM day_types dt
-	// JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
-	// JOIN master_zmanim_registry mr ON mr.id = mzdt.master_zman_id
-	// WHERE mr.zman_key = $1
-	// ORDER BY dt.sort_order;
 	// ============================================
 	// SOFT DELETE QUERIES (ADDITIONAL)
 	// ============================================

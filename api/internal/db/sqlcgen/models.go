@@ -283,17 +283,6 @@ type DataType struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
-type DayType struct {
-	ID                 int32              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
-	ParentID           *int32             `json:"parent_id"`
-	SortOrder          *int32             `json:"sort_order"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
 type DisplayGroup struct {
 	ID                 int32              `json:"id"`
 	Key                string             `json:"key"`
@@ -328,18 +317,6 @@ type Embedding struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
-type EventCategory struct {
-	ID                 int32              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
-	IconName           *string            `json:"icon_name"`
-	Color              *string            `json:"color"`
-	SortOrder          int32              `json:"sort_order"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
 type ExplanationCache struct {
 	ID          int32              `json:"id"`
 	FormulaHash string             `json:"formula_hash"`
@@ -351,14 +328,6 @@ type ExplanationCache struct {
 }
 
 type ExplanationSource struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
-type FastStartType struct {
 	ID                 int16              `json:"id"`
 	Key                string             `json:"key"`
 	DisplayNameHebrew  string             `json:"display_name_hebrew"`
@@ -589,30 +558,6 @@ type GeoSearchIndexTest struct {
 	HasChildren       *bool    `json:"has_children"`
 }
 
-type JewishEvent struct {
-	ID                   int32              `json:"id"`
-	Code                 string             `json:"code"`
-	NameHebrew           string             `json:"name_hebrew"`
-	NameEnglish          string             `json:"name_english"`
-	EventTypeID          int16              `json:"event_type_id"`
-	DurationDaysIsrael   *int32             `json:"duration_days_israel"`
-	DurationDaysDiaspora *int32             `json:"duration_days_diaspora"`
-	FastStartTypeID      *int16             `json:"fast_start_type_id"`
-	ParentEventID        *int32             `json:"parent_event_id"`
-	SortOrder            *int32             `json:"sort_order"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-}
-
-type JewishEventType struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
-	SortOrder          int16              `json:"sort_order"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
 type Language struct {
 	Code       string  `json:"code"`
 	Name       string  `json:"name"`
@@ -653,12 +598,6 @@ type LocationCorrectionRequest struct {
 	RevertedBy *string `json:"reverted_by"`
 	// Reason for reverting the correction
 	RevertReason *string `json:"revert_reason"`
-}
-
-type MasterZmanDayType struct {
-	ID           int32  `json:"id"`
-	MasterZmanID *int32 `json:"master_zman_id"`
-	DayTypeID    *int32 `json:"day_type_id"`
 }
 
 type MasterZmanEvent struct {
@@ -939,16 +878,6 @@ type PublisherZmanAlias struct {
 	IsPrimary            bool               `json:"is_primary"`
 	SortOrder            *int32             `json:"sort_order"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-}
-
-type PublisherZmanDayType struct {
-	PublisherZmanID     int32              `json:"publisher_zman_id"`
-	DayTypeID           int32              `json:"day_type_id"`
-	OverrideFormulaDsl  *string            `json:"override_formula_dsl"`
-	OverrideHebrewName  *string            `json:"override_hebrew_name"`
-	OverrideEnglishName *string            `json:"override_english_name"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublisherZmanEvent struct {

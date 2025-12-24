@@ -31,6 +31,7 @@ import { IamOpenidConnectProvider } from "@cdktf/provider-aws/lib/iam-openid-con
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role";
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment";
 import { DataAwsCallerIdentity } from "@cdktf/provider-aws/lib/data-aws-caller-identity";
+import { KeyPair } from "@cdktf/provider-aws/lib/key-pair";
 
 // CloudFront
 import { CloudfrontCachePolicy } from "@cdktf/provider-aws/lib/cloudfront-cache-policy";
@@ -63,6 +64,9 @@ export class ShtetlCommonStack extends TerraformStack {
   public readonly cfSecurityHeadersPolicy: CloudfrontResponseHeadersPolicy;
   public readonly cfHostHeaderFunction: CloudfrontFunction;
   public readonly cfS3OriginAccessControl: CloudfrontOriginAccessControl;
+
+  // Shared SSH Key Pair
+  public readonly sshKeyPair: KeyPair;
 
   constructor(scope: Construct, id: string, options: ShtetlCommonStackOptions) {
     super(scope, id);
@@ -522,7 +526,19 @@ export class ShtetlCommonStack extends TerraformStack {
     });
 
     // ==========================================================================
-    // 1.4 Shared CloudFront Resources
+    // 1.4 SSH Key Pair
+    // ==========================================================================
+    this.sshKeyPair = new KeyPair(this, "ssh-keypair", {
+      keyName: config.sshKeyName,
+      publicKey: config.sshKeyPublic,
+      tags: {
+        Name: config.sshKeyName,
+        Project: "shtetl",
+      },
+    });
+
+    // ==========================================================================
+    // 1.5 Shared CloudFront Resources
     // ==========================================================================
     // These resources can be reused by multiple project stacks to serve their
     // frontends through CloudFront. Each project creates its own distribution
@@ -730,6 +746,11 @@ function handler(event) {
     new TerraformOutput(this, "cf_s3_oac_id", {
       value: this.cfS3OriginAccessControl.id,
       description: "CloudFront S3 Origin Access Control ID",
+    });
+
+    new TerraformOutput(this, "ssh_key_name", {
+      value: this.sshKeyPair.keyName,
+      description: "SSH key pair name for EC2 instances",
     });
   }
 }

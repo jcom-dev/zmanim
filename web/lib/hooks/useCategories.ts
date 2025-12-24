@@ -7,11 +7,10 @@
  *
  * @example
  * ```tsx
- * import { useTimeCategories, useEventCategories, useTagTypes } from '@/lib/hooks/useCategories';
+ * import { useTimeCategories, useTagTypes } from '@/lib/hooks/useCategories';
  *
  * function MyComponent() {
  *   const { data: timeCategories, isLoading } = useTimeCategories();
- *   const { data: eventCategories } = useEventCategories();
  *   const { data: tagTypes } = useTagTypes();
  *
  *   if (isLoading) return <Spinner />;
@@ -44,17 +43,6 @@ export interface TimeCategory {
   color?: string;
   sort_order: number;
   is_everyday: boolean;
-}
-
-export interface EventCategory {
-  id: string;
-  key: string;
-  display_name_hebrew: string;
-  display_name_english: string;
-  description?: string;
-  icon_name?: string;
-  color?: string;
-  sort_order: number;
 }
 
 export interface TagType {
@@ -130,34 +118,6 @@ export function useTimeCategories() {
 }
 
 /**
- * Fetch all event categories from the database.
- *
- * Event categories represent special occasion zmanim:
- * candles, havdalah, yom_kippur, fast_day, tisha_bav, pesach
- *
- * @example
- * ```tsx
- * const { data: eventCategories } = useEventCategories();
- *
- * // Build picker options
- * const eventOptions = eventCategories?.map(ec => ({
- *   value: ec.key,
- *   label: ec.display_name_english,
- *   icon: getIcon(ec.icon_name),
- * }));
- * ```
- */
-export function useEventCategories() {
-  const api = useApi();
-
-  return useQuery<EventCategory[], ApiError>({
-    queryKey: ['event-categories'],
-    queryFn: () => api.public.get<EventCategory[]>('/categories/events'),
-    ...CATEGORY_CACHE_CONFIG,
-  });
-}
-
-/**
  * Fetch all tag types from the database.
  *
  * Tag types categorize zmanim tags: timing, event, shita, method, behavior
@@ -220,19 +180,17 @@ export function useDisplayGroups() {
  *
  * @example
  * ```tsx
- * const { timeCategories, eventCategories, tagTypes, isLoading } = useAllCategories();
+ * const { timeCategories, tagTypes, isLoading } = useAllCategories();
  * ```
  */
 export function useAllCategories() {
   const { data: timeCategories, isLoading: timeCategoriesLoading } = useTimeCategories();
-  const { data: eventCategories, isLoading: eventCategoriesLoading } = useEventCategories();
   const { data: tagTypes, isLoading: tagTypesLoading } = useTagTypes();
 
   return {
     timeCategories,
-    eventCategories,
     tagTypes,
-    isLoading: timeCategoriesLoading || eventCategoriesLoading || tagTypesLoading,
+    isLoading: timeCategoriesLoading || tagTypesLoading,
   };
 }
 
@@ -247,20 +205,6 @@ export function useAllCategories() {
  */
 export function useTimeCategoryByKey(key: string | undefined) {
   const { data: categories, isLoading } = useTimeCategories();
-
-  const category = key ? categories?.find(c => c.key === key) : undefined;
-
-  return {
-    data: category,
-    isLoading,
-  };
-}
-
-/**
- * Get an event category by its key
- */
-export function useEventCategoryByKey(key: string | undefined) {
-  const { data: categories, isLoading } = useEventCategories();
 
   const category = key ? categories?.find(c => c.key === key) : undefined;
 
@@ -289,26 +233,20 @@ export function useTagTypeByKey(key: string | undefined) {
  *
  * @example
  * ```tsx
- * const { timeCategoriesMap, eventCategoriesMap, tagTypesMap, isLoading } = useCategoryMaps();
+ * const { timeCategoriesMap, tagTypesMap, isLoading } = useCategoryMaps();
  *
  * // O(1) lookup by key
  * const dawnCategory = timeCategoriesMap['dawn'];
- * const candlesCategory = eventCategoriesMap['candles'];
  * const timingTagType = tagTypesMap['timing'];
  * ```
  */
 export function useCategoryMaps() {
-  const { timeCategories, eventCategories, tagTypes, isLoading } = useAllCategories();
+  const { timeCategories, tagTypes, isLoading } = useAllCategories();
 
   const timeCategoriesMap = timeCategories?.reduce((acc, tc) => {
     acc[tc.key] = tc;
     return acc;
   }, {} as Record<string, TimeCategory>) ?? {};
-
-  const eventCategoriesMap = eventCategories?.reduce((acc, ec) => {
-    acc[ec.key] = ec;
-    return acc;
-  }, {} as Record<string, EventCategory>) ?? {};
 
   const tagTypesMap = tagTypes?.reduce((acc, tt) => {
     acc[tt.key] = tt;
@@ -317,7 +255,6 @@ export function useCategoryMaps() {
 
   return {
     timeCategoriesMap,
-    eventCategoriesMap,
     tagTypesMap,
     isLoading,
   };

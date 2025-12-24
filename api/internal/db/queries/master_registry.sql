@@ -650,34 +650,6 @@ ORDER BY
     zt.sort_order, zt.name;
 
 -- ============================================
--- DAY TYPE QUERIES
--- ============================================
-
--- name: GetAllDayTypes :many
-SELECT id, key, display_name_hebrew, display_name_english,
-    description, parent_id, sort_order
-FROM day_types
-ORDER BY sort_order, key;
-
--- name: GetDayTypesByParent :many
-SELECT id, key, display_name_hebrew, display_name_english,
-    description, parent_id, sort_order
-FROM day_types
-WHERE parent_id = $1
-ORDER BY sort_order, key;
-
--- DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
--- REMOVED QUERY: GetZmanDayTypes
--- Get applicable day types for a specific zman by zman_key
--- SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
---     dt.description, dt.parent_id, dt.sort_order
--- FROM day_types dt
--- JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
--- JOIN master_zmanim_registry mr ON mr.id = mzdt.master_zman_id
--- WHERE mr.zman_key = $1
--- ORDER BY dt.sort_order;
-
--- ============================================
 -- SOFT DELETE QUERIES (ADDITIONAL)
 -- ============================================
 
@@ -807,30 +779,9 @@ LEFT JOIN tag_types tt ON t.tag_type_id = tt.id
 WHERE mzt.master_zman_id = ANY($1::int[])
 ORDER BY t.sort_order;
 
--- DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
--- REMOVED QUERY: GetMasterZmanDayTypesWithDetails
--- Get day types for a specific master zman with full details
--- SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
---     dt.description, dt.parent_id, dt.sort_order
--- FROM day_types dt
--- JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
--- WHERE mzdt.master_zman_id = $1
--- ORDER BY dt.sort_order;
-
 -- ============================================
 -- ADDITIONAL QUERIES FOR MASTER_REGISTRY HANDLER
 -- ============================================
-
--- DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
--- REMOVED QUERY: GetZmanApplicableDayTypesByKey
--- Get applicable day types for a specific zman by zman_key with is_default filter
--- SELECT dt.id, dt.key, dt.display_name_hebrew, dt.display_name_english,
---     dt.description, dt.parent_id, dt.sort_order
--- FROM day_types dt
--- JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
--- JOIN master_zmanim_registry mr ON mr.id = mzdt.master_zman_id
--- WHERE mr.zman_key = $1 AND mzdt.is_default = true
--- ORDER BY dt.sort_order;
 
 -- name: GetVersionFormula :one
 -- Get formula from a specific version for rollback
@@ -1000,16 +951,6 @@ JOIN master_zman_tags mzt ON t.id = mzt.tag_id
 WHERE mzt.master_zman_id = $1
 ORDER BY tt.sort_order, t.sort_order;
 
--- DEPRECATED: master_zman_day_types table is empty (tag-driven instead)
--- REMOVED QUERY: GetMasterZmanDayTypesForDetail
--- Get day types for master zman with is_default filter
--- SELECT dt.id, dt.key as name, dt.display_name_hebrew, dt.display_name_english,
---     dt.description, dt.parent_id as parent_type, dt.sort_order
--- FROM day_types dt
--- JOIN master_zman_day_types mzdt ON dt.id = mzdt.day_type_id
--- WHERE mzdt.master_zman_id = $1 AND mzdt.is_default = true
--- ORDER BY dt.sort_order;
-
 -- name: AdminCreateMasterZmanWithAudit :one
 -- Create master zman with audit fields
 INSERT INTO master_zmanim_registry (
@@ -1068,13 +1009,6 @@ SELECT zt.id, zt.tag_key as name, zt.display_name_hebrew, zt.display_name_englis
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
 ORDER BY tt.sort_order, zt.sort_order, zt.tag_key;
-
--- name: GetAllDayTypesAdmin :many
--- Get all day types for admin
-SELECT id, key as name, display_name_hebrew, display_name_english,
-    description, parent_id as parent_type, sort_order
-FROM day_types
-ORDER BY sort_order, name;
 
 -- ============================================
 -- AI CONTEXT QUERIES

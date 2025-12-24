@@ -10,7 +10,8 @@
       "Bash(npm run type-check:*)",
       "Bash(source /home/coder/workspace/zmanim/api/.env)",
       "Bash(pg_dump:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)"
     ]
   }
 }

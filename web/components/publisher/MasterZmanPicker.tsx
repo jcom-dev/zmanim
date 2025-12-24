@@ -36,7 +36,7 @@ import {
   useCreateZmanFromRegistry,
   MasterZman,
 } from '@/lib/hooks/useZmanimList';
-import { useTimeCategories, useEventCategories } from '@/lib/hooks/useCategories';
+import { useTimeCategories } from '@/lib/hooks/useCategories';
 import { getIcon } from '@/lib/icons';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -79,7 +79,6 @@ export function MasterZmanPicker({
 
   // Fetch categories from database
   const { data: timeCategories, isLoading: loadingTimeCategories } = useTimeCategories();
-  const { data: eventCategories, isLoading: loadingEventCategories } = useEventCategories();
 
   // Fetch everyday zmanim (all zmanim grouped by time_category)
   const { data: everydayZmanim, isLoading: loadingEveryday } = useMasterZmanimGrouped();
@@ -100,18 +99,23 @@ export function MasterZmanPicker({
     }, {} as Record<string, { icon: React.ElementType; label: string; description: string }>);
   }, [timeCategories]);
 
+  // For event zmanim, use zman_tags instead of event_categories
+  // Event zmanim are grouped by purpose (candles, havdalah, etc.) via tags
   const eventCategoryMap = useMemo(() => {
-    if (!eventCategories) return {};
-    return eventCategories.reduce((acc, ec) => {
-      acc[ec.key] = {
-        icon: getIcon(ec.icon_name),
-        label: ec.display_name_english,
-        hebrewLabel: ec.display_name_hebrew,
-        description: ec.description || '',
+    if (!eventZmanim) return {};
+    // Build a map of event categories from the actual data
+    const map: Record<string, { icon: React.ElementType; label: string; hebrewLabel: string; description: string }> = {};
+    Object.keys(eventZmanim).forEach((key) => {
+      // Use generic icon/label for event categories
+      map[key] = {
+        icon: getIcon('flame'),
+        label: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+        hebrewLabel: '',
+        description: '',
       };
-      return acc;
-    }, {} as Record<string, { icon: React.ElementType; label: string; hebrewLabel: string; description: string }>);
-  }, [eventCategories]);
+    });
+    return map;
+  }, [eventZmanim]);
 
   // Category order from database (sorted by sort_order)
   const everydayCategoryOrder = useMemo(() => {
@@ -119,12 +123,12 @@ export function MasterZmanPicker({
   }, [timeCategories]);
 
   const eventCategoryOrder = useMemo(() => {
-    return eventCategories?.map(ec => ec.key) || [];
-  }, [eventCategories]);
+    return eventZmanim ? Object.keys(eventZmanim) : [];
+  }, [eventZmanim]);
 
   const isLoading = viewMode === 'everyday'
     ? loadingEveryday || loadingTimeCategories
-    : loadingEvents || loadingEventCategories;
+    : loadingEvents;
   const rawGroups = viewMode === 'everyday' ? everydayZmanim : eventZmanim;
   const categoryOrder = viewMode === 'everyday' ? everydayCategoryOrder : eventCategoryOrder;
   const categoryConfig = viewMode === 'everyday' ? timeCategoryMap : eventCategoryMap;
