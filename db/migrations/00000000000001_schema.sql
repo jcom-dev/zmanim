@@ -1,5 +1,5 @@
 -- Migration: Initial Schema
--- Generated from database dump on 2025-12-23
+-- Generated from database dump on 2025-12-24
 -- This migration creates the complete database schema for the Zmanim application
 -- Do not make changes to this file after initial creation - create new migration files instead
 
@@ -697,7 +697,14 @@ BEGIN
     v_deleted_counts := v_deleted_counts || jsonb_build_object('publisher_zman_tags', v_count);
     v_total := v_total + v_count;
 
-    -- 3. Delete publisher_zman_events (cascades from publisher_zmanim)
+    -- 3. Delete publisher_zman_day_types (cascades from publisher_zmanim)
+    DELETE FROM publisher_zman_day_types
+    WHERE publisher_zman_id IN (SELECT id FROM publisher_zmanim WHERE publisher_id = p_publisher_id);
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    v_deleted_counts := v_deleted_counts || jsonb_build_object('publisher_zman_day_types', v_count);
+    v_total := v_total + v_count;
+
+    -- 4. Delete publisher_zman_events (cascades from publisher_zmanim)
     DELETE FROM publisher_zman_events
     WHERE publisher_zman_id IN (SELECT id FROM publisher_zmanim WHERE publisher_id = p_publisher_id);
     GET DIAGNOSTICS v_count = ROW_COUNT;
@@ -2317,37 +2324,6 @@ CREATE SEQUENCE public.embeddings_id_seq
 ALTER SEQUENCE public.embeddings_id_seq OWNED BY public.embeddings.id;
 
 
--- Name: event_categories; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.event_categories (
-    id integer NOT NULL,
-    key character varying(50) NOT NULL,
-    display_name_hebrew character varying(100) NOT NULL,
-    display_name_english character varying(100) NOT NULL,
-    description character varying(255),
-    icon_name character varying(50),
-    color character varying(50),
-    sort_order integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: event_categories_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.event_categories_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: event_categories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.event_categories_id_seq OWNED BY public.event_categories.id;
-
-
 -- Name: explanation_cache; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.explanation_cache (
@@ -2392,29 +2368,6 @@ CREATE TABLE public.explanation_sources (
 
 ALTER TABLE public.explanation_sources ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.explanation_sources_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
--- Name: fast_start_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.fast_start_types (
-    id smallint NOT NULL,
-    key character varying(20) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: fast_start_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-ALTER TABLE public.fast_start_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.fast_start_types_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -2933,64 +2886,6 @@ CREATE TABLE public.geo_search_index_test (
     direct_child_count integer,
     has_children boolean
 );
-
-
--- Name: jewish_event_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.jewish_event_types (
-    id smallint NOT NULL,
-    key character varying(30) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    description text,
-    sort_order smallint DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: jewish_event_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-ALTER TABLE public.jewish_event_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.jewish_event_types_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
--- Name: jewish_events; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.jewish_events (
-    id integer NOT NULL,
-    code character varying(50) NOT NULL,
-    name_hebrew text NOT NULL,
-    name_english text NOT NULL,
-    event_type_id smallint NOT NULL,
-    duration_days_israel integer DEFAULT 1,
-    duration_days_diaspora integer DEFAULT 1,
-    fast_start_type_id smallint,
-    parent_event_id integer,
-    sort_order integer DEFAULT 0,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
--- Name: jewish_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.jewish_events_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: jewish_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.jewish_events_id_seq OWNED BY public.jewish_events.id;
 
 
 -- Name: languages; Type: TABLE; Schema: public; Owner: -
@@ -4288,11 +4183,6 @@ ALTER TABLE ONLY public.display_groups ALTER COLUMN id SET DEFAULT nextval('publ
 ALTER TABLE ONLY public.embeddings ALTER COLUMN id SET DEFAULT nextval('public.embeddings_id_seq'::regclass);
 
 
--- Name: event_categories id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.event_categories ALTER COLUMN id SET DEFAULT nextval('public.event_categories_id_seq'::regclass);
-
-
 -- Name: explanation_cache id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.explanation_cache ALTER COLUMN id SET DEFAULT nextval('public.explanation_cache_id_seq'::regclass);
@@ -4301,11 +4191,6 @@ ALTER TABLE ONLY public.explanation_cache ALTER COLUMN id SET DEFAULT nextval('p
 -- Name: geo_data_sources id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.geo_data_sources ALTER COLUMN id SET DEFAULT nextval('public.geo_data_sources_id_seq'::regclass);
-
-
--- Name: jewish_events id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.jewish_events ALTER COLUMN id SET DEFAULT nextval('public.jewish_events_id_seq'::regclass);
 
 
 -- Name: location_correction_requests id; Type: DEFAULT; Schema: public; Owner: -
@@ -4574,18 +4459,6 @@ ALTER TABLE ONLY public.embeddings
     ADD CONSTRAINT embeddings_source_chunk_index_key UNIQUE (source_id, chunk_index);
 
 
--- Name: event_categories event_categories_key_key; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.event_categories
-    ADD CONSTRAINT event_categories_key_key UNIQUE (key);
-
-
--- Name: event_categories event_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.event_categories
-    ADD CONSTRAINT event_categories_pkey PRIMARY KEY (id);
-
-
 -- Name: explanation_cache explanation_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.explanation_cache
@@ -4596,12 +4469,6 @@ ALTER TABLE ONLY public.explanation_cache
 
 ALTER TABLE ONLY public.explanation_sources
     ADD CONSTRAINT explanation_sources_pkey PRIMARY KEY (id);
-
-
--- Name: fast_start_types fast_start_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.fast_start_types
-    ADD CONSTRAINT fast_start_types_pkey PRIMARY KEY (id);
 
 
 -- Name: geo_continents geo_continents_code_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4704,24 +4571,6 @@ ALTER TABLE ONLY public.geo_region_types
 
 ALTER TABLE ONLY public.geo_regions
     ADD CONSTRAINT geo_regions_pkey PRIMARY KEY (id);
-
-
--- Name: jewish_event_types jewish_event_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.jewish_event_types
-    ADD CONSTRAINT jewish_event_types_pkey PRIMARY KEY (id);
-
-
--- Name: jewish_events jewish_events_code_key; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.jewish_events
-    ADD CONSTRAINT jewish_events_code_key UNIQUE (code);
-
-
--- Name: jewish_events jewish_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.jewish_events
-    ADD CONSTRAINT jewish_events_pkey PRIMARY KEY (id);
 
 
 -- Name: languages languages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4926,3 +4775,5 @@ ALTER TABLE ONLY public.publishers
 
 ALTER TABLE ONLY public.request_statuses
     ADD CONSTRAINT request_statuses_pkey PRIMARY KEY (id);
+
+

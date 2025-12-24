@@ -11,7 +11,7 @@
 | ai.sql | ai_index, ai_content_sources | ai.go | ~8 | AI formula suggestion index management |
 | algorithms.sql | publisher_zmanim, algorithm_statuses | publisher_zmanim.go, ai_formula.go, algorithm_collaboration.go | ~15 | Algorithm/formula CRUD operations |
 | aliases.sql | publisher_aliases | publisher_aliases.go | ~6 | Publisher name alias management |
-| calendar.sql | jewish_events, fast_start_types, event_categories | calendar.go | ~5 | Jewish calendar events lookup |
+| calendar.sql | (empty - consolidated into zman_tags) | calendar.go | 0 | Removed - use zman_tags |
 | categories.sql | time_categories, day_types | categories.go | ~4 | Zman category metadata |
 | cities.sql | cities, geo_names, geo_data_sources | cities.go, zmanim.go | ~12 | City search, location selection |
 | coverage.sql | publisher_coverage, geo_city_boundaries | coverage.go | ~8 | Publisher geographic coverage management |

@@ -1,4 +1,4 @@
--- Queries for time_categories, event_categories, and tag_types tables
+-- Queries for time_categories and tag_types tables
 
 -- ============================================================================
 -- TIME CATEGORIES

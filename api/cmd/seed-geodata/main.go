@@ -231,6 +231,14 @@ func cmdSeed(args []string) {
 		log.Printf("✓ Tables analyzed")
 	}
 
+	// Ensure geo_names lookup index exists (critical for GetCountries performance)
+	log.Printf("Ensuring geo_names lookup index exists...")
+	if err := ensureGeoNamesIndex(ctx, pool); err != nil {
+		log.Printf("Warning: Failed to create geo_names index: %v", err)
+	} else {
+		log.Printf("✓ geo_names lookup index ready")
+	}
+
 	// Rebuild geo_search_index indexes
 	log.Printf("Rebuilding geo_search_index indexes...")
 	if err := rebuildGeoSearchIndexes(ctx, pool); err != nil {
@@ -837,6 +845,46 @@ func rebuildGeoSearchIndexes(ctx context.Context, pool *pgxpool.Pool) error {
 // Uses shared index definitions from internal/geo package.
 func dropGeoSearchIndexes(ctx context.Context, pool *pgxpool.Pool) error {
 	return geo.DropSearchIndexes(ctx, pool)
+}
+
+// ensureGeoNamesIndex creates the lookup index on geo_names if it doesn't exist.
+// This covering index is critical for GetCountries and other name lookup queries.
+// Without it, queries do full table scans on 8+ million rows.
+func ensureGeoNamesIndex(ctx context.Context, pool *pgxpool.Pool) error {
+	// Check if index already exists
+	var exists bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_indexes
+			WHERE tablename = 'geo_names'
+			AND indexname = 'idx_geo_names_entity_lookup'
+		)
+	`).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check index existence: %w", err)
+	}
+
+	if exists {
+		log.Printf("  Index idx_geo_names_entity_lookup already exists")
+		return nil
+	}
+
+	log.Printf("  Creating index idx_geo_names_entity_lookup (this may take a few minutes)...")
+	start := time.Now()
+
+	// Create covering index for entity lookups
+	// INCLUDE clause adds name_type and name to the index for index-only scans
+	_, err = pool.Exec(ctx, `
+		CREATE INDEX idx_geo_names_entity_lookup
+		ON geo_names(entity_type, entity_id, language_code)
+		INCLUDE (name_type, name)
+	`)
+	if err != nil {
+		return fmt.Errorf("create index: %w", err)
+	}
+
+	log.Printf("  Index created in %s", time.Since(start))
+	return nil
 }
 
 // recreateGeoSearchIndexes recreates indexes on geo_search_index table after restore.

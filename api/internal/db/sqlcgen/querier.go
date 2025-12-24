@@ -397,7 +397,7 @@ type Querier interface {
 	// ============================================================================
 	// Get all tags ordered by type and sort order (includes tag_key and multilingual names)
 	GetAllTagsWithKey(ctx context.Context) ([]GetAllTagsWithKeyRow, error)
-	// Queries for time_categories, event_categories, and tag_types tables
+	// Queries for time_categories and tag_types tables
 	// ============================================================================
 	// TIME CATEGORIES
 	// ============================================================================

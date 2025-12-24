@@ -1,7 +1,8 @@
 -- Seed Data Migration
--- Generated from database dump on 2025-12-23
+-- Generated from database dump on 2025-12-24
+--
 -- This migration populates core reference/lookup tables with initial configuration data.
--- Do not make changes to this file after initial creation - create new migration files instead
+--
 -- EXCLUDED FROM THIS SEED:
 -- - Geography data (geo_* tables) - imported separately via import scripts
 -- - AI/RAG indexed content (ai_content_sources) - generated dynamically
@@ -12,32 +13,77 @@
 -- ============================================
 -- algorithm_statuses (3 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict j7mXBokjFCYMe5GgAJiyTnVZu5WzBOD5jxwvhNVN5oH5lEQqtCc6k5Kh9K7DOO4
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: algorithm_statuses; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.algorithm_statuses OVERRIDING SYSTEM VALUE VALUES (1, 'draft', 'טיוטה', 'Draft', 'Work in progress', '#6B7280', 1, '2025-12-14 19:08:39.781625+00');
 INSERT INTO public.algorithm_statuses OVERRIDING SYSTEM VALUE VALUES (2, 'active', 'פעיל', 'Active', 'Currently in use', '#22C55E', 2, '2025-12-14 19:08:39.781625+00');
 INSERT INTO public.algorithm_statuses OVERRIDING SYSTEM VALUE VALUES (3, 'archived', 'בארכיון', 'Archived', 'No longer in use', '#9CA3AF', 3, '2025-12-14 19:08:39.781625+00');
 
 
+--
 -- Name: algorithm_statuses_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.algorithm_statuses_id_seq', 1, false);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
-
+\unrestrict j7mXBokjFCYMe5GgAJiyTnVZu5WzBOD5jxwvhNVN5oH5lEQqtCc6k5Kh9K7DOO4
 
 
 -- ============================================
 -- algorithm_templates (4 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict KztBa7qxHyTMEGDXbOxZ8RlB6GZmBRISOpjQyt2BFCwAiD8oVE9OjmgFO8JpY7I
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: algorithm_templates; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.algorithm_templates VALUES (135, 'gra', 'GRA (Vilna Gaon)', 'Standard calculation based on the Vilna Gaon. Uses sunrise to sunset for proportional hours.', '{"name": "GRA", "zmanim": {"tzais": {"method": "solar_angle", "params": {"degrees": 8.5}}, "sunset": {"method": "sunset", "params": {}}, "chatzos": {"method": "midpoint", "params": {"end": "sunset", "start": "sunrise"}}, "sunrise": {"method": "sunrise", "params": {}}, "misheyakir": {"method": "solar_angle", "params": {"degrees": 11.5}}, "mincha_gedola": {"method": "proportional", "params": {"base": "gra", "hours": 6.5}}, "mincha_ketana": {"method": "proportional", "params": {"base": "gra", "hours": 9.5}}, "plag_hamincha": {"method": "proportional", "params": {"base": "gra", "hours": 10.75}}, "alos_hashachar": {"method": "solar_angle", "params": {"degrees": 16.1}}, "sof_zman_shma_gra": {"method": "proportional", "params": {"base": "gra", "hours": 3.0}}, "sof_zman_tfila_gra": {"method": "proportional", "params": {"base": "gra", "hours": 4.0}}}, "description": "Vilna Gaon standard calculation"}', 1, true, '2025-12-14 19:08:39.832933+00', '2025-12-14 19:08:39.832933+00');
 INSERT INTO public.algorithm_templates VALUES (279, 'mga', 'MGA (Magen Avraham)', 'Magen Avraham calculation. Uses 72 minutes before sunrise to 72 minutes after sunset for proportional hours.', '{"name": "MGA", "zmanim": {"sunset": {"method": "sunset", "params": {}}, "chatzos": {"method": "midpoint", "params": {"end": "sunset", "start": "sunrise"}}, "sunrise": {"method": "sunrise", "params": {}}, "tzeis_72": {"method": "fixed_minutes", "params": {"from": "sunset", "minutes": 72.0}}, "misheyakir": {"method": "solar_angle", "params": {"degrees": 11.5}}, "mincha_gedola": {"method": "proportional", "params": {"base": "mga", "hours": 6.5}}, "mincha_ketana": {"method": "proportional", "params": {"base": "mga", "hours": 9.5}}, "plag_hamincha": {"method": "proportional", "params": {"base": "mga", "hours": 10.75}}, "alos_hashachar": {"method": "fixed_minutes", "params": {"from": "sunrise", "minutes": -72.0}}, "sof_zman_shma_mga": {"method": "proportional", "params": {"base": "mga", "hours": 3.0}}, "sof_zman_tfila_mga": {"method": "proportional", "params": {"base": "mga", "hours": 4.0}}}, "description": "Magen Avraham calculation"}', 2, true, '2025-12-14 19:08:39.832933+00', '2025-12-14 19:08:39.832933+00');
@@ -45,21 +91,47 @@ INSERT INTO public.algorithm_templates VALUES (258, 'rabbeinu_tam', 'Rabbeinu Ta
 INSERT INTO public.algorithm_templates VALUES (232, 'custom', 'Custom', 'Start with basic times and customize each zman according to your minhag.', '{"name": "Custom", "zmanim": {"sunset": {"method": "sunset", "params": {}}, "chatzos": {"method": "midpoint", "params": {"end": "sunset", "start": "sunrise"}}, "sunrise": {"method": "sunrise", "params": {}}}, "description": "Custom algorithm"}', 4, true, '2025-12-14 19:08:39.832933+00', '2025-12-14 19:08:39.832933+00');
 
 
+--
 -- Name: algorithm_templates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.algorithm_templates_id_seq', 1, false);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
-
+\unrestrict KztBa7qxHyTMEGDXbOxZ8RlB6GZmBRISOpjQyt2BFCwAiD8oVE9OjmgFO8JpY7I
 
 
 -- ============================================
 -- calculation_types (5 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict 1Jou40B1jnhICQbf1upWLqFZPqKswGrahWKVLlTycDHV8efnBcMS9Mna0jccbOa
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: calculation_types; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.calculation_types OVERRIDING SYSTEM VALUE VALUES (1, 'solar_angle', 'זווית שמש', 'Solar Angle', 'Based on sun angle below horizon', '2025-12-14 19:08:39.793529+00');
 INSERT INTO public.calculation_types OVERRIDING SYSTEM VALUE VALUES (2, 'fixed_time', 'זמן קבוע', 'Fixed Time', 'Fixed offset from another time', '2025-12-14 19:08:39.793529+00');
@@ -68,21 +140,47 @@ INSERT INTO public.calculation_types OVERRIDING SYSTEM VALUE VALUES (4, 'horizon
 INSERT INTO public.calculation_types OVERRIDING SYSTEM VALUE VALUES (5, 'transit', 'מעבר', 'Transit', 'Meridian transit calculation', '2025-12-14 19:08:39.827613+00');
 
 
+--
 -- Name: calculation_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.calculation_types_id_seq', 1, false);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
-
+\unrestrict 1Jou40B1jnhICQbf1upWLqFZPqKswGrahWKVLlTycDHV8efnBcMS9Mna0jccbOa
 
 
 -- ============================================
 -- edge_types (4 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict cPLgc0bMGtyXJgOXMZ3qMmtCNPzmyU2PO3b4pyJlQaI9WomaT4HVaMA9GCtefKh
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: edge_types; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.edge_types OVERRIDING SYSTEM VALUE VALUES (1, 'upper', 'עליון', 'Upper', 'Upper edge of sun', '2025-12-14 19:08:39.794931+00');
 INSERT INTO public.edge_types OVERRIDING SYSTEM VALUE VALUES (2, 'center', 'מרכז', 'Center', 'Center of sun', '2025-12-14 19:08:39.794931+00');
@@ -90,21 +188,47 @@ INSERT INTO public.edge_types OVERRIDING SYSTEM VALUE VALUES (3, 'lower', 'תח�
 INSERT INTO public.edge_types OVERRIDING SYSTEM VALUE VALUES (4, 'top_edge', 'קצה עליון', 'Top Edge', 'Top edge of sun disk', '2025-12-14 19:08:39.828414+00');
 
 
+--
 -- Name: edge_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.edge_types_id_seq', 1, false);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
-
+\unrestrict cPLgc0bMGtyXJgOXMZ3qMmtCNPzmyU2PO3b4pyJlQaI9WomaT4HVaMA9GCtefKh
 
 
 -- ============================================
 -- astronomical_primitives (12 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict FbqSoYRNluFNcZyh3KzfsJLdc2NExP95AQ2pj1bC1H3h3c6KCdMY1hBLqqsLw3N
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: astronomical_primitives; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.astronomical_primitives VALUES (209, 'solar_noon', 'Solar Noon', 'Sun at highest point in the sky (transit/meridian crossing)', 'solar_noon', 10, 500, '2025-12-14 19:08:39.829238+00', '2025-12-14 19:08:39.829238+00');
 INSERT INTO public.astronomical_primitives VALUES (61, 'solar_midnight', 'Solar Midnight', 'Sun at lowest point (anti-transit) - opposite side of Earth', 'solar_midnight', 10, 501, '2025-12-14 19:08:39.829238+00', '2025-12-14 19:08:39.829238+00');
@@ -120,21 +244,47 @@ INSERT INTO public.astronomical_primitives VALUES (51, 'nautical_dusk', 'Nautica
 INSERT INTO public.astronomical_primitives VALUES (147, 'astronomical_dusk', 'Astronomical Dusk', 'Sun 18° below horizon - sky becomes completely dark after this', 'solar(18, after_visible_sunset)', 9, 401, '2025-12-14 19:08:39.829238+00', '2025-12-14 19:08:39.829238+00');
 
 
+--
 -- Name: astronomical_primitives_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.astronomical_primitives_id_seq', 1, false);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
-
+\unrestrict FbqSoYRNluFNcZyh3KzfsJLdc2NExP95AQ2pj1bC1H3h3c6KCdMY1hBLqqsLw3N
 
 
 -- ============================================
 -- primitive_categories (10 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict t1drLZ70OspCcw4wJareMk9hsc7h9FobvK9eHBIU8fc1tAaKcFripl2MgICHtNM
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: primitive_categories; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.primitive_categories OVERRIDING SYSTEM VALUE VALUES (1, 'dawn', 'שחר', 'Dawn', 'Dawn-related primitives', 1, '2025-12-14 19:08:39.796281+00');
 INSERT INTO public.primitive_categories OVERRIDING SYSTEM VALUE VALUES (2, 'sunrise', 'נץ', 'Sunrise', 'Sunrise-related primitives', 2, '2025-12-14 19:08:39.796281+00');
@@ -148,21 +298,47 @@ INSERT INTO public.primitive_categories OVERRIDING SYSTEM VALUE VALUES (9, 'astr
 INSERT INTO public.primitive_categories OVERRIDING SYSTEM VALUE VALUES (10, 'solar_position', 'מיקום השמש', 'Solar Position', 'Solar position events', 10, '2025-12-14 19:08:39.826674+00');
 
 
+--
 -- Name: primitive_categories_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.primitive_categories_id_seq', 1, false);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
-
+\unrestrict t1drLZ70OspCcw4wJareMk9hsc7h9FobvK9eHBIU8fc1tAaKcFripl2MgICHtNM
 
 
 -- ============================================
 -- master_zmanim_registry (172 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict h8fHIxXzUtLLDKDNvQ0dbYR7chmmBjPcyraV96TtOk5gOficBoZaRFu0ctEbEYu
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: master_zmanim_registry; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.master_zmanim_registry VALUES (10, 'shabbos_ends', 'מוצאי שבת', 'Shabbos Ends', 'Motzei Shabbos', 'End of Shabbos - standard tzais', NULL, NULL, 7, 'solar(8.5, after_visible_sunset)', false, true, NULL, '2025-12-14 19:08:39.841166+00', '2025-12-14 19:08:39.841166+00', 'Standard time for the end of Shabbos according to common practice. Calculated based on when three medium-sized stars become visible.', 'Typically calculated as the time when the sun is a certain number of degrees below the horizon, varying by community custom. Most commonly uses sunset plus 42, 50, or 72 minutes.', 'Used to determine when Shabbos ends and melacha (forbidden work) may resume. Many communities wait for this time plus a few additional minutes to be stringent.', NULL, 'UNIVERSAL', 'TZAIS');
 INSERT INTO public.master_zmanim_registry VALUES (64, 'mincha_gedola_ateret_torah', 'מנחה גדולה עטרת תורה', 'Earliest Mincha (Ateret Torah)', 'Mincha Gedola AT', 'Earliest Mincha per Chacham Yosef Harari-Raful', NULL, NULL, 4, 'proportional_hours(6.5, ateret_torah)', false, false, NULL, '2025-12-14 19:08:39.849073+00', '2025-12-14 19:08:39.849073+00', 'Mincha Gedola according to Chacham Yosef Harari-Raful of Yeshivat Ateret Torah. The day starts 1/10th of the day before sunrise (calculated as proportional time, typically approximately 72 minutes) and ends 40 minutes after sunset (configurable). This method is used by the Bais Horaah of Yeshivat Chevrat Ahavat Shalom.', 'Calculates 6.5 proportional hours after Alos Ateret Torah (1/10th of day before sunrise). Uses the Ateret Torah day definition with proportional alos and fixed tzais.', 'Earliest Mincha time for those following the Ateret Torah calculation method. Primarily used in Sephardic communities that follow Chacham Harari-Raful.', NULL, 'ATERET_TORAH', 'MINCHA');
@@ -338,21 +514,47 @@ INSERT INTO public.master_zmanim_registry VALUES (123, 'sof_zman_tfila_ateret_to
 INSERT INTO public.master_zmanim_registry VALUES (172, 'visible_sunset', 'שקיעה נראית', 'Visible Sunset', 'Shkiah Nireis', 'Actual visible sunset', NULL, NULL, 6, 'visible_sunset', false, false, NULL, '2025-12-14 19:08:39.849073+00', '2025-12-14 19:08:39.849073+00', 'Visible sunset at sea level represents the moment when the top edge of the sun disappears below the western horizon. This is the standard definition of sunset used in most halachic calculations, accounting for atmospheric refraction.', 'Calculated as the moment when the sun''s upper limb disappears at the horizon, accounting for atmospheric refraction (approximately 34 arcminutes) and the sun''s angular radius (16 arcminutes). This is approximately when the sun''s center is 0.833 degrees below the geometric horizon.', 'This is the standard sunset time (shkiah) used for most halachic purposes, including the end of the day, the beginning of Shabbos/Yom Tov (with tosefes), and the endpoint for GRA proportional hours. This represents what a person at sea level would observe.', NULL, 'UNIVERSAL', 'SHKIA');
 
 
+--
 -- Name: master_zmanim_registry_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.master_zmanim_registry_id_seq', 1, false);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
-
+\unrestrict h8fHIxXzUtLLDKDNvQ0dbYR7chmmBjPcyraV96TtOk5gOficBoZaRFu0ctEbEYu
 
 
 -- ============================================
 -- master_zman_tags (237 rows)
 -- ============================================
+--
+-- PostgreSQL database dump
+--
 
+\restrict U74bh0ElNYhPhfQtWprgoYlkjweqbO0PuVvsBQrrNKaxYIYv84HsPlWfxdpV5CC
 
+-- Dumped from database version 17.7
+-- Dumped by pg_dump version 17.7 (Ubuntu 17.7-3.pgdg24.04+1)
 
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+--
 -- Data for Name: master_zman_tags; Type: TABLE DATA; Schema: public; Owner: -
+--
 
 INSERT INTO public.master_zman_tags VALUES (2, 34, false, '2025-12-14 19:08:39.986984+00');
 INSERT INTO public.master_zman_tags VALUES (2, 50, false, '2025-12-14 19:08:39.996301+00');
@@ -593,773 +795,9 @@ INSERT INTO public.master_zman_tags VALUES (169, 159, false, '2025-12-14 19:08:4
 INSERT INTO public.master_zman_tags VALUES (170, 158, false, '2025-12-14 19:08:40.082023+00');
 
 
+--
+-- PostgreSQL database dump complete
+--
 
+\unrestrict U74bh0ElNYhPhfQtWprgoYlkjweqbO0PuVvsBQrrNKaxYIYv84HsPlWfxdpV5CC
 
-
--- ============================================
--- jewish_event_types (4 rows)
--- ============================================
-
-
-
-
--- Data for Name: jewish_event_types; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.jewish_event_types OVERRIDING SYSTEM VALUE VALUES (1, 'weekly', 'שבועי', 'Weekly', 'Weekly recurring events', 1, '2025-12-14 19:08:39.790802+00');
-INSERT INTO public.jewish_event_types OVERRIDING SYSTEM VALUE VALUES (2, 'yom_tov', 'יום טוב', 'Yom Tov', 'Major festivals', 2, '2025-12-14 19:08:39.790802+00');
-INSERT INTO public.jewish_event_types OVERRIDING SYSTEM VALUE VALUES (3, 'fast', 'תענית', 'Fast', 'Fast days', 3, '2025-12-14 19:08:39.790802+00');
-INSERT INTO public.jewish_event_types OVERRIDING SYSTEM VALUE VALUES (4, 'informational', 'מידע', 'Informational', 'Informational dates', 4, '2025-12-14 19:08:39.790802+00');
-
-
--- Name: jewish_event_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- jewish_events (23 rows)
--- ============================================
-
-
-
-
--- Data for Name: jewish_events; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.jewish_events VALUES (35, 'shabbos', 'שבת', 'Shabbos', 1, 1, 1, NULL, NULL, 10, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (81, 'yom_kippur', 'יום כיפור', 'Yom Kippur', 3, 1, 1, 2, NULL, 20, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (230, 'tisha_bav', 'תשעה באב', 'Tisha B''Av', 3, 1, 1, 2, NULL, 21, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (253, 'tzom_gedaliah', 'צום גדליה', 'Tzom Gedaliah', 3, 1, 1, 1, NULL, 30, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (39, 'asarah_bteves', 'עשרה בטבת', 'Asarah B''Teves', 3, 1, 1, 1, NULL, 31, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (36, 'shiva_asar_btamuz', 'שבעה עשר בתמוז', 'Shiva Asar B''Tamuz', 3, 1, 1, 1, NULL, 32, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (111, 'taanis_esther', 'תענית אסתר', 'Taanis Esther', 3, 1, 1, 1, NULL, 33, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (91, 'rosh_hashanah', 'ראש השנה', 'Rosh Hashanah', 2, 2, 2, NULL, NULL, 40, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (203, 'sukkos', 'סוכות', 'Sukkos', 2, 1, 2, NULL, NULL, 50, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (152, 'shemini_atzeres', 'שמיני עצרת', 'Shemini Atzeres', 2, 1, 2, NULL, NULL, 51, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (193, 'pesach_first', 'פסח (ראשון)', 'Pesach (First Days)', 2, 1, 2, NULL, NULL, 60, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (109, 'pesach_last', 'פסח (אחרון)', 'Pesach (Last Days)', 2, 1, 2, NULL, NULL, 61, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (106, 'shavuos', 'שבועות', 'Shavuos', 2, 1, 2, NULL, NULL, 70, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (76, 'rosh_chodesh', 'ראש חודש', 'Rosh Chodesh', 4, 1, 1, NULL, NULL, 100, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (110, 'chanukah', 'חנוכה', 'Chanukah', 4, 8, 8, NULL, NULL, 110, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (284, 'purim', 'פורים', 'Purim', 4, 1, 1, NULL, NULL, 120, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (104, 'shushan_purim', 'שושן פורים', 'Shushan Purim', 4, 1, 1, NULL, NULL, 121, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (90, 'lag_baomer', 'ל"ג בעומר', 'Lag BaOmer', 4, 1, 1, NULL, NULL, 130, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (277, 'tu_bshvat', 'ט"ו בשבט', 'Tu B''Shvat', 4, 1, 1, NULL, NULL, 140, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (124, 'yom_haatzmaut', 'יום העצמאות', 'Yom HaAtzmaut', 4, 1, 1, NULL, NULL, 150, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (224, 'yom_yerushalayim', 'יום ירושלים', 'Yom Yerushalayim', 4, 1, 1, NULL, NULL, 151, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (8, 'yom_hazikaron', 'יום הזיכרון', 'Yom HaZikaron', 4, 1, 1, NULL, NULL, 152, '2025-12-14 19:08:39.811436+00');
-INSERT INTO public.jewish_events VALUES (263, 'yom_hashoah', 'יום השואה', 'Yom HaShoah', 4, 1, 1, NULL, NULL, 153, '2025-12-14 19:08:39.811436+00');
-
-
--- Name: jewish_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- ============================================
--- event_categories (6 rows)
--- ============================================
-
-
-
-
--- Data for Name: event_categories; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.event_categories VALUES (22, 'candles', 'הדלקת נרות', 'Candle Lighting', 'Shabbos, Yom Tov, and Yom Kippur', 'Flame', 'amber', 1, '2025-12-14 19:08:39.823519+00');
-INSERT INTO public.event_categories VALUES (21, 'havdalah', 'הבדלה', 'Havdalah', 'End of Shabbos and Yom Tov', 'Flame', 'purple', 2, '2025-12-14 19:08:39.823519+00');
-INSERT INTO public.event_categories VALUES (248, 'yom_kippur', 'יום כיפור', 'Yom Kippur', 'Fast start and end times', 'Moon', 'slate', 3, '2025-12-14 19:08:39.823519+00');
-INSERT INTO public.event_categories VALUES (207, 'fast_day', 'תענית', 'Fast Days', 'Fast end times (regular fasts)', 'Timer', 'gray', 4, '2025-12-14 19:08:39.823519+00');
-INSERT INTO public.event_categories VALUES (213, 'tisha_bav', 'תשעה באב', 'Tisha B''Av', 'Fast starts at sunset, ends at nightfall', 'Moon', 'slate', 5, '2025-12-14 19:08:39.823519+00');
-INSERT INTO public.event_categories VALUES (146, 'pesach', 'פסח', 'Pesach', 'Chametz eating and burning times', 'Utensils', 'green', 6, '2025-12-14 19:08:39.823519+00');
-
-
--- Name: event_categories_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- fast_start_types (2 rows)
--- ============================================
-
-
-
-
--- Data for Name: fast_start_types; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.fast_start_types OVERRIDING SYSTEM VALUE VALUES (1, 'dawn', 'עלות השחר', 'Dawn', '2025-12-14 19:08:39.792189+00');
-INSERT INTO public.fast_start_types OVERRIDING SYSTEM VALUE VALUES (2, 'sunset', 'שקיעה', 'Sunset', '2025-12-14 19:08:39.792189+00');
-
-
--- Name: fast_start_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- tag_types (4 rows)
--- ============================================
-
-
-
-
--- Data for Name: tag_types; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.tag_types VALUES (170, 'event', 'אירוע', 'Event', 'blue', NULL, 1, '2025-12-14 19:08:39.815339+00');
-INSERT INTO public.tag_types VALUES (171, 'timing', 'זמן', 'Timing', 'green', NULL, 2, '2025-12-14 19:08:39.815339+00');
-INSERT INTO public.tag_types VALUES (173, 'shita', 'שיטה', 'Opinion', 'purple', NULL, 3, '2025-12-14 19:08:39.815339+00');
-INSERT INTO public.tag_types VALUES (175, 'category', 'קטגוריה', 'Category', 'gray', NULL, 4, '2025-12-14 19:08:39.815339+00');
-
-
--- Name: tag_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- zman_tags (72 rows)
--- ============================================
-
-
-
-
--- Data for Name: zman_tags; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.zman_tags VALUES (34, 'yom_kippur', 'yom_kippur', 'יום כיפור', 170, 'Applies to Yom Kippur', NULL, 30, '2025-12-14 19:08:39.835897+00', 'Yom Kippur', 'Yom Kippur', 'Yom Kippur');
-INSERT INTO public.zman_tags VALUES (57, 'shabbos', 'shabbos', 'שבת', 170, 'Applies to Shabbos', NULL, 10, '2025-12-14 19:08:39.835897+00', 'Shabbat', 'Shabbos', 'Shabbat');
-INSERT INTO public.zman_tags VALUES (50, 'yom_tov', 'yom_tov', 'יום טוב', 170, 'Applies to Yom Tov (major holidays)', NULL, 20, '2025-12-14 19:08:39.835897+00', NULL, 'Yom Tov', 'Yom Tov');
-INSERT INTO public.zman_tags VALUES (244, 'fast_day', 'fast_day', 'תענית', 170, 'Applies to minor fast days', NULL, 40, '2025-12-14 19:08:39.835897+00', NULL, 'Fast Day', 'Fast Day');
-INSERT INTO public.zman_tags VALUES (134, 'purim', 'purim', 'פורים', 170, 'Feast of Lots', NULL, 320, '2025-12-14 19:08:39.835897+00', 'Purim', 'Purim', 'Purim');
-INSERT INTO public.zman_tags VALUES (1, 'taanis_bechoros', 'taanis_bechoros', 'תענית בכורות', 170, 'Fast of the Firstborn on Erev Pesach', NULL, 325, '2025-12-21 17:15:11.920041+00', 'Ta''anit Bechorot', 'Taanis Bechoros', 'Ta''anit Bechorot');
-INSERT INTO public.zman_tags VALUES (2, 'lag_baomer', 'lag_baomer', 'ל״ג בעומר', 170, '33rd day of the Omer counting', NULL, 305, '2025-12-21 17:15:11.920041+00', 'Lag BaOmer', 'Lag BaOmer', 'Lag BaOmer');
-INSERT INTO public.zman_tags VALUES (3, 'tu_bav', 'tu_bav', 'ט״ו באב', 170, '15th of Av - day of joy', NULL, 382, '2025-12-21 17:15:11.920041+00', 'Tu B''Av', 'Tu B''Av', 'Tu B''Av');
-INSERT INTO public.zman_tags VALUES (4, 'pesach_sheni', 'pesach_sheni', 'פסח שני', 170, 'Second Passover - one month after Pesach', NULL, 335, '2025-12-21 17:15:11.920041+00', 'Pesach Sheni', 'Pesach Sheni', 'Pesach Sheni');
-INSERT INTO public.zman_tags VALUES (6, 'pesach_last', 'pesach_last', 'פסח - ימים אחרונים', 170, 'Last days of Pesach (7-8 in Diaspora)', NULL, 333, '2025-12-21 17:15:11.920041+00', 'Pesach VII', 'Pesach (Last Days)', 'Pesach (Last Days)');
-INSERT INTO public.zman_tags VALUES (7, 'shabbos_shirah', 'shabbos_shirah', 'שבת שירה', 170, 'Shabbat of Song - Parshat Beshalach', NULL, 400, '2025-12-21 17:15:11.920041+00', 'Shabbat Shirah', 'Shabbos Shirah', 'Shabbat Shirah');
-INSERT INTO public.zman_tags VALUES (8, 'shabbos_shekalim', 'shabbos_shekalim', 'שבת שקלים', 170, 'First of four special Shabbatot before Pesach', NULL, 401, '2025-12-21 17:15:11.920041+00', 'Shabbat Shekalim', 'Shabbos Shekalim', 'Shabbat Shekalim');
-INSERT INTO public.zman_tags VALUES (9, 'shabbos_zachor', 'shabbos_zachor', 'שבת זכור', 170, 'Shabbat before Purim - remembering Amalek', NULL, 402, '2025-12-21 17:15:11.920041+00', 'Shabbat Zachor', 'Shabbos Zachor', 'Shabbat Zachor');
-INSERT INTO public.zman_tags VALUES (10, 'shabbos_parah', 'shabbos_parah', 'שבת פרה', 170, 'Shabbat of the Red Heifer', NULL, 403, '2025-12-21 17:15:11.920041+00', 'Shabbat Parah', 'Shabbos Parah', 'Shabbat Parah');
-INSERT INTO public.zman_tags VALUES (11, 'shabbos_hachodesh', 'shabbos_hachodesh', 'שבת החודש', 170, 'Shabbat before Rosh Chodesh Nissan', NULL, 404, '2025-12-21 17:15:11.920041+00', 'Shabbat HaChodesh', 'Shabbos HaChodesh', 'Shabbat HaChodesh');
-INSERT INTO public.zman_tags VALUES (12, 'shabbos_hagadol', 'shabbos_hagadol', 'שבת הגדול', 170, 'Great Shabbat before Pesach', NULL, 405, '2025-12-21 17:15:11.920041+00', 'Shabbat HaGadol', 'Shabbos HaGadol', 'Shabbat HaGadol');
-INSERT INTO public.zman_tags VALUES (13, 'shabbos_chazon', 'shabbos_chazon', 'שבת חזון', 170, 'Shabbat of Vision - before Tisha B''Av', NULL, 406, '2025-12-21 17:15:11.920041+00', 'Shabbat Chazon', 'Shabbos Chazon', 'Shabbat Chazon');
-INSERT INTO public.zman_tags VALUES (14, 'shabbos_nachamu', 'shabbos_nachamu', 'שבת נחמו', 170, 'Shabbat of Comfort - after Tisha B''Av', NULL, 407, '2025-12-21 17:15:11.920041+00', 'Shabbat Nachamu', 'Shabbos Nachamu', 'Shabbat Nachamu');
-INSERT INTO public.zman_tags VALUES (15, 'shabbos_shuva', 'shabbos_shuva', 'שבת שובה', 170, 'Shabbat of Return - between RH and YK', NULL, 408, '2025-12-21 17:15:11.920041+00', 'Shabbat Shuva', 'Shabbos Shuva', 'Shabbat Shuva');
-INSERT INTO public.zman_tags VALUES (288, 'pesach_first', 'pesach_first', 'פסח - ימים ראשונים', 170, 'First days of Pesach (1-2 in Diaspora)', NULL, 331, '2025-12-21 17:15:11.920041+00', 'Pesach I', 'Pesach (First Days)', 'Pesach (First Days)');
-INSERT INTO public.zman_tags VALUES (294, 'shita_machzikei_hadass', 'Machzikei Hadass Manchester', 'מחזיקי הדת מנצ''סטר', 173, 'Asymmetric day calculation used by Manchester Machzikei Hadass calendar (alos 12° to tzais 7.083°)', NULL, 40, '2025-12-21 20:28:46.32105+00', NULL, 'Machzikei Hadass Manchester', NULL);
-INSERT INTO public.zman_tags VALUES (93, 'simchas_torah', 'simchas_torah', 'שמחת תורה', 170, 'Rejoicing of the Torah (Diaspora: day 2)', NULL, 365, '2025-12-14 19:08:39.835897+00', 'Simchat Torah', 'Simchas Torah', 'Simchat Torah');
-INSERT INTO public.zman_tags VALUES (234, 'shavuos', 'shavuos', 'שבועות', 170, 'Feast of Weeks', NULL, 341, '2025-12-14 19:08:39.835897+00', 'Shavuot', 'Shavuos', 'Shavuot');
-INSERT INTO public.zman_tags VALUES (186, 'pesach', 'pesach', 'ערב פסח', 170, 'Applies to Erev Pesach (chametz times)', NULL, 60, '2025-12-14 19:08:39.835897+00', 'Pesach', 'Erev Pesach', 'Pesach');
-INSERT INTO public.zman_tags VALUES (212, 'hoshanah_rabbah', 'hoshanah_rabbah', 'הושענא רבה', 170, '7th day of Sukkos', NULL, 363, '2025-12-14 19:08:39.835897+00', 'Hoshana Raba', 'Hoshanah Rabbah', 'Hoshana Rabbah');
-INSERT INTO public.zman_tags VALUES (24, 'tisha_bav', 'tisha_bav', 'תשעה באב', 170, 'Applies to Tisha B''Av', NULL, 50, '2025-12-14 19:08:39.835897+00', 'Tish''a B''Av', 'Tisha B''Av', 'Tisha B''Av');
-INSERT INTO public.zman_tags VALUES (92, 'tzom_gedaliah', 'tzom_gedaliah', 'צום גדליה', 170, 'Fast of Gedaliah', NULL, 353, '2025-12-14 19:08:39.835897+00', 'Tzom Gedaliah', 'Tzom Gedaliah', 'Tzom Gedaliah');
-INSERT INTO public.zman_tags VALUES (5, 'shiva_asar_btamuz', 'shiva_asar_btamuz', 'שבעה עשר בתמוז', 170, '17th of Tamuz fast', NULL, 371, '2025-12-14 19:08:39.835897+00', 'Tzom Tammuz', 'Shiva Asar B''Tamuz', 'Shiva Asar B''Tamuz');
-INSERT INTO public.zman_tags VALUES (219, 'taanis_esther', 'taanis_esther', 'תענית אסתר', 170, 'Fast of Esther', NULL, 322, '2025-12-14 19:08:39.835897+00', 'Ta''anit Esther', 'Taanis Esther', 'Ta''anit Esther');
-INSERT INTO public.zman_tags VALUES (97, 'erev_tisha_bav', 'erev_tisha_bav', 'ערב תשעה באב', 170, 'Day/night before Tisha B''Av', NULL, 373, '2025-12-14 19:08:39.835897+00', NULL, 'Erev Tisha B''Av', 'Erev Tisha B''Av');
-INSERT INTO public.zman_tags VALUES (45, 'chanukah', 'chanukah', 'חנוכה', 170, 'Festival of Lights (8 days)', NULL, 310, '2025-12-14 19:08:39.835897+00', 'Chanukah', 'Chanukah', 'Chanukah');
-INSERT INTO public.zman_tags VALUES (129, 'shushan_purim', 'shushan_purim', 'שושן פורים', 170, 'Purim in walled cities', NULL, 321, '2025-12-14 19:08:39.835897+00', 'Shushan Purim', 'Shushan Purim', 'Shushan Purim');
-INSERT INTO public.zman_tags VALUES (69, 'tu_bshvat', 'tu_bshvat', 'ט"ו בשבט', 170, 'New Year for Trees', NULL, 391, '2025-12-14 19:08:39.835897+00', 'Tu BiShvat', 'Tu B''Shvat', 'Tu BiShvat');
-INSERT INTO public.zman_tags VALUES (71, 'omer', 'omer', 'ספירת העומר', 170, 'During the Omer counting period (49 days)', NULL, 300, '2025-12-14 19:08:39.835897+00', 'Omer', 'Sefirat HaOmer', 'Sefirat HaOmer');
-INSERT INTO public.zman_tags VALUES (67, 'erev_pesach', 'erev_pesach', 'ערב פסח', 170, 'Day before Passover (chametz times)', NULL, 330, '2025-12-14 19:08:39.835897+00', 'Erev Pesach', 'Erev Pesach', 'Erev Pesach');
-INSERT INTO public.zman_tags VALUES (52, 'erev_shavuos', 'erev_shavuos', 'ערב שבועות', 170, 'Day before Shavuos', NULL, 340, '2025-12-14 19:08:39.835897+00', 'Erev Shavuot', 'Erev Shavuos', 'Erev Shavuot');
-INSERT INTO public.zman_tags VALUES (241, 'erev_yom_kippur', 'erev_yom_kippur', 'ערב יום כיפור', 170, 'Day before Yom Kippur', NULL, 355, '2025-12-14 19:08:39.835897+00', 'Erev Yom Kippur', 'Erev Yom Kippur', 'Erev Yom Kippur');
-INSERT INTO public.zman_tags VALUES (222, 'erev_sukkos', 'erev_sukkos', 'ערב סוכות', 170, 'Day before Sukkos', NULL, 360, '2025-12-14 19:08:39.835897+00', 'Erev Sukkot', 'Erev Sukkos', 'Erev Sukkot');
-INSERT INTO public.zman_tags VALUES (60, 'selichos', 'selichos', 'סליחות', 170, 'Penitential prayer period', NULL, 350, '2025-12-14 19:08:39.835897+00', NULL, 'Selichos', 'Selichot');
-INSERT INTO public.zman_tags VALUES (149, 'aseres_yemei_teshuva', 'aseres_yemei_teshuva', 'עשרת ימי תשובה', 170, 'Period from RH to YK', NULL, 354, '2025-12-14 19:08:39.835897+00', NULL, 'Ten Days of Repentance', 'Ten Days of Repentance');
-INSERT INTO public.zman_tags VALUES (142, 'three_weeks', 'three_weeks', 'בין המצרים', 170, 'Period between 17 Tamuz and 9 Av', NULL, 380, '2025-12-14 19:08:39.835897+00', NULL, 'The Three Weeks', 'The Three Weeks');
-INSERT INTO public.zman_tags VALUES (79, 'nine_days', 'nine_days', 'תשעת הימים', 170, 'First 9 days of Av', NULL, 381, '2025-12-14 19:08:39.835897+00', NULL, 'The Nine Days', 'The Nine Days');
-INSERT INTO public.zman_tags VALUES (286, 'day_before', 'day_before', 'יום לפני', 171, 'Display on the day before the event (e.g., candle lighting)', NULL, 100, '2025-12-14 19:08:39.835897+00', NULL, 'Day Before', 'Day Before');
-INSERT INTO public.zman_tags VALUES (289, 'shita_kol_eliyahu', 'shita_kol_eliyahu', 'קול אליהו', 173, 'Calculation method according to Kol Eliyahu, with specific shma calculation', NULL, 0, '2025-12-21 19:59:56.217589+00', NULL, 'Kol Eliyahu', 'Kol Eliyahu');
-INSERT INTO public.zman_tags VALUES (278, 'rosh_hashanah', 'rosh_hashanah', 'ראש השנה', 170, 'Jewish New Year (2 days)', NULL, 352, '2025-12-14 19:08:39.835897+00', 'Rosh Hashana', 'Rosh Hashanah', 'Rosh Hashanah');
-INSERT INTO public.zman_tags VALUES (140, 'sukkos', 'sukkos', 'סוכות', 170, 'Feast of Tabernacles', NULL, 361, '2025-12-14 19:08:39.835897+00', 'Sukkot', 'Sukkos', 'Sukkot');
-INSERT INTO public.zman_tags VALUES (118, 'shemini_atzeres', 'shemini_atzeres', 'שמיני עצרת', 170, '8th day of assembly', NULL, 364, '2025-12-14 19:08:39.835897+00', 'Shmini Atzeret', 'Shemini Atzeres', 'Shemini Atzeret');
-INSERT INTO public.zman_tags VALUES (130, 'chol_hamoed_sukkos', 'chol_hamoed_sukkos', 'חול המועד סוכות', 170, 'Intermediate days of Sukkos', NULL, 362, '2025-12-14 19:08:39.835897+00', 'Sukkot CH''M', 'Chol HaMoed Sukkos', 'Chol HaMoed Sukkot');
-INSERT INTO public.zman_tags VALUES (30, 'chol_hamoed_pesach', 'chol_hamoed_pesach', 'חול המועד פסח', 170, 'Intermediate days of Pesach', NULL, 332, '2025-12-14 19:08:39.835897+00', 'Pesach CH''M', 'Chol HaMoed Pesach', 'Chol HaMoed Pesach');
-INSERT INTO public.zman_tags VALUES (290, 'shita_ahavat_shalom', 'shita_ahavat_shalom', 'אהבת שלום', 173, 'Calculation method according to Ahavat Shalom, with special mincha calculations', NULL, 0, '2025-12-21 19:59:56.217589+00', NULL, 'Ahavat Shalom', 'Ahavat Shalom');
-INSERT INTO public.zman_tags VALUES (291, 'shita_fixed_local_chatzos', 'shita_fixed_local_chatzos', 'חצות קבוע', 173, 'Calculation method using fixed local mean time for chatzos rather than astronomical chatzos', NULL, 0, '2025-12-21 19:59:56.217589+00', NULL, 'Fixed Local Chatzos', 'Fixed Local Chatzos');
-INSERT INTO public.zman_tags VALUES (155, 'shita_gra', 'shita_gra', 'גר"א', 173, 'Gaon of Vilna - day from sunrise to sunset', NULL, 10, '2025-12-14 19:08:39.835897+00', NULL, 'GRA (Vilna Gaon)', 'GRA (Vilna Gaon)');
-INSERT INTO public.zman_tags VALUES (206, 'category_candle_lighting', 'category_candle_lighting', 'הדלקת נרות', 175, 'This is a candle lighting time', NULL, 200, '2025-12-14 19:08:39.835897+00', NULL, 'Candle Lighting', 'Candle Lighting');
-INSERT INTO public.zman_tags VALUES (165, 'category_shema', 'category_shema', 'קריאת שמע', 175, 'Times related to Shema recitation', NULL, 200, '2025-12-14 19:08:39.835897+00', NULL, 'Shema Times', 'Shema Times');
-INSERT INTO public.zman_tags VALUES (96, 'category_havdalah', 'category_havdalah', 'הבדלה', 175, 'This is a havdalah/end of Shabbos time', NULL, 210, '2025-12-14 19:08:39.835897+00', NULL, 'Havdalah', 'Havdalah');
-INSERT INTO public.zman_tags VALUES (166, 'category_tefila', 'category_tefila', 'תפילה', 175, 'Times related to prayer services', NULL, 210, '2025-12-14 19:08:39.835897+00', NULL, 'Prayer Times', 'Prayer Times');
-INSERT INTO public.zman_tags VALUES (255, 'category_fast_start', 'category_fast_start', 'תחילת צום', 175, 'This marks when a fast begins', NULL, 220, '2025-12-14 19:08:39.835897+00', NULL, 'Fast Begins', 'Fast Begins');
-INSERT INTO public.zman_tags VALUES (167, 'category_mincha', 'category_mincha', 'מנחה', 175, 'Times related to afternoon prayer', NULL, 220, '2025-12-14 19:08:39.835897+00', NULL, 'Mincha Times', 'Mincha Times');
-INSERT INTO public.zman_tags VALUES (156, 'shita_mga', 'shita_mga', 'מג"א', 173, 'Magen Avraham - day from alos to tzais (72 min)', NULL, 20, '2025-12-14 19:08:39.835897+00', NULL, 'MGA (Magen Avraham)', 'MGA (Magen Avraham)');
-INSERT INTO public.zman_tags VALUES (157, 'shita_rt', 'shita_rt', 'ר"ת', 173, 'Rabbeinu Tam - 72 minutes after sunset for nightfall', NULL, 30, '2025-12-14 19:08:39.835897+00', NULL, 'Rabbeinu Tam', 'Rabbeinu Tam');
-INSERT INTO public.zman_tags VALUES (158, 'shita_baal_hatanya', 'shita_baal_hatanya', 'בעל התניא', 173, 'Shulchan Aruch HaRav (Chabad)', NULL, 40, '2025-12-14 19:08:39.835897+00', NULL, 'Baal HaTanya', 'Baal HaTanya');
-INSERT INTO public.zman_tags VALUES (159, 'shita_ateret_torah', 'shita_ateret_torah', 'עטרת תורה', 173, 'Chacham Yosef Harari-Raful (Sephardic)', NULL, 50, '2025-12-14 19:08:39.835897+00', NULL, 'Ateret Torah', 'Ateret Torah');
-INSERT INTO public.zman_tags VALUES (160, 'shita_geonim', 'shita_geonim', 'גאונים', 173, 'Various Geonic opinions on nightfall degrees', NULL, 60, '2025-12-14 19:08:39.835897+00', NULL, 'Geonim', 'Geonim');
-INSERT INTO public.zman_tags VALUES (161, 'shita_yereim', 'shita_yereim', 'יראים', 173, 'Sefer Yereim - bein hashmashos calculations', NULL, 70, '2025-12-14 19:08:39.835897+00', NULL, 'Yereim', 'Yereim');
-INSERT INTO public.zman_tags VALUES (168, 'category_chametz', 'category_chametz', 'חמץ', 175, 'Times related to chametz on Erev Pesach', NULL, 230, '2025-12-14 19:08:39.835897+00', NULL, 'Chametz Times', 'Chametz Times');
-INSERT INTO public.zman_tags VALUES (77, 'category_fast_end', 'category_fast_end', 'סוף צום', 175, 'This marks when a fast ends', NULL, 230, '2025-12-14 19:08:39.835897+00', NULL, 'Fast Ends', 'Fast Ends');
-INSERT INTO public.zman_tags VALUES (169, 'category_kiddush_levana', 'category_kiddush_levana', 'קידוש לבנה', 175, 'Times for sanctifying the moon', NULL, 240, '2025-12-14 19:08:39.835897+00', NULL, 'Kiddush Levana', 'Kiddush Levana');
-INSERT INTO public.zman_tags VALUES (41, 'asarah_bteves', 'asarah_bteves', 'עשרה בטבת', 170, '10th of Teves fast', NULL, 370, '2025-12-14 19:08:39.835897+00', 'Asara B''Tevet', 'Asarah B''Teves', 'Asara B''Tevet');
-INSERT INTO public.zman_tags VALUES (231, 'rosh_chodesh', 'rosh_chodesh', 'ראש חודש', 170, 'New Moon/Month', NULL, 390, '2025-12-14 19:08:39.835897+00', 'Rosh Chodesh', 'Rosh Chodesh', 'Rosh Chodesh');
-INSERT INTO public.zman_tags VALUES (245, 'erev_rosh_hashanah', 'erev_rosh_hashanah', 'ערב ראש השנה', 170, 'Day before Rosh Hashanah', NULL, 351, '2025-12-14 19:08:39.835897+00', 'Erev Rosh Hashana', 'Erev Rosh Hashanah', 'Erev Rosh Hashanah');
-INSERT INTO public.zman_tags VALUES (292, 'shita_chazon_ish', 'shita_chazon_ish', 'חזון איש', 173, 'Calculation method according to the Chazon Ish, with different mil/cubit measurements', NULL, 0, '2025-12-21 19:59:56.217589+00', NULL, 'Chazon Ish', 'Chazon Ish');
-INSERT INTO public.zman_tags VALUES (293, 'shita_r_tucazinsky', 'shita_r_tucazinsky', 'ר׳ טוקצ׳ינסקי', 173, 'Calculation method according to Rabbi Yechiel Michel Tucazinsky, commonly used in Israel (6.45° tzais)', NULL, 0, '2025-12-21 19:59:56.217589+00', NULL, 'R'' Tucazinsky', 'R'' Tucazinsky');
-
-
--- Name: zman_tags_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- tag_event_mappings (60 rows)
--- ============================================
-
-
-
-
--- Data for Name: tag_event_mappings; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.tag_event_mappings VALUES (1, 278, 'Rosh Hashana%', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.925749+00');
-INSERT INTO public.tag_event_mappings VALUES (2, 34, 'Yom Kippur', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.927333+00');
-INSERT INTO public.tag_event_mappings VALUES (3, 140, 'Sukkot I', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.928629+00');
-INSERT INTO public.tag_event_mappings VALUES (4, 140, 'Sukkot II', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.930084+00');
-INSERT INTO public.tag_event_mappings VALUES (5, 130, 'Sukkot III (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.931234+00');
-INSERT INTO public.tag_event_mappings VALUES (6, 130, 'Sukkot IV (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.932778+00');
-INSERT INTO public.tag_event_mappings VALUES (7, 130, 'Sukkot V (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.933931+00');
-INSERT INTO public.tag_event_mappings VALUES (8, 130, 'Sukkot VI (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.935386+00');
-INSERT INTO public.tag_event_mappings VALUES (9, 212, 'Sukkot VII (Hoshana Raba)', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.936517+00');
-INSERT INTO public.tag_event_mappings VALUES (10, 130, 'Sukkot VII (Hoshana Raba)', NULL, NULL, NULL, 30, '2025-12-21 17:15:11.937966+00');
-INSERT INTO public.tag_event_mappings VALUES (11, 118, 'Shmini Atzeret', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.939108+00');
-INSERT INTO public.tag_event_mappings VALUES (12, 93, 'Simchat Torah', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.940559+00');
-INSERT INTO public.tag_event_mappings VALUES (13, 5, 'Pesach I', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.941806+00');
-INSERT INTO public.tag_event_mappings VALUES (14, 5, 'Pesach II', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.943293+00');
-INSERT INTO public.tag_event_mappings VALUES (15, 186, 'Pesach I', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.944472+00');
-INSERT INTO public.tag_event_mappings VALUES (16, 186, 'Pesach II', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.945984+00');
-INSERT INTO public.tag_event_mappings VALUES (17, 30, 'Pesach III (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.947263+00');
-INSERT INTO public.tag_event_mappings VALUES (18, 30, 'Pesach IV (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.948748+00');
-INSERT INTO public.tag_event_mappings VALUES (19, 30, 'Pesach V (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.949869+00');
-INSERT INTO public.tag_event_mappings VALUES (20, 30, 'Pesach VI (CH''M)', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.951338+00');
-INSERT INTO public.tag_event_mappings VALUES (21, 6, 'Pesach VII', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.95246+00');
-INSERT INTO public.tag_event_mappings VALUES (22, 6, 'Pesach VIII', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.953921+00');
-INSERT INTO public.tag_event_mappings VALUES (23, 186, 'Pesach VII', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.955025+00');
-INSERT INTO public.tag_event_mappings VALUES (24, 186, 'Pesach VIII', NULL, NULL, NULL, 20, '2025-12-21 17:15:11.956477+00');
-INSERT INTO public.tag_event_mappings VALUES (25, 234, 'Shavuot%', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.957604+00');
-INSERT INTO public.tag_event_mappings VALUES (26, 92, 'Tzom Gedaliah', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.959098+00');
-INSERT INTO public.tag_event_mappings VALUES (27, 41, 'Asara B''Tevet', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.960223+00');
-INSERT INTO public.tag_event_mappings VALUES (28, 219, 'Ta''anit Esther', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.961881+00');
-INSERT INTO public.tag_event_mappings VALUES (29, 1, 'Ta''anit Bechorot', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.96331+00');
-INSERT INTO public.tag_event_mappings VALUES (30, 5, 'Tzom Tammuz', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.964793+00');
-INSERT INTO public.tag_event_mappings VALUES (31, 24, 'Tish''a B''Av', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.965918+00');
-INSERT INTO public.tag_event_mappings VALUES (32, 97, 'Erev Tish''a B''Av', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.967487+00');
-INSERT INTO public.tag_event_mappings VALUES (33, 244, 'Tzom Gedaliah', NULL, NULL, NULL, 50, '2025-12-21 17:15:11.968866+00');
-INSERT INTO public.tag_event_mappings VALUES (34, 244, 'Asara B''Tevet', NULL, NULL, NULL, 50, '2025-12-21 17:15:11.970356+00');
-INSERT INTO public.tag_event_mappings VALUES (35, 244, 'Ta''anit Esther', NULL, NULL, NULL, 50, '2025-12-21 17:15:11.971519+00');
-INSERT INTO public.tag_event_mappings VALUES (36, 244, 'Ta''anit Bechorot', NULL, NULL, NULL, 50, '2025-12-21 17:15:11.972973+00');
-INSERT INTO public.tag_event_mappings VALUES (37, 244, 'Tzom Tammuz', NULL, NULL, NULL, 50, '2025-12-21 17:15:11.974093+00');
-INSERT INTO public.tag_event_mappings VALUES (38, 45, 'Chanukah%', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.975594+00');
-INSERT INTO public.tag_event_mappings VALUES (39, 134, 'Purim', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.97684+00');
-INSERT INTO public.tag_event_mappings VALUES (40, 129, 'Shushan Purim', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.978309+00');
-INSERT INTO public.tag_event_mappings VALUES (41, 69, 'Tu BiShvat', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.979628+00');
-INSERT INTO public.tag_event_mappings VALUES (42, 2, 'Lag BaOmer', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.981174+00');
-INSERT INTO public.tag_event_mappings VALUES (43, 3, 'Tu B''Av', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.982302+00');
-INSERT INTO public.tag_event_mappings VALUES (44, 4, 'Pesach Sheni', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.983748+00');
-INSERT INTO public.tag_event_mappings VALUES (45, 231, 'Rosh Chodesh%', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.984854+00');
-INSERT INTO public.tag_event_mappings VALUES (46, 71, '%day of the Omer', NULL, NULL, NULL, 50, '2025-12-21 17:15:11.986388+00');
-INSERT INTO public.tag_event_mappings VALUES (47, 67, 'Erev Pesach', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.987497+00');
-INSERT INTO public.tag_event_mappings VALUES (48, 52, 'Erev Shavuot', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.988931+00');
-INSERT INTO public.tag_event_mappings VALUES (49, 245, 'Erev Rosh Hashana', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.990048+00');
-INSERT INTO public.tag_event_mappings VALUES (50, 241, 'Erev Yom Kippur', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.991531+00');
-INSERT INTO public.tag_event_mappings VALUES (51, 222, 'Erev Sukkot', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.992712+00');
-INSERT INTO public.tag_event_mappings VALUES (52, 7, 'Shabbat Shirah', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.994162+00');
-INSERT INTO public.tag_event_mappings VALUES (53, 8, 'Shabbat Shekalim', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.995292+00');
-INSERT INTO public.tag_event_mappings VALUES (54, 9, 'Shabbat Zachor', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.996754+00');
-INSERT INTO public.tag_event_mappings VALUES (55, 10, 'Shabbat Parah', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.997896+00');
-INSERT INTO public.tag_event_mappings VALUES (56, 11, 'Shabbat HaChodesh', NULL, NULL, NULL, 10, '2025-12-21 17:15:11.999386+00');
-INSERT INTO public.tag_event_mappings VALUES (57, 12, 'Shabbat HaGadol', NULL, NULL, NULL, 10, '2025-12-21 17:15:12.000531+00');
-INSERT INTO public.tag_event_mappings VALUES (58, 13, 'Shabbat Chazon', NULL, NULL, NULL, 10, '2025-12-21 17:15:12.002053+00');
-INSERT INTO public.tag_event_mappings VALUES (59, 14, 'Shabbat Nachamu', NULL, NULL, NULL, 10, '2025-12-21 17:15:12.003171+00');
-INSERT INTO public.tag_event_mappings VALUES (60, 15, 'Shabbat Shuva', NULL, NULL, NULL, 10, '2025-12-21 17:15:12.004616+00');
-
-
--- Name: tag_event_mappings_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- display_groups (4 rows)
--- ============================================
-
-
-
-
--- Data for Name: display_groups; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.display_groups VALUES (13, 'dawn', 'שחר', 'Dawn', 'Pre-sunrise zmanim', 'Moon', 'purple', 1, '{dawn}', '2025-12-14 19:08:39.820687+00');
-INSERT INTO public.display_groups VALUES (1, 'morning', 'בוקר', 'Morning', 'Sunrise through late morning zmanim', 'Sun', 'amber', 2, '{sunrise,morning}', '2025-12-14 19:08:39.820687+00');
-INSERT INTO public.display_groups VALUES (251, 'midday', 'צהריים', 'Midday', 'Midday and afternoon zmanim', 'Clock', 'orange', 3, '{midday,afternoon}', '2025-12-14 19:08:39.820687+00');
-INSERT INTO public.display_groups VALUES (127, 'evening', 'ערב', 'Evening', 'Sunset through nightfall zmanim', 'Sunset', 'rose', 4, '{sunset,nightfall,midnight}', '2025-12-14 19:08:39.820687+00');
-
-
--- Name: display_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- time_categories (8 rows)
--- ============================================
-
-
-
-
--- Data for Name: time_categories; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.time_categories VALUES (1, 'dawn', 'שחר', 'Dawn', 'Pre-sunrise times', 'Moon', 'purple', 1, true, '2025-12-14 19:08:39.817905+00');
-INSERT INTO public.time_categories VALUES (2, 'sunrise', 'נץ', 'Sunrise', 'Sunrise times', 'Sun', 'amber', 2, true, '2025-12-14 19:08:39.817905+00');
-INSERT INTO public.time_categories VALUES (3, 'morning', 'בוקר', 'Morning', 'Morning times', 'Clock', 'yellow', 3, true, '2025-12-14 19:08:39.817905+00');
-INSERT INTO public.time_categories VALUES (4, 'midday', 'צהריים', 'Midday', 'Midday times', 'Clock', 'orange', 4, true, '2025-12-14 19:08:39.817905+00');
-INSERT INTO public.time_categories VALUES (5, 'afternoon', 'אחה"צ', 'Afternoon', 'Afternoon times', 'Clock', 'amber', 5, true, '2025-12-14 19:08:39.817905+00');
-INSERT INTO public.time_categories VALUES (6, 'sunset', 'שקיעה', 'Sunset', 'Sunset times', 'Sunset', 'rose', 6, true, '2025-12-14 19:08:39.817905+00');
-INSERT INTO public.time_categories VALUES (7, 'nightfall', 'לילה', 'Nightfall', 'Nightfall times', 'Moon', 'indigo', 7, true, '2025-12-14 19:08:39.817905+00');
-INSERT INTO public.time_categories VALUES (8, 'midnight', 'חצות', 'Midnight', 'Midnight times', 'Moon', 'slate', 8, true, '2025-12-14 19:08:39.817905+00');
-
-
--- Name: time_categories_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- publisher_statuses (4 rows)
--- ============================================
-
-
-
-
--- Data for Name: publisher_statuses; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.publisher_statuses OVERRIDING SYSTEM VALUE VALUES (1, 'pending', 'ממתין', 'Pending', 'Awaiting approval', '#FFA500', 1, '2025-12-14 19:08:39.779721+00');
-INSERT INTO public.publisher_statuses OVERRIDING SYSTEM VALUE VALUES (2, 'active', 'פעיל', 'Active', 'Active and visible', '#22C55E', 2, '2025-12-14 19:08:39.779721+00');
-INSERT INTO public.publisher_statuses OVERRIDING SYSTEM VALUE VALUES (3, 'suspended', 'מושעה', 'Suspended', 'Temporarily suspended', '#EF4444', 3, '2025-12-14 19:08:39.779721+00');
-INSERT INTO public.publisher_statuses OVERRIDING SYSTEM VALUE VALUES (4, 'inactive', 'לא פעיל', 'Inactive', 'Deactivated by user', '#6B7280', 4, '2025-12-14 19:08:39.779721+00');
-
-
--- Name: publisher_statuses_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- publisher_roles (4 rows)
--- ============================================
-
-
-
-
--- Data for Name: publisher_roles; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.publisher_roles OVERRIDING SYSTEM VALUE VALUES (1, 'owner', 'בעלים', 'Owner', 'Full control over publisher', '{"all": true}', 1, '2025-12-14 19:08:39.787708+00');
-INSERT INTO public.publisher_roles OVERRIDING SYSTEM VALUE VALUES (2, 'admin', 'מנהל', 'Admin', 'Administrative access', '{"manage_zmanim": true, "manage_members": true, "manage_coverage": true}', 2, '2025-12-14 19:08:39.787708+00');
-INSERT INTO public.publisher_roles OVERRIDING SYSTEM VALUE VALUES (3, 'editor', 'עורך', 'Editor', 'Can edit zmanim and settings', '{"manage_zmanim": true, "manage_coverage": true}', 3, '2025-12-14 19:08:39.787708+00');
-INSERT INTO public.publisher_roles OVERRIDING SYSTEM VALUE VALUES (4, 'viewer', 'צופה', 'Viewer', 'Read-only access', '{"view": true}', 4, '2025-12-14 19:08:39.787708+00');
-
-
--- Name: publisher_roles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- request_statuses (3 rows)
--- ============================================
-
-
-
-
--- Data for Name: request_statuses; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.request_statuses OVERRIDING SYSTEM VALUE VALUES (1, 'pending', 'ממתין', 'Pending', 'Awaiting review', '#FFA500', 1, '2025-12-14 19:08:39.786259+00');
-INSERT INTO public.request_statuses OVERRIDING SYSTEM VALUE VALUES (2, 'approved', 'אושר', 'Approved', 'Request approved', '#22C55E', 2, '2025-12-14 19:08:39.786259+00');
-INSERT INTO public.request_statuses OVERRIDING SYSTEM VALUE VALUES (3, 'rejected', 'נדחה', 'Rejected', 'Request rejected', '#EF4444', 3, '2025-12-14 19:08:39.786259+00');
-
-
--- Name: request_statuses_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- languages (216 rows)
--- ============================================
-
-
-
-
--- Data for Name: languages; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.languages VALUES ('en', 'English', 'English', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('he', 'Hebrew', 'עברית', 'Hebr', 'rtl', true);
-INSERT INTO public.languages VALUES ('ar', 'Arabic', 'العربية', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('yi', 'Yiddish', 'ייִדיש', 'Hebr', 'rtl', true);
-INSERT INTO public.languages VALUES ('ru', 'Russian', 'Русский', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('fr', 'French', 'Français', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('de', 'German', 'Deutsch', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('es', 'Spanish', 'Español', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('pt', 'Portuguese', 'Português', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('zh', 'Chinese', '中文', 'Hans', 'ltr', true);
-INSERT INTO public.languages VALUES ('ja', 'Japanese', '日本語', 'Jpan', 'ltr', true);
-INSERT INTO public.languages VALUES ('ko', 'Korean', '한국어', 'Kore', 'ltr', true);
-INSERT INTO public.languages VALUES ('it', 'Italian', 'Italiano', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('nl', 'Dutch', 'Nederlands', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('pl', 'Polish', 'Polski', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('hu', 'Hungarian', 'Magyar', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('uk', 'Ukrainian', 'Українська', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('tr', 'Turkish', 'Türkçe', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('fa', 'Persian', 'فارسی', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('hi', 'Hindi', 'हिन्दी', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('xx', 'Local Language', 'Local', NULL, 'ltr', true);
-INSERT INTO public.languages VALUES ('aa', 'Afar', 'Afar', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ab', 'Abkhazian', 'Аԥсуа', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('ae', 'Avestan', 'Avesta', 'Avst', 'ltr', true);
-INSERT INTO public.languages VALUES ('af', 'Afrikaans', 'Afrikaans', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ak', 'Akan', 'Akan', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('am', 'Amharic', 'አማርኛ', 'Ethi', 'ltr', true);
-INSERT INTO public.languages VALUES ('an', 'Aragonese', 'Aragonés', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('as', 'Assamese', 'অসমীয়া', 'Beng', 'ltr', true);
-INSERT INTO public.languages VALUES ('av', 'Avaric', 'Авар', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('ay', 'Aymara', 'Aymar', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('az', 'Azerbaijani', 'Azərbaycan', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ba', 'Bashkir', 'Башҡорт', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('be', 'Belarusian', 'Беларуская', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('bg', 'Bulgarian', 'Български', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('bh', 'Bihari', 'भोजपुरी', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('bi', 'Bislama', 'Bislama', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('bm', 'Bambara', 'Bamanankan', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('bn', 'Bengali', 'বাংলা', 'Beng', 'ltr', true);
-INSERT INTO public.languages VALUES ('bo', 'Tibetan', 'བོད་སྐད', 'Tibt', 'ltr', true);
-INSERT INTO public.languages VALUES ('br', 'Breton', 'Brezhoneg', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('bs', 'Bosnian', 'Bosanski', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ca', 'Catalan', 'Català', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ce', 'Chechen', 'Нохчийн', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('ch', 'Chamorro', 'Chamoru', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('co', 'Corsican', 'Corsu', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('cr', 'Cree', 'ᓀᐦᐃᔭᐍᐏᐣ', 'Cans', 'ltr', true);
-INSERT INTO public.languages VALUES ('cs', 'Czech', 'Čeština', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('cu', 'Church Slavic', 'Словѣньскъ', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('cv', 'Chuvash', 'Чӑваш', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('cy', 'Welsh', 'Cymraeg', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('da', 'Danish', 'Dansk', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('dv', 'Divehi', 'ދިވެހި', 'Thaa', 'rtl', true);
-INSERT INTO public.languages VALUES ('dz', 'Dzongkha', 'རྫོང་ཁ', 'Tibt', 'ltr', true);
-INSERT INTO public.languages VALUES ('ee', 'Ewe', 'Eʋegbe', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('el', 'Greek', 'Ελληνικά', 'Grek', 'ltr', true);
-INSERT INTO public.languages VALUES ('eo', 'Esperanto', 'Esperanto', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('et', 'Estonian', 'Eesti', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('eu', 'Basque', 'Euskara', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ff', 'Fulah', 'Fulfulde', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('fi', 'Finnish', 'Suomi', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('fj', 'Fijian', 'Vosa Vakaviti', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('fo', 'Faroese', 'Føroyskt', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('fy', 'Western Frisian', 'Frysk', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ga', 'Irish', 'Gaeilge', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('gd', 'Scottish Gaelic', 'Gàidhlig', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('gl', 'Galician', 'Galego', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('gn', 'Guarani', 'Avañeẽ', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('gu', 'Gujarati', 'ગુજરાતી', 'Gujr', 'ltr', true);
-INSERT INTO public.languages VALUES ('gv', 'Manx', 'Gaelg', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ha', 'Hausa', 'Hausa', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ho', 'Hiri Motu', 'Hiri Motu', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('hr', 'Croatian', 'Hrvatski', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ht', 'Haitian Creole', 'Kreyòl Ayisyen', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('hy', 'Armenian', 'Հայdelays', 'Armn', 'ltr', true);
-INSERT INTO public.languages VALUES ('hz', 'Herero', 'Otjiherero', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ia', 'Interlingua', 'Interlingua', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('id', 'Indonesian', 'Bahasa Indonesia', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ie', 'Interlingue', 'Interlingue', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ig', 'Igbo', 'Igbo', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ii', 'Sichuan Yi', 'ꆈꌠ꒿', 'Yiii', 'ltr', true);
-INSERT INTO public.languages VALUES ('ik', 'Inupiaq', 'Iñupiaq', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('io', 'Ido', 'Ido', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('is', 'Icelandic', 'Íslenska', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('iu', 'Inuktitut', 'ᐃᓄᒃᑎᑐᑦ', 'Cans', 'ltr', true);
-INSERT INTO public.languages VALUES ('jv', 'Javanese', 'Basa Jawa', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ka', 'Georgian', 'ქართული', 'Geor', 'ltr', true);
-INSERT INTO public.languages VALUES ('kg', 'Kongo', 'Kikongo', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ki', 'Kikuyu', 'Gĩkũyũ', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('kj', 'Kuanyama', 'Kuanyama', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('kk', 'Kazakh', 'Қазақша', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('kl', 'Kalaallisut', 'Kalaallisut', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('km', 'Khmer', 'ភាសាខ្មែរ', 'Khmr', 'ltr', true);
-INSERT INTO public.languages VALUES ('kn', 'Kannada', 'ಕನ್ನಡ', 'Knda', 'ltr', true);
-INSERT INTO public.languages VALUES ('kr', 'Kanuri', 'Kanuri', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ks', 'Kashmiri', 'कॉशुर', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('ku', 'Kurdish', 'Kurdî', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('kv', 'Komi', 'Коми', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('kw', 'Cornish', 'Kernewek', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ky', 'Kyrgyz', 'Кыргызча', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('la', 'Latin', 'Latina', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('lb', 'Luxembourgish', 'Lëtzebuergesch', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('lg', 'Ganda', 'Luganda', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('li', 'Limburgish', 'Limburgs', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ln', 'Lingala', 'Lingála', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('lo', 'Lao', 'ລາວ', 'Laoo', 'ltr', true);
-INSERT INTO public.languages VALUES ('lt', 'Lithuanian', 'Lietuvių', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('lu', 'Luba-Katanga', 'Kiluba', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('lv', 'Latvian', 'Latviešu', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('mg', 'Malagasy', 'Malagasy', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('mh', 'Marshallese', 'Kajin Majel', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('mi', 'Maori', 'Te Reo Māori', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('mk', 'Macedonian', 'Македонски', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('ml', 'Malayalam', 'മലയാളം', 'Mlym', 'ltr', true);
-INSERT INTO public.languages VALUES ('mn', 'Mongolian', 'Монгол', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('mr', 'Marathi', 'मराठी', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('ms', 'Malay', 'Bahasa Melayu', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('mt', 'Maltese', 'Malti', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('my', 'Burmese', 'မြန်မာ', 'Mymr', 'ltr', true);
-INSERT INTO public.languages VALUES ('na', 'Nauru', 'Dorerin Naoero', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('nb', 'Norwegian Bokmål', 'Norsk Bokmål', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('nd', 'North Ndebele', 'isiNdebele', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ne', 'Nepali', 'नेपाली', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('ng', 'Ndonga', 'Owambo', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('nn', 'Norwegian Nynorsk', 'Norsk Nynorsk', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('no', 'Norwegian', 'Norsk', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('nr', 'South Ndebele', 'isiNdebele', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('nv', 'Navajo', 'Diné Bizaad', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ny', 'Chichewa', 'Chinyanja', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('oc', 'Occitan', 'Occitan', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('oj', 'Ojibwe', 'ᐊᓂᔑᓈᐯᒧᐎᓐ', 'Cans', 'ltr', true);
-INSERT INTO public.languages VALUES ('om', 'Oromo', 'Afaan Oromoo', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('or', 'Odia', 'ଓଡ଼ିଆ', 'Orya', 'ltr', true);
-INSERT INTO public.languages VALUES ('os', 'Ossetian', 'Ирон', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('pa', 'Punjabi', 'ਪੰਜਾਬੀ', 'Guru', 'ltr', true);
-INSERT INTO public.languages VALUES ('pi', 'Pali', 'पालि', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('ps', 'Pashto', 'پښتو', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('qu', 'Quechua', 'Runa Simi', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('rm', 'Romansh', 'Rumantsch', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('rn', 'Rundi', 'Ikirundi', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ro', 'Romanian', 'Română', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('rw', 'Kinyarwanda', 'Ikinyarwanda', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sa', 'Sanskrit', 'संस्कृतम्', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('sc', 'Sardinian', 'Sardu', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sd', 'Sindhi', 'سنڌي', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('se', 'Northern Sami', 'Davvisámegiella', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sg', 'Sango', 'Sängö', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sh', 'Serbo-Croatian', 'Srpskohrvatski', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('si', 'Sinhala', 'සිංහල', 'Sinh', 'ltr', true);
-INSERT INTO public.languages VALUES ('sk', 'Slovak', 'Slovenčina', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sl', 'Slovenian', 'Slovenščina', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sm', 'Samoan', 'Gagana Sāmoa', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sn', 'Shona', 'chiShona', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('so', 'Somali', 'Soomaali', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sq', 'Albanian', 'Shqip', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sr', 'Serbian', 'Српски', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('ss', 'Swati', 'SiSwati', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('st', 'Southern Sotho', 'Sesotho', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('su', 'Sundanese', 'Basa Sunda', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sv', 'Swedish', 'Svenska', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('sw', 'Swahili', 'Kiswahili', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ta', 'Tamil', 'தமிழ்', 'Taml', 'ltr', true);
-INSERT INTO public.languages VALUES ('te', 'Telugu', 'తెలుగు', 'Telu', 'ltr', true);
-INSERT INTO public.languages VALUES ('tg', 'Tajik', 'Тоҷикӣ', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('th', 'Thai', 'ไทย', 'Thai', 'ltr', true);
-INSERT INTO public.languages VALUES ('ti', 'Tigrinya', 'ትግርኛ', 'Ethi', 'ltr', true);
-INSERT INTO public.languages VALUES ('tk', 'Turkmen', 'Türkmen', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('tl', 'Tagalog', 'Tagalog', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('tn', 'Tswana', 'Setswana', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('to', 'Tongan', 'Lea Faka-Tonga', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ts', 'Tsonga', 'Xitsonga', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('tt', 'Tatar', 'Татарча', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('tw', 'Twi', 'Twi', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ty', 'Tahitian', 'Reo Tahiti', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ug', 'Uyghur', 'ئۇيغۇرچە', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('ur', 'Urdu', 'اردو', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('uz', 'Uzbek', 'Oʻzbek', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ve', 'Venda', 'Tshivenḓa', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('vi', 'Vietnamese', 'Tiếng Việt', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('vo', 'Volapük', 'Volapük', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('wa', 'Walloon', 'Walon', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('wo', 'Wolof', 'Wolof', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('xh', 'Xhosa', 'isiXhosa', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('yo', 'Yoruba', 'Yorùbá', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('za', 'Zhuang', 'Vahcuengh', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('zu', 'Zulu', 'isiZulu', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('al', 'Albanian (alt)', 'Shqip', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('at', 'Austrian German', 'Österreichisches Deutsch', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('by', 'Belarusian (alt)', 'Беларуская', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('cb', 'Cebuan (alt)', 'Cebuano', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('do', 'Dominican Spanish', 'Español Dominicano', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('eb', 'Eblaite', 'Eblaite', 'Xsux', 'ltr', true);
-INSERT INTO public.languages VALUES ('ec', 'Ecuadorian Spanish', 'Español Ecuatoriano', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('eg', 'Egyptian Arabic', 'مصري', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('eh', 'Western Saharan Arabic', 'عربي', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('em', 'Emiliano-Romagnolo', 'Emiliàn-Rumagnòl', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('ge', 'Georgian (alt)', 'ქართული', 'Geor', 'ltr', true);
-INSERT INTO public.languages VALUES ('gr', 'Greek (alt)', 'Ελληνικά', 'Grek', 'ltr', true);
-INSERT INTO public.languages VALUES ('in', 'Indonesian (alt)', 'Bahasa Indonesia', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('iw', 'Hebrew (alt)', 'עברית', 'Hebr', 'rtl', true);
-INSERT INTO public.languages VALUES ('kh', 'Khmer (alt)', 'ភាសាខ្មែរ', 'Khmr', 'ltr', true);
-INSERT INTO public.languages VALUES ('ma', 'Moroccan Arabic', 'الدارجة', 'Arab', 'rtl', true);
-INSERT INTO public.languages VALUES ('mc', 'Monégasque', 'Munegascu', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('md', 'Moldovan', 'Moldovenească', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('mo', 'Moldovan (alt)', 'Moldovenească', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('mp', 'Mariana Islands', 'Chamoru', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('np', 'Nepali (alt)', 'नेपाली', 'Deva', 'ltr', true);
-INSERT INTO public.languages VALUES ('ok', 'Okinawan', 'ウチナーグチ', 'Jpan', 'ltr', true);
-INSERT INTO public.languages VALUES ('po', 'Polish (alt)', 'Polski', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('qt', 'Reserved', NULL, NULL, 'ltr', true);
-INSERT INTO public.languages VALUES ('ri', 'Reserved', NULL, NULL, 'ltr', true);
-INSERT INTO public.languages VALUES ('tj', 'Tajik (alt)', 'Тоҷикӣ', 'Cyrl', 'ltr', true);
-INSERT INTO public.languages VALUES ('ue', 'Reserved', NULL, NULL, 'ltr', true);
-INSERT INTO public.languages VALUES ('xk', 'Kosovo Albanian', 'Shqip', 'Latn', 'ltr', true);
-INSERT INTO public.languages VALUES ('zn', 'Chinese (alt)', '中文', 'Hans', 'ltr', true);
-INSERT INTO public.languages VALUES ('und', 'Undetermined', NULL, NULL, 'ltr', true);
-
-
-
-
-
--- ============================================
--- coverage_levels (5 rows)
--- ============================================
-
-
-
-
--- Data for Name: coverage_levels; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.coverage_levels OVERRIDING SYSTEM VALUE VALUES (1, 'locality', 'יישוב', 'Locality', 'Locality-level coverage', 1, '2025-12-14 19:08:39.789258+00');
-INSERT INTO public.coverage_levels OVERRIDING SYSTEM VALUE VALUES (2, 'district', 'מחוז', 'District', 'District-level coverage', 2, '2025-12-14 19:08:39.789258+00');
-INSERT INTO public.coverage_levels OVERRIDING SYSTEM VALUE VALUES (3, 'region', 'אזור', 'Region', 'Region-level coverage', 3, '2025-12-14 19:08:39.789258+00');
-INSERT INTO public.coverage_levels OVERRIDING SYSTEM VALUE VALUES (4, 'country', 'מדינה', 'Country', 'Country-level coverage', 4, '2025-12-14 19:08:39.789258+00');
-INSERT INTO public.coverage_levels OVERRIDING SYSTEM VALUE VALUES (5, 'continent', 'יבשת', 'Continent', 'Continent-level coverage', 5, '2025-12-14 19:08:39.789258+00');
-
-
--- Name: coverage_levels_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- data_types (3 rows)
--- ============================================
-
-
-
-
--- Data for Name: data_types; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.data_types OVERRIDING SYSTEM VALUE VALUES (1, 'coordinates', 'קואורדינטות', 'Coordinates', 'Latitude/longitude data', '2025-12-14 19:08:39.801059+00');
-INSERT INTO public.data_types OVERRIDING SYSTEM VALUE VALUES (2, 'elevation', 'גובה', 'Elevation', 'Elevation data', '2025-12-14 19:08:39.801059+00');
-INSERT INTO public.data_types OVERRIDING SYSTEM VALUE VALUES (3, 'both', 'שניהם', 'Both', 'Both coordinates and elevation', '2025-12-14 19:08:39.801059+00');
-
-
--- Name: data_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- geo_continents (8 rows)
--- ============================================
-
-
-
-
--- Data for Name: geo_continents; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.geo_continents VALUES (1, 'AF', 'Africa', NULL, NULL);
-INSERT INTO public.geo_continents VALUES (2, 'AN', 'Antarctica', NULL, NULL);
-INSERT INTO public.geo_continents VALUES (3, 'AS', 'Asia', NULL, NULL);
-INSERT INTO public.geo_continents VALUES (4, 'EU', 'Europe', NULL, NULL);
-INSERT INTO public.geo_continents VALUES (5, 'NA', 'North America', NULL, NULL);
-INSERT INTO public.geo_continents VALUES (6, 'OC', 'Oceania', NULL, NULL);
-INSERT INTO public.geo_continents VALUES (7, 'SA', 'South America', NULL, NULL);
-INSERT INTO public.geo_continents VALUES (8, 'XX', 'Unmapped', NULL, NULL);
-
-
-
-
-
--- ============================================
--- geo_data_sources (8 rows)
--- ============================================
-
-
-
-
--- Data for Name: geo_data_sources; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.geo_data_sources VALUES (1, 'publisher', 'Publisher Override', 'Publisher-specific coordinate/elevation override', 3, 1, NULL, NULL, NULL, true, '2025-12-14 19:08:39.805709+00');
-INSERT INTO public.geo_data_sources VALUES (2, 'community', 'Community Contribution', 'User-submitted corrections (verified)', 3, 2, NULL, NULL, NULL, true, '2025-12-14 19:08:39.805709+00');
-INSERT INTO public.geo_data_sources VALUES (3, 'simplemaps', 'SimpleMaps World Cities', 'Government-surveyed coordinates (NGIA, USGS, Census)', 1, 3, 50, 'Data provided by SimpleMaps', 'https://simplemaps.com/data/world-cities', true, '2025-12-14 19:08:39.805709+00');
-INSERT INTO public.geo_data_sources VALUES (4, 'wof', 'Who''s On First', 'Polygon centroids from WOF gazetteer', 1, 4, 1000, 'Data from Who''s On First, a gazetteer of places', 'https://whosonfirst.org/', true, '2025-12-14 19:08:39.805709+00');
-INSERT INTO public.geo_data_sources VALUES (5, 'glo90', 'Copernicus GLO-90', 'Copernicus 90m Digital Elevation Model', 2, 3, 1, '© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA', 'https://copernicus-dem-90m.s3.amazonaws.com/', true, '2025-12-14 19:08:39.805709+00');
-INSERT INTO public.geo_data_sources VALUES (6, 'overture', 'Overture Maps Foundation', 'Global geographic data from Overture Maps Foundation', 1, 2, 100, 'Data provided by Overture Maps Foundation under CDLA Permissive 2.0', 'https://overturemaps.org/', true, '2025-12-14 19:08:39.805709+00');
-INSERT INTO public.geo_data_sources VALUES (7, 'synthetic', 'Synthetic', 'Auto-generated geographic entities for hierarchy completeness', 1, 5, NULL, 'Generated during import to ensure 100% region coverage', NULL, true, '2025-12-14 19:08:39.805709+00');
-INSERT INTO public.geo_data_sources VALUES (8, 'admin', 'Admin Override', 'System-wide admin coordinate/elevation corrections', 3, 1, NULL, 'Admin corrections by Shtetl Zmanim staff', NULL, true, '2025-12-17 21:09:59.387552+00');
-
-
--- Name: geo_data_sources_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- geo_region_types (1 rows)
--- ============================================
-
-
-
-
--- Data for Name: geo_region_types; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.geo_region_types OVERRIDING SYSTEM VALUE VALUES (1, 'locality_group', 'Locality Group', NULL, 100, '2025-12-23 13:07:54.66614+00');
-
-
--- Name: geo_region_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
-
-
-
-
-
-
--- ============================================
--- explanation_sources (3 rows)
--- ============================================
-
-
-
-
--- Data for Name: explanation_sources; Type: TABLE DATA; Schema: public; Owner: -
-
-INSERT INTO public.explanation_sources OVERRIDING SYSTEM VALUE VALUES (1, 'ai', 'בינה מלאכותית', 'AI', '2025-12-14 19:08:39.802565+00');
-INSERT INTO public.explanation_sources OVERRIDING SYSTEM VALUE VALUES (2, 'manual', 'ידני', 'Manual', '2025-12-14 19:08:39.802565+00');
-INSERT INTO public.explanation_sources OVERRIDING SYSTEM VALUE VALUES (3, 'cached', 'מהמטמון', 'Cached', '2025-12-14 19:08:39.802565+00');
-
-
--- Name: explanation_sources_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
