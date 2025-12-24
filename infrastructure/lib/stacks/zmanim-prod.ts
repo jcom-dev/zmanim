@@ -146,6 +146,9 @@ export class ZmanimProdStack extends TerraformStack {
     const cfHostHeaderFunctionArn = commonState.getString("cf_host_header_function_arn");
     const cfS3OacId = commonState.getString("cf_s3_oac_id");
 
+    // Shared SSH key from common stack
+    const sshKeyName = commonState.getString("ssh_key_name");
+
     // ==========================================================================
     // SSM Parameter Data Sources
     // ==========================================================================
@@ -622,6 +625,7 @@ log "Total startup time: $(($(date +%s) - SCRIPT_START))s"
       subnetId: publicSubnetId,
       vpcSecurityGroupIds: [ec2SecurityGroup.id],
       iamInstanceProfile: instanceProfile.name,
+      keyName: sshKeyName,
       monitoring: true,
       userData: userData,
       rootBlockDevice: {
@@ -721,15 +725,17 @@ log "Total startup time: $(($(date +%s) - SCRIPT_START))s"
     });
 
     // ==========================================================================
-    // API Gateway Routes - Simplified 2-Path Authentication Pattern
+    // API Gateway Routes - Updated Route Structure (Phase 1)
     // ==========================================================================
-    // This configuration implements the simplified routing pattern from Story 9.1:
-    // - /api/v1/public/* → No authentication (public access)
-    // - /api/v1/auth/* → JWT authentication required (Clerk authorizer)
+    // This configuration implements the backend route structure:
     // - /api/v1/health → No authentication (health check)
+    // - /api/v1/admin/* → JWT authentication required (admin endpoints)
+    // - /api/v1/publisher/* → JWT authentication required (publisher endpoints)
+    // - /api/v1/external/* → JWT authentication required (external endpoints)
+    // - /api/v1/auth/* → JWT authentication required (auth endpoints)
+    // - /api/v1/* → No authentication (public endpoints - catch-all)
     //
-    // Backend routes (Story 8.17) already migrated to this pattern.
-    // Frontend auto-routing (normalizeEndpoint) handles path translation.
+    // The catch-all route is defined LAST as it's the least specific.
     // ==========================================================================
 
     // Health check integration (special case - maps to /health, not /api/v1/health on backend)
@@ -751,12 +757,11 @@ log "Total startup time: $(($(date +%s) - SCRIPT_START))s"
       target: `integrations/${healthIntegration.id}`,
     });
 
-    // Public routes integration - forwards to /api/v1/public/{proxy} on backend
-    // Integration URI uses {proxy} (singular) which gets replaced with full path segments
-    const publicIntegration = new Apigatewayv2Integration(this, "ec2-public-integration", {
+    // Admin routes integration - forwards to /api/v1/admin/{proxy} on backend
+    const adminIntegration = new Apigatewayv2Integration(this, "ec2-admin-integration", {
       apiId: httpApi.id,
       integrationType: "HTTP_PROXY",
-      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/public/{proxy}`,
+      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/admin/{proxy}`,
       integrationMethod: "ANY",
       timeoutMilliseconds: 29000,
       requestParameters: {
@@ -764,15 +769,61 @@ log "Total startup time: $(($(date +%s) - SCRIPT_START))s"
       },
     });
 
-    // Public routes - no authentication required
-    // Matches: /api/v1/public/publishers, /api/v1/public/cities, /api/v1/public/zmanim, etc.
-    new Apigatewayv2Route(this, "route-public", {
+    // Admin routes - JWT authentication required
+    // Matches: /api/v1/admin/stats, /api/v1/admin/publishers, etc.
+    new Apigatewayv2Route(this, "route-admin", {
       apiId: httpApi.id,
-      routeKey: "ANY /api/v1/public/{proxy+}",
-      target: `integrations/${publicIntegration.id}`,
+      routeKey: "ANY /api/v1/admin/{proxy+}",
+      target: `integrations/${adminIntegration.id}`,
+      authorizationType: "JWT",
+      authorizerId: clerkAuthorizer.id,
     });
 
-    // Authenticated routes integration - forwards to /api/v1/auth/{proxy} on backend
+    // Publisher routes integration - forwards to /api/v1/publisher/{proxy} on backend
+    const publisherIntegration = new Apigatewayv2Integration(this, "ec2-publisher-integration", {
+      apiId: httpApi.id,
+      integrationType: "HTTP_PROXY",
+      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/publisher/{proxy}`,
+      integrationMethod: "ANY",
+      timeoutMilliseconds: 29000,
+      requestParameters: {
+        "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+      },
+    });
+
+    // Publisher routes - JWT authentication required
+    // Matches: /api/v1/publisher/zmanim, /api/v1/publisher/coverage, etc.
+    new Apigatewayv2Route(this, "route-publisher", {
+      apiId: httpApi.id,
+      routeKey: "ANY /api/v1/publisher/{proxy+}",
+      target: `integrations/${publisherIntegration.id}`,
+      authorizationType: "JWT",
+      authorizerId: clerkAuthorizer.id,
+    });
+
+    // External routes integration - forwards to /api/v1/external/{proxy} on backend
+    const externalIntegration = new Apigatewayv2Integration(this, "ec2-external-integration", {
+      apiId: httpApi.id,
+      integrationType: "HTTP_PROXY",
+      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/external/{proxy}`,
+      integrationMethod: "ANY",
+      timeoutMilliseconds: 29000,
+      requestParameters: {
+        "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+      },
+    });
+
+    // External routes - JWT authentication required
+    // Matches: /api/v1/external/api-keys, etc.
+    new Apigatewayv2Route(this, "route-external", {
+      apiId: httpApi.id,
+      routeKey: "ANY /api/v1/external/{proxy+}",
+      target: `integrations/${externalIntegration.id}`,
+      authorizationType: "JWT",
+      authorizerId: clerkAuthorizer.id,
+    });
+
+    // Auth routes integration - forwards to /api/v1/auth/{proxy} on backend
     const authIntegration = new Apigatewayv2Integration(this, "ec2-auth-integration", {
       apiId: httpApi.id,
       integrationType: "HTTP_PROXY",
@@ -784,14 +835,35 @@ log "Total startup time: $(($(date +%s) - SCRIPT_START))s"
       },
     });
 
-    // Authenticated routes - JWT authentication required (Clerk authorizer)
-    // Matches: /api/v1/auth/publisher/*, /api/v1/auth/admin/*, /api/v1/auth/external/*, etc.
+    // Auth routes - JWT authentication required
+    // Matches: /api/v1/auth/*, etc.
     new Apigatewayv2Route(this, "route-auth", {
       apiId: httpApi.id,
       routeKey: "ANY /api/v1/auth/{proxy+}",
       target: `integrations/${authIntegration.id}`,
       authorizationType: "JWT",
       authorizerId: clerkAuthorizer.id,
+    });
+
+    // Public routes integration - forwards to /api/v1/{proxy} on backend (catch-all)
+    // Integration URI uses {proxy} (singular) which gets replaced with full path segments
+    const publicIntegration = new Apigatewayv2Integration(this, "ec2-public-integration", {
+      apiId: httpApi.id,
+      integrationType: "HTTP_PROXY",
+      integrationUri: `http://${elasticIp.publicIp}:8080/api/v1/{proxy}`,
+      integrationMethod: "ANY",
+      timeoutMilliseconds: 29000,
+      requestParameters: {
+        "overwrite:header.X-Origin-Verify": ssmOriginVerifyKey.value,
+      },
+    });
+
+    // Public routes - no authentication required (catch-all, defined last)
+    // Matches: /api/v1/publishers, /api/v1/cities, /api/v1/zmanim, etc.
+    new Apigatewayv2Route(this, "route-public", {
+      apiId: httpApi.id,
+      routeKey: "ANY /api/v1/{proxy+}",
+      target: `integrations/${publicIntegration.id}`,
     });
 
     // ==========================================================================
