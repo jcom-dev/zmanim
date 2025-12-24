@@ -146,9 +146,6 @@ export class ZmanimProdStack extends TerraformStack {
     const cfHostHeaderFunctionArn = commonState.getString("cf_host_header_function_arn");
     const cfS3OacId = commonState.getString("cf_s3_oac_id");
 
-    // Shared SSH key from common stack
-    const sshKeyName = commonState.getString("ssh_key_name");
-
     // ==========================================================================
     // SSM Parameter Data Sources
     // ==========================================================================
@@ -625,7 +622,6 @@ log "Total startup time: $(($(date +%s) - SCRIPT_START))s"
       subnetId: publicSubnetId,
       vpcSecurityGroupIds: [ec2SecurityGroup.id],
       iamInstanceProfile: instanceProfile.name,
-      keyName: sshKeyName,
       monitoring: true,
       userData: userData,
       rootBlockDevice: {
