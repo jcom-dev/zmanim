@@ -26,6 +26,9 @@ func Midpoint(start, end time.Time) time.Time {
 // Returns the time that is 'hours' proportional hours after sunrise
 func ShaosZmaniyosGRA(sunrise, sunset time.Time, hours float64) time.Time {
 	dayDuration := sunset.Sub(sunrise)
+	if dayDuration <= 0 {
+		return time.Time{} // Invalid day duration
+	}
 	hourDuration := time.Duration(float64(dayDuration) / 12)
 	return sunrise.Add(time.Duration(float64(hourDuration) * hours))
 }
@@ -34,6 +37,9 @@ func ShaosZmaniyosGRA(sunrise, sunset time.Time, hours float64) time.Time {
 // Returns the time that is 'hours' proportional hours after alos
 func ShaosZmaniyosMGA(alos72, tzeis72 time.Time, hours float64) time.Time {
 	dayDuration := tzeis72.Sub(alos72)
+	if dayDuration <= 0 {
+		return time.Time{} // Invalid day duration
+	}
 	hourDuration := time.Duration(float64(dayDuration) / 12)
 	return alos72.Add(time.Duration(float64(hourDuration) * hours))
 }
@@ -41,6 +47,9 @@ func ShaosZmaniyosMGA(alos72, tzeis72 time.Time, hours float64) time.Time {
 // ShaosZmaniyosCustom calculates proportional hours using custom start/end times
 func ShaosZmaniyosCustom(start, end time.Time, hours float64) time.Time {
 	dayDuration := end.Sub(start)
+	if dayDuration <= 0 {
+		return time.Time{} // Invalid day duration
+	}
 	hourDuration := time.Duration(float64(dayDuration) / 12)
 	return start.Add(time.Duration(float64(hourDuration) * hours))
 }

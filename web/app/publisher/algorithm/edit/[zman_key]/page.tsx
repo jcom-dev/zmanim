@@ -225,8 +225,10 @@ export default function ZmanEditorPage() {
   }, []);
 
   useEffect(() => {
+    if (!isResizing) return;
+
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing || !containerRef.current) return;
+      if (!containerRef.current) return;
       const containerRect = containerRef.current.getBoundingClientRect();
       const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
       setLeftWidth(Math.min(Math.max(newWidth, 30), 70));
@@ -236,10 +238,8 @@ export default function ZmanEditorPage() {
       setIsResizing(false);
     };
 
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);

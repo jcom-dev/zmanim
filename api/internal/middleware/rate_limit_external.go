@@ -69,8 +69,11 @@ func (rl *ExternalRateLimiter) Middleware(next http.Handler) http.Handler {
 			slog.Error("rate limiter: check failed",
 				"client_id", clientID,
 				"error", err)
-			// On error, allow request but log the issue (graceful degradation)
-			// Headers will show limits but won't enforce
+			// FAIL CLOSED: Reject request when rate limiter errors (security best practice)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			respondRateLimitError(w, fmt.Sprintf("Rate limiter temporarily unavailable: %s", err.Error()), 60)
+			return
 		}
 
 		// Add rate limit headers to response

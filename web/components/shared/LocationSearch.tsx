@@ -67,10 +67,6 @@ function buildApiHierarchyDescription(api: ApiSearchResult): string {
       if (api.region_name) parts.push(api.region_name);
       if (api.country_name) parts.push(api.country_name);
       break;
-    case 'locality':
-      if (api.region_name) parts.push(api.region_name);
-      if (api.country_name) parts.push(api.country_name);
-      break;
     case 'region':
       if (api.country_name) parts.push(api.country_name);
       break;
@@ -193,6 +189,9 @@ export function LocationSearch({
       return;
     }
 
+    // AbortController to cancel in-flight requests
+    const abortController = new AbortController();
+
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
       setShowDropdown(true);
@@ -219,24 +218,39 @@ export function LocationSearch({
         }
 
         const data = await api.public.get<{ results: ApiSearchResult[]; total: number }>(
-          `/localities/search?${params.toString()}`
+          `/localities/search?${params.toString()}`,
+          { signal: abortController.signal }
         );
 
-        // Transform API results to frontend format
-        const results = (data?.results || []).map(mapApiResultToSearchResult);
+        // Only update state if request wasn't aborted
+        if (!abortController.signal.aborted) {
+          // Transform API results to frontend format
+          const results = (data?.results || []).map(mapApiResultToSearchResult);
 
-        // Store raw results - exclusion filtering happens in useMemo
-        setRawResults(results);
-        setHighlightedIndex(0);
+          // Store raw results - exclusion filtering happens in useMemo
+          setRawResults(results);
+          setHighlightedIndex(0);
+        }
       } catch (err) {
+        // Ignore abort errors
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
         console.error('Location search failed:', err);
-        setRawResults([]);
+        if (!abortController.signal.aborted) {
+          setRawResults([]);
+        }
       } finally {
-        setIsSearching(false);
+        if (!abortController.signal.aborted) {
+          setIsSearching(false);
+        }
       }
     }, 300);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      abortController.abort();
+    };
   }, [searchQuery, api, stableFilterByCountryCodes, publisherId, mode]);
 
   // Close dropdown when clicking outside

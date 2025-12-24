@@ -16,6 +16,7 @@ interface HalachicNotesEditorProps {
 }
 
 // Simple markdown renderer (no external dependency)
+// Security: Escapes HTML entities first, then applies markdown transformations
 function renderMarkdown(markdown: string): string {
   if (!markdown) return '';
 
@@ -25,19 +26,31 @@ function renderMarkdown(markdown: string): string {
   html = html
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
 
-  // Headers
-  html = html.replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-3 mb-1">$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>');
+  // Headers - escape captured groups to prevent attribute injection
+  html = html.replace(/^### (.+)$/gm, (_match, p1) => {
+    return `<h3 class="text-base font-semibold mt-3 mb-1">${p1}</h3>`;
+  });
+  html = html.replace(/^## (.+)$/gm, (_match, p1) => {
+    return `<h2 class="text-lg font-semibold mt-4 mb-2">${p1}</h2>`;
+  });
+  html = html.replace(/^# (.+)$/gm, (_match, p1) => {
+    return `<h1 class="text-xl font-bold mt-4 mb-2">${p1}</h1>`;
+  });
 
-  // Bold and italic
+  // Bold and italic - already escaped
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary underline" target="_blank" rel="noopener">$1</a>');
+  // Links - sanitize URL to prevent javascript: protocol
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text, url) => {
+    // Only allow http, https, and relative URLs
+    const sanitizedUrl = url.trim().match(/^(https?:\/\/|\/)/i) ? url : '#';
+    return `<a href="${sanitizedUrl}" class="text-primary underline" target="_blank" rel="noopener noreferrer">${text}</a>`;
+  });
 
   // Citation format [Source: Reference]
   html = html.replace(/\[([^\]]+)\]/g, '<span class="text-amber-600 dark:text-amber-400 font-medium">[$1]</span>');

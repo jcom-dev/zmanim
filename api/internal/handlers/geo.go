@@ -96,10 +96,12 @@ func (h *Handlers) GetCountryByCode(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetContinents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Check cache first (read lock)
+	// Check cache first (read lock) - copy data while holding lock
 	continentsCacheMu.RLock()
 	if continentsCacheLoaded {
-		result := continentsCache
+		// Copy slice while holding lock to prevent TOCTOU race
+		result := make([]sqlcgen.GetContinentsRow, len(continentsCache))
+		copy(result, continentsCache)
 		continentsCacheMu.RUnlock()
 		RespondJSON(w, r, http.StatusOK, result)
 		return

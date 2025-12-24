@@ -20,6 +20,37 @@ var allowedMimeTypes = map[string]bool{
 	"image/webp": true,
 }
 
+// Magic bytes for image file validation
+var (
+	pngMagicBytes  = []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+	jpegMagicBytes = []byte{0xFF, 0xD8, 0xFF}
+	webpMagicBytes = []byte{0x52, 0x49, 0x46, 0x46} // "RIFF" marker
+)
+
+// validateImageMagicBytes validates the file by checking magic bytes
+func validateImageMagicBytes(data []byte) (string, bool) {
+	if len(data) < 12 {
+		return "", false
+	}
+
+	// Check PNG
+	if len(data) >= len(pngMagicBytes) && string(data[:len(pngMagicBytes)]) == string(pngMagicBytes) {
+		return "image/png", true
+	}
+
+	// Check JPEG
+	if len(data) >= len(jpegMagicBytes) && string(data[:len(jpegMagicBytes)]) == string(jpegMagicBytes) {
+		return "image/jpeg", true
+	}
+
+	// Check WebP (RIFF at start, WEBP at byte 8)
+	if len(data) >= 12 && string(data[:4]) == string(webpMagicBytes) && string(data[8:12]) == "WEBP" {
+		return "image/webp", true
+	}
+
+	return "", false
+}
+
 // UploadPublisherLogo handles logo upload for publishers
 // Stores logo as base64 data URL directly in the database
 func (h *Handlers) UploadPublisherLogo(w http.ResponseWriter, r *http.Request) {
@@ -53,19 +84,22 @@ func (h *Handlers) UploadPublisherLogo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate file type
-	contentType := header.Header.Get("Content-Type")
-	if !allowedMimeTypes[contentType] {
-		RespondBadRequest(w, r, "Invalid file type. Only JPEG, PNG, and WebP are allowed")
-		return
-	}
-
-	// Read file content
+	// Read file content first for validation
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to read file")
 		return
 	}
+
+	// Validate file type by magic bytes (don't trust Content-Type header)
+	detectedType, valid := validateImageMagicBytes(fileBytes)
+	if !valid {
+		RespondBadRequest(w, r, "Invalid file type. Only JPEG, PNG, and WebP images are allowed")
+		return
+	}
+
+	// Use the detected MIME type from magic bytes
+	contentType := detectedType
 
 	// Convert to base64 data URL
 	base64Data := base64.StdEncoding.EncodeToString(fileBytes)

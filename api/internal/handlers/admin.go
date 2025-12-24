@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -1351,10 +1352,9 @@ func generateSlug(text string) string {
 		return '-'
 	}, slug)
 
-	// Remove consecutive hyphens
-	for strings.Contains(slug, "--") {
-		slug = strings.ReplaceAll(slug, "--", "-")
-	}
+	// Remove consecutive hyphens using regex replacement
+	re := regexp.MustCompile(`-+`)
+	slug = re.ReplaceAllString(slug, "-")
 
 	// Trim hyphens from start and end
 	slug = strings.Trim(slug, "-")

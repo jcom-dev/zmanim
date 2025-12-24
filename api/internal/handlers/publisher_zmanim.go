@@ -793,7 +793,16 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 	var days []YearExportDayRow
 	dayNames := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
 
+	// Prevent unbounded loop - Hebrew leap year max ~385 days
+	const maxIterations = 400
+	iterations := 0
 	for date := startDate; !date.After(endDate); date = date.AddDate(0, 0, 1) {
+		iterations++
+		if iterations > maxIterations {
+			slog.Error("year export exceeded maximum iterations", "start_date", startDate, "end_date", endDate, "iterations", iterations)
+			RespondBadRequest(w, r, "Date range too large for export")
+			return
+		}
 		dateLocal := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, tz)
 		dateStr := dateLocal.Format("2006-01-02")
 

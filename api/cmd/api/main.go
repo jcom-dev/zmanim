@@ -225,14 +225,14 @@ func main() {
 	})
 
 	// Initialize auth middleware
-	authMiddleware := custommw.NewAuthMiddleware(cfg.JWT.JWKSUrl, cfg.JWT.Issuer)
+	authMiddleware := custommw.NewAuthMiddleware(cfg.JWT.JWKSUrl, cfg.JWT.Issuer, cfg.JWT.Audience)
 
 	// Initialize rate limiter
 	rateLimiter := custommw.NewDefaultRateLimiter()
 	defer rateLimiter.Stop()
 
 	// Initialize M2M auth middleware for external API
-	m2mAuth := custommw.NewM2MAuthMiddleware(cfg.JWT.JWKSUrl, cfg.JWT.Issuer)
+	m2mAuth := custommw.NewM2MAuthMiddleware(cfg.JWT.JWKSUrl, cfg.JWT.Issuer, cfg.JWT.Audience)
 
 	// Initialize Redis-backed rate limiter for external API (Story 8.7)
 	var externalRateLimiter *custommw.ExternalRateLimiter

@@ -88,12 +88,21 @@ func CalculateSunTimesWithElevation(date time.Time, latitude, longitude, elevati
 // Returns both dawn (before sunrise) and dusk (after sunset) times
 // This version assumes sea level. Use SunTimeAtAngleWithElevation for elevation-adjusted times.
 func SunTimeAtAngle(date time.Time, latitude, longitude float64, tz *time.Location, angle float64) (dawn, dusk time.Time) {
+	// Validate angle range
+	if angle < 0 || angle > 90 {
+		return time.Time{}, time.Time{} // Invalid angle
+	}
 	return SunTimeAtAngleWithElevation(date, latitude, longitude, 0, tz, angle)
 }
 
 // SunTimeAtAngleWithElevation calculates sun angle times with elevation adjustment
 // Elevation is in meters above sea level
 func SunTimeAtAngleWithElevation(date time.Time, latitude, longitude, elevation float64, tz *time.Location, angle float64) (dawn, dusk time.Time) {
+	// Validate angle range
+	if angle < 0 || angle > 90 {
+		return time.Time{}, time.Time{} // Invalid angle
+	}
+
 	jd := julianDay(date)
 
 	// Calculate dawn (before sunrise)
@@ -111,12 +120,21 @@ func SunTimeAtAngleWithElevation(date time.Time, latitude, longitude, elevation 
 // This produces times that match halachic seasonal hours (sha'os zmaniyos) calculations.
 // The angle parameter is degrees below horizon (e.g., 16.04 for alos hashachar).
 func SeasonalSunTimeAtAngle(date time.Time, latitude, longitude float64, tz *time.Location, angle float64) (dawn, dusk time.Time) {
+	// Validate angle range
+	if angle < 0 || angle > 90 {
+		return time.Time{}, time.Time{} // Invalid angle
+	}
 	return SeasonalSunTimeAtAngleWithElevation(date, latitude, longitude, 0, tz, angle)
 }
 
 // SeasonalSunTimeAtAngleWithElevation calculates seasonal sun angle times with elevation adjustment.
 // See SeasonalSunTimeAtAngle for methodology explanation.
 func SeasonalSunTimeAtAngleWithElevation(date time.Time, latitude, longitude, elevation float64, tz *time.Location, angle float64) (dawn, dusk time.Time) {
+	// Validate angle range
+	if angle < 0 || angle > 90 {
+		return time.Time{}, time.Time{} // Invalid angle
+	}
+
 	// Step 1: Calculate equinox date (March 20 of the same year)
 	equinoxDate := time.Date(date.Year(), 3, 20, 12, 0, 0, 0, tz)
 

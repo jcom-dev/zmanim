@@ -28,9 +28,9 @@ type M2MAuthMiddleware struct {
 }
 
 // NewM2MAuthMiddleware creates a new M2M authentication middleware
-func NewM2MAuthMiddleware(jwksUrl, issuer string) *M2MAuthMiddleware {
+func NewM2MAuthMiddleware(jwksUrl, issuer, audience string) *M2MAuthMiddleware {
 	return &M2MAuthMiddleware{
-		authMiddleware: NewAuthMiddleware(jwksUrl, issuer),
+		authMiddleware: NewAuthMiddleware(jwksUrl, issuer, audience),
 	}
 }
 

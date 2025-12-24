@@ -32,9 +32,10 @@ type DatabaseConfig struct {
 
 // JWTConfig holds JWT configuration
 type JWTConfig struct {
-	Secret  string
-	JWKSUrl string
-	Issuer  string
+	Secret   string
+	JWKSUrl  string
+	Issuer   string
+	Audience string
 }
 
 // CORSConfig holds CORS configuration
@@ -63,9 +64,10 @@ func Load() (*Config, error) {
 			URL: getEnv("DATABASE_URL", ""),
 		},
 		JWT: JWTConfig{
-			Secret:  getEnv("JWT_SECRET", ""),
-			JWKSUrl: getEnv("CLERK_JWKS_URL", ""),
-			Issuer:  getEnv("CLERK_ISSUER", ""),
+			Secret:   getEnv("JWT_SECRET", ""),
+			JWKSUrl:  getEnv("CLERK_JWKS_URL", ""),
+			Issuer:   getEnv("CLERK_ISSUER", ""),
+			Audience: getEnv("CLERK_AUDIENCE", ""),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: getEnvSlice("ALLOWED_ORIGINS", []string{

@@ -10,6 +10,7 @@ package dsl
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/jcom-dev/zmanim/internal/astro"
@@ -615,6 +616,11 @@ func (e *Executor) executeProportionalHours(n *FunctionNode) Value {
 			return Value{}
 		}
 		t = astro.ShaosZmaniyosCustom(startVal.Time, endVal.Time, hours)
+		// Check for zero time (indicates calculation failure)
+		if t.IsZero() {
+			e.addError("custom() calculation failed - invalid day duration")
+			return Value{}
+		}
 
 	default:
 		e.addError("unknown base: %s", baseNode.Base)
@@ -814,12 +820,22 @@ func (e *Executor) executeSubtract(left, right Value) Value {
 func (e *Executor) executeMultiply(left, right Value) Value {
 	// Duration * Number = Duration
 	if left.Type == ValueTypeDuration && right.Type == ValueTypeNumber {
-		return Value{Type: ValueTypeDuration, Duration: time.Duration(float64(left.Duration) * right.Number)}
+		result := float64(left.Duration) * right.Number
+		if result > math.MaxInt64 || result < math.MinInt64 {
+			e.addError("duration overflow: result exceeds maximum duration")
+			return Value{}
+		}
+		return Value{Type: ValueTypeDuration, Duration: time.Duration(result)}
 	}
 
 	// Number * Duration = Duration
 	if left.Type == ValueTypeNumber && right.Type == ValueTypeDuration {
-		return Value{Type: ValueTypeDuration, Duration: time.Duration(left.Number * float64(right.Duration))}
+		result := left.Number * float64(right.Duration)
+		if result > math.MaxInt64 || result < math.MinInt64 {
+			e.addError("duration overflow: result exceeds maximum duration")
+			return Value{}
+		}
+		return Value{Type: ValueTypeDuration, Duration: time.Duration(result)}
 	}
 
 	// Number * Number = Number
@@ -1045,6 +1061,13 @@ func (e *Executor) executeDateLiteral(n *DateLiteralNode) Value {
 	// We use the execution context's year to handle leap years correctly
 	year := e.ctx.Date.Year()
 	date := time.Date(year, time.Month(n.Month), n.Day, 0, 0, 0, 0, time.UTC)
+
+	// Check if date was normalized (e.g., Feb 29 -> Mar 1 on non-leap year)
+	if date.Month() != time.Month(n.Month) || date.Day() != n.Day {
+		e.addError("date %d-%s does not exist in year %d", n.Day, time.Month(n.Month), year)
+		return Value{}
+	}
+
 	dayOfYear := date.YearDay()
 	return Value{Type: ValueTypeNumber, Number: float64(dayOfYear)}
 }

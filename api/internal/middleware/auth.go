@@ -89,6 +89,7 @@ type JWKS struct {
 type AuthConfig struct {
 	JWKSUrl       string
 	Issuer        string
+	Audience      string
 	CacheDuration time.Duration
 }
 
@@ -101,11 +102,12 @@ type AuthMiddleware struct {
 }
 
 // NewAuthMiddleware creates a new authentication middleware
-func NewAuthMiddleware(jwksUrl, issuer string) *AuthMiddleware {
+func NewAuthMiddleware(jwksUrl, issuer, audience string) *AuthMiddleware {
 	return &AuthMiddleware{
 		config: AuthConfig{
 			JWKSUrl:       jwksUrl,
 			Issuer:        issuer,
+			Audience:      audience,
 			CacheDuration: 1 * time.Hour,
 		},
 		keys: make(map[string]*rsa.PublicKey),
@@ -328,6 +330,20 @@ func (am *AuthMiddleware) validateToken(r *http.Request) (*Claims, error) {
 	}
 	if am.config.Issuer != "" && claims.Issuer != am.config.Issuer {
 		return nil, fmt.Errorf("invalid issuer")
+	}
+
+	// Validate audience if configured
+	if am.config.Audience != "" {
+		audienceValid := false
+		for _, aud := range claims.Audience {
+			if aud == am.config.Audience {
+				audienceValid = true
+				break
+			}
+		}
+		if !audienceValid {
+			return nil, fmt.Errorf("invalid audience")
+		}
 	}
 
 	return claims, nil

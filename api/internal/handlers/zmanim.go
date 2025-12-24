@@ -24,6 +24,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -271,19 +272,20 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 
 	// Get coordinates from default values (nullable from view)
 	var latitude, longitude float64
-	if localityDetails.Latitude != nil {
+	if localityDetails.Latitude != nil && localityDetails.Longitude != nil {
 		latitude = *localityDetails.Latitude
-	}
-	if localityDetails.Longitude != nil {
 		longitude = *localityDetails.Longitude
+	} else {
+		RespondBadRequest(w, r, "Locality has no coordinate data")
+		return
 	}
 	elevation := localityDetails.Elevation
 
 	// Load timezone (used for date operations)
 	tz, err := time.LoadLocation(timezone)
 	if err != nil {
-		tz = time.UTC
-		timezone = "UTC"
+		RespondBadRequest(w, r, fmt.Sprintf("Invalid timezone for locality: %s", timezone))
+		return
 	}
 
 	var publisherInfo *ZmanimPublisherInfo

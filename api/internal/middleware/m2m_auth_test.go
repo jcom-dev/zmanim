@@ -249,7 +249,7 @@ func TestExtractBearerToken(t *testing.T) {
 
 // TestM2MAuthMiddleware_MissingToken tests middleware with missing token
 func TestM2MAuthMiddleware_MissingToken(t *testing.T) {
-	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com")
+	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com", "")
 
 	handler := m2m.RequireM2M(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -267,7 +267,7 @@ func TestM2MAuthMiddleware_MissingToken(t *testing.T) {
 
 // TestM2MAuthMiddleware_InvalidToken tests middleware with invalid token format
 func TestM2MAuthMiddleware_InvalidToken(t *testing.T) {
-	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com")
+	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com", "")
 
 	handler := m2m.RequireM2M(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -286,7 +286,7 @@ func TestM2MAuthMiddleware_InvalidToken(t *testing.T) {
 
 // TestM2MAuthMiddleware_OptionalM2M tests optional M2M middleware
 func TestM2MAuthMiddleware_OptionalM2M(t *testing.T) {
-	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com")
+	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com", "")
 
 	handler := m2m.OptionalM2M(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		clientID := GetClientID(r.Context())
@@ -313,7 +313,7 @@ func TestM2MAuthMiddleware_OptionalM2M(t *testing.T) {
 
 // TestM2MAuthMiddleware_LoggingMiddleware tests logging middleware
 func TestM2MAuthMiddleware_LoggingMiddleware(t *testing.T) {
-	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com")
+	m2m := NewM2MAuthMiddleware("https://example.com/.well-known/jwks.json", "https://example.com", "")
 
 	handler := m2m.LoggingMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

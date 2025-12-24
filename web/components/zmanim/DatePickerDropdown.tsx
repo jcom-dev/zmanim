@@ -110,15 +110,21 @@ export function DatePickerDropdown({
 
   // Update position when opening or on scroll/resize
   useEffect(() => {
-    if (isOpen) {
-      updateDropdownPosition();
-      window.addEventListener('scroll', updateDropdownPosition, true);
-      window.addEventListener('resize', updateDropdownPosition);
-      return () => {
-        window.removeEventListener('scroll', updateDropdownPosition, true);
-        window.removeEventListener('resize', updateDropdownPosition);
-      };
-    }
+    if (!isOpen) return;
+
+    updateDropdownPosition();
+
+    // Store the function reference to ensure proper cleanup
+    const scrollHandler = updateDropdownPosition;
+    const resizeHandler = updateDropdownPosition;
+
+    window.addEventListener('scroll', scrollHandler, true);
+    window.addEventListener('resize', resizeHandler);
+
+    return () => {
+      window.removeEventListener('scroll', scrollHandler, true);
+      window.removeEventListener('resize', resizeHandler);
+    };
   }, [isOpen, updateDropdownPosition]);
 
   // Scroll to current year when year select opens
