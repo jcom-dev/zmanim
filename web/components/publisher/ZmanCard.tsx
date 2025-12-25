@@ -73,6 +73,7 @@ import { ZmanTagEditor } from './ZmanTagEditor';
 import { RoundingModeToggle } from './RoundingModeToggle';
 import { ZmanMetadataEditor } from './ZmanMetadataEditor';
 import { MasterZmanDetailModal } from '@/components/registry/MasterZmanDetailModal';
+import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
 
 /**
  * Get the source name for a zman (Registry or linked publisher name)
@@ -190,6 +191,7 @@ interface ZmanCardProps {
 export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', allZmanim = [], previewTime, compact = false, isFocused = false }: ZmanCardProps) {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
+  const getTagName = useTagDisplayName();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDisableDialog, setShowDisableDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -621,11 +623,14 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                   color={getTagTypeColor(tag.tag_type)}
                   size="sm"
                   className={cn(
-                    tag.is_negated && "opacity-70 line-through decoration-red-500"
+                    // Negated tags: red border + strikethrough
+                    tag.is_negated && "border-2 border-red-500 dark:border-red-400"
                   )}
                 >
-                  {tag.is_negated && <X className="h-2.5 w-2.5 mr-0.5 text-red-500" />}
-                  {tag.display_name_english}
+                  {tag.is_negated && <X className="h-2.5 w-2.5 mr-0.5 text-red-500 shrink-0" />}
+                  <span className={cn(tag.is_negated && "line-through decoration-red-500")}>
+                    {getTagName(tag)}
+                  </span>
                 </ColorBadge>
               ))}
             </div>

@@ -19,7 +19,7 @@ ORDER BY
     mr.canonical_hebrew_name;
 
 -- name: GetEverydayMasterZmanim :many
--- Get everyday zmanim (excludes event zmanim like candle lighting, havdalah, fast times, chametz)
+-- Get everyday zmanim (excludes event zmanim - those with tag_type = 'event')
 SELECT
     mr.id, mr.zman_key, mr.canonical_hebrew_name, mr.canonical_english_name,
     mr.transliteration, mr.description, mr.halachic_notes, mr.halachic_source,
@@ -30,8 +30,9 @@ LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE NOT EXISTS (
     SELECT 1 FROM master_zman_tags mzt
     JOIN zman_tags t ON mzt.tag_id = t.id
+    JOIN tag_types tt ON t.tag_type_id = tt.id
     WHERE mzt.master_zman_id = mr.id
-    AND t.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end', 'category_chametz')
+    AND tt.key = 'event'
 )
 AND COALESCE(mr.is_hidden, false) = false
 ORDER BY
@@ -115,39 +116,47 @@ ORDER BY tc.sort_order;
 -- ============================================
 
 -- name: GetAllTags :many
+-- User-facing query - excludes hidden tags
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-ORDER BY tt.sort_order, zt.sort_order, zt.name;
+WHERE zt.is_hidden = false
+ORDER BY tt.sort_order, zt.tag_key;
 
 -- name: GetTagsByType :many
+-- User-facing query - excludes hidden tags
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-WHERE tt.key = $1
-ORDER BY zt.sort_order, zt.name;
+WHERE tt.key = $1 AND zt.is_hidden = false
+ORDER BY zt.tag_key;
 
--- name: GetTagByName :one
+-- name: GetTagByTagKey :one
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-WHERE zt.name = $1;
+WHERE zt.tag_key = $1;
 
 -- name: GetTagsForMasterZman :many
+-- User-facing query - excludes hidden tags
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
 JOIN master_zman_tags mzt ON zt.id = mzt.tag_id
-WHERE mzt.master_zman_id = $1
-ORDER BY tt.sort_order, zt.sort_order;
+WHERE mzt.master_zman_id = $1 AND zt.is_hidden = false
+ORDER BY tt.sort_order, zt.tag_key;
 
 -- name: GetMasterZmanimByTag :many
 SELECT
@@ -159,7 +168,7 @@ FROM master_zmanim_registry mr
 LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 JOIN master_zman_tags mzt ON mr.id = mzt.master_zman_id
 JOIN zman_tags zt ON zt.id = mzt.tag_id
-WHERE zt.name = $1
+WHERE zt.tag_key = $1
 ORDER BY tc.sort_order, mr.canonical_hebrew_name;
 
 -- ============================================
@@ -303,7 +312,7 @@ RETURNING id, publisher_id, zman_key, hebrew_name, english_name,
     dependencies, created_at, updated_at, master_zman_id, current_version;
 
 -- name: ImportEverydayZmanimFromRegistry :many
--- Import all everyday zmanim (excludes event zmanim) for a publisher
+-- Import all everyday zmanim (excludes event zmanim - those with tag_type = 'event') for a publisher
 -- Used when importing "defaults" for a new publisher
 INSERT INTO publisher_zmanim (
     publisher_id, zman_key, hebrew_name, english_name,
@@ -335,8 +344,9 @@ LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE NOT EXISTS (
     SELECT 1 FROM master_zman_tags mzt
     JOIN zman_tags t ON mzt.tag_id = t.id
+    JOIN tag_types tt ON t.tag_type_id = tt.id
     WHERE mzt.master_zman_id = mr.id
-    AND t.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end', 'category_chametz')
+    AND tt.key = 'event'
 )
 AND COALESCE(mr.is_hidden, false) = false
 ON CONFLICT (publisher_id, zman_key) DO NOTHING
@@ -587,7 +597,7 @@ ORDER BY
 -- ============================================
 
 -- name: GetEventZmanim :many
--- Get all event zmanim with special category tags (candle lighting, havdalah, fast start/end, chametz)
+-- Get all event zmanim (those with tag_type = 'event')
 SELECT mz.id, mz.zman_key, mz.canonical_hebrew_name, mz.canonical_english_name,
     mz.transliteration, mz.description, mz.halachic_notes, mz.halachic_source,
     tc.key as time_category, mz.default_formula_dsl, mz.is_core,
@@ -595,11 +605,12 @@ SELECT mz.id, mz.zman_key, mz.canonical_hebrew_name, mz.canonical_english_name,
     COALESCE(
         (SELECT json_agg(json_build_object(
             'id', t.id,
-            'name', t.tag_key,
+            'tag_key', t.tag_key,
             'display_name_hebrew', t.display_name_hebrew,
-            'display_name_english', t.display_name_english_ashkenazi,
+            'display_name_english_ashkenazi', t.display_name_english_ashkenazi,
+            'display_name_english_sephardi', t.display_name_english_sephardi,
             'tag_type', tt.key
-        ) ORDER BY t.sort_order)
+        ) ORDER BY tt.sort_order, t.tag_key)
         FROM master_zman_tags mt
         JOIN zman_tags t ON mt.tag_id = t.id
         JOIN tag_types tt ON t.tag_type_id = tt.id
@@ -611,8 +622,9 @@ LEFT JOIN time_categories tc ON mz.time_category_id = tc.id
 WHERE EXISTS (
     SELECT 1 FROM master_zman_tags mzt
     JOIN zman_tags t ON mzt.tag_id = t.id
+    JOIN tag_types tt ON t.tag_type_id = tt.id
     WHERE mzt.master_zman_id = mz.id
-    AND t.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end', 'category_chametz')
+    AND tt.key = 'event'
 )
 AND COALESCE(mz.is_hidden, false) = false
 ORDER BY tc.sort_order, mz.canonical_hebrew_name;
@@ -634,11 +646,13 @@ SELECT EXISTS(
 -- ============================================
 
 -- name: GetAllTagsOrdered :many
--- Get all tags with custom sorting by tag type
-SELECT zt.id, zt.tag_key, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+-- Get all tags with custom sorting by tag type (user-facing - excludes hidden tags)
+SELECT zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
+WHERE zt.is_hidden = false
 ORDER BY
     CASE tt.key
         WHEN 'event' THEN 1
@@ -647,7 +661,7 @@ ORDER BY
         WHEN 'category' THEN 4
         ELSE 5
     END,
-    zt.sort_order, zt.name;
+    zt.tag_key;
 
 -- ============================================
 -- SOFT DELETE QUERIES (ADDITIONAL)
@@ -770,14 +784,15 @@ VALUES ($1, $2, $3)
 ON CONFLICT (master_zman_id, tag_id) DO UPDATE SET is_negated = EXCLUDED.is_negated;
 
 -- name: GetMasterZmanTagsWithDetails :many
--- Get tags for multiple zmanim with full tag details
-SELECT mzt.master_zman_id, mzt.is_negated, t.id, t.tag_key, t.display_name_hebrew, t.display_name_english_ashkenazi,
-    tt.key as tag_type, t.description, t.color, t.sort_order, t.created_at
+-- Get tags for multiple zmanim with full tag details (user-facing - excludes hidden tags)
+SELECT mzt.master_zman_id, mzt.is_negated, t.id, t.tag_key, t.display_name_hebrew,
+    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+    tt.key as tag_type, t.description, t.color, t.created_at
 FROM master_zman_tags mzt
 JOIN zman_tags t ON t.id = mzt.tag_id
 LEFT JOIN tag_types tt ON t.tag_type_id = tt.id
-WHERE mzt.master_zman_id = ANY($1::int[])
-ORDER BY t.sort_order;
+WHERE mzt.master_zman_id = ANY($1::int[]) AND t.is_hidden = false
+ORDER BY tt.sort_order, t.tag_key;
 
 -- ============================================
 -- ADDITIONAL QUERIES FOR MASTER_REGISTRY HANDLER
@@ -942,14 +957,15 @@ VALUES (
 ON CONFLICT (publisher_id, zman_key) DO NOTHING;
 
 -- name: GetMasterZmanTagsForDetail :many
--- Get tags for master zman detail view (different order than GetTagsForMasterZman)
-SELECT t.id, t.tag_key as name, t.display_name_hebrew, t.display_name_english_ashkenazi,
-    tt.key as tag_type, t.description, t.color, t.sort_order, t.created_at
+-- Get tags for master zman detail view (user-facing - excludes hidden tags)
+SELECT t.id, t.tag_key, t.display_name_hebrew,
+    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+    tt.key as tag_type, t.description, t.color, t.created_at
 FROM zman_tags t
 LEFT JOIN tag_types tt ON t.tag_type_id = tt.id
 JOIN master_zman_tags mzt ON t.id = mzt.tag_id
-WHERE mzt.master_zman_id = $1
-ORDER BY tt.sort_order, t.sort_order;
+WHERE mzt.master_zman_id = $1 AND t.is_hidden = false
+ORDER BY tt.sort_order, t.tag_key;
 
 -- name: AdminCreateMasterZmanWithAudit :one
 -- Create master zman with audit fields
@@ -1003,12 +1019,24 @@ RETURNING mr.id, mr.zman_key, mr.canonical_hebrew_name, mr.canonical_english_nam
     COALESCE(mr.is_hidden, false) as is_hidden, mr.created_at, mr.updated_at;
 
 -- name: GetAllTagsAdmin :many
--- Get all zman tags for admin (simple version)
-SELECT zt.id, zt.tag_key as name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+-- Get all zman tags for admin (includes hidden tags and is_hidden flag)
+SELECT zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at,
+    zt.is_hidden
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-ORDER BY tt.sort_order, zt.sort_order, zt.tag_key;
+ORDER BY tt.sort_order, zt.tag_key;
+
+-- name: GetHiddenTags :many
+-- Get only hidden tags for debugging and admin purposes
+SELECT zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
+FROM zman_tags zt
+LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
+WHERE zt.is_hidden = true
+ORDER BY tt.sort_order, zt.tag_key;
 
 -- ============================================
 -- AI CONTEXT QUERIES
@@ -1039,7 +1067,7 @@ SELECT
             'name', t.tag_key,
             'type', tt.key,
             'hebrew', t.display_name_hebrew,
-            'english', t.display_name_english_ashkenazi
+            'english', t.display_name_english
         ))
         FROM master_zman_tags mzt
         JOIN zman_tags t ON mzt.tag_id = t.id

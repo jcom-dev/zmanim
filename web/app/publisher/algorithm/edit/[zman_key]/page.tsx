@@ -23,6 +23,7 @@ import {
   ChevronDown,
   MessageSquare,
   RotateCcw,
+  Tags,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, formatTime, isHebrewText } from '@/lib/utils';
@@ -38,6 +39,8 @@ import { BilingualInput } from '@/components/shared/BilingualInput';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import { WeeklyPreviewDialog } from '@/components/algorithm/WeeklyPreviewDialog';
+import { TagEditorDialog } from '@/components/shared/tags/TagEditorDialog';
+import { usePreferences } from '@/lib/contexts/PreferencesContext';
 import {
   useZmanDetails,
   useUpdateZman,
@@ -45,19 +48,12 @@ import {
   usePreviewFormula,
   useValidateFormula,
   useZmanimList,
+  usePublisherZmanTags,
   type PreviewResult,
 } from '@/lib/hooks/useZmanimList';
 
-// Default Brooklyn location
-const DEFAULT_LOCATION = {
-  latitude: 40.6782,
-  longitude: -73.9442,
-  timezone: 'America/New_York',
-  displayName: 'Brooklyn, NY',
-};
-
-// localStorage key prefix for preview location (per-publisher)
-const PREVIEW_LOCATION_KEY_PREFIX = 'zmanim-preview-location-';
+// localStorage key prefix for preview locality (per-publisher) - matches algorithm page
+const PREVIEW_LOCALITY_KEY_PREFIX = 'zmanim-preview-locality-';
 // localStorage key prefix for preview date
 const PREVIEW_DATE_KEY = 'zmanim-preview-date';
 
@@ -66,6 +62,19 @@ interface PreviewLocation {
   longitude: number;
   timezone: string;
   displayName: string;
+}
+
+interface LocalityDetails {
+  locality_id: number;
+  name: string;
+  ascii_name: string;
+  country_id: number;
+  country_name: string;
+  region_id?: number;
+  region_name?: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
 }
 
 type EditorMode = 'guided' | 'advanced';
@@ -101,8 +110,12 @@ export default function ZmanEditorPage() {
   const [formulaParseResult, setFormulaParseResult] = useState<ParseResult | null>(null);
   const guidedModeAvailable = formulaParseResult === null || formulaParseResult.success;
 
-  // Preview state - inherit from localStorage or use today's date
-  const [previewLocation, setPreviewLocation] = useState<PreviewLocation>(DEFAULT_LOCATION);
+  // API client - must be declared before useEffect that uses it
+  const api = useApi();
+
+  // Preview state - locality ID and coordinates
+  const [previewLocalityId, setPreviewLocalityId] = useState<number | null>(null);
+  const [previewLocation, setPreviewLocation] = useState<PreviewLocation | null>(null);
   const [previewDate, setPreviewDate] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedDate = localStorage.getItem(PREVIEW_DATE_KEY);
@@ -112,27 +125,103 @@ export default function ZmanEditorPage() {
   });
   const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null);
   const [showWeeklyDialog, setShowWeeklyDialog] = useState(false);
+  const [showTagEditorDialog, setShowTagEditorDialog] = useState(false);
 
-  // Load location from localStorage on mount
+  // Preferences for language
+  const { preferences } = usePreferences();
+
+  // Fetch tags for this zman (for display in the button)
+  const { data: zmanTags = [] } = usePublisherZmanTags(isNewZman ? null : zmanKey);
+
+  // Load locality from cookies/localStorage, then fetch coordinates - matches algorithm page logic
   useEffect(() => {
-    if (typeof window !== 'undefined' && selectedPublisher?.id) {
-      const savedLocation = localStorage.getItem(PREVIEW_LOCATION_KEY_PREFIX + selectedPublisher.id);
-      if (savedLocation) {
+    if (typeof window === 'undefined' || !selectedPublisher?.id) return;
+
+    let localityIdToFetch: number | null = null;
+    let localityName: string | null = null;
+
+    // Priority 1: Check cookies (used by algorithm page's PreviewToolbar)
+    const cookieLocalityId = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('zmanim_preview_algorithm_locality_id='))
+      ?.split('=')[1];
+    const cookieLocalityName = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('zmanim_preview_algorithm_locality_name='))
+      ?.split('=')[1];
+
+    if (cookieLocalityId) {
+      const parsedId = parseInt(cookieLocalityId, 10);
+      if (!isNaN(parsedId) && parsedId > 0) {
+        localityIdToFetch = parsedId;
+        localityName = cookieLocalityName ? decodeURIComponent(cookieLocalityName) : null;
+      }
+    }
+
+    // Priority 2: Fallback to localStorage (legacy)
+    if (!localityIdToFetch) {
+      const savedKey = PREVIEW_LOCALITY_KEY_PREFIX + selectedPublisher.id;
+      const saved = localStorage.getItem(savedKey);
+
+      if (saved) {
         try {
-          const parsed = JSON.parse(savedLocation) as PreviewLocation;
-          setPreviewLocation(parsed);
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed.id === 'number' && parsed.id > 0) {
+            localityIdToFetch = parsed.id;
+            localityName = parsed.displayName || null;
+          }
         } catch {
-          // Ignore parse errors, use default
+          // Invalid JSON, ignore
         }
       }
     }
-  }, [selectedPublisher?.id]);
+
+    // Priority 3: Fetch publisher's default locality from settings
+    if (!localityIdToFetch) {
+      api.get<{ default_locality_id?: number; default_locality_name?: string }>('/publisher/settings')
+        .then(settings => {
+          if (settings.default_locality_id) {
+            setPreviewLocalityId(settings.default_locality_id);
+            // Fetch coordinates for the default locality
+            return api.public.get<LocalityDetails>(`/localities/${settings.default_locality_id}`);
+          }
+          return null;
+        })
+        .then(locality => {
+          if (locality) {
+            setPreviewLocation({
+              latitude: locality.latitude,
+              longitude: locality.longitude,
+              timezone: locality.timezone,
+              displayName: locality.name || locality.ascii_name
+            });
+          }
+        })
+        .catch(() => {
+          // If all else fails, leave null - user will need to select a location
+        });
+      return;
+    }
+
+    // If we have a locality ID from cookies/localStorage, fetch its coordinates
+    setPreviewLocalityId(localityIdToFetch);
+    api.public.get<LocalityDetails>(`/localities/${localityIdToFetch}`)
+      .then(locality => {
+        setPreviewLocation({
+          latitude: locality.latitude,
+          longitude: locality.longitude,
+          timezone: locality.timezone,
+          displayName: localityName || locality.name || locality.ascii_name
+        });
+      })
+      .catch(() => {
+        // If locality fetch fails, clear the invalid ID and try default
+        setPreviewLocalityId(null);
+      });
+  }, [selectedPublisher?.id, api]);
 
   // Dialog state
   const [generatingExplanation, setGeneratingExplanation] = useState<'en' | 'he' | 'mixed' | null>(null);
-
-  // API client
-  const api = useApi();
 
   // Fetch data
   const { data: zman, isLoading: loadingZman } = useZmanDetails(isNewZman ? null : zmanKey);
@@ -186,7 +275,7 @@ export default function ZmanEditorPage() {
 
   // Live preview with debounce
   useEffect(() => {
-    if (!formula.trim()) {
+    if (!formula.trim() || !previewLocation) {
       setPreviewResult(null);
       return;
     }
@@ -316,6 +405,9 @@ export default function ZmanEditorPage() {
         });
         toast.success('Zman updated successfully');
       }
+
+      // Wait for cache invalidation to complete before redirecting
+      // This ensures the main algorithm page shows updated data immediately
       router.push('/publisher/algorithm');
     } catch (error) {
       console.error('[Save] Error:', error);
@@ -380,6 +472,22 @@ export default function ZmanEditorPage() {
             <Calendar className="h-4 w-4 mr-2" />
             Preview Week
           </Button>
+          {/* Edit Tags */}
+          {!isNewZman && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTagEditorDialog(true)}
+            >
+              <Tags className="h-4 w-4 mr-2" />
+              Edit Tags
+              {zmanTags.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {zmanTags.length}
+                </Badge>
+              )}
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Save */}
@@ -550,7 +658,7 @@ export default function ZmanEditorPage() {
                           {formatTime(previewResult.result)}
                         </div>
                         <div className="text-sm text-muted-foreground mt-2">
-                          {previewDate} • {previewLocation.displayName}
+                          {previewDate} • {previewLocation?.displayName || 'Loading location...'}
                         </div>
                       </div>
                     ) : previewFormula.isError ? (
@@ -802,7 +910,7 @@ export default function ZmanEditorPage() {
                         {formatTime(previewResult.result)}
                       </div>
                       <div className="text-sm text-muted-foreground mt-3">
-                        {previewDate} • {previewLocation.displayName}
+                        {previewDate} • {previewLocation?.displayName || 'Loading location...'}
                       </div>
                     </div>
                   ) : previewFormula.isError ? (
@@ -925,13 +1033,29 @@ export default function ZmanEditorPage() {
       </div>
 
       {/* Weekly Preview Dialog */}
-      <WeeklyPreviewDialog
-        open={showWeeklyDialog}
-        onOpenChange={setShowWeeklyDialog}
-        formula={formula}
-        location={previewLocation}
-        zmanName={englishName || zman?.english_name}
-      />
+      {previewLocation && (
+        <WeeklyPreviewDialog
+          open={showWeeklyDialog}
+          onOpenChange={setShowWeeklyDialog}
+          formula={formula}
+          location={previewLocation}
+          zmanName={englishName || zman?.english_name}
+        />
+      )}
+
+      {/* Tag Editor Dialog */}
+      {!isNewZman && (
+        <TagEditorDialog
+          zmanKey={zmanKey}
+          currentTags={zmanTags}
+          open={showTagEditorDialog}
+          onOpenChange={setShowTagEditorDialog}
+          onTagsUpdated={() => {
+            // Tags will auto-refresh via React Query invalidation
+            toast.success('Tags updated successfully');
+          }}
+        />
+      )}
     </div>
   );
 }

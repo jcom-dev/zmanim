@@ -7,6 +7,7 @@ import { ColorBadge, getTagTypeColor } from '@/components/ui/color-badge';
 import { Loader2, X, Check, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TagSelectorTag } from './TagSelector';
+import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
 
 interface TagGroup {
   key: string;
@@ -54,6 +55,9 @@ export function TagSelectorWithNegation({
   disabled = false,
   className,
 }: TagSelectorWithNegationProps) {
+  // Get tag display name function based on publisher settings
+  const getTagName = useTagDisplayName();
+
   // Group and sort tags by type
   const tagGroups = useMemo(() => {
     return TAG_GROUPS.map((group) => ({
@@ -64,10 +68,10 @@ export function TagSelectorWithNegation({
           (a, b) =>
             (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
               (b.sort_order ?? Number.MAX_SAFE_INTEGER) ||
-            a.display_name_english.localeCompare(b.display_name_english)
+            getTagName(a).localeCompare(getTagName(b))
         ),
     }));
-  }, [tags]);
+  }, [tags, getTagName]);
 
   // Convert to sets for faster lookup
   const selectedSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
@@ -170,7 +174,7 @@ export function TagSelectorWithNegation({
                               isNegated && 'line-through opacity-75'
                             )}
                           >
-                            {tag.display_name_english}
+                            {getTagName(tag)}
                           </ColorBadge>
                           {isNegated && (
                             <span className="text-[10px] font-medium text-red-600 dark:text-red-400 uppercase">

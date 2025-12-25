@@ -113,6 +113,7 @@ SELECT
     pz.description,
     COALESCE(linked_pz.formula_dsl, pz.formula_dsl) AS formula_dsl,
     pz.is_enabled,
+    pz.rounding_mode,
     mzr.id as master_zman_id,
     mzr.formula_explanation,
     mzr.category,
@@ -121,35 +122,38 @@ SELECT
     mzr.canonical_english_name as master_english_name,
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category,
     COALESCE(mr_tc.sort_order, tc.sort_order, 99) AS sort_order,
-    -- Is this an event zman (candle lighting, havdalah, fast times)?
+    -- Is this an event zman (has any tag with tag_type = 'event')?
     EXISTS (
         SELECT 1
         FROM (
             -- Publisher tags
-            SELECT tt.key, zt.tag_key
+            SELECT tt.key
             FROM publisher_zman_tags pzt
             JOIN zman_tags zt ON pzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE pzt.publisher_zman_id = pz.id
             UNION ALL
             -- Master tags (fallback)
-            SELECT tt.key, zt.tag_key
+            SELECT tt.key
             FROM master_zman_tags mzt
             JOIN zman_tags zt ON mzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
         ) all_tags
         WHERE all_tags.key = 'event'
-           OR all_tags.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end')
     ) AS is_event_zman,
     -- Tags: Publisher tags take precedence over master tags
+    -- Display name respects publisher's transliteration_style preference (ashkenazi/sephardi)
     COALESCE(
         (SELECT json_agg(json_build_object(
             'id', sub.id,
             'tag_key', sub.tag_key,
-            'name', sub.name,
             'display_name_hebrew', sub.display_name_hebrew,
-            'display_name_english', sub.display_name_english_ashkenazi,
+            'display_name_english', CASE
+                WHEN $2::text = 'sephardi' AND sub.display_name_english_sephardi IS NOT NULL AND sub.display_name_english_sephardi != ''
+                THEN sub.display_name_english_sephardi
+                ELSE sub.display_name_english_ashkenazi
+            END,
             'tag_type', sub.tag_type,
             'description', sub.description,
             'color', sub.color,
@@ -160,9 +164,9 @@ SELECT
         ) ORDER BY sub.sort_order)
         FROM (
             -- Publisher-specific tags (if any exist, these take full precedence)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew,
-                   t.display_name_english_ashkenazi,
-                   tt.key AS tag_type, t.description, t.color, t.sort_order, pzt.is_negated,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
+                   t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+                   tt.key AS tag_type, t.description, t.color, tt.sort_order, pzt.is_negated,
                    CASE
                        WHEN mzt.tag_id IS NULL THEN true
                        WHEN pzt.is_negated != mzt.is_negated THEN true
@@ -177,9 +181,9 @@ SELECT
             WHERE pzt.publisher_zman_id = pz.id
             UNION ALL
             -- Master tags (only if NO publisher tags exist for this zman)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew,
-                   t.display_name_english_ashkenazi,
-                   tt.key AS tag_type, t.description, t.color, t.sort_order, mzt.is_negated,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
+                   t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+                   tt.key AS tag_type, t.description, t.color, tt.sort_order, mzt.is_negated,
                    false AS is_modified,
                    mzt.is_negated AS source_is_negated
             FROM master_zman_tags mzt
@@ -201,6 +205,11 @@ WHERE pz.publisher_id = $1
 ORDER BY COALESCE(mr_tc.sort_order, tc.sort_order, 99), pz.hebrew_name
 `
 
+type ListPublisherZmanimForReportParams struct {
+	PublisherID int32  `json:"publisher_id"`
+	Column2     string `json:"column_2"`
+}
+
 type ListPublisherZmanimForReportRow struct {
 	ID                 int32       `json:"id"`
 	ZmanKey            string      `json:"zman_key"`
@@ -209,6 +218,7 @@ type ListPublisherZmanimForReportRow struct {
 	Description        *string     `json:"description"`
 	FormulaDsl         string      `json:"formula_dsl"`
 	IsEnabled          bool        `json:"is_enabled"`
+	RoundingMode       string      `json:"rounding_mode"`
 	MasterZmanID       *int32      `json:"master_zman_id"`
 	FormulaExplanation *string     `json:"formula_explanation"`
 	Category           *string     `json:"category"`
@@ -222,8 +232,10 @@ type ListPublisherZmanimForReportRow struct {
 }
 
 // Fetches all published zmanim with master registry metadata and tags for report
-func (q *Queries) ListPublisherZmanimForReport(ctx context.Context, publisherID int32) ([]ListPublisherZmanimForReportRow, error) {
-	rows, err := q.db.Query(ctx, listPublisherZmanimForReport, publisherID)
+// @param publisher_id: The publisher ID
+// @param transliteration_style: 'ashkenazi' (default) or 'sephardi' - controls tag display names
+func (q *Queries) ListPublisherZmanimForReport(ctx context.Context, arg ListPublisherZmanimForReportParams) ([]ListPublisherZmanimForReportRow, error) {
+	rows, err := q.db.Query(ctx, listPublisherZmanimForReport, arg.PublisherID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +251,7 @@ func (q *Queries) ListPublisherZmanimForReport(ctx context.Context, publisherID 
 			&i.Description,
 			&i.FormulaDsl,
 			&i.IsEnabled,
+			&i.RoundingMode,
 			&i.MasterZmanID,
 			&i.FormulaExplanation,
 			&i.Category,

@@ -1,5 +1,5 @@
 -- Migration: Initial Schema
--- Generated from database dump on 2025-12-24
+-- Generated from database dump on 2025-12-25
 -- This migration creates the complete database schema for the Zmanim application
 -- Do not make changes to this file after initial creation - create new migration files instead
 
@@ -29,15 +29,20 @@ SET row_security = off;
 
 
 
-
-
-
 -- Name: display_status; Type: TYPE; Schema: public; Owner: -
 
 CREATE TYPE public.display_status AS ENUM (
     'core',
     'optional',
     'hidden'
+);
+
+
+-- Name: hebcal_match_type; Type: TYPE; Schema: public; Owner: -
+
+CREATE TYPE public.hebcal_match_type AS ENUM (
+    'exact',
+    'group'
 );
 
 
@@ -808,6 +813,47 @@ $$;
 -- Name: FUNCTION hard_delete_publisher(p_publisher_id integer); Type: COMMENT; Schema: public; Owner: -
 
 COMMENT ON FUNCTION public.hard_delete_publisher(p_publisher_id integer) IS 'Permanently deletes a publisher and ALL related data. IRREVERSIBLE. Returns JSON with deletion counts.';
+
+
+-- Name: match_hebcal_event(text, text); Type: FUNCTION; Schema: public; Owner: -
+
+CREATE FUNCTION public.match_hebcal_event(hebcal_title text, hebcal_category text DEFAULT NULL::text) RETURNS TABLE(tag_id integer, tag_key character varying, match_type public.hebcal_match_type)
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+    -- Try exact match first
+    RETURN QUERY
+    SELECT
+        zt.id,
+        zt.tag_key,
+        zt.hebcal_match_type
+    FROM zman_tags zt
+    WHERE zt.hebcal_match_type = 'exact'
+      AND zt.hebcal_match_string = hebcal_title
+    LIMIT 1;
+
+    IF FOUND THEN
+        RETURN;
+    END IF;
+
+    -- Fall back to group (regex) match
+    RETURN QUERY
+    SELECT
+        zt.id,
+        zt.tag_key,
+        zt.hebcal_match_type
+    FROM zman_tags zt
+    WHERE zt.hebcal_match_type = 'group'
+      AND hebcal_title ~ zt.hebcal_match_pattern
+    ORDER BY length(zt.hebcal_match_pattern) DESC  -- Prefer more specific patterns
+    LIMIT 1;
+END;
+$$;
+
+
+-- Name: FUNCTION match_hebcal_event(hebcal_title text, hebcal_category text); Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON FUNCTION public.match_hebcal_event(hebcal_title text, hebcal_category text) IS 'Matches HebCal events to tags using exact or group (regex) matching. Category parameter retained for backwards compatibility but no longer used.';
 
 
 -- Name: normalize_ascii(text); Type: FUNCTION; Schema: public; Owner: -
@@ -3579,7 +3625,6 @@ CREATE TABLE public.publisher_zman_aliases (
     alias_transliteration text,
     context character varying(100),
     is_primary boolean DEFAULT false NOT NULL,
-    sort_order integer DEFAULT 0,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
@@ -3710,6 +3755,7 @@ CREATE TABLE public.publisher_zmanim (
     rounding_mode character varying(10) DEFAULT 'math'::character varying NOT NULL,
     display_status public.display_status DEFAULT 'core'::public.display_status NOT NULL,
     copied_from_publisher_id integer,
+    show_in_preview boolean DEFAULT true NOT NULL,
     CONSTRAINT publisher_zmanim_rounding_mode_check CHECK (((rounding_mode)::text = ANY (ARRAY[('floor'::character varying)::text, ('math'::character varying)::text, ('ceil'::character varying)::text])))
 );
 
@@ -3731,6 +3777,13 @@ COMMENT ON COLUMN public.publisher_zmanim.display_status IS 'Controls how this z
 -- Name: COLUMN publisher_zmanim.copied_from_publisher_id; Type: COMMENT; Schema: public; Owner: -
 
 COMMENT ON COLUMN public.publisher_zmanim.copied_from_publisher_id IS 'If this zman was copied from another publisher, the source publisher ID. Used for lineage tracking.';
+
+
+-- Name: COLUMN publisher_zmanim.show_in_preview; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.publisher_zmanim.show_in_preview IS 'Controls whether this zman appears in preview contexts (week view, reports).
+When false, zman only appears in Algorithm Editor (includeInactive=true).
+Use false for event-specific zmanim that should only show when their event is active.';
 
 
 -- Name: publisher_zmanim_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -3909,36 +3962,6 @@ ALTER TABLE public.request_statuses ALTER COLUMN id ADD GENERATED ALWAYS AS IDEN
 
 
 
--- Name: tag_event_mappings; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.tag_event_mappings (
-    id integer NOT NULL,
-    tag_id integer NOT NULL,
-    hebcal_event_pattern character varying(100),
-    hebrew_month integer,
-    hebrew_day_start integer,
-    hebrew_day_end integer,
-    priority integer DEFAULT 100,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT valid_mapping CHECK (((hebcal_event_pattern IS NOT NULL) OR ((hebrew_month IS NOT NULL) AND (hebrew_day_start IS NOT NULL))))
-);
-
-
--- Name: tag_event_mappings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.tag_event_mappings_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: tag_event_mappings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.tag_event_mappings_id_seq OWNED BY public.tag_event_mappings.id;
-
 
 -- Name: tag_types; Type: TABLE; Schema: public; Owner: -
 
@@ -4000,6 +4023,89 @@ CREATE SEQUENCE public.time_categories_id_seq
 -- Name: time_categories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 
 ALTER SEQUENCE public.time_categories_id_seq OWNED BY public.time_categories.id;
+
+
+-- Name: zman_tags; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.zman_tags (
+    id integer NOT NULL,
+    tag_key character varying(50) NOT NULL,
+    display_name_hebrew text NOT NULL,
+    tag_type_id integer NOT NULL,
+    description text,
+    color character varying(7),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    display_name_english_ashkenazi text NOT NULL,
+    display_name_english_sephardi text,
+    is_hidden boolean DEFAULT false NOT NULL,
+    hebcal_match_type public.hebcal_match_type,
+    hebcal_match_string text,
+    hebcal_match_pattern text,
+    hebcal_match_category character varying(50),
+    CONSTRAINT chk_zman_tags_hebcal_match CHECK (((hebcal_match_type IS NULL) OR ((hebcal_match_type = 'exact'::public.hebcal_match_type) AND (hebcal_match_string IS NOT NULL) AND (hebcal_match_pattern IS NULL) AND (hebcal_match_category IS NULL)) OR ((hebcal_match_type = 'group'::public.hebcal_match_type) AND (hebcal_match_pattern IS NOT NULL) AND (hebcal_match_string IS NULL) AND (hebcal_match_category IS NULL))))
+);
+
+
+-- Name: TABLE zman_tags; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON TABLE public.zman_tags IS 'Tags for categorizing zmanim and events. HebCal event matching is done via hebcal_match_type/string/pattern/category fields.';
+
+
+-- Name: COLUMN zman_tags.display_name_english_ashkenazi; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.zman_tags.display_name_english_ashkenazi IS 'English display name in Ashkenazi pronunciation (e.g., Shabbos, Sukkos, Shavuos)';
+
+
+-- Name: COLUMN zman_tags.display_name_english_sephardi; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.zman_tags.display_name_english_sephardi IS 'English display name in Sephardi pronunciation (e.g., Shabbat, Sukkot, Shavuot)';
+
+
+-- Name: COLUMN zman_tags.is_hidden; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.zman_tags.is_hidden IS 'Indicates if this tag should be hidden from user-facing tag selectors. Used for internal categorization tags like yom_tov, fast_day, and category_* tags.';
+
+
+-- Name: COLUMN zman_tags.hebcal_match_type; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.zman_tags.hebcal_match_type IS 'How to match HebCal events: exact (string), group (regex), or NULL (not a HebCal event)';
+
+
+-- Name: COLUMN zman_tags.hebcal_match_string; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.zman_tags.hebcal_match_string IS 'For exact matches: the exact HebCal event title (e.g., "Purim", "Yom Kippur")';
+
+
+-- Name: COLUMN zman_tags.hebcal_match_pattern; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.zman_tags.hebcal_match_pattern IS 'For group matches: PostgreSQL regex pattern (e.g., "^Chanukah:", "^Pesach [IVX]+")';
+
+
+-- Name: COLUMN zman_tags.hebcal_match_category; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON COLUMN public.zman_tags.hebcal_match_category IS 'For category matches: HebCal category field (e.g., "candles", "havdalah", "parashat")';
+
+
+-- Name: v_hebcal_event_mappings; Type: VIEW; Schema: public; Owner: -
+
+CREATE VIEW public.v_hebcal_event_mappings AS
+ SELECT tag_key,
+    display_name_english_ashkenazi,
+    hebcal_match_type,
+    COALESCE(hebcal_match_string, hebcal_match_pattern) AS match_value
+   FROM public.zman_tags zt
+  WHERE (hebcal_match_type IS NOT NULL)
+  ORDER BY
+        CASE hebcal_match_type
+            WHEN 'group'::public.hebcal_match_type THEN 1
+            WHEN 'exact'::public.hebcal_match_type THEN 2
+            ELSE NULL::integer
+        END, tag_key;
+
+
+-- Name: VIEW v_hebcal_event_mappings; Type: COMMENT; Schema: public; Owner: -
+
+COMMENT ON VIEW public.v_hebcal_event_mappings IS 'View of all HebCal event mappings showing tag keys and their match patterns';
 
 
 -- Name: zman_registry_requests; Type: TABLE; Schema: public; Owner: -
@@ -4072,39 +4178,6 @@ CREATE SEQUENCE public.zman_request_tags_id_seq
 -- Name: zman_request_tags_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 
 ALTER SEQUENCE public.zman_request_tags_id_seq OWNED BY public.zman_request_tags.id;
-
-
--- Name: zman_tags; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.zman_tags (
-    id integer NOT NULL,
-    tag_key character varying(50) NOT NULL,
-    name character varying(100) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    tag_type_id integer NOT NULL,
-    description text,
-    color character varying(7),
-    sort_order integer DEFAULT 0,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    hebcal_basename character varying(100),
-    display_name_english_ashkenazi text NOT NULL,
-    display_name_english_sephardi text
-);
-
-
--- Name: COLUMN zman_tags.hebcal_basename; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.zman_tags.hebcal_basename IS 'The base event name returned by Hebcal API (e.g., "Shavuot" for Shavuos). Used for direct matching.';
-
-
--- Name: COLUMN zman_tags.display_name_english_ashkenazi; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.zman_tags.display_name_english_ashkenazi IS 'English display name in Ashkenazi pronunciation (e.g., Shabbos, Sukkos, Shavuos)';
-
-
--- Name: COLUMN zman_tags.display_name_english_sephardi; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.zman_tags.display_name_english_sephardi IS 'English display name in Sephardi pronunciation (e.g., Shabbat, Sukkot, Shavuot)';
 
 
 -- Name: zman_tags_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -4271,11 +4344,6 @@ ALTER TABLE ONLY public.publisher_zmanim ALTER COLUMN id SET DEFAULT nextval('pu
 -- Name: publishers id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.publishers ALTER COLUMN id SET DEFAULT nextval('public.publishers_id_seq'::regclass);
-
-
--- Name: tag_event_mappings id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.tag_event_mappings ALTER COLUMN id SET DEFAULT nextval('public.tag_event_mappings_id_seq'::regclass);
 
 
 -- Name: tag_types id; Type: DEFAULT; Schema: public; Owner: -
@@ -4615,6 +4683,12 @@ ALTER TABLE ONLY public.password_reset_tokens
     ADD CONSTRAINT password_reset_tokens_pkey PRIMARY KEY (id);
 
 
+-- Name: zman_tags pk_zman_tags; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_tags
+    ADD CONSTRAINT pk_zman_tags PRIMARY KEY (id);
+
+
 -- Name: primitive_categories primitive_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.primitive_categories
@@ -4775,5 +4849,625 @@ ALTER TABLE ONLY public.publishers
 
 ALTER TABLE ONLY public.request_statuses
     ADD CONSTRAINT request_statuses_pkey PRIMARY KEY (id);
+
+
+
+
+
+-- Name: tag_types tag_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.tag_types
+    ADD CONSTRAINT tag_types_pkey PRIMARY KEY (id);
+
+
+-- Name: time_categories time_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.time_categories
+    ADD CONSTRAINT time_categories_pkey PRIMARY KEY (id);
+
+
+-- Name: request_statuses uq_request_statuses_key; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.request_statuses
+    ADD CONSTRAINT uq_request_statuses_key UNIQUE (key);
+
+
+-- Name: tag_types uq_tag_types_key; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.tag_types
+    ADD CONSTRAINT uq_tag_types_key UNIQUE (key);
+
+
+-- Name: time_categories uq_time_categories_key; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.time_categories
+    ADD CONSTRAINT uq_time_categories_key UNIQUE (key);
+
+
+-- Name: zman_tags uq_zman_tags_tag_key; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_tags
+    ADD CONSTRAINT uq_zman_tags_tag_key UNIQUE (tag_key);
+
+
+-- Name: zman_registry_requests zman_registry_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_registry_requests
+    ADD CONSTRAINT zman_registry_requests_pkey PRIMARY KEY (id);
+
+
+-- Name: idx_actions_action_type; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_actions_action_type ON public.actions USING btree (action_type);
+
+
+-- Name: idx_actions_entity; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_actions_entity ON public.actions USING btree (entity_type, entity_id);
+
+
+-- Name: idx_actions_parent; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_actions_parent ON public.actions USING btree (parent_action_id);
+
+
+-- Name: idx_actions_publisher_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_actions_publisher_id ON public.actions USING btree (publisher_id);
+
+
+-- Name: idx_actions_request_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_actions_request_id ON public.actions USING btree (request_id);
+
+
+-- Name: idx_actions_started_at; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_actions_started_at ON public.actions USING btree (started_at DESC);
+
+
+-- Name: idx_actions_user_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_actions_user_id ON public.actions USING btree (user_id);
+
+
+-- Name: idx_ai_audit_logs_created_at; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_ai_audit_logs_created_at ON public.ai_audit_logs USING btree (created_at DESC);
+
+
+-- Name: idx_ai_audit_logs_publisher_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_ai_audit_logs_publisher_id ON public.ai_audit_logs USING btree (publisher_id);
+
+
+-- Name: idx_ai_audit_logs_user_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_ai_audit_logs_user_id ON public.ai_audit_logs USING btree (user_id);
+
+
+-- Name: idx_algorithms_publisher_status; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_algorithms_publisher_status ON public.algorithms USING btree (publisher_id, status_id);
+
+
+-- Name: idx_calculation_stats_date; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_stats_date ON public.calculation_stats_daily USING btree (date);
+
+
+-- Name: idx_calculation_stats_publisher_date; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_stats_publisher_date ON public.calculation_stats_daily USING btree (publisher_id, date);
+
+
+-- Name: idx_geo_names_entity_lookup; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_names_entity_lookup ON public.geo_names USING btree (entity_type, entity_id, language_code) INCLUDE (name_type, name);
+
+
+-- Name: idx_geo_search_ancestor_regions; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_ancestor_regions ON public.geo_search_index USING gin (ancestor_region_ids);
+
+
+-- Name: idx_geo_search_continent; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_continent ON public.geo_search_index USING btree (continent_id);
+
+
+-- Name: idx_geo_search_country; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_country ON public.geo_search_index USING btree (country_id);
+
+
+-- Name: idx_geo_search_direct_parent; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_direct_parent ON public.geo_search_index USING btree (direct_parent_type, direct_parent_id);
+
+
+-- Name: idx_geo_search_entity; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_entity ON public.geo_search_index USING btree (entity_type, entity_id);
+
+
+-- Name: idx_geo_search_index_continent; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_index_continent ON public.geo_search_index USING btree (continent_id);
+
+
+-- Name: idx_geo_search_index_country; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_index_country ON public.geo_search_index USING btree (country_id);
+
+
+-- Name: idx_geo_search_index_entity; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_index_entity ON public.geo_search_index USING btree (entity_type, entity_id);
+
+
+-- Name: idx_geo_search_index_region_array; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_index_region_array ON public.geo_search_index USING gin (ancestor_region_ids);
+
+
+-- Name: idx_geo_search_inherited_region; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_inherited_region ON public.geo_search_index USING btree (inherited_region_id);
+
+
+-- Name: idx_geo_search_keywords; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_keywords ON public.geo_search_index USING gin (keywords);
+
+
+-- Name: idx_geo_search_keywords_locality; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_keywords_locality ON public.geo_search_index USING gin (keywords) WHERE ((entity_type)::text = 'locality'::text);
+
+
+-- Name: idx_geo_search_locality_country; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_locality_country ON public.geo_search_index USING btree (country_id) WHERE ((entity_type)::text = 'locality'::text);
+
+
+-- Name: idx_geo_search_parent_browse; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_parent_browse ON public.geo_search_index USING btree (direct_parent_type, direct_parent_id, population DESC NULLS LAST);
+
+
+-- Name: idx_geo_search_pop; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_pop ON public.geo_search_index USING btree (population DESC NULLS LAST);
+
+
+-- Name: idx_geo_search_trgm; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_trgm ON public.geo_search_index USING gin (display_name public.gin_trgm_ops);
+
+
+-- Name: idx_geo_search_type; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_search_type ON public.geo_search_index USING btree (entity_type);
+
+
+-- Name: idx_master_zman_tags_master; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_master_zman_tags_master ON public.master_zman_tags USING btree (master_zman_id);
+
+
+-- Name: idx_master_zman_tags_tag; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_master_zman_tags_tag ON public.master_zman_tags USING btree (tag_id);
+
+
+-- Name: idx_master_zmanim_registry_is_hidden; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_master_zmanim_registry_is_hidden ON public.master_zmanim_registry USING btree (is_hidden);
+
+
+-- Name: idx_master_zmanim_registry_time_category; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_master_zmanim_registry_time_category ON public.master_zmanim_registry USING btree (time_category_id);
+
+
+-- Name: idx_publisher_coverage_continent; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_coverage_continent ON public.publisher_coverage USING btree (continent_id) WHERE ((is_active = true) AND (continent_id IS NOT NULL));
+
+
+-- Name: idx_publisher_coverage_country; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_coverage_country ON public.publisher_coverage USING btree (country_id) WHERE ((is_active = true) AND (country_id IS NOT NULL));
+
+
+-- Name: idx_publisher_coverage_locality; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_coverage_locality ON public.publisher_coverage USING btree (locality_id) WHERE (is_active = true);
+
+
+-- Name: idx_publisher_coverage_publisher; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_coverage_publisher ON public.publisher_coverage USING btree (publisher_id) WHERE (is_active = true);
+
+
+-- Name: idx_publisher_coverage_region; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_coverage_region ON public.publisher_coverage USING btree (region_id) WHERE ((is_active = true) AND (region_id IS NOT NULL));
+
+
+-- Name: idx_publisher_invitations_expires; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_invitations_expires ON public.publisher_invitations USING btree (expires_at) WHERE (status = 'pending'::text);
+
+
+-- Name: idx_publisher_invitations_publisher; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_invitations_publisher ON public.publisher_invitations USING btree (publisher_id);
+
+
+-- Name: idx_publisher_invitations_token; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_invitations_token ON public.publisher_invitations USING btree (token) WHERE (status = 'pending'::text);
+
+
+-- Name: idx_publisher_requests_status; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_requests_status ON public.publisher_requests USING btree (status_id);
+
+
+-- Name: idx_publisher_snapshots_publisher; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_snapshots_publisher ON public.publisher_snapshots USING btree (publisher_id, created_at DESC);
+
+
+-- Name: idx_publisher_zman_tags_tag; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zman_tags_tag ON public.publisher_zman_tags USING btree (tag_id);
+
+
+-- Name: idx_publisher_zman_tags_zman; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zman_tags_zman ON public.publisher_zman_tags USING btree (publisher_zman_id);
+
+
+-- Name: idx_publisher_zman_versions_zman; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zman_versions_zman ON public.publisher_zman_versions USING btree (publisher_zman_id);
+
+
+-- Name: idx_publisher_zmanim_linked; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zmanim_linked ON public.publisher_zmanim USING btree (linked_publisher_zman_id) WHERE (linked_publisher_zman_id IS NOT NULL);
+
+
+-- Name: idx_publisher_zmanim_master; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zmanim_master ON public.publisher_zmanim USING btree (master_zman_id) WHERE ((deleted_at IS NULL) AND (master_zman_id IS NOT NULL));
+
+
+-- Name: idx_publisher_zmanim_preview; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zmanim_preview ON public.publisher_zmanim USING btree (publisher_id, show_in_preview) WHERE (deleted_at IS NULL);
+
+
+-- Name: idx_publisher_zmanim_publisher; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zmanim_publisher ON public.publisher_zmanim USING btree (publisher_id) WHERE (deleted_at IS NULL);
+
+
+-- Name: idx_publisher_zmanim_status; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zmanim_status ON public.publisher_zmanim USING btree (publisher_id, is_enabled, is_published) WHERE (deleted_at IS NULL);
+
+
+-- Name: idx_publisher_zmanim_time_category; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publisher_zmanim_time_category ON public.publisher_zmanim USING btree (time_category_id);
+
+
+-- Name: idx_publishers_clerk_user_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publishers_clerk_user_id ON public.publishers USING btree (clerk_user_id) WHERE (clerk_user_id IS NOT NULL);
+
+
+-- Name: idx_publishers_status; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_publishers_status ON public.publishers USING btree (status_id) WHERE (deleted_at IS NULL);
+
+
+-- Name: idx_registration_tokens_created; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_registration_tokens_created ON public.publisher_registration_tokens USING btree (created_at DESC);
+
+
+-- Name: idx_registration_tokens_email; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_registration_tokens_email ON public.publisher_registration_tokens USING btree (lower(registrant_email));
+
+
+-- Name: idx_registration_tokens_status; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_registration_tokens_status ON public.publisher_registration_tokens USING btree (status);
+
+
+-- Name: idx_time_categories_key; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_time_categories_key ON public.time_categories USING btree (key);
+
+
+-- Name: idx_time_categories_sort; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_time_categories_sort ON public.time_categories USING btree (sort_order);
+
+
+-- Name: idx_zman_registry_requests_publisher; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_registry_requests_publisher ON public.zman_registry_requests USING btree (publisher_id);
+
+
+-- Name: idx_zman_registry_requests_status; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_registry_requests_status ON public.zman_registry_requests USING btree (status_id);
+
+
+-- Name: idx_zman_request_tags_request; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_request_tags_request ON public.zman_request_tags USING btree (request_id);
+
+
+-- Name: idx_zman_tags_hebcal_category; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_tags_hebcal_category ON public.zman_tags USING btree (hebcal_match_category) WHERE (hebcal_match_category IS NOT NULL);
+
+
+-- Name: idx_zman_tags_hebcal_match_type; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_tags_hebcal_match_type ON public.zman_tags USING btree (hebcal_match_type) WHERE (hebcal_match_type IS NOT NULL);
+
+
+-- Name: idx_zman_tags_is_hidden; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_tags_is_hidden ON public.zman_tags USING btree (is_hidden);
+
+
+-- Name: idx_zman_tags_tag_key; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_tags_tag_key ON public.zman_tags USING btree (tag_key);
+
+
+-- Name: idx_zman_tags_tag_type; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_zman_tags_tag_type ON public.zman_tags USING btree (tag_type_id);
+
+
+-- Name: actions fk_actions_parent; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.actions
+    ADD CONSTRAINT fk_actions_parent FOREIGN KEY (parent_action_id) REFERENCES public.actions(id) ON DELETE CASCADE;
+
+
+-- Name: actions fk_actions_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.actions
+    ADD CONSTRAINT fk_actions_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE SET NULL;
+
+
+-- Name: ai_audit_logs fk_ai_audit_logs_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.ai_audit_logs
+    ADD CONSTRAINT fk_ai_audit_logs_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE SET NULL;
+
+
+-- Name: algorithms fk_algorithms_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.algorithms
+    ADD CONSTRAINT fk_algorithms_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: algorithms fk_algorithms_status; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.algorithms
+    ADD CONSTRAINT fk_algorithms_status FOREIGN KEY (status_id) REFERENCES public.algorithm_statuses(id);
+
+
+-- Name: master_zman_tags fk_master_zman_tags_master_zman; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.master_zman_tags
+    ADD CONSTRAINT fk_master_zman_tags_master_zman FOREIGN KEY (master_zman_id) REFERENCES public.master_zmanim_registry(id) ON DELETE CASCADE;
+
+
+-- Name: master_zman_tags fk_master_zman_tags_tag; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.master_zman_tags
+    ADD CONSTRAINT fk_master_zman_tags_tag FOREIGN KEY (tag_id) REFERENCES public.zman_tags(id) ON DELETE CASCADE;
+
+
+-- Name: master_zmanim_registry fk_master_zmanim_registry_time_category; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.master_zmanim_registry
+    ADD CONSTRAINT fk_master_zmanim_registry_time_category FOREIGN KEY (time_category_id) REFERENCES public.time_categories(id);
+
+
+-- Name: publisher_coverage fk_publisher_coverage_continent; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_publisher_coverage_continent FOREIGN KEY (continent_id) REFERENCES public.geo_continents(id);
+
+
+-- Name: publisher_coverage fk_publisher_coverage_country; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_publisher_coverage_country FOREIGN KEY (country_id) REFERENCES public.geo_countries(id);
+
+
+-- Name: publisher_coverage fk_publisher_coverage_level; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_publisher_coverage_level FOREIGN KEY (coverage_level_id) REFERENCES public.coverage_levels(id);
+
+
+-- Name: publisher_coverage fk_publisher_coverage_locality; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_publisher_coverage_locality FOREIGN KEY (locality_id) REFERENCES public.geo_localities(id);
+
+
+-- Name: publisher_coverage fk_publisher_coverage_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_publisher_coverage_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_coverage fk_publisher_coverage_region; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_coverage
+    ADD CONSTRAINT fk_publisher_coverage_region FOREIGN KEY (region_id) REFERENCES public.geo_regions(id);
+
+
+-- Name: publisher_import_history fk_publisher_import_history_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_import_history
+    ADD CONSTRAINT fk_publisher_import_history_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_import_history fk_publisher_import_history_source; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_import_history
+    ADD CONSTRAINT fk_publisher_import_history_source FOREIGN KEY (source_publisher_id) REFERENCES public.publishers(id) ON DELETE SET NULL;
+
+
+-- Name: publisher_invitations fk_publisher_invitations_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_invitations
+    ADD CONSTRAINT fk_publisher_invitations_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_invitations fk_publisher_invitations_role; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_invitations
+    ADD CONSTRAINT fk_publisher_invitations_role FOREIGN KEY (role_id) REFERENCES public.publisher_roles(id);
+
+
+-- Name: publisher_location_overrides fk_publisher_location_overrides_locality; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_location_overrides
+    ADD CONSTRAINT fk_publisher_location_overrides_locality FOREIGN KEY (locality_id) REFERENCES public.geo_localities(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_location_overrides fk_publisher_location_overrides_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_location_overrides
+    ADD CONSTRAINT fk_publisher_location_overrides_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_onboarding fk_publisher_onboarding_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_onboarding
+    ADD CONSTRAINT fk_publisher_onboarding_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_requests fk_publisher_requests_status; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_requests
+    ADD CONSTRAINT fk_publisher_requests_status FOREIGN KEY (status_id) REFERENCES public.request_statuses(id);
+
+
+-- Name: publisher_snapshots fk_publisher_snapshots_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_snapshots
+    ADD CONSTRAINT fk_publisher_snapshots_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_zman_tags fk_publisher_zman_tags_publisher_zman; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zman_tags
+    ADD CONSTRAINT fk_publisher_zman_tags_publisher_zman FOREIGN KEY (publisher_zman_id) REFERENCES public.publisher_zmanim(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_zman_tags fk_publisher_zman_tags_tag; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zman_tags
+    ADD CONSTRAINT fk_publisher_zman_tags_tag FOREIGN KEY (tag_id) REFERENCES public.zman_tags(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_zman_versions fk_publisher_zman_versions_publisher_zman; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zman_versions
+    ADD CONSTRAINT fk_publisher_zman_versions_publisher_zman FOREIGN KEY (publisher_zman_id) REFERENCES public.publisher_zmanim(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_zmanim fk_publisher_zmanim_copied_from; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zmanim
+    ADD CONSTRAINT fk_publisher_zmanim_copied_from FOREIGN KEY (copied_from_publisher_id) REFERENCES public.publishers(id) ON DELETE SET NULL;
+
+
+-- Name: publisher_zmanim fk_publisher_zmanim_linked_zman; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zmanim
+    ADD CONSTRAINT fk_publisher_zmanim_linked_zman FOREIGN KEY (linked_publisher_zman_id) REFERENCES public.publisher_zmanim(id) ON DELETE SET NULL;
+
+
+-- Name: publisher_zmanim fk_publisher_zmanim_master_zman; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zmanim
+    ADD CONSTRAINT fk_publisher_zmanim_master_zman FOREIGN KEY (master_zman_id) REFERENCES public.master_zmanim_registry(id) ON DELETE SET NULL;
+
+
+-- Name: publisher_zmanim fk_publisher_zmanim_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zmanim
+    ADD CONSTRAINT fk_publisher_zmanim_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: publisher_zmanim fk_publisher_zmanim_time_category; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publisher_zmanim
+    ADD CONSTRAINT fk_publisher_zmanim_time_category FOREIGN KEY (time_category_id) REFERENCES public.time_categories(id);
+
+
+-- Name: publishers fk_publishers_status; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.publishers
+    ADD CONSTRAINT fk_publishers_status FOREIGN KEY (status_id) REFERENCES public.publisher_statuses(id);
+
+
+-- Name: zman_registry_requests fk_zman_registry_requests_publisher; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_registry_requests
+    ADD CONSTRAINT fk_zman_registry_requests_publisher FOREIGN KEY (publisher_id) REFERENCES public.publishers(id) ON DELETE CASCADE;
+
+
+-- Name: zman_registry_requests fk_zman_registry_requests_status; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_registry_requests
+    ADD CONSTRAINT fk_zman_registry_requests_status FOREIGN KEY (status_id) REFERENCES public.request_statuses(id);
+
+
+-- Name: zman_registry_requests fk_zman_registry_requests_time_category; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_registry_requests
+    ADD CONSTRAINT fk_zman_registry_requests_time_category FOREIGN KEY (time_category_id) REFERENCES public.time_categories(id);
+
+
+-- Name: zman_request_tags fk_zman_request_tags_request; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_request_tags
+    ADD CONSTRAINT fk_zman_request_tags_request FOREIGN KEY (request_id) REFERENCES public.zman_registry_requests(id) ON DELETE CASCADE;
+
+
+-- Name: zman_request_tags fk_zman_request_tags_tag; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_request_tags
+    ADD CONSTRAINT fk_zman_request_tags_tag FOREIGN KEY (tag_id) REFERENCES public.zman_tags(id) ON DELETE CASCADE;
+
+
+-- Name: zman_tags fk_zman_tags_tag_type; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.zman_tags
+    ADD CONSTRAINT fk_zman_tags_tag_type FOREIGN KEY (tag_type_id) REFERENCES public.tag_types(id);
+
+
 
 

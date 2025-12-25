@@ -221,12 +221,6 @@ func (e *Executor) executePrimitive(n *PrimitiveNode) Value {
 	case "visible_sunset":
 		// Visible sunset accounts for atmospheric refraction (~0.833°)
 		t = st.Sunset
-	case "sunrise":
-		// Backward compatibility alias for visible_sunrise
-		t = st.Sunrise
-	case "sunset":
-		// Backward compatibility alias for visible_sunset
-		t = st.Sunset
 	case "solar_noon":
 		t = st.SolarNoon
 	case "solar_midnight":
@@ -329,14 +323,6 @@ func (e *Executor) executeSolar(n *FunctionNode) Value {
 
 	var t time.Time
 	switch direction {
-	// Backward compatibility aliases (default to visible sunrise/sunset)
-	case "before_sunrise":
-		t = dawn
-	case "after_sunrise":
-		t = dawn
-	case "after_sunset":
-		t = dusk
-
 	// Visible sunrise/sunset directions (standard - includes atmospheric refraction)
 	case "before_visible_sunrise":
 		t = dawn

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Tag as TagIcon, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tag, TagType, TAG_TYPE_ORDER, TAG_TYPE_LABELS, EVENT_GROUPS } from './constants';
+import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
 
 interface TagFilterDropdownProps {
   value: string;
@@ -36,11 +37,15 @@ export function TagFilterDropdown({
 }: TagFilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const getTagName = useTagDisplayName();
 
-  // Group tags by type
+  // Group tags by type, filtering out hidden tags
   const groupedTags = useMemo(() => {
     const groups: Record<string, Tag[]> = {};
     for (const tag of tags) {
+      // Skip hidden tags (defensive - backend should already filter these)
+      if (tag.is_hidden) continue;
+
       const type = tag.tag_type;
       if (!groups[type]) groups[type] = [];
       groups[type].push(tag);
@@ -56,21 +61,21 @@ export function TagFilterDropdown({
     for (const [type, typeTags] of Object.entries(groupedTags)) {
       const matches = typeTags.filter(
         (t) =>
-          t.display_name_english.toLowerCase().includes(lower) ||
+          getTagName(t).toLowerCase().includes(lower) ||
           t.display_name_hebrew.includes(lower) ||
           t.tag_key.toLowerCase().includes(lower)
       );
       if (matches.length > 0) filtered[type] = matches;
     }
     return filtered;
-  }, [groupedTags, search]);
+  }, [groupedTags, search, getTagName]);
 
   // Get display label for current value
   const displayLabel = useMemo(() => {
     if (value === 'all') return placeholder;
     const tag = tags.find((t) => t.tag_key === value);
-    return tag?.display_name_english || value;
-  }, [value, tags, placeholder]);
+    return tag ? getTagName(tag) : value;
+  }, [value, tags, placeholder, getTagName]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -144,7 +149,7 @@ export function TagFilterDropdown({
                         )}
                       />
                       <span className="truncate">
-                        {tag.display_name_english}
+                        {getTagName(tag)}
                       </span>
                     </CommandItem>
                   ))}
@@ -178,6 +183,7 @@ export function TwoLevelTagFilter({
 }: TwoLevelTagFilterProps) {
   const [typeOpen, setTypeOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
+  const getTagName = useTagDisplayName();
 
   // Group tags by type and count
   const typeCounts = useMemo(() => {
@@ -303,8 +309,10 @@ export function TwoLevelTagFilter({
             <span className="truncate">
               {tagValue === 'all'
                 ? 'All'
-                : tags.find((t) => t.tag_key === tagValue)
-                    ?.display_name_english || tagValue}
+                : (() => {
+                    const tag = tags.find((t) => t.tag_key === tagValue);
+                    return tag ? getTagName(tag) : tagValue;
+                  })()}
             </span>
             <ChevronDown className="ml-2 h-3 w-3 opacity-50" />
           </Button>
@@ -352,7 +360,7 @@ export function TwoLevelTagFilter({
                             : 'opacity-0'
                         )}
                       />
-                      {tag.display_name_english}
+                      {getTagName(tag)}
                     </CommandItem>
                   ))
                 ) : (
@@ -374,7 +382,7 @@ export function TwoLevelTagFilter({
                               : 'opacity-0'
                           )}
                         />
-                        {tag.display_name_english}
+                        {getTagName(tag)}
                       </CommandItem>
                     ))}
                   </CommandGroup>

@@ -323,7 +323,6 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '📍 First Time: Starting point',
     description: 'The earlier time to find the midpoint.',
     options: [
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
       { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
       { value: '@alos', label: '@alos', description: 'Reference to your alos' },
       { value: 'solar(16.1, before_visible_sunrise)', label: 'solar(16.1, before_visible_sunrise)', description: 'Alos at 16.1°' },
@@ -334,7 +333,6 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '📍 Second Time: Ending point',
     description: 'The later time to find the midpoint.',
     options: [
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
       { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: '@tzeis', label: '@tzeis', description: 'Reference to your tzeis' },
       { value: 'solar(8.5, after_visible_sunset)', label: 'solar(8.5, after_visible_sunset)', description: 'Tzeis at 8.5°' },
@@ -345,9 +343,7 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '⏱️ First Time',
     description: 'First time to compare.',
     options: [
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
       { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
       { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: '@alos', label: '@alos', description: 'Reference to alos' },
       { value: '@tzeis', label: '@tzeis', description: 'Reference to tzeis' },
@@ -357,9 +353,7 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '⏱️ Second Time',
     description: 'Second time to compare.',
     options: [
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
       { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
       { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: '@alos', label: '@alos', description: 'Reference to alos' },
       { value: '@tzeis', label: '@tzeis', description: 'Reference to tzeis' },
@@ -369,10 +363,8 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '🔄 Fallback Value',
     description: 'Provide fallback values in case earlier values are null or error.',
     options: [
-      { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (accounting for refraction)' },
-      { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (accounting for refraction)' },
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
+      { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
+      { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: 'solar_noon', label: 'solar_noon', description: 'Solar noon' },
       { value: 'solar_midnight', label: 'solar_midnight', description: 'Solar midnight' },
     ],
@@ -382,9 +374,7 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '⏱️ First Time',
     description: 'First time to compare (returns the earlier of the two).',
     options: [
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
       { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
       { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: '@alos', label: '@alos', description: 'Reference to alos' },
       { value: '@tzeis', label: '@tzeis', description: 'Reference to tzeis' },
@@ -394,9 +384,7 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '⏱️ Second Time',
     description: 'Second time to compare (returns the earlier of the two).',
     options: [
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
       { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
       { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: '@alos', label: '@alos', description: 'Reference to alos' },
       { value: '@tzeis', label: '@tzeis', description: 'Reference to tzeis' },
@@ -406,9 +394,7 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '⏱️ First Time',
     description: 'First time to compare (returns the later of the two).',
     options: [
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
       { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
       { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: '@alos', label: '@alos', description: 'Reference to alos' },
       { value: '@tzeis', label: '@tzeis', description: 'Reference to tzeis' },
@@ -418,9 +404,7 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '⏱️ Second Time',
     description: 'Second time to compare (returns the later of the two).',
     options: [
-      { value: 'sunrise', label: 'sunrise', description: 'Standard sunrise' },
       { value: 'visible_sunrise', label: 'visible_sunrise', description: 'Visible sunrise (with refraction)' },
-      { value: 'sunset', label: 'sunset', description: 'Standard sunset' },
       { value: 'visible_sunset', label: 'visible_sunset', description: 'Visible sunset (with refraction)' },
       { value: '@alos', label: '@alos', description: 'Reference to alos' },
       { value: '@tzeis', label: '@tzeis', description: 'Reference to tzeis' },
@@ -430,10 +414,10 @@ export const TOOLTIP_CONTENT: Record<string, TooltipData> = {
     title: '✨ Start your formula',
     description: 'Click an example to get started:',
     options: [
-      { value: 'sunrise - 72min', label: 'sunrise - 72min', description: 'Fixed time before sunrise' },
+      { value: 'visible_sunrise - 72min', label: 'visible_sunrise - 72min', description: 'Fixed time before sunrise' },
       { value: 'solar(16.1, before_visible_sunrise)', label: 'solar(16.1, ...)', description: 'Dawn at 16.1°' },
       { value: 'proportional_hours(4, gra)', label: 'proportional_hours(4, ...)', description: 'Latest Shacharis' },
-      { value: 'sunset - 18min', label: 'sunset - 18min', description: 'Candle lighting' },
+      { value: 'visible_sunset - 18min', label: 'visible_sunset - 18min', description: 'Candle lighting' },
     ],
     hint: 'Or pick from the reference panel →',
   },

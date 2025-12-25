@@ -332,7 +332,7 @@ func (h *Handlers) CalculateExternalBulkZmanim(w http.ResponseWriter, r *http.Re
 
 	// Calculate zmanim for the date range using the unified service
 	// (timezone is derived from locality by the service)
-	dayResults, err := h.unifiedZmanimService.CalculateRange(ctx, services.RangeParams{
+	dayResults, err := h.zmanimService.CalculateRange(ctx, services.RangeParams{
 		LocalityID:  int64(req.LocalityID),
 		PublisherID: publisherID,
 		StartDate:   startDate,

@@ -18,7 +18,7 @@ function highlightFormula(formula: string): React.ReactNode {
   // Keywords
   const keywords = ['solar', 'proportional_hours', 'midpoint', 'gra', 'mga', 'custom', 'before_visible_sunrise', 'after_visible_sunset', 'before_noon', 'after_noon'];
   // Primitives
-  const primitives = ['sunrise', 'sunset', 'solar_noon', 'midnight', 'alos_hashachar', 'tzeis_hakochavim'];
+  const primitives = ['visible_sunrise', 'visible_sunset', 'geometric_sunrise', 'geometric_sunset', 'solar_noon', 'solar_midnight', 'alos_hashachar', 'tzeis_hakochavim'];
 
   // Simple tokenization
   const tokens = formula.split(/(\s+|[(),@+-])/g).filter(Boolean);

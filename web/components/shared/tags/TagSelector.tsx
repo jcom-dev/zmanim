@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ColorBadge, getTagTypeColor } from '@/components/ui/color-badge';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
 
 // Flexible tag interface that works with different tag sources
 export interface TagSelectorTag {
@@ -14,9 +15,12 @@ export interface TagSelectorTag {
   tag_key: string;
   tag_type: string;
   display_name_english: string;
+  display_name_english_ashkenazi?: string;
+  display_name_english_sephardi?: string | null;
   display_name_hebrew?: string | null;
   description?: string | null;
   sort_order?: number | null;
+  is_hidden?: boolean; // When true, tag is used for internal filtering only (not displayed in UI)
 }
 
 interface TagGroup {
@@ -59,20 +63,23 @@ export function TagSelector({
   disabled = false,
   className,
 }: TagSelectorProps) {
-  // Group and sort tags by type
+  // Get tag display name function based on publisher settings
+  const getTagName = useTagDisplayName();
+
+  // Group and sort tags by type, excluding hidden tags
   const tagGroups = useMemo(() => {
     return TAG_GROUPS.map((group) => ({
       ...group,
       tags: tags
-        .filter((t) => t.tag_type === group.key)
+        .filter((t) => t.tag_type === group.key && !t.is_hidden) // Filter out hidden tags
         .sort(
           (a, b) =>
             (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
               (b.sort_order ?? Number.MAX_SAFE_INTEGER) ||
-            a.display_name_english.localeCompare(b.display_name_english)
+            getTagName(a).localeCompare(getTagName(b))
         ),
     }));
-  }, [tags]);
+  }, [tags, getTagName]);
 
   // Find first non-empty group for default tab
   const defaultTab = tagGroups.find((g) => g.tags.length > 0)?.key || 'event';
@@ -141,7 +148,7 @@ export function TagSelector({
                       />
                       <div className="flex flex-col gap-0.5 min-w-0">
                         <ColorBadge color={getTagTypeColor(tag.tag_type)} size="sm" className="w-fit truncate">
-                          {tag.display_name_english}
+                          {getTagName(tag)}
                         </ColorBadge>
                         {tag.display_name_hebrew && (
                           <span className="text-xs text-muted-foreground font-hebrew leading-none truncate">

@@ -176,12 +176,13 @@ export default function AlgorithmEditorPage() {
   }, [selectedDateStr]);
 
 
-  // Separate zmanim into everyday and event categories using API field
+  // Separate zmanim into everyday and event categories using tag_type
   const { everydayZmanim, eventZmanim } = useMemo(() => {
     const everyday: PublisherZman[] = [];
     const events: PublisherZman[] = [];
 
     zmanim.forEach(z => {
+      // Server determines event status via is_event_zman field (based on event-type tags)
       if (z.is_event_zman) {
         events.push(z);
       } else {
@@ -756,7 +757,8 @@ export default function AlgorithmEditorPage() {
         <YearExportDialog
           open={showYearExportDialog}
           onOpenChange={setShowYearExportDialog}
-          localityId={localityId || undefined}
+          defaultLocalityId={localityId || undefined}
+          defaultLocalityName={localityDisplayName || undefined}
         />
 
         {/* Zmanim PDF Report Dialog */}

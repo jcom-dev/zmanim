@@ -9,8 +9,8 @@ import { StreamLanguage } from '@codemirror/language';
 
 // DSL Keywords and tokens
 export const DSL_PRIMITIVES = new Set([
-  'sunrise', 'sunset', 'solar_noon', 'solar_midnight',
   'visible_sunrise', 'visible_sunset',
+  'solar_noon', 'solar_midnight',
   'geometric_sunrise', 'geometric_sunset',
   'civil_dawn', 'civil_dusk', 'nautical_dawn', 'nautical_dusk',
   'astronomical_dawn', 'astronomical_dusk',

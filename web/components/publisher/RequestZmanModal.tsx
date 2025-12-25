@@ -33,7 +33,9 @@ import {
 } from '@/components/ui/select';
 import { usePublisherMutation, usePublisherQuery, useTagTypes } from '@/lib/hooks';
 import { useApi } from '@/lib/api-client';
-import { Loader2, Plus, FileText, X, Tag, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
+import { Loader2, Plus, FileText, X, Tag, AlertTriangle, CheckCircle2, Ban } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -51,6 +53,9 @@ interface ZmanRequest {
   created_at: string;
 }
 
+// Tag selection state: null = unselected, true = included, false = negated (excluded)
+type TagSelectionState = null | true | false;
+
 interface ZmanRequestListResponse {
   requests: ZmanRequest[];
   total: number;
@@ -61,7 +66,9 @@ interface ZmanTag {
   tag_key: string;
   name: string;
   display_name_hebrew: string;
-  display_name_english: string;
+  display_name_english: string; // Deprecated: use display_name_english_ashkenazi
+  display_name_english_ashkenazi?: string;
+  display_name_english_sephardi?: string | null;
   tag_type: 'event' | 'timing' | 'behavior' | 'shita' | 'method';
   description?: string;
   color?: string;
@@ -97,6 +104,7 @@ interface RequestZmanModalProps {
  * Story 5.7: Request New Zman UI
  */
 export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledOpen, onOpenChange }: RequestZmanModalProps) {
+  const getTagName = useTagDisplayName();
   const [internalOpen, setInternalOpen] = useState(false);
 
   // Use controlled mode if open prop is provided, otherwise use internal state
@@ -124,8 +132,8 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
   const [halachicSource, setHalachicSource] = useState('');
   const [autoAddOnApproval, setAutoAddOnApproval] = useState(true);
 
-  // Tags state
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  // Tags state - using map for three states: unselected (not in map), included (true), negated (false)
+  const [tagSelectionStates, setTagSelectionStates] = useState<Map<string, boolean>>(new Map());
   const [customTagInput, setCustomTagInput] = useState('');
   const [customTagType, setCustomTagType] = useState<string>('');
   const [requestedNewTags, setRequestedNewTags] = useState<{ name: string; type: string }[]>([]);
@@ -204,6 +212,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
     transliteration?: string;
     time_category: string;
     tag_ids?: string[];
+    negated_tag_ids?: string[];
     requested_new_tags?: { name: string; type: string }[];
     description: string;
     requested_formula_dsl?: string;
@@ -342,7 +351,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
     setHalachicNotes('');
     setHalachicSource('');
     setAutoAddOnApproval(true);
-    setSelectedTagIds([]);
+    setTagSelectionStates(new Map());
     setCustomTagInput('');
     setCustomTagType('');
     setRequestedNewTags([]);
@@ -400,13 +409,25 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
       return;
     }
 
+    // Convert tag selection states to arrays for API
+    const includedTagIds: string[] = [];
+    const negatedTagIds: string[] = [];
+    tagSelectionStates.forEach((isIncluded, tagId) => {
+      if (isIncluded) {
+        includedTagIds.push(tagId);
+      } else {
+        negatedTagIds.push(tagId);
+      }
+    });
+
     await submitRequest.mutateAsync({
       requested_key: requestedKey.trim(),
       requested_hebrew_name: hebrewName.trim(),
       requested_english_name: englishName.trim(),
       transliteration: transliteration.trim() || undefined,
       time_category: timeCategory,
-      tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+      tag_ids: includedTagIds.length > 0 ? includedTagIds : undefined,
+      negated_tag_ids: negatedTagIds.length > 0 ? negatedTagIds : undefined,
       requested_new_tags: requestedNewTags.length > 0 ? requestedNewTags : undefined,
       description: description.trim(),
       requested_formula_dsl: formulaDsl.trim() || undefined,
@@ -416,12 +437,33 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
     });
   };
 
+  // Three-state toggle: unselected -> included -> negated -> unselected
   const toggleTag = (tagId: string) => {
-    setSelectedTagIds(prev =>
-      prev.includes(tagId)
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
-    );
+    setTagSelectionStates(prev => {
+      const newMap = new Map(prev);
+      const currentState = prev.get(tagId);
+
+      if (currentState === undefined) {
+        // Unselected -> Included
+        newMap.set(tagId, true);
+      } else if (currentState === true) {
+        // Included -> Negated
+        newMap.set(tagId, false);
+      } else {
+        // Negated -> Unselected
+        newMap.delete(tagId);
+      }
+
+      return newMap;
+    });
+  };
+
+  // Helper to get tag selection state
+  const getTagState = (tagId: string): 'unselected' | 'included' | 'negated' => {
+    const state = tagSelectionStates.get(tagId);
+    if (state === undefined) return 'unselected';
+    if (state === true) return 'included';
+    return 'negated';
   };
 
   const addCustomTag = () => {
@@ -575,10 +617,13 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
         ) : (
           /* New Request Form */
           <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Basic Information */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-sm">Basic Information</h3>
+              <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
+                <h3 className="font-semibold text-sm text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Basic Information
+                </h3>
 
                 <div>
                   <div className="flex items-center justify-between">
@@ -692,13 +737,32 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
               </div>
 
               {/* Tags Section */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  Tags
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Select tags that describe this zman. You can also request new tags.
+              <div className="space-y-4 p-4 rounded-xl bg-gradient-to-br from-blue-50/50 via-purple-50/30 to-pink-50/50 dark:from-blue-950/20 dark:via-purple-950/10 dark:to-pink-950/20 border border-blue-200/50 dark:border-blue-800/30">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                    <Tag className="h-4 w-4" />
+                    Tags
+                  </h3>
+                  {/* Legend */}
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                        <CheckCircle2 className="h-2 w-2 text-white" />
+                      </span>
+                      Include
+                    </span>
+                    <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                      <span className="w-3 h-3 rounded-full border-2 border-red-500 flex items-center justify-center relative">
+                        <span className="absolute inset-0 flex items-center justify-center">
+                          <span className="w-[10px] h-[2px] bg-red-500 rotate-45 absolute" />
+                        </span>
+                      </span>
+                      Exclude
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Click once to include, twice to exclude (NOT), three times to clear.
                 </p>
 
                 {tagsLoading || tagTypesLoading ? (
@@ -712,23 +776,76 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                       const tags = tagsByType[tagType];
                       if (!tags || tags.length === 0) return null;
 
+                      // Get type-specific colors
+                      const typeColors = {
+                        event: { bg: 'bg-blue-100 dark:bg-blue-900/30', border: 'border-blue-300 dark:border-blue-700', text: 'text-blue-700 dark:text-blue-300', label: 'text-blue-600 dark:text-blue-400' },
+                        timing: { bg: 'bg-orange-100 dark:bg-orange-900/30', border: 'border-orange-300 dark:border-orange-700', text: 'text-orange-700 dark:text-orange-300', label: 'text-orange-600 dark:text-orange-400' },
+                        shita: { bg: 'bg-cyan-100 dark:bg-cyan-900/30', border: 'border-cyan-300 dark:border-cyan-700', text: 'text-cyan-700 dark:text-cyan-300', label: 'text-cyan-600 dark:text-cyan-400' },
+                        category: { bg: 'bg-amber-100 dark:bg-amber-900/30', border: 'border-amber-300 dark:border-amber-700', text: 'text-amber-700 dark:text-amber-300', label: 'text-amber-600 dark:text-amber-400' },
+                        behavior: { bg: 'bg-purple-100 dark:bg-purple-900/30', border: 'border-purple-300 dark:border-purple-700', text: 'text-purple-700 dark:text-purple-300', label: 'text-purple-600 dark:text-purple-400' },
+                        calculation: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', border: 'border-indigo-300 dark:border-indigo-700', text: 'text-indigo-700 dark:text-indigo-300', label: 'text-indigo-600 dark:text-indigo-400' },
+                        method: { bg: 'bg-rose-100 dark:bg-rose-900/30', border: 'border-rose-300 dark:border-rose-700', text: 'text-rose-700 dark:text-rose-300', label: 'text-rose-600 dark:text-rose-400' },
+                      }[tagType] || { bg: 'bg-gray-100 dark:bg-gray-900/30', border: 'border-gray-300 dark:border-gray-700', text: 'text-gray-700 dark:text-gray-300', label: 'text-gray-600 dark:text-gray-400' };
+
                       return (
-                        <div key={tagType} className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">
+                        <div key={tagType} className="space-y-2">
+                          <Label className={cn('text-xs font-semibold uppercase tracking-wide', typeColors.label)}>
                             {tagTypeLabelsMap[tagType] || tagType}
                           </Label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {tags.map(tag => (
-                              <Badge
-                                key={tag.id}
-                                variant={selectedTagIds.includes(tag.id) ? 'default' : 'outline-solid'}
-                                className="cursor-pointer hover:bg-primary/80 transition-colors"
-                                onClick={() => toggleTag(tag.id)}
-                                title={tag.description || tag.display_name_english}
-                              >
-                                {tag.display_name_english}
-                              </Badge>
-                            ))}
+                          <div className="flex flex-wrap gap-2">
+                            {tags.map(tag => {
+                              const state = getTagState(tag.id);
+                              const isIncluded = state === 'included';
+                              const isNegated = state === 'negated';
+
+                              return (
+                                <button
+                                  key={tag.id}
+                                  type="button"
+                                  onClick={() => toggleTag(tag.id)}
+                                  title={`${tag.description || getTagName(tag)}\n\nClick: Include → Exclude → Clear`}
+                                  className={cn(
+                                    'relative px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200 cursor-pointer',
+                                    // Base styling
+                                    !isIncluded && !isNegated && [
+                                      typeColors.bg,
+                                      typeColors.border,
+                                      typeColors.text,
+                                      'opacity-70 hover:opacity-100 hover:scale-105',
+                                    ],
+                                    // Included state - green
+                                    isIncluded && [
+                                      'bg-green-500 dark:bg-green-600',
+                                      'border-green-600 dark:border-green-500',
+                                      'text-white',
+                                      'shadow-md shadow-green-200 dark:shadow-green-900/50',
+                                      'ring-2 ring-green-300 dark:ring-green-700 ring-offset-1',
+                                    ],
+                                    // Negated state - red border + line-through
+                                    isNegated && [
+                                      typeColors.bg,
+                                      'border-red-500 dark:border-red-400',
+                                      'border-[3px]',
+                                      typeColors.text,
+                                    ],
+                                  )}
+                                >
+                                  {/* Check mark for included */}
+                                  {isIncluded && (
+                                    <CheckCircle2 className="inline-block h-3.5 w-3.5 mr-1 -ml-0.5" />
+                                  )}
+
+                                  {/* X icon for negated */}
+                                  {isNegated && (
+                                    <X className="inline-block h-3.5 w-3.5 mr-1 -ml-0.5 text-red-500" />
+                                  )}
+
+                                  <span className={cn(isNegated && 'line-through decoration-red-500')}>
+                                    {getTagName(tag)}
+                                  </span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -737,17 +854,17 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                 )}
 
                 {/* Custom/New Tag Input */}
-                <div className="space-y-2 pt-2 border-t">
-                  <Label className="text-xs">Request New Tag</Label>
+                <div className="space-y-2 pt-3 border-t border-blue-200/50 dark:border-blue-800/30">
+                  <Label className="text-xs font-semibold text-purple-600 dark:text-purple-400">Request New Tag</Label>
                   <div className="flex gap-2">
                     <Input
                       value={customTagInput}
                       onChange={(e) => setCustomTagInput(e.target.value)}
                       placeholder="Tag name"
-                      className="flex-1 text-sm"
+                      className="flex-1 text-sm bg-white/80 dark:bg-gray-900/50"
                     />
                     <Select value={customTagType} onValueChange={setCustomTagType}>
-                      <SelectTrigger className="w-[140px]">
+                      <SelectTrigger className="w-[140px] bg-white/80 dark:bg-gray-900/50">
                         <SelectValue placeholder="Type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -764,6 +881,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                       size="sm"
                       onClick={addCustomTag}
                       disabled={!customTagInput.trim() || !customTagType}
+                      className="bg-purple-500 hover:bg-purple-600 text-white border-purple-600 disabled:bg-gray-300 disabled:text-gray-500"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -774,23 +892,23 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
 
                   {/* Requested New Tags */}
                   {requestedNewTags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-2">
                       {requestedNewTags.map(tag => (
-                        <Badge
+                        <span
                           key={tag.name}
-                          variant="secondary"
-                          className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm"
                         >
+                          <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">NEW</span>
                           {formatTagLabel(tag.name)}
-                          <span className="ml-1 text-xs opacity-70">({tagTypeLabelsMap[tag.type] || tag.type})</span>
+                          <span className="text-xs opacity-80">({tagTypeLabelsMap[tag.type] || tag.type})</span>
                           <button
                             type="button"
                             onClick={() => removeRequestedTag(tag.name)}
-                            className="ml-1 hover:text-destructive"
+                            className="ml-0.5 hover:bg-white/20 rounded-full p-0.5 transition-colors"
                           >
                             <X className="h-3 w-3" />
                           </button>
-                        </Badge>
+                        </span>
                       ))}
                     </div>
                   )}
@@ -798,8 +916,11 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
               </div>
 
               {/* Description & Formula */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-sm">Details</h3>
+              <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-violet-50/50 to-fuchsia-50/50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border border-violet-200/50 dark:border-violet-800/30">
+                <h3 className="font-semibold text-sm text-violet-700 dark:text-violet-300 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Details
+                </h3>
 
                 <div>
                   <Label htmlFor="description">
@@ -869,8 +990,11 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
               </div>
 
               {/* Halachic Sources */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-sm">Halachic Sources</h3>
+              <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-amber-50/50 to-yellow-50/50 dark:from-amber-950/20 dark:to-yellow-950/20 border border-amber-200/50 dark:border-amber-800/30">
+                <h3 className="font-semibold text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Halachic Sources
+                </h3>
 
                 <div>
                   <Label htmlFor="halachic-source">Source Reference</Label>
@@ -879,6 +1003,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                     value={halachicSource}
                     onChange={(e) => setHalachicSource(e.target.value)}
                     placeholder="e.g., Shulchan Aruch O.C. 89:1"
+                    className="bg-white/80 dark:bg-gray-900/50"
                   />
                 </div>
 
@@ -890,12 +1015,13 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                     onChange={(e) => setHalachicNotes(e.target.value)}
                     placeholder="Optional notes about the halachic basis..."
                     rows={2}
+                    className="bg-white/80 dark:bg-gray-900/50"
                   />
                 </div>
               </div>
 
               {/* Auto-add option */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 p-3 rounded-lg bg-green-50/50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/30">
                 <Checkbox
                   id="auto-add"
                   checked={autoAddOnApproval}
@@ -947,6 +1073,7 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                   isValidatingDsl ||
                   submitRequest.isPending
                 }
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-md"
               >
                 {submitRequest.isPending ? (
                   <>

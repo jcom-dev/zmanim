@@ -1,6 +1,6 @@
 -- Alias CRUD Queries
 -- Epic 5, Story 5.0: Publisher Zman Aliases
--- Schema: id, publisher_zman_id, publisher_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at
+-- Schema: id, publisher_zman_id, publisher_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, created_at
 
 -- name: GetPublisherZmanAlias :one
 -- Get a specific alias for a publisher's zman by zman_key
@@ -13,7 +13,6 @@ SELECT
     pza.alias_transliteration,
     pza.context,
     pza.is_primary,
-    pza.sort_order,
     pza.created_at,
     pz.zman_key,
     mzr.canonical_hebrew_name,
@@ -32,13 +31,12 @@ INSERT INTO publisher_zman_aliases (
     alias_english,
     alias_transliteration,
     context,
-    is_primary,
-    sort_order
+    is_primary
 )
-SELECT $1, pz.id, $3, $4, $5, $6, $7, $8
+SELECT $1, pz.id, $3, $4, $5, $6, $7
 FROM publisher_zmanim pz
 WHERE pz.publisher_id = $1 AND pz.zman_key = $2
-RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at;
+RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, created_at;
 
 -- name: UpdatePublisherZmanAlias :one
 -- Update an alias
@@ -47,10 +45,9 @@ SET alias_hebrew = $2,
     alias_english = $3,
     alias_transliteration = $4,
     context = $5,
-    is_primary = $6,
-    sort_order = $7
+    is_primary = $6
 WHERE id = $1
-RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at;
+RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, created_at;
 
 -- name: DeletePublisherZmanAlias :exec
 -- Delete an alias by ID
@@ -76,7 +73,6 @@ SELECT
     pza.alias_transliteration,
     pza.context,
     pza.is_primary,
-    pza.sort_order,
     pza.created_at,
     pz.zman_key,
     mzr.canonical_hebrew_name,
@@ -97,7 +93,6 @@ ORDER BY
         WHEN 'midnight' THEN 8
         ELSE 9
     END,
-    pza.sort_order,
     mzr.canonical_hebrew_name;
 
 -- name: GetZmanimWithAliases :many

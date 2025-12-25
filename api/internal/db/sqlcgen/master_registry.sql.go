@@ -1609,28 +1609,31 @@ func (q *Queries) GetAllMasterZmanim(ctx context.Context) ([]GetAllMasterZmanimR
 const getAllTags = `-- name: GetAllTags :many
 
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-ORDER BY tt.sort_order, zt.sort_order, zt.name
+WHERE zt.is_hidden = false
+ORDER BY tt.sort_order, zt.tag_key
 `
 
 type GetAllTagsRow struct {
 	ID                          int32              `json:"id"`
-	Name                        string             `json:"name"`
+	TagKey                      string             `json:"tag_key"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
 // ============================================
 // TAG QUERIES
 // ============================================
+// User-facing query - excludes hidden tags
 func (q *Queries) GetAllTags(ctx context.Context) ([]GetAllTagsRow, error) {
 	rows, err := q.db.Query(ctx, getAllTags)
 	if err != nil {
@@ -1642,13 +1645,13 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]GetAllTagsRow, error) {
 		var i GetAllTagsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
+			&i.TagKey,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -1662,26 +1665,29 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]GetAllTagsRow, error) {
 }
 
 const getAllTagsAdmin = `-- name: GetAllTagsAdmin :many
-SELECT zt.id, zt.tag_key as name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+SELECT zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at,
+    zt.is_hidden
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-ORDER BY tt.sort_order, zt.sort_order, zt.tag_key
+ORDER BY tt.sort_order, zt.tag_key
 `
 
 type GetAllTagsAdminRow struct {
 	ID                          int32              `json:"id"`
-	Name                        string             `json:"name"`
+	TagKey                      string             `json:"tag_key"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	IsHidden                    bool               `json:"is_hidden"`
 }
 
-// Get all zman tags for admin (simple version)
+// Get all zman tags for admin (includes hidden tags and is_hidden flag)
 func (q *Queries) GetAllTagsAdmin(ctx context.Context) ([]GetAllTagsAdminRow, error) {
 	rows, err := q.db.Query(ctx, getAllTagsAdmin)
 	if err != nil {
@@ -1693,14 +1699,15 @@ func (q *Queries) GetAllTagsAdmin(ctx context.Context) ([]GetAllTagsAdminRow, er
 		var i GetAllTagsAdminRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
+			&i.TagKey,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 			&i.CreatedAt,
+			&i.IsHidden,
 		); err != nil {
 			return nil, err
 		}
@@ -1714,10 +1721,12 @@ func (q *Queries) GetAllTagsAdmin(ctx context.Context) ([]GetAllTagsAdminRow, er
 
 const getAllTagsOrdered = `-- name: GetAllTagsOrdered :many
 
-SELECT zt.id, zt.tag_key, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+SELECT zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
+WHERE zt.is_hidden = false
 ORDER BY
     CASE tt.key
         WHEN 'event' THEN 1
@@ -1726,26 +1735,25 @@ ORDER BY
         WHEN 'category' THEN 4
         ELSE 5
     END,
-    zt.sort_order, zt.name
+    zt.tag_key
 `
 
 type GetAllTagsOrderedRow struct {
 	ID                          int32              `json:"id"`
 	TagKey                      string             `json:"tag_key"`
-	Name                        string             `json:"name"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
 // ============================================
 // TAG QUERIES (ADDITIONAL)
 // ============================================
-// Get all tags with custom sorting by tag type
+// Get all tags with custom sorting by tag type (user-facing - excludes hidden tags)
 func (q *Queries) GetAllTagsOrdered(ctx context.Context) ([]GetAllTagsOrderedRow, error) {
 	rows, err := q.db.Query(ctx, getAllTagsOrdered)
 	if err != nil {
@@ -1758,13 +1766,12 @@ func (q *Queries) GetAllTagsOrdered(ctx context.Context) ([]GetAllTagsOrderedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TagKey,
-			&i.Name,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -2061,11 +2068,12 @@ SELECT mz.id, mz.zman_key, mz.canonical_hebrew_name, mz.canonical_english_name,
     COALESCE(
         (SELECT json_agg(json_build_object(
             'id', t.id,
-            'name', t.tag_key,
+            'tag_key', t.tag_key,
             'display_name_hebrew', t.display_name_hebrew,
-            'display_name_english', t.display_name_english_ashkenazi,
+            'display_name_english_ashkenazi', t.display_name_english_ashkenazi,
+            'display_name_english_sephardi', t.display_name_english_sephardi,
             'tag_type', tt.key
-        ) ORDER BY t.sort_order)
+        ) ORDER BY tt.sort_order, t.tag_key)
         FROM master_zman_tags mt
         JOIN zman_tags t ON mt.tag_id = t.id
         JOIN tag_types tt ON t.tag_type_id = tt.id
@@ -2077,8 +2085,9 @@ LEFT JOIN time_categories tc ON mz.time_category_id = tc.id
 WHERE EXISTS (
     SELECT 1 FROM master_zman_tags mzt
     JOIN zman_tags t ON mzt.tag_id = t.id
+    JOIN tag_types tt ON t.tag_type_id = tt.id
     WHERE mzt.master_zman_id = mz.id
-    AND t.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end', 'category_chametz')
+    AND tt.key = 'event'
 )
 AND COALESCE(mz.is_hidden, false) = false
 ORDER BY tc.sort_order, mz.canonical_hebrew_name
@@ -2104,7 +2113,7 @@ type GetEventZmanimRow struct {
 // ============================================
 // ADDITIONAL MASTER REGISTRY QUERIES
 // ============================================
-// Get all event zmanim with special category tags (candle lighting, havdalah, fast start/end, chametz)
+// Get all event zmanim (those with tag_type = 'event')
 func (q *Queries) GetEventZmanim(ctx context.Context) ([]GetEventZmanimRow, error) {
 	rows, err := q.db.Query(ctx, getEventZmanim)
 	if err != nil {
@@ -2151,8 +2160,9 @@ LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE NOT EXISTS (
     SELECT 1 FROM master_zman_tags mzt
     JOIN zman_tags t ON mzt.tag_id = t.id
+    JOIN tag_types tt ON t.tag_type_id = tt.id
     WHERE mzt.master_zman_id = mr.id
-    AND t.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end', 'category_chametz')
+    AND tt.key = 'event'
 )
 AND COALESCE(mr.is_hidden, false) = false
 ORDER BY
@@ -2176,7 +2186,7 @@ type GetEverydayMasterZmanimRow struct {
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
-// Get everyday zmanim (excludes event zmanim like candle lighting, havdalah, fast times, chametz)
+// Get everyday zmanim (excludes event zmanim - those with tag_type = 'event')
 func (q *Queries) GetEverydayMasterZmanim(ctx context.Context) ([]GetEverydayMasterZmanimRow, error) {
 	rows, err := q.db.Query(ctx, getEverydayMasterZmanim)
 	if err != nil {
@@ -2200,6 +2210,59 @@ func (q *Queries) GetEverydayMasterZmanim(ctx context.Context) ([]GetEverydayMas
 			&i.IsCore,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHiddenTags = `-- name: GetHiddenTags :many
+SELECT zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
+FROM zman_tags zt
+LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
+WHERE zt.is_hidden = true
+ORDER BY tt.sort_order, zt.tag_key
+`
+
+type GetHiddenTagsRow struct {
+	ID                          int32              `json:"id"`
+	TagKey                      string             `json:"tag_key"`
+	DisplayNameHebrew           string             `json:"display_name_hebrew"`
+	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
+	TagType                     *string            `json:"tag_type"`
+	Description                 *string            `json:"description"`
+	Color                       *string            `json:"color"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+}
+
+// Get only hidden tags for debugging and admin purposes
+func (q *Queries) GetHiddenTags(ctx context.Context) ([]GetHiddenTagsRow, error) {
+	rows, err := q.db.Query(ctx, getHiddenTags)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHiddenTagsRow{}
+	for rows.Next() {
+		var i GetHiddenTagsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TagKey,
+			&i.DisplayNameHebrew,
+			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
+			&i.TagType,
+			&i.Description,
+			&i.Color,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -2447,28 +2510,29 @@ func (q *Queries) GetMasterZmanForImport(ctx context.Context, id int32) (GetMast
 }
 
 const getMasterZmanTagsForDetail = `-- name: GetMasterZmanTagsForDetail :many
-SELECT t.id, t.tag_key as name, t.display_name_hebrew, t.display_name_english_ashkenazi,
-    tt.key as tag_type, t.description, t.color, t.sort_order, t.created_at
+SELECT t.id, t.tag_key, t.display_name_hebrew,
+    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+    tt.key as tag_type, t.description, t.color, t.created_at
 FROM zman_tags t
 LEFT JOIN tag_types tt ON t.tag_type_id = tt.id
 JOIN master_zman_tags mzt ON t.id = mzt.tag_id
-WHERE mzt.master_zman_id = $1
-ORDER BY tt.sort_order, t.sort_order
+WHERE mzt.master_zman_id = $1 AND t.is_hidden = false
+ORDER BY tt.sort_order, t.tag_key
 `
 
 type GetMasterZmanTagsForDetailRow struct {
 	ID                          int32              `json:"id"`
-	Name                        string             `json:"name"`
+	TagKey                      string             `json:"tag_key"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
-// Get tags for master zman detail view (different order than GetTagsForMasterZman)
+// Get tags for master zman detail view (user-facing - excludes hidden tags)
 func (q *Queries) GetMasterZmanTagsForDetail(ctx context.Context, masterZmanID int32) ([]GetMasterZmanTagsForDetailRow, error) {
 	rows, err := q.db.Query(ctx, getMasterZmanTagsForDetail, masterZmanID)
 	if err != nil {
@@ -2480,13 +2544,13 @@ func (q *Queries) GetMasterZmanTagsForDetail(ctx context.Context, masterZmanID i
 		var i GetMasterZmanTagsForDetailRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
+			&i.TagKey,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -2500,13 +2564,14 @@ func (q *Queries) GetMasterZmanTagsForDetail(ctx context.Context, masterZmanID i
 }
 
 const getMasterZmanTagsWithDetails = `-- name: GetMasterZmanTagsWithDetails :many
-SELECT mzt.master_zman_id, mzt.is_negated, t.id, t.tag_key, t.display_name_hebrew, t.display_name_english_ashkenazi,
-    tt.key as tag_type, t.description, t.color, t.sort_order, t.created_at
+SELECT mzt.master_zman_id, mzt.is_negated, t.id, t.tag_key, t.display_name_hebrew,
+    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+    tt.key as tag_type, t.description, t.color, t.created_at
 FROM master_zman_tags mzt
 JOIN zman_tags t ON t.id = mzt.tag_id
 LEFT JOIN tag_types tt ON t.tag_type_id = tt.id
-WHERE mzt.master_zman_id = ANY($1::int[])
-ORDER BY t.sort_order
+WHERE mzt.master_zman_id = ANY($1::int[]) AND t.is_hidden = false
+ORDER BY tt.sort_order, t.tag_key
 `
 
 type GetMasterZmanTagsWithDetailsRow struct {
@@ -2516,14 +2581,14 @@ type GetMasterZmanTagsWithDetailsRow struct {
 	TagKey                      string             `json:"tag_key"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
-// Get tags for multiple zmanim with full tag details
+// Get tags for multiple zmanim with full tag details (user-facing - excludes hidden tags)
 func (q *Queries) GetMasterZmanTagsWithDetails(ctx context.Context, dollar_1 []int32) ([]GetMasterZmanTagsWithDetailsRow, error) {
 	rows, err := q.db.Query(ctx, getMasterZmanTagsWithDetails, dollar_1)
 	if err != nil {
@@ -2540,10 +2605,10 @@ func (q *Queries) GetMasterZmanTagsWithDetails(ctx context.Context, dollar_1 []i
 			&i.TagKey,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -2628,7 +2693,7 @@ FROM master_zmanim_registry mr
 LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 JOIN master_zman_tags mzt ON mr.id = mzt.master_zman_id
 JOIN zman_tags zt ON zt.id = mzt.tag_id
-WHERE zt.name = $1
+WHERE zt.tag_key = $1
 ORDER BY tc.sort_order, mr.canonical_hebrew_name
 `
 
@@ -2648,8 +2713,8 @@ type GetMasterZmanimByTagRow struct {
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) GetMasterZmanimByTag(ctx context.Context, name string) ([]GetMasterZmanimByTagRow, error) {
-	rows, err := q.db.Query(ctx, getMasterZmanimByTag, name)
+func (q *Queries) GetMasterZmanimByTag(ctx context.Context, tagKey string) ([]GetMasterZmanimByTagRow, error) {
+	rows, err := q.db.Query(ctx, getMasterZmanimByTag, tagKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3231,39 +3296,40 @@ func (q *Queries) GetRelatedZmanimDetails(ctx context.Context, dollar_1 []int64)
 	return items, nil
 }
 
-const getTagByName = `-- name: GetTagByName :one
+const getTagByTagKey = `-- name: GetTagByTagKey :one
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-WHERE zt.name = $1
+WHERE zt.tag_key = $1
 `
 
-type GetTagByNameRow struct {
+type GetTagByTagKeyRow struct {
 	ID                          int32              `json:"id"`
-	Name                        string             `json:"name"`
+	TagKey                      string             `json:"tag_key"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
-func (q *Queries) GetTagByName(ctx context.Context, name string) (GetTagByNameRow, error) {
-	row := q.db.QueryRow(ctx, getTagByName, name)
-	var i GetTagByNameRow
+func (q *Queries) GetTagByTagKey(ctx context.Context, tagKey string) (GetTagByTagKeyRow, error) {
+	row := q.db.QueryRow(ctx, getTagByTagKey, tagKey)
+	var i GetTagByTagKeyRow
 	err := row.Scan(
 		&i.ID,
-		&i.Name,
+		&i.TagKey,
 		&i.DisplayNameHebrew,
 		&i.DisplayNameEnglishAshkenazi,
+		&i.DisplayNameEnglishSephardi,
 		&i.TagType,
 		&i.Description,
 		&i.Color,
-		&i.SortOrder,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -3271,26 +3337,28 @@ func (q *Queries) GetTagByName(ctx context.Context, name string) (GetTagByNameRo
 
 const getTagsByType = `-- name: GetTagsByType :many
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
-WHERE tt.key = $1
-ORDER BY zt.sort_order, zt.name
+WHERE tt.key = $1 AND zt.is_hidden = false
+ORDER BY zt.tag_key
 `
 
 type GetTagsByTypeRow struct {
 	ID                          int32              `json:"id"`
-	Name                        string             `json:"name"`
+	TagKey                      string             `json:"tag_key"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
+// User-facing query - excludes hidden tags
 func (q *Queries) GetTagsByType(ctx context.Context, key string) ([]GetTagsByTypeRow, error) {
 	rows, err := q.db.Query(ctx, getTagsByType, key)
 	if err != nil {
@@ -3302,13 +3370,13 @@ func (q *Queries) GetTagsByType(ctx context.Context, key string) ([]GetTagsByTyp
 		var i GetTagsByTypeRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
+			&i.TagKey,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -3323,27 +3391,29 @@ func (q *Queries) GetTagsByType(ctx context.Context, key string) ([]GetTagsByTyp
 
 const getTagsForMasterZman = `-- name: GetTagsForMasterZman :many
 SELECT
-    zt.id, zt.name, zt.display_name_hebrew, zt.display_name_english_ashkenazi,
-    tt.key as tag_type, zt.description, zt.color, zt.sort_order, zt.created_at
+    zt.id, zt.tag_key, zt.display_name_hebrew,
+    zt.display_name_english_ashkenazi, zt.display_name_english_sephardi,
+    tt.key as tag_type, zt.description, zt.color, zt.created_at
 FROM zman_tags zt
 LEFT JOIN tag_types tt ON zt.tag_type_id = tt.id
 JOIN master_zman_tags mzt ON zt.id = mzt.tag_id
-WHERE mzt.master_zman_id = $1
-ORDER BY tt.sort_order, zt.sort_order
+WHERE mzt.master_zman_id = $1 AND zt.is_hidden = false
+ORDER BY tt.sort_order, zt.tag_key
 `
 
 type GetTagsForMasterZmanRow struct {
 	ID                          int32              `json:"id"`
-	Name                        string             `json:"name"`
+	TagKey                      string             `json:"tag_key"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagType                     *string            `json:"tag_type"`
 	Description                 *string            `json:"description"`
 	Color                       *string            `json:"color"`
-	SortOrder                   *int32             `json:"sort_order"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
+// User-facing query - excludes hidden tags
 func (q *Queries) GetTagsForMasterZman(ctx context.Context, masterZmanID int32) ([]GetTagsForMasterZmanRow, error) {
 	rows, err := q.db.Query(ctx, getTagsForMasterZman, masterZmanID)
 	if err != nil {
@@ -3355,13 +3425,13 @@ func (q *Queries) GetTagsForMasterZman(ctx context.Context, masterZmanID int32) 
 		var i GetTagsForMasterZmanRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
+			&i.TagKey,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -3423,7 +3493,7 @@ SELECT
             'name', t.tag_key,
             'type', tt.key,
             'hebrew', t.display_name_hebrew,
-            'english', t.display_name_english_ashkenazi
+            'english', t.display_name_english
         ))
         FROM master_zman_tags mzt
         JOIN zman_tags t ON mzt.tag_id = t.id
@@ -3737,8 +3807,9 @@ LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE NOT EXISTS (
     SELECT 1 FROM master_zman_tags mzt
     JOIN zman_tags t ON mzt.tag_id = t.id
+    JOIN tag_types tt ON t.tag_type_id = tt.id
     WHERE mzt.master_zman_id = mr.id
-    AND t.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end', 'category_chametz')
+    AND tt.key = 'event'
 )
 AND COALESCE(mr.is_hidden, false) = false
 ON CONFLICT (publisher_id, zman_key) DO NOTHING
@@ -3771,7 +3842,7 @@ type ImportEverydayZmanimFromRegistryRow struct {
 	CurrentVersion   *int32             `json:"current_version"`
 }
 
-// Import all everyday zmanim (excludes event zmanim) for a publisher
+// Import all everyday zmanim (excludes event zmanim - those with tag_type = 'event') for a publisher
 // Used when importing "defaults" for a new publisher
 func (q *Queries) ImportEverydayZmanimFromRegistry(ctx context.Context, publisherID int32) ([]ImportEverydayZmanimFromRegistryRow, error) {
 	rows, err := q.db.Query(ctx, importEverydayZmanimFromRegistry, publisherID)

@@ -1,0 +1,149 @@
+HEBCAL-GO EVENT NAMES (Authoritative Source)
+=============================================
+
+From hebcal-go/hebcal/holidays.go - Static Holidays:
+---------------------------------------------------
+Rosh Hashana II
+Erev Yom Kippur
+Yom Kippur
+Erev Sukkot
+Sukkot I
+Sukkot II
+Sukkot III (CH''M)
+Sukkot IV (CH''M)
+Sukkot V (CH''M)
+Sukkot VI (CH''M)
+Sukkot VII (Hoshana Raba)
+Shmini Atzeret
+Simchat Torah
+Chanukah: 1 Candle
+Asara B'Tevet
+Tu BiShvat
+Erev Purim
+Purim
+Shushan Purim
+Erev Pesach
+Pesach I
+Pesach II
+Pesach II (CH''M)
+Pesach III (CH''M)
+Pesach IV (CH''M)
+Pesach V (CH''M)
+Pesach VI (CH''M)
+Pesach VII
+Pesach VIII
+Pesach Sheni
+Lag BaOmer
+Erev Shavuot
+Shavuot
+Shavuot I
+Shavuot II
+Tu B'Av
+Rosh Hashana LaBehemot
+Erev Rosh Hashana
+
+Dynamic Holidays (generated):
+----------------------------
+Rosh Hashana {year}
+Shabbat Shuva
+Tzom Gedaliah
+Shabbat Shekalim
+Shabbat Zachor
+Ta'anit Esther
+Shabbat Parah
+Shabbat HaChodesh
+Shabbat HaGadol
+Ta'anit Bechorot
+Leil Selichot
+Purim Meshulash (conditional)
+Purim Katan (leap year)
+Shushan Purim Katan (leap year)
+Chanukah: 2 Candles
+Chanukah: 3 Candles
+Chanukah: 4 Candles
+Chanukah: 5 Candles
+Chanukah: 6 Candles
+Chanukah: 7 Candles
+Chanukah: 8 Candles
+Chanukah: 8th Day
+Chag HaBanot
+Tzom Tammuz
+Shabbat Chazon
+Erev Tish'a B'Av
+Tish'a B'Av
+Shabbat Nachamu
+
+Modern Holidays:
+---------------
+Yom HaZikaron
+Yom HaAtzma'ut
+Yom HaShoah
+Yom Yerushalayim
+Ben-Gurion Day
+Family Day
+Yitzhak Rabin Memorial Day
+Herzl Day
+Jabotinsky Day
+Sigd
+Yom HaAliyah
+Yom HaAliyah School Observance
+Hebrew Language Day
+
+Recurring Events:
+----------------
+Rosh Chodesh {month}
+Shabbat Mevarchim Chodesh {month}
+Yom Kippur Katan {month}
+Shabbat Shirah
+Birkat Hachamah (every 28 years)
+
+COMPARISON WITH OUR DATABASE:
+==============================
+
+APOSTROPHE MISMATCHES (hebcal-go uses ' not '):
+----------------------------------------------
+hebcal: Asara B'Tevet     → our db: Asara B'Tevet (patterns: "Asara B'Tevet")
+hebcal: Tu B'Av           → our db: Tu B'Av (patterns: "Tu B'Av")
+hebcal: Ta'anit Esther    → our db: Ta'anit Esther (patterns: "Ta'anit Esther")
+hebcal: Ta'anit Bechorot  → our db: Ta'anit Bechorot (patterns: "Ta'anit Bechorot")
+hebcal: Tish'a B'Av       → our db: Tish'a B'Av (patterns: "Tish'a B'Av")
+hebcal: Erev Tish'a B'Av  → our db: Erev Tish'a B'Av (patterns: "Erev Tish'a B'Av")
+
+MISSING EVENTS (in hebcal-go but not in our database):
+-------------------------------------------------------
+- Rosh Hashana II (2nd day)
+- Erev Purim
+- Pesach Sheni (currently tagged but may be missing pattern?)
+- Rosh Hashana LaBehemot
+- Leil Selichot
+- Purim Meshulash (conditional)
+- Purim Katan (leap year)
+- Shushan Purim Katan (leap year)
+- Chanukah: 2-8 Candles (individual days)
+- Chanukah: 8th Day
+- Chag HaBanot
+- Birkat Hachamah
+- Shabbat Mevarchim Chodesh {month}
+- Yom Kippur Katan {month}
+- All modern Israeli holidays (Yom HaZikaron, Yom HaAtzma'ut, etc.)
+
+INCORRECT MAPPINGS:
+-------------------
+tag_id 5 (shiva_asar_btamuz) is mapped to:
+  - Pesach I (id 13) ❌ WRONG
+  - Pesach II (id 14) ❌ WRONG
+  - Tzom Tammuz (id 30) ✓ CORRECT
+
+Should ONLY be mapped to "Tzom Tammuz"
+
+tag_id 186 (pesach - for chametz times) is correctly mapped to Pesach I, II, VII, VIII
+tag_id 288 (pesach_first) should exist but has no mappings
+
+CH''M DOUBLE APOSTROPHE:
+-----------------------
+hebcal-go uses: (CH''M)
+our database uses: (CH'M) - missing one apostrophe
+
+This affects:
+- Sukkot III, IV, V, VI
+- Pesach II (Israel), III, IV, V, VI

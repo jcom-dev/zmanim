@@ -90,7 +90,6 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 		AliasTransliteration: req.AliasTransliteration,
 		Context:              nil,
 		IsPrimary:            true,
-		SortOrder:            intPtr(0),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -107,9 +107,6 @@ type ZmanData struct {
 	IsCustom               bool      `json:"is_custom"`
 	RoundingMode           string    `json:"rounding_mode"`
 	DisplayStatus          string    `json:"display_status"`
-	Category               string    `json:"category"`
-	CategoryDisplayHebrew  string    `json:"category_display_hebrew"`
-	CategoryDisplayEnglish string    `json:"category_display_english"`
 	MasterZmanID           *int32    `json:"master_zman_id,omitempty"`
 	LinkedPublisherZmanID  *int32    `json:"linked_publisher_zman_id,omitempty"`
 	Tags                   []ZmanTag `json:"tags,omitempty"`
@@ -231,9 +228,6 @@ func (s *CompleteExportService) BuildCompleteExport(ctx context.Context, publish
 			IsCustom:               z.IsCustom,
 			RoundingMode:           z.RoundingMode,
 			DisplayStatus:          string(z.DisplayStatus),
-			Category:               stringPtrToString(z.Category),
-			CategoryDisplayHebrew:  stringPtrToString(z.CategoryDisplayHebrew),
-			CategoryDisplayEnglish: stringPtrToString(z.CategoryDisplayEnglish),
 			MasterZmanID:           z.MasterZmanID,
 			LinkedPublisherZmanID:  z.LinkedPublisherZmanID,
 			Tags:                   zmanTags,
@@ -390,11 +384,17 @@ func (s *CompleteExportService) importCompleteBackup(ctx context.Context, publis
 
 	// 3. Import zmanim with tags (using UpsertPublisherZmanFromImport)
 	for _, z := range backup.Zmanim {
-		// Get time category ID
-		timeCategoryID, err := s.db.Queries.GetTimeCategoryIDByKey(ctx, z.Category)
-		if err != nil {
-			slog.Warn("failed to get time category ID", "key", z.Category, "error", err)
-			continue
+		// Get time category ID from master registry (if not custom)
+		var timeCategoryID *int32
+		if !z.IsCustom && z.MasterZmanID != nil {
+			masterZman, err := s.db.Queries.GetMasterZmanByID(ctx, *z.MasterZmanID)
+			if err == nil && masterZman.TimeCategory != nil {
+				// Convert category key to ID
+				catID, err := s.db.Queries.GetTimeCategoryIDByKey(ctx, *masterZman.TimeCategory)
+				if err == nil {
+					timeCategoryID = &catID
+				}
+			}
 		}
 
 		// Upsert the zman (inserts or updates based on publisher_id + zman_key)
@@ -415,7 +415,7 @@ func (s *CompleteExportService) importCompleteBackup(ctx context.Context, publis
 			IsCustom:              z.IsCustom,
 			RoundingMode:          z.RoundingMode,
 			DisplayStatus:         sqlcgen.DisplayStatus(z.DisplayStatus),
-			TimeCategoryID:        &timeCategoryID,
+			TimeCategoryID:        timeCategoryID,
 			MasterZmanID:          z.MasterZmanID,
 			LinkedPublisherZmanID: z.LinkedPublisherZmanID,
 		})

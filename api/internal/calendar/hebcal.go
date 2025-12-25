@@ -14,9 +14,12 @@ import (
 type HebCalEvent struct {
 	Title    string `json:"title"`
 	Category string `json:"category"`
+	Subcat   string `json:"subcat,omitempty"`   // "major" or "minor" for holidays
 	Hebrew   string `json:"hebrew"`
 	Date     string `json:"date"`
 	Memo     string `json:"memo,omitempty"`
+	YomTov   bool   `json:"yomtov,omitempty"`   // True for days with Yom Tov work restrictions
+	HDate    string `json:"hdate,omitempty"`    // Hebrew date (e.g., "1 Tishrei 5785")
 }
 
 // HebCalResponse represents the response from the HebCal API
@@ -71,7 +74,8 @@ func IsInIsrael(lat, lng float64) bool {
 }
 
 // GetEvents fetches Jewish calendar events for a given date and location
-func (c *Client) GetEvents(ctx context.Context, date time.Time, lat, lng float64) ([]HebCalEvent, error) {
+// transliterationStyle: "ashkenazi" for Ashkenazi transliterations (lg=a), "sephardi" or "" for Sephardi (default)
+func (c *Client) GetEvents(ctx context.Context, date time.Time, lat, lng float64, transliterationStyle string) ([]HebCalEvent, error) {
 	isIsrael := IsInIsrael(lat, lng)
 
 	// Build HebCal API URL
@@ -88,15 +92,25 @@ func (c *Client) GetEvents(ctx context.Context, date time.Time, lat, lng float64
 	// - ss=on: Special Shabbatot
 	// - o=on: Omer count
 	// - s=off: No Sedra/Torah reading
-	// - c=off: No candle lighting times (we calculate our own)
+	// - c=on: Include candle lighting times
+	// - geo=pos: Use position coordinates
+	// - latitude, longitude: Location coordinates
+	// - lg=a: Ashkenazi transliterations (when transliterationStyle is "ashkenazi")
 	url := fmt.Sprintf(
-		"%s?v=1&cfg=json&year=%d&month=%d&day=%d&il=%t&maj=on&min=on&mod=on&nx=on&mf=on&ss=on&o=on&s=off&c=off",
+		"%s?v=1&cfg=json&year=%d&month=%d&day=%d&il=%t&maj=on&min=on&mod=on&nx=on&mf=on&ss=on&o=on&s=off&c=on&geo=pos&latitude=%.6f&longitude=%.6f",
 		c.baseURL,
 		date.Year(),
 		int(date.Month()),
 		date.Day(),
 		isIsrael,
+		lat,
+		lng,
 	)
+
+	// Add language parameter for Ashkenazi transliterations
+	if transliterationStyle == "ashkenazi" {
+		url += "&lg=a"
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -118,11 +132,27 @@ func (c *Client) GetEvents(ctx context.Context, date time.Time, lat, lng float64
 		return nil, fmt.Errorf("hebcal decode failed: %w", err)
 	}
 
-	return result.Items, nil
+	// Filter to only events on the requested date
+	// HebCal API returns all events for the month when using year/month/day parameters
+	targetDateStr := date.Format("2006-01-02")
+	var filteredEvents []HebCalEvent
+	for _, ev := range result.Items {
+		// Parse event date (format: "2025-12-26" or "2025-12-26T15:36:00-00:00")
+		eventDateStr := ev.Date
+		if len(eventDateStr) >= 10 {
+			eventDateStr = eventDateStr[:10] // Take just the YYYY-MM-DD part
+		}
+		if eventDateStr == targetDateStr {
+			filteredEvents = append(filteredEvents, ev)
+		}
+	}
+
+	return filteredEvents, nil
 }
 
 // GetEventsForDateRange fetches events for a date range (useful for week/month views)
-func (c *Client) GetEventsForDateRange(ctx context.Context, startDate, endDate time.Time, lat, lng float64) ([]HebCalEvent, error) {
+// transliterationStyle: "ashkenazi" for Ashkenazi transliterations (lg=a), "sephardi" or "" for Sephardi (default)
+func (c *Client) GetEventsForDateRange(ctx context.Context, startDate, endDate time.Time, lat, lng float64, transliterationStyle string) ([]HebCalEvent, error) {
 	isIsrael := IsInIsrael(lat, lng)
 
 	url := fmt.Sprintf(
@@ -132,6 +162,11 @@ func (c *Client) GetEventsForDateRange(ctx context.Context, startDate, endDate t
 		endDate.Format("2006-01-02"),
 		isIsrael,
 	)
+
+	// Add language parameter for Ashkenazi transliterations
+	if transliterationStyle == "ashkenazi" {
+		url += "&lg=a"
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -227,11 +262,19 @@ func matchPattern(title, pattern string) bool {
 }
 
 // GetActiveTagsForDate is a convenience method that fetches events and matches them to tags
-func (c *Client) GetActiveTagsForDate(ctx context.Context, date time.Time, lat, lng float64, mappings []TagEventMapping) ([]string, error) {
-	events, err := c.GetEvents(ctx, date, lat, lng)
+// transliterationStyle: "ashkenazi" for Ashkenazi transliterations (lg=a), "sephardi" or "" for Sephardi (default)
+func (c *Client) GetActiveTagsForDate(ctx context.Context, date time.Time, lat, lng float64, transliterationStyle string, mappings []TagEventMapping) ([]string, error) {
+	events, err := c.GetEvents(ctx, date, lat, lng, transliterationStyle)
 	if err != nil {
 		return nil, err
 	}
 
-	return MatchEventToTags(events, mappings), nil
+	tags := MatchEventToTags(events, mappings)
+
+	// Add shabbos tag for every Saturday
+	if date.Weekday() == time.Saturday {
+		tags = append(tags, "shabbos")
+	}
+
+	return tags, nil
 }

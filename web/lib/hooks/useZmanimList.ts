@@ -25,9 +25,10 @@ import { applyTimeRounding } from '@/lib/utils/time-format';
 export interface ZmanTag {
   id: number; // Changed from string to number to match backend int32
   tag_key: string;
-  name: string;
   display_name_hebrew: string;
-  display_name_english: string;
+  display_name_english: string; // Deprecated: use display_name_english_ashkenazi
+  display_name_english_ashkenazi?: string; // English name with Ashkenazi transliteration
+  display_name_english_sephardi?: string | null; // English name with Sephardi transliteration
   tag_type: 'event' | 'timing' | 'behavior' | 'shita' | 'calculation' | 'category' | 'jewish_day';
   description?: string | null;
   color?: string | null;
@@ -36,6 +37,7 @@ export interface ZmanTag {
   tag_source?: 'master' | 'publisher'; // Source of the tag
   source_is_negated?: boolean | null; // Original negation state from master registry
   is_modified?: boolean; // True if tag differs from master registry
+  is_hidden?: boolean; // When true, tag is used for internal filtering only (not displayed in UI)
 }
 
 // Display status controls how zmanim appear to users
@@ -57,7 +59,7 @@ export interface PublisherZman {
   is_visible: boolean;
   is_published: boolean;
   is_beta: boolean;
-  is_event_zman: boolean;
+  is_event_zman: boolean; // Server-calculated: true if zman has event-type tags
   display_status: DisplayStatus; // core, optional, hidden
   dependencies: string[];
   time_category?: string;
@@ -278,6 +280,17 @@ export function useUpdateZman(zmanKey: string) {
         const roundingModeChanged = variables.rounding_mode !== undefined;
         // Check if is_enabled changed
         const enabledChanged = variables.is_enabled !== undefined;
+        // Check if formula was changed - need full cache refresh
+        const formulaChanged = variables.formula_dsl !== undefined;
+
+        // If formula changed, invalidate all caches to refetch with new calculations
+        if (formulaChanged) {
+          queryClient.invalidateQueries({ queryKey: ['publisher-zmanim'] });
+          queryClient.invalidateQueries({ queryKey: ['publisher-zmanim-with-locality'] });
+          queryClient.invalidateQueries({ queryKey: ['zmanim-preview'] });
+          queryClient.invalidateQueries({ queryKey: ['publisher-zmanim-week'] });
+          return;
+        }
 
         // If is_enabled changed, invalidate disabled-zmanim cache and update lists
         if (enabledChanged) {
@@ -334,13 +347,13 @@ export function useUpdateZman(zmanKey: string) {
         }
 
         // Helper to update a single zman in an array, with optional time_rounded recalculation
-        // Note: The API response from PUT doesn't include tags or is_event_zman, so we must preserve them explicitly
-        const updateZmanInArray = <T extends { zman_key: string; time?: string; time_rounded?: string; tags?: ZmanTag[]; is_event_zman?: boolean }>(arr: T[]): T[] =>
+        // Note: The API response from PUT doesn't include tags, so we must preserve them explicitly
+        const updateZmanInArray = <T extends { zman_key: string; time?: string; time_rounded?: string; tags?: ZmanTag[] }>(arr: T[]): T[] =>
           arr.map((z) => {
             if (z.zman_key !== zmanKey) return z;
 
-            // Preserve tags and is_event_zman from the original zman since API response doesn't include them
-            const updated = { ...z, ...updatedZman, tags: z.tags, is_event_zman: z.is_event_zman };
+            // Preserve tags from the original zman since API response doesn't include them
+            const updated = { ...z, ...updatedZman, tags: z.tags };
 
             // If rounding mode changed and we have exact time, recalculate time_rounded
             if (roundingModeChanged && z.time && updatedZman.rounding_mode) {

@@ -110,7 +110,7 @@ type Querier interface {
 	// These queries handle publisher registration requests (public submissions and admin review)
 	// Check if there's already a pending or approved request for this email
 	CheckExistingPublisherRequest(ctx context.Context, lower string) (int64, error)
-	// Checks if a zman has event tags or special category tags (candle lighting, havdalah, fast start/end)
+	// Checks if a zman has any tag with tag_type = 'event'
 	CheckIfEventZman(ctx context.Context, id int32) (bool, error)
 	CheckLocalityElevationOverrideExists(ctx context.Context, arg CheckLocalityElevationOverrideExistsParams) (bool, error)
 	// ============================================
@@ -321,8 +321,8 @@ type Querier interface {
 	// This replaces the raw SQL query in fetchPublisherZmanim function
 	// @param transliteration_style: 'ashkenazi' (default) or 'sephardi' - controls tag display names
 	FetchPublisherZmanim(ctx context.Context, arg FetchPublisherZmanimParams) ([]FetchPublisherZmanimRow, error)
-	// Find an existing tag by name (case-insensitive match)
-	FindTagByName(ctx context.Context, lower string) (FindTagByNameRow, error)
+	// Find an existing tag by tag_key (case-insensitive match)
+	FindTagByTagKey(ctx context.Context, lower string) (FindTagByTagKeyRow, error)
 	ForkPublicAlgorithm(ctx context.Context, arg ForkPublicAlgorithmParams) (int32, error)
 	GetAIAuditLogs(ctx context.Context, arg GetAIAuditLogsParams) ([]AiAuditLog, error)
 	GetAccessiblePublishersByClerkUserID(ctx context.Context, clerkUserID *string) (GetAccessiblePublishersByClerkUserIDRow, error)
@@ -384,18 +384,29 @@ type Querier interface {
 	// ============================================
 	// TAG QUERIES
 	// ============================================
+	// User-facing query - excludes hidden tags
 	GetAllTags(ctx context.Context) ([]GetAllTagsRow, error)
-	// Get all zman tags for admin (simple version)
+	// Get all zman tags for admin (includes hidden tags and is_hidden flag)
 	GetAllTagsAdmin(ctx context.Context) ([]GetAllTagsAdminRow, error)
 	// ============================================
 	// TAG QUERIES (ADDITIONAL)
 	// ============================================
-	// Get all tags with custom sorting by tag type
+	// Get all tags with custom sorting by tag type (user-facing - excludes hidden tags)
 	GetAllTagsOrdered(ctx context.Context) ([]GetAllTagsOrderedRow, error)
+	// REMOVED: GetTagByHebcalBasename
+	// The hebcal_basename column has been removed in the new schema
+	// Use match_hebcal_event() function instead for HebCal event matching
+	// REMOVED: GetTagsForHebCalEvent
+	// This query used the old tag_event_mappings table
+	// Use the match_hebcal_event() PostgreSQL function instead
+	// REMOVED: GetTagsForHebrewDate
+	// This query used the old tag_event_mappings table with Hebrew date matching
+	// Hebrew date matching is now handled via HebCal API integration and match_hebcal_event()
 	// ============================================================================
 	// All Tags Queries (with tag_key - extends master_registry.sql queries)
 	// ============================================================================
 	// Get all tags ordered by type and sort order (includes tag_key and multilingual names)
+	// User-facing query - excludes hidden tags
 	GetAllTagsWithKey(ctx context.Context) ([]GetAllTagsWithKeyRow, error)
 	// Queries for time_categories and tag_types tables
 	// ============================================================================
@@ -407,6 +418,7 @@ type Querier interface {
 	GetAllZmanRequests(ctx context.Context, dollar_1 string) ([]GetAllZmanRequestsRow, error)
 	// Get all tags for all zmanim with tag type key, sort order, and negation status
 	// Returns both Ashkenazi and Sephardi display names for Go code to select based on context
+	// User-facing query - excludes hidden tags
 	GetAllZmanimTags(ctx context.Context) ([]GetAllZmanimTagsRow, error)
 	GetAstronomicalPrimitiveByName(ctx context.Context, variableName string) (GetAstronomicalPrimitiveByNameRow, error)
 	GetAstronomicalPrimitivesByCategory(ctx context.Context, key string) ([]GetAstronomicalPrimitivesByCategoryRow, error)
@@ -522,17 +534,20 @@ type Querier interface {
 	// ============================================
 	// ADDITIONAL MASTER REGISTRY QUERIES
 	// ============================================
-	// Get all event zmanim with special category tags (candle lighting, havdalah, fast start/end, chametz)
+	// Get all event zmanim (those with tag_type = 'event')
 	GetEventZmanim(ctx context.Context) ([]GetEventZmanimRow, error)
-	// Get everyday zmanim (excludes event zmanim like candle lighting, havdalah, fast times, chametz)
+	// Get everyday zmanim (excludes event zmanim - those with tag_type = 'event')
 	GetEverydayMasterZmanim(ctx context.Context) ([]GetEverydayMasterZmanimRow, error)
 	GetExpiredInvitations(ctx context.Context, publisherID int32) ([]GetExpiredInvitationsRow, error)
+	// Get only hidden tags for debugging and admin purposes
+	GetHiddenTags(ctx context.Context) ([]GetHiddenTagsRow, error)
 	GetInvitationByIDWithStatus(ctx context.Context, id int32) (GetInvitationByIDWithStatusRow, error)
 	GetInvitationByPublisherAndEmail(ctx context.Context, arg GetInvitationByPublisherAndEmailParams) (GetInvitationByPublisherAndEmailRow, error)
 	GetInvitationByToken(ctx context.Context, token string) (GetInvitationByTokenRow, error)
 	GetInvitationForResend(ctx context.Context, id int32) (GetInvitationForResendRow, error)
 	// Get all event tags that represent Jewish days/holidays (for calendar filtering)
 	// Note: Jewish day tags are now part of 'event' type after tag consolidation
+	// User-facing query - excludes hidden tags
 	GetJewishDayTags(ctx context.Context) ([]GetJewishDayTagsRow, error)
 	// Get algorithm ID for publisher --
 	GetLatestAlgorithmByPublisher(ctx context.Context, publisherID int32) (int32, error)
@@ -588,12 +603,12 @@ type Querier interface {
 	GetMasterZmanDocumentation(ctx context.Context, id int32) (GetMasterZmanDocumentationRow, error)
 	// Get master zman details for import (used by import handler)
 	GetMasterZmanForImport(ctx context.Context, id int32) (GetMasterZmanForImportRow, error)
-	// Get tags for master zman detail view (different order than GetTagsForMasterZman)
+	// Get tags for master zman detail view (user-facing - excludes hidden tags)
 	GetMasterZmanTagsForDetail(ctx context.Context, masterZmanID int32) ([]GetMasterZmanTagsForDetailRow, error)
-	// Get tags for multiple zmanim with full tag details
+	// Get tags for multiple zmanim with full tag details (user-facing - excludes hidden tags)
 	GetMasterZmanTagsWithDetails(ctx context.Context, dollar_1 []int32) ([]GetMasterZmanTagsWithDetailsRow, error)
 	GetMasterZmanimByCategory(ctx context.Context, key string) ([]GetMasterZmanimByCategoryRow, error)
-	GetMasterZmanimByTag(ctx context.Context, name string) ([]GetMasterZmanimByTagRow, error)
+	GetMasterZmanimByTag(ctx context.Context, tagKey string) ([]GetMasterZmanimByTagRow, error)
 	// Get master registry zmanim that have any of the specified tags
 	GetMasterZmanimByTags(ctx context.Context, dollar_1 []string) ([]GetMasterZmanimByTagsRow, error)
 	// Get master zmanim formulas by their keys for resolving @references in formulas
@@ -752,7 +767,7 @@ type Querier interface {
 	GetPublisherTransliterationStyle(ctx context.Context, id int32) (string, error)
 	// Alias CRUD Queries
 	// Epic 5, Story 5.0: Publisher Zman Aliases
-	// Schema: id, publisher_zman_id, publisher_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at
+	// Schema: id, publisher_zman_id, publisher_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, created_at
 	// Get a specific alias for a publisher's zman by zman_key
 	GetPublisherZmanAlias(ctx context.Context, arg GetPublisherZmanAliasParams) (GetPublisherZmanAliasRow, error)
 	// Get a specific zman by ID (for linking validation)
@@ -780,6 +795,7 @@ type Querier interface {
 	// Publisher Zman Tags
 	// ============================================================================
 	// Get all tags for a specific publisher zman (including is_negated)
+	// User-facing query - excludes hidden tags
 	GetPublisherZmanTags(ctx context.Context, publisherZmanID int32) ([]GetPublisherZmanTagsRow, error)
 	// ============================================
 	// TAG EXPORT QUERIES
@@ -880,17 +896,16 @@ type Querier interface {
 	GetSearchIndexStats(ctx context.Context) (GetSearchIndexStatsRow, error)
 	// Get source zman for copying/linking with publisher verification
 	GetSourceZmanForLinking(ctx context.Context, id int32) (GetSourceZmanForLinkingRow, error)
-	// Direct lookup by Hebcal basename (e.g., "Shavuot" -> shavuos tag)
-	GetTagByHebcalBasename(ctx context.Context, hebcalBasename *string) (GetTagByHebcalBasenameRow, error)
 	// Get a single tag by its key
 	GetTagByKey(ctx context.Context, tagKey string) (GetTagByKeyRow, error)
-	GetTagByName(ctx context.Context, name string) (GetTagByNameRow, error)
+	GetTagByTagKey(ctx context.Context, tagKey string) (GetTagByTagKeyRow, error)
 	// Tag Events SQL Queries
 	// SQLc will generate type-safe Go code from these queries
 	// ============================================================================
 	// Tag Event Mappings
 	// ============================================================================
 	// Get all HebCal event mappings for tag matching
+	// Uses new schema where match data is stored directly in zman_tags
 	GetTagEventMappings(ctx context.Context) ([]GetTagEventMappingsRow, error)
 	// Removed: Duplicate of GetTagTypeByKey in lookups.sql
 	// Get a tag type by its ID
@@ -900,12 +915,9 @@ type Querier interface {
 	GetTagTypes(ctx context.Context) ([]GetTagTypesRow, error)
 	// Get multiple tags by their keys
 	GetTagsByKeys(ctx context.Context, dollar_1 []string) ([]GetTagsByKeysRow, error)
+	// User-facing query - excludes hidden tags
 	GetTagsByType(ctx context.Context, key string) ([]GetTagsByTypeRow, error)
-	// Get tags that match a specific HebCal event name using pattern matching
-	// The pattern supports SQL LIKE wildcards (%)
-	GetTagsForHebCalEvent(ctx context.Context, hebcalEventPattern *string) ([]GetTagsForHebCalEventRow, error)
-	// Get tags that match a specific Hebrew date (month and day)
-	GetTagsForHebrewDate(ctx context.Context, arg GetTagsForHebrewDateParams) ([]GetTagsForHebrewDateRow, error)
+	// User-facing query - excludes hidden tags
 	GetTagsForMasterZman(ctx context.Context, masterZmanID int32) ([]GetTagsForMasterZmanRow, error)
 	// Get a time category by its ID
 	GetTimeCategoryByID(ctx context.Context, id int32) (TimeCategory, error)
@@ -979,6 +991,7 @@ type Querier interface {
 	// Fetches all tags for a specific publisher zman with source tracking
 	// Combines master zman tags (if linked to master registry) with publisher-specific tags
 	// Includes source_is_negated, is_modified, and tag_source for modification tracking
+	// User-facing query - excludes hidden tags
 	GetZmanTags(ctx context.Context, id int32) ([]GetZmanTagsRow, error)
 	// Fetch tags for multiple zmanim at once (avoids N+1 queries)
 	// Used when tags are needed separately from main query (e.g., simplified queries)
@@ -1001,7 +1014,7 @@ type Querier interface {
 	// Get all of a publisher's zmanim with their primary alias (if any)
 	// Orders by time_category (chronological) then hebrew_name
 	GetZmanimWithAliases(ctx context.Context, publisherID int32) ([]GetZmanimWithAliasesRow, error)
-	// Import all everyday zmanim (excludes event zmanim) for a publisher
+	// Import all everyday zmanim (excludes event zmanim - those with tag_type = 'event') for a publisher
 	// Used when importing "defaults" for a new publisher
 	ImportEverydayZmanimFromRegistry(ctx context.Context, publisherID int32) ([]ImportEverydayZmanimFromRegistryRow, error)
 	ImportZmanimFromRegistryByKeys(ctx context.Context, arg ImportZmanimFromRegistryByKeysParams) ([]ImportZmanimFromRegistryByKeysRow, error)
@@ -1055,7 +1068,9 @@ type Querier interface {
 	// Returns whether the current publisher already has each master zman (active or deleted)
 	ListPublisherZmanimForExamples(ctx context.Context, arg ListPublisherZmanimForExamplesParams) ([]ListPublisherZmanimForExamplesRow, error)
 	// Fetches all published zmanim with master registry metadata and tags for report
-	ListPublisherZmanimForReport(ctx context.Context, publisherID int32) ([]ListPublisherZmanimForReportRow, error)
+	// @param publisher_id: The publisher ID
+	// @param transliteration_style: 'ashkenazi' (default) or 'sephardi' - controls tag display names
+	ListPublisherZmanimForReport(ctx context.Context, arg ListPublisherZmanimForReportParams) ([]ListPublisherZmanimForReportRow, error)
 	ListPublishers(ctx context.Context, arg ListPublishersParams) ([]ListPublishersRow, error)
 	ListPublishersByIDs(ctx context.Context, dollar_1 []string) ([]ListPublishersByIDsRow, error)
 	// ============================================
@@ -1076,6 +1091,13 @@ type Querier interface {
 	// VERIFICATION FLOW
 	// =============================================================================
 	MarkTokenVerified(ctx context.Context, arg MarkTokenVerifiedParams) error
+	// ============================================================================
+	// Event Mapping Queries
+	// ============================================================================
+	// Get the best matching tag for a HebCal event using the PostgreSQL function
+	// This wraps the match_hebcal_event() function for use with SQLc
+	// Returns tag details including display names for matched events
+	MatchHebcalEvent(ctx context.Context, arg MatchHebcalEventParams) ([]MatchHebcalEventRow, error)
 	PermanentDeletePublisherZman(ctx context.Context, arg PermanentDeletePublisherZmanParams) error
 	PermanentDeleteZman(ctx context.Context, arg PermanentDeleteZmanParams) error
 	PublishAlgorithm(ctx context.Context, id int32) (pgtype.Timestamptz, error)

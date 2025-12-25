@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Clock, Calculator, BookOpen, Info, FlaskConical, AlertTriangle, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   Sheet,
   SheetContent,
@@ -9,6 +10,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+// Note: This component is used on public zmanim pages without PublisherContext,
+// so we use a standalone function instead of useTagDisplayName hook
 
 export interface ZmanFormula {
   method: string;
@@ -21,7 +24,9 @@ export interface ZmanFormula {
 
 export interface ZmanTag {
   name: string;
-  display_name_english: string;
+  display_name_english: string; // Deprecated: use display_name_english_ashkenazi
+  display_name_english_ashkenazi?: string;
+  display_name_english_sephardi?: string | null;
   display_name_hebrew: string;
   tag_type: string;
   color?: string;
@@ -84,6 +89,18 @@ function useMediaQuery(query: string): boolean {
   }, [matches, query]);
 
   return matches;
+}
+
+// Standalone function to get tag display name without requiring PublisherContext
+// The backend already resolves the correct transliteration based on publisher settings,
+// so we prefer display_name_english (which is pre-resolved) over the ashkenazi fallback
+function getTagDisplayName(tag: {
+  display_name_english_ashkenazi?: string;
+  display_name_english_sephardi?: string | null;
+  display_name_english?: string;
+}): string {
+  // Prefer backend-resolved display_name_english, then fall back to ashkenazi
+  return tag.display_name_english || tag.display_name_english_ashkenazi || '';
 }
 
 export function FormulaPanel({ zman, open, onClose }: FormulaPanelProps) {
@@ -155,25 +172,21 @@ export function FormulaPanel({ zman, open, onClose }: FormulaPanelProps) {
                 {zman.tags.map((tag) => (
                   <span
                     key={tag.name}
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
-                      tag.is_negated ? 'border-2 border-red-500 dark:border-red-400' : ''
-                    }`}
+                    className={cn(
+                      'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border',
+                      // Negated tags: red border
+                      tag.is_negated && 'border-2 border-red-500 dark:border-red-400'
+                    )}
                     style={{
-                      backgroundColor: tag.is_negated
-                        ? 'rgb(254 242 242)' // red-50
-                        : tag.color
-                        ? `${tag.color}15`
-                        : undefined,
-                      borderColor: tag.is_negated
-                        ? undefined // Uses className border color
-                        : tag.color || 'var(--border)',
-                      color: tag.is_negated
-                        ? 'rgb(185 28 28)' // red-700
-                        : tag.color || 'var(--foreground)',
+                      backgroundColor: tag.color ? `${tag.color}15` : undefined,
+                      borderColor: tag.is_negated ? undefined : (tag.color || 'var(--border)'),
+                      color: tag.color || 'var(--foreground)',
                     }}
                   >
-                    {tag.is_negated && <X className="w-3 h-3 mr-1" />}
-                    {tag.display_name_english}
+                    {tag.is_negated && <X className="w-3 h-3 mr-1 text-red-500 shrink-0" />}
+                    <span className={cn(tag.is_negated && 'line-through decoration-red-500')}>
+                      {getTagDisplayName(tag)}
+                    </span>
                   </span>
                 ))}
               </div>

@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jcom-dev/zmanim/internal/calendar"
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim/internal/services"
@@ -111,16 +112,8 @@ type DayContext struct {
 	DayName             string        `json:"day_name"`              // "Sunday", "Friday", etc.
 	HebrewDate          string        `json:"hebrew_date"`           // "23 Kislev 5785"
 	HebrewDateFormatted string        `json:"hebrew_date_formatted"` // Hebrew letters format
-	IsErevShabbos       bool          `json:"is_erev_shabbos"`       // Friday
-	IsShabbos           bool          `json:"is_shabbos"`            // Saturday
-	IsYomTov            bool          `json:"is_yom_tov"`            // Yom Tov day
-	IsFastDay           bool          `json:"is_fast_day"`           // Fast day
 	Holidays            []HolidayInfo `json:"holidays"`              // Holiday info with bilingual names
 	ActiveEventCodes    []string      `json:"active_event_codes"`    // Event codes active today
-	ShowCandleLighting  bool          `json:"show_candle_lighting"`  // Should show candle lighting zmanim
-	ShowHavdalah        bool          `json:"show_havdalah"`         // Should show havdalah zmanim
-	ShowFastStart       bool          `json:"show_fast_start"`       // Should show fast start zmanim
-	ShowFastEnd         bool          `json:"show_fast_end"`         // Should show fast end zmanim
 	SpecialContexts     []string      `json:"special_contexts"`      // shabbos_to_yomtov, etc.
 }
 
@@ -190,7 +183,6 @@ var dayNames = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", 
 //	@Param			X-Publisher-Id	header		string						true	"Publisher ID"
 //	@Param			locality_id		query		string						false	"Locality ID for calculated times (triggers unified response with day_context)"
 //	@Param			date			query		string						false	"Date for calculation (YYYY-MM-DD, defaults to today when locality_id provided)"
-//	@Param			sortByCategory	query		boolean						false	"Sort by category first, then by time (default: false - sort chronologically by time only)"
 //	@Param			latitude		query		number						false	"DEPRECATED: Use locality_id instead. Latitude for time calculation"
 //	@Param			longitude		query		number						false	"DEPRECATED: Use locality_id instead. Longitude for time calculation"
 //	@Param			timezone		query		string						false	"DEPRECATED: Use locality_id instead. Timezone for calculation"
@@ -219,8 +211,7 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 	dateStr := r.URL.Query().Get("date")
 	includeDisabled := r.URL.Query().Get("includeDisabled") == "true"
 	includeUnpublished := r.URL.Query().Get("includeUnpublished") == "true"
-	includeInactive := r.URL.Query().Get("includeInactive") == "true" // Include zmanim not active for this day (default: false)
-	sortByCategory := r.URL.Query().Get("sortByCategory") == "true"   // Sort by category first (default: false - sort chronologically)
+	includeInactive := r.URL.Query().Get("includeInactive") == "true"
 
 	// Parse locality_id
 	localityID, err := strconv.ParseInt(localityIDStr, 10, 64)
@@ -248,22 +239,9 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use unified calculation service (includes caching, coordinate resolution, etc.)
-	calcResult, err := h.unifiedZmanimService.CalculateZmanim(ctx, services.CalculateParams{
-		LocalityID:         localityID,
-		PublisherID:        publisherIDInt32,
-		Date:               date,
-		IncludeDisabled:    includeDisabled,
-		IncludeUnpublished: includeUnpublished,
-		IncludeBeta:        true,
-	})
-	if err != nil {
-		slog.Error("calculation failed", "error", err, "publisher_id", publisherID, "locality_id", localityID)
-		RespondInternalError(w, r, "Failed to calculate zmanim")
-		return
-	}
-
-	// Get locality details for day context
+	// Build calendar context for event filtering
+	// Note: We need to get zmanimCtx early to pass ActiveEventCodes to CalculateZmanim
+	// Get locality details first
 	localityID32 := int32(localityID)
 	locality, err := h.db.Queries.GetLocalityDetailsForZmanim(ctx, localityID32)
 	if err != nil {
@@ -271,8 +249,9 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build calendar service and day context
-	calService := calendar.NewCalendarService()
+	// Build calendar service with database adapter for event mapping
+	dbAdapter := NewCalendarDBAdapter(h.db.Queries)
+	calService := calendar.NewCalendarServiceWithDB(dbAdapter)
 	var lat, lng float64
 	if locality.Latitude != nil {
 		lat = *locality.Latitude
@@ -295,13 +274,51 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 	}
 	dateInTz := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, tz)
 
-	zmanimCtx := calService.GetZmanimContext(dateInTz, loc)
+	// Get publisher's transliteration style preference
+	transliterationStyle, err := h.db.Queries.GetPublisherTransliterationStyle(ctx, publisherIDInt32)
+	if err != nil {
+		slog.Warn("failed to get publisher transliteration style, using default", "error", err, "publisher_id", publisherID)
+		transliterationStyle = "ashkenazi" // Default to Ashkenazi
+	}
+
+	zmanimCtx := calService.GetZmanimContext(dateInTz, loc, transliterationStyle)
+
+	slog.Info("calendar context for publisher zmanim",
+		"date", dateStr,
+		"active_event_codes", zmanimCtx.ActiveEventCodes,
+		"event_count", len(zmanimCtx.ActiveEventCodes),
+		"publisher_id", publisherID,
+		"include_inactive", includeInactive)
+
+	// Determine ActiveEventCodes for filtering
+	// ALWAYS pass actual event codes - service layer uses them for:
+	// 1. Filtering (when show_in_preview=false) - controlled by service logic
+	// 2. Computing is_active_today field (always, even with includeInactive=true)
+	activeEventCodes := zmanimCtx.ActiveEventCodes
+
+	// Use unified calculation service (includes caching, coordinate resolution, etc.)
+	calcResult, err := h.zmanimService.CalculateZmanim(ctx, services.CalculateParams{
+		LocalityID:         localityID,
+		PublisherID:        publisherIDInt32,
+		Date:               date,
+		IncludeDisabled:    includeDisabled,
+		IncludeUnpublished: includeUnpublished,
+		IncludeBeta:        true,
+		IncludeInactive:    includeInactive,
+		ActiveEventCodes:   activeEventCodes,
+	})
+	if err != nil {
+		slog.Error("calculation failed", "error", err, "publisher_id", publisherID, "locality_id", localityID)
+		RespondInternalError(w, r, "Failed to calculate zmanim")
+		return
+	}
+
+	// Get Hebrew date for day context
 	hebrewDate := calService.GetHebrewDate(dateInTz)
 
 	// Build holidays list
 	holidays := calService.GetHolidays(dateInTz)
 	holidayInfos := make([]HolidayInfo, 0, len(holidays))
-	isYomTov := false
 	for _, hol := range holidays {
 		holidayInfos = append(holidayInfos, HolidayInfo{
 			Name:       hol.Name,
@@ -309,9 +326,6 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 			Category:   hol.Category,
 			IsYomTov:   hol.Yomtov,
 		})
-		if hol.Yomtov {
-			isYomTov = true
-		}
 	}
 
 	dayCtx := DayContext{
@@ -320,24 +334,9 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 		DayName:             dayNames[dateInTz.Weekday()],
 		HebrewDate:          hebrewDate.Formatted,
 		HebrewDateFormatted: hebrewDate.Hebrew,
-		IsErevShabbos:       dateInTz.Weekday() == time.Friday,
-		IsShabbos:           dateInTz.Weekday() == time.Saturday,
-		IsYomTov:            isYomTov,
-		IsFastDay:           zmanimCtx.ShowFastStarts || zmanimCtx.ShowFastEnds,
 		Holidays:            holidayInfos,
 		ActiveEventCodes:    zmanimCtx.ActiveEventCodes,
-		ShowCandleLighting:  zmanimCtx.ShowCandleLighting || zmanimCtx.ShowCandleLightingSheni,
-		ShowHavdalah:        zmanimCtx.ShowShabbosYomTovEnds,
-		ShowFastStart:       zmanimCtx.ShowFastStarts,
-		ShowFastEnd:         zmanimCtx.ShowFastEnds,
 		SpecialContexts:     zmanimCtx.DisplayContexts,
-	}
-
-	// Get publisher's transliteration style preference for tag display names
-	transliterationStyle, err := h.db.Queries.GetPublisherTransliterationStyle(ctx, publisherIDInt32)
-	if err != nil {
-		slog.Warn("failed to get publisher transliteration style, using default", "error", err, "publisher_id", publisherID)
-		transliterationStyle = "ashkenazi" // Default to Ashkenazi
 	}
 
 	// Fetch publisher zmanim metadata for enrichment
@@ -364,31 +363,23 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Check if this zman is active for the current day context
-		isActiveToday := h.shouldShowZman(metadata, dayCtx)
-
-		// Skip inactive zmanim unless explicitly requested
-		if !isActiveToday && !includeInactive {
-			continue
-		}
-
 		timestamp := calcZman.Timestamp
 		zmanimWithTime = append(zmanimWithTime, PublisherZmanWithTime{
 			PublisherZman: metadata,
 			Time:          &calcZman.TimeExact,
 			TimeRounded:   &calcZman.TimeRounded,
 			Timestamp:     &timestamp,
-			IsActiveToday: isActiveToday,
+			IsActiveToday: calcZman.IsActiveToday,
 		})
 	}
 
 	// Sort zmanim using the unified service
-	if h.unifiedZmanimService != nil {
+	if h.zmanimService != nil {
 		sortable := make([]services.SortableZman, len(zmanimWithTime))
 		for i := range zmanimWithTime {
 			sortable[i] = &zmanimWithTime[i]
 		}
-		h.unifiedZmanimService.SortZmanim(sortable, sortByCategory)
+		h.zmanimService.SortZmanim(sortable, false)
 		// Convert back to original slice (sorted order)
 		sorted := make([]PublisherZmanWithTime, len(sortable))
 		for i, s := range sortable {
@@ -485,22 +476,7 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 		zmanByKey[z.ZmanKey] = z
 	}
 
-	results, err := h.unifiedZmanimService.CalculateRange(ctx, services.RangeParams{
-		LocalityID:         localityID,
-		PublisherID:        publisherIDInt,
-		StartDate:          startDate,
-		EndDate:            startDate.AddDate(0, 0, 6),
-		IncludeDisabled:    false,
-		IncludeUnpublished: false,
-		IncludeBeta:        false,
-	})
-	if err != nil {
-		slog.Error("failed to calculate week zmanim", "error", err, "publisher_id", publisherID, "locality_id", localityID)
-		RespondInternalError(w, r, "Failed to calculate zmanim")
-		return
-	}
-
-	// Get locality for calendar context
+	// Get locality for calendar context (needed BEFORE calculation for ActiveEventCodes)
 	localityID32 := int32(localityID)
 	locality, err := h.db.Queries.GetLocalityDetailsForZmanim(ctx, localityID32)
 	if err != nil {
@@ -509,8 +485,9 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Build calendar service
-	calService := calendar.NewCalendarService()
+	// Build calendar service with database adapter for event mapping
+	dbAdapter := NewCalendarDBAdapter(h.db.Queries)
+	calService := calendar.NewCalendarServiceWithDB(dbAdapter)
 
 	// Dereference coordinates (handle nil case)
 	var lat, lng float64
@@ -528,17 +505,39 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 		IsIsrael:  calendar.IsLocationInIsrael(lat, lng),
 	}
 
+	// Create ActiveEventCodes provider for each day's calendar context
+	// This ensures CalculateRange uses central ShouldShowZman logic with proper event codes
+	activeEventCodesProvider := func(date time.Time) []string {
+		zmanimCtx := calService.GetZmanimContext(date, loc, transliterationStyle)
+		return zmanimCtx.ActiveEventCodes
+	}
+
+	results, err := h.zmanimService.CalculateRange(ctx, services.RangeParams{
+		LocalityID:               localityID,
+		PublisherID:              publisherIDInt,
+		StartDate:                startDate,
+		EndDate:                  startDate.AddDate(0, 0, 6),
+		IncludeDisabled:          false,
+		IncludeUnpublished:       false,
+		IncludeBeta:              false,
+		ActiveEventCodesProvider: activeEventCodesProvider,
+	})
+	if err != nil {
+		slog.Error("failed to calculate week zmanim", "error", err, "publisher_id", publisherID, "locality_id", localityID)
+		RespondInternalError(w, r, "Failed to calculate zmanim")
+		return
+	}
+
 	// Build response with day contexts
 	days := make([]WeekDayZmanim, 0, len(results))
 	for _, dayResult := range results {
 		date, _ := time.Parse("2006-01-02", dayResult.Date)
 
 		// Build day context
-		zmanimCtx := calService.GetZmanimContext(date, loc)
+		zmanimCtx := calService.GetZmanimContext(date, loc, transliterationStyle)
 		hebrewDate := calService.GetHebrewDate(date)
 		holidays := calService.GetHolidays(date)
 		holidayInfos := make([]HolidayInfo, 0, len(holidays))
-		isYomTov := false
 		for _, h := range holidays {
 			holidayInfos = append(holidayInfos, HolidayInfo{
 				Name:       h.Name,
@@ -546,9 +545,6 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 				Category:   h.Category,
 				IsYomTov:   h.Yomtov,
 			})
-			if h.Yomtov {
-				isYomTov = true
-			}
 		}
 
 		dayCtx := DayContext{
@@ -557,16 +553,8 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 			DayName:             dayNames[date.Weekday()],
 			HebrewDate:          hebrewDate.Formatted,
 			HebrewDateFormatted: hebrewDate.Hebrew,
-			IsErevShabbos:       date.Weekday() == time.Friday,
-			IsShabbos:           date.Weekday() == time.Saturday,
-			IsYomTov:            isYomTov,
-			IsFastDay:           zmanimCtx.ShowFastStarts || zmanimCtx.ShowFastEnds,
 			Holidays:            holidayInfos,
 			ActiveEventCodes:    zmanimCtx.ActiveEventCodes,
-			ShowCandleLighting:  zmanimCtx.ShowCandleLighting || zmanimCtx.ShowCandleLightingSheni,
-			ShowHavdalah:        zmanimCtx.ShowShabbosYomTovEnds,
-			ShowFastStart:       zmanimCtx.ShowFastStarts,
-			ShowFastEnd:         zmanimCtx.ShowFastEnds,
 			SpecialContexts:     zmanimCtx.DisplayContexts,
 		}
 
@@ -584,28 +572,22 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 				pz = meta
 				pz.ID = strconv.FormatInt(z.ID, 10) // Keep the ID from calculation result
 			}
-			// Check if this zman is active for the day context
-			isActiveToday := h.shouldShowZman(pz, dayCtx)
-			// Week endpoint only shows active zmanim (consumer-facing)
-			if !isActiveToday {
-				continue
-			}
 			zmanimWithTime = append(zmanimWithTime, PublisherZmanWithTime{
 				PublisherZman: pz,
 				Time:          &z.TimeExact,
 				TimeRounded:   &z.TimeRounded,
 				Timestamp:     &timestamp,
-				IsActiveToday: isActiveToday,
+				IsActiveToday: z.IsActiveToday,
 			})
 		}
 
 		// Sort zmanim by category order (Jewish day structure: dawn → midnight)
-		if h.unifiedZmanimService != nil && len(zmanimWithTime) > 0 {
+		if h.zmanimService != nil && len(zmanimWithTime) > 0 {
 			sortable := make([]services.SortableZman, len(zmanimWithTime))
 			for i := range zmanimWithTime {
 				sortable[i] = &zmanimWithTime[i]
 			}
-			h.unifiedZmanimService.SortZmanim(sortable, false)
+			h.zmanimService.SortZmanim(sortable, false)
 			sorted := make([]PublisherZmanWithTime, len(sortable))
 			for i, s := range sortable {
 				sorted[i] = *s.(*PublisherZmanWithTime)
@@ -653,7 +635,7 @@ type YearExportDayRow struct {
 }
 
 // GetPublisherZmanimYear returns all zmanim for a publisher for an entire Hebrew year
-// GET /api/v1/publisher/zmanim/year?hebrew_year=5786&latitude=X&longitude=Y&timezone=Z
+// GET /api/v1/publisher/zmanim/year?hebrew_year=5786&locality_id=542028
 //
 //	@Summary		Get zmanim for a full Hebrew year
 //	@Description	Returns all zmanim calculations for a full Hebrew year for export/comparison
@@ -662,12 +644,11 @@ type YearExportDayRow struct {
 //	@Security		BearerAuth
 //	@Param			X-Publisher-Id	header		string									true	"Publisher ID"
 //	@Param			hebrew_year		query		int										true	"Hebrew year (e.g., 5786)"
-//	@Param			latitude		query		number									true	"Latitude for calculation"
-//	@Param			longitude		query		number									true	"Longitude for calculation"
-//	@Param			timezone		query		string									true	"Timezone (e.g., Europe/London)"
+//	@Param			locality_id		query		int										true	"Locality ID for coordinate resolution"
 //	@Success		200				{object}	APIResponse{data=YearExportResponse}	"Year zmanim data"
 //	@Failure		400				{object}	APIResponse{error=APIError}				"Invalid parameters"
 //	@Failure		401				{object}	APIResponse{error=APIError}				"Unauthorized"
+//	@Failure		404				{object}	APIResponse{error=APIError}				"Locality not found"
 //	@Router			/publisher/zmanim/year [get]
 func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -681,10 +662,7 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 
 	// Parse query params
 	hebrewYearStr := r.URL.Query().Get("hebrew_year")
-	latStr := r.URL.Query().Get("latitude")
-	lonStr := r.URL.Query().Get("longitude")
-	timezone := r.URL.Query().Get("timezone")
-	locationName := r.URL.Query().Get("location_name")
+	localityIDStr := r.URL.Query().Get("locality_id")
 
 	// Validate required params
 	if hebrewYearStr == "" {
@@ -697,26 +675,56 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if latStr == "" || lonStr == "" {
-		RespondBadRequest(w, r, "latitude and longitude are required")
+	if localityIDStr == "" {
+		RespondBadRequest(w, r, "locality_id is required")
+		return
+	}
+	localityID, err := strconv.ParseInt(localityIDStr, 10, 64)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid locality_id")
 		return
 	}
 
-	latitude, err := strconv.ParseFloat(latStr, 64)
-	if err != nil || latitude < -90 || latitude > 90 {
-		RespondBadRequest(w, r, "Invalid latitude. Must be between -90 and 90")
+	// Convert publisher ID to int32
+	publisherIDInt32, err := stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
 		return
 	}
-	longitude, err := strconv.ParseFloat(lonStr, 64)
-	if err != nil || longitude < -180 || longitude > 180 {
-		RespondBadRequest(w, r, "Invalid longitude. Must be between -180 and 180")
+
+	// Get effective locality location (same pattern as ZmanimService.CalculateZmanim)
+	// Priority: publisher override > admin override > default (overture/glo90)
+	location, err := h.db.Queries.GetEffectiveLocalityLocation(ctx, sqlcgen.GetEffectiveLocalityLocationParams{
+		LocalityID:  int32(localityID),
+		PublisherID: pgtype.Int4{Int32: publisherIDInt32, Valid: true},
+	})
+	if err != nil {
+		slog.Error("failed to get locality location", "error", err, "locality_id", localityID)
+		RespondNotFound(w, r, "Locality not found")
 		return
 	}
-	if timezone == "" {
-		timezone = "UTC"
+
+	// Get locality name and hierarchy for display
+	localityInfo, err := h.db.Queries.GetLocalityForReport(ctx, int32(localityID))
+	if err != nil {
+		slog.Warn("failed to get locality info, using fallback", "error", err, "locality_id", localityID)
+		localityInfo.Name = fmt.Sprintf("Locality %d", localityID)
 	}
-	if locationName == "" {
-		locationName = fmt.Sprintf("%.4f, %.4f", latitude, longitude)
+
+	// Extract coordinates (resolved with publisher overrides)
+	latitude := location.Latitude
+	longitude := location.Longitude
+	elevation := float64(location.ElevationM)
+	locationName := localityInfo.Name
+	if localityInfo.DisplayHierarchy != nil && *localityInfo.DisplayHierarchy != "" {
+		locationName = *localityInfo.DisplayHierarchy
+	}
+
+	// Load timezone from locality
+	tz, err := time.LoadLocation(location.Timezone)
+	if err != nil {
+		slog.Warn("invalid timezone, using UTC", "timezone", location.Timezone, "error", err)
+		tz = time.UTC
 	}
 
 	// Get Hebrew year date range
@@ -728,17 +736,15 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		"hebrew_year", hebrewYear,
 		"start_date", startDate.Format("2006-01-02"),
 		"end_date", endDate.Format("2006-01-02"),
+		"locality_id", localityID,
+		"location_name", locationName,
 		"latitude", latitude,
 		"longitude", longitude,
-		"timezone", timezone,
+		"elevation", elevation,
+		"timezone", location.Timezone,
 	)
 
-	// Convert publisher ID and get transliteration style
-	publisherIDInt32, err := stringToInt32(publisherID)
-	if err != nil {
-		RespondBadRequest(w, r, "Invalid publisher ID")
-		return
-	}
+	// Get transliteration style (publisher ID already converted above)
 	transliterationStyle, err := h.db.Queries.GetPublisherTransliterationStyle(ctx, publisherIDInt32)
 	if err != nil {
 		slog.Warn("failed to get publisher transliteration style, using default", "error", err, "publisher_id", publisherID)
@@ -775,12 +781,6 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		publisherName = "Unknown Publisher"
 	}
 
-	// Load timezone
-	tz, err := time.LoadLocation(timezone)
-	if err != nil {
-		tz = time.UTC
-	}
-
 	// Build formulas map for dependency resolution
 	formulas := make(map[string]string)
 	for _, z := range everydayZmanim {
@@ -810,8 +810,8 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		hebrewDate := calService.GetHebrewDate(dateLocal)
 
 		// Calculate all formulas using the service (handles references like @alos_12)
-		calculatedTimes, calcErr := h.unifiedZmanimService.ExecuteFormulasWithCoordinates(
-			dateLocal, latitude, longitude, 0, tz, formulas,
+		calculatedTimes, calcErr := h.zmanimService.ExecuteFormulasWithCoordinates(
+			dateLocal, latitude, longitude, elevation, tz, formulas,
 		)
 		if calcErr != nil {
 			slog.Warn("formula execution had errors for date", "date", dateStr, "error", calcErr)
@@ -840,7 +840,7 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 			Name:      locationName,
 			Latitude:  latitude,
 			Longitude: longitude,
-			Timezone:  timezone,
+			Timezone:  location.Timezone,
 		},
 		GeneratedAt:  time.Now().UTC().Format(time.RFC3339),
 		ZmanimOrder:  zmanimOrder,
@@ -871,13 +871,18 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string,
 	sqlcResults, err := h.db.Queries.FetchPublisherZmanim(ctx, sqlcgen.FetchPublisherZmanimParams{
 		PublisherID:          publisherIDInt32,
 		IncludeDeleted:       nil, // nil = false, exclude deleted items
-		TransliterationStyle: transliterationStyle,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	slog.Info("FetchPublisherZmanim SQL results", "count", len(sqlcResults))
+
+	// Determine effective transliteration style
+	effectiveStyle := "ashkenazi" // Default
+	if transliterationStyle != nil && *transliterationStyle == "sephardi" {
+		effectiveStyle = "sephardi"
+	}
 
 	// Convert SQLc results to PublisherZman slice
 	zmanim := make([]PublisherZman, 0, len(sqlcResults))
@@ -890,12 +895,51 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string,
 
 		var tags []ZmanTag
 		if row.Tags != nil {
+			// Intermediate struct to parse raw JSON with both transliteration fields
+			type rawTag struct {
+				ID                           int32   `json:"id"`
+				TagKey                       string  `json:"tag_key"`
+				DisplayNameHebrew            string  `json:"display_name_hebrew"`
+				DisplayNameEnglishAshkenazi  string  `json:"display_name_english_ashkenazi"`
+				DisplayNameEnglishSephardi   *string `json:"display_name_english_sephardi"`
+				TagType                      string  `json:"tag_type"`
+				IsNegated                    bool    `json:"is_negated"`
+				IsModified                   bool    `json:"is_modified"`
+				SourceIsNegated              *bool   `json:"source_is_negated"`
+			}
+
+			var rawTags []rawTag
 			if tagsBytes, err := json.Marshal(row.Tags); err == nil {
 				slog.Info("fetchPublisherZmanim: parsing tags", "zman_key", row.ZmanKey, "raw_json", string(tagsBytes))
-				if err := json.Unmarshal(tagsBytes, &tags); err != nil {
+				if err := json.Unmarshal(tagsBytes, &rawTags); err != nil {
 					slog.Error("fetchPublisherZmanim: failed to unmarshal tags", "error", err, "json", string(tagsBytes))
 				} else {
-					slog.Info("fetchPublisherZmanim: successfully parsed tags", "zman_key", row.ZmanKey, "count", len(tags), "tags", tags)
+					slog.Info("fetchPublisherZmanim: successfully parsed raw tags", "zman_key", row.ZmanKey, "count", len(rawTags))
+
+					// Convert raw tags to ZmanTag, selecting correct display name
+					for _, rt := range rawTags {
+						displayName := rt.DisplayNameEnglishAshkenazi // Default
+						if effectiveStyle == "sephardi" && rt.DisplayNameEnglishSephardi != nil && *rt.DisplayNameEnglishSephardi != "" {
+							displayName = *rt.DisplayNameEnglishSephardi
+						}
+
+						tags = append(tags, ZmanTag{
+							ID:                          rt.ID,
+							TagKey:                      rt.TagKey,
+							Name:                        rt.TagKey, // Keep tag_key as name for backward compatibility
+							DisplayNameHebrew:           rt.DisplayNameHebrew,
+							DisplayNameEnglish:          displayName, // Selected based on transliteration style
+							DisplayNameEnglishAshkenazi: rt.DisplayNameEnglishAshkenazi,
+							DisplayNameEnglishSephardi:  rt.DisplayNameEnglishSephardi,
+							TagType:                     rt.TagType,
+							Description:                 nil,
+							Color:                       nil,
+							IsNegated:                   rt.IsNegated,
+							IsModified:                  rt.IsModified,
+							SourceIsNegated:             rt.SourceIsNegated,
+							CreatedAt:                   time.Time{},
+						})
+					}
 				}
 			}
 		} else {
@@ -986,167 +1030,6 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string,
 
 // filterAndCalculateZmanim filters zmanim based on day context and calculates times
 // Filtering is entirely tag-driven - no hardcoded zman keys
-func (h *Handlers) filterAndCalculateZmanim(zmanim []PublisherZman, dayCtx DayContext, date time.Time, lat, lon float64, timezone string) []PublisherZmanWithTime {
-	var result []PublisherZmanWithTime
-
-	// Load timezone
-	tz, err := time.LoadLocation(timezone)
-	if err != nil {
-		tz = time.UTC
-	}
-
-	// Set date to start of day in timezone
-	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, tz)
-	slog.Debug("filterAndCalculateZmanim", "timezone_param", timezone, "tz_loaded", tz.String(), "date", date.Format(time.RFC3339))
-
-	// Build a map of all formulas for dependency resolution
-	// This allows ExecuteFormulaSet to calculate zmanim in the correct order
-	// so that references like @alos_12 are resolved before dependent formulas
-	formulas := make(map[string]string)
-	for _, z := range zmanim {
-		if z.FormulaDSL != "" {
-			formulas[z.ZmanKey] = z.FormulaDSL
-		}
-	}
-
-	// Pre-calculate all formulas in dependency order if we have location
-	var calculatedTimes map[string]time.Time
-	if (lat != 0 || lon != 0) && len(formulas) > 0 {
-		calculatedTimes, err = h.unifiedZmanimService.ExecuteFormulasWithCoordinates(
-			date, lat, lon, 0, tz, formulas,
-		)
-		if err != nil {
-			// Log but continue - individual errors will be caught below
-			slog.Warn("formula execution had errors", "error", err)
-		}
-	}
-
-	for _, z := range zmanim {
-		// Only include enabled zmanim
-		if !z.IsEnabled {
-			continue
-		}
-
-		// Check if this zman should be shown based on tags and day context
-		if !h.shouldShowZman(z, dayCtx) {
-			continue
-		}
-
-		// Build result with calculated time
-		zwt := PublisherZmanWithTime{
-			PublisherZman: z,
-		}
-
-		// Use pre-calculated time if available
-		if calculatedTimes != nil {
-			if timeResult, ok := calculatedTimes[z.ZmanKey]; ok && !timeResult.IsZero() {
-				timeStr := timeResult.Format("15:04:05")
-				timestamp := timeResult.Unix()
-				zwt.Time = &timeStr
-				zwt.Timestamp = &timestamp
-			}
-		}
-
-		result = append(result, zwt)
-	}
-
-	// Sort all zmanim using the unified service
-	if h.unifiedZmanimService != nil {
-		sortable := make([]services.SortableZman, len(result))
-		for i := range result {
-			sortable[i] = &result[i]
-		}
-		h.unifiedZmanimService.SortZmanim(sortable, false)
-		// Convert back to original slice (sorted order)
-		sorted := make([]PublisherZmanWithTime, len(sortable))
-		for i, s := range sortable {
-			sorted[i] = *s.(*PublisherZmanWithTime)
-		}
-		result = sorted
-	}
-
-	return result
-}
-
-// shouldShowZman determines if a zman should be shown based on its tags and day context
-// This is entirely tag-driven - category tags are matched against calendar-derived visibility flags
-func (h *Handlers) shouldShowZman(z PublisherZman, dayCtx DayContext) bool {
-	// Check category tags against day context visibility flags
-	// The calendar service computes these flags from ActiveEventCodes
-	// This approach uses tags to determine WHAT to check, and event codes (via flags) to determine WHEN to show
-	for _, tag := range z.Tags {
-		if tag.TagType != "category" {
-			continue
-		}
-
-		// Map category tags to their corresponding visibility conditions
-		// These flags are computed by the calendar service based on event codes
-		switch tag.TagKey {
-		case "category_candle_lighting":
-			if !dayCtx.ShowCandleLighting {
-				return false
-			}
-		case "category_havdalah":
-			if !dayCtx.ShowHavdalah {
-				return false
-			}
-		case "category_fast_start":
-			if !dayCtx.ShowFastStart {
-				return false
-			}
-		case "category_fast_end":
-			if !dayCtx.ShowFastEnd {
-				return false
-			}
-		}
-	}
-
-	// Check for event/jewish_day tags that restrict when this zman appears
-	// If a zman has any event or jewish_day tags, it should ONLY show on matching days
-	eventTags := getEventAndJewishDayTags(z.Tags)
-	if len(eventTags) > 0 {
-		// Check if any of the zman's event tags match the active event codes
-		// Also check for negation - negated tags mean "NOT on this day"
-		hasPositiveMatch := false
-		hasNegativeMatch := false
-
-		for _, tag := range eventTags {
-			isActive := sliceContainsString(dayCtx.ActiveEventCodes, tag.TagKey)
-			if tag.IsNegated {
-				// Negated tag: if this event IS active today, hide the zman
-				if isActive {
-					hasNegativeMatch = true
-				}
-			} else {
-				// Positive tag: if this event IS active today, show the zman
-				if isActive {
-					hasPositiveMatch = true
-				}
-			}
-		}
-
-		// If negated tag matches, hide regardless of positive matches
-		if hasNegativeMatch {
-			return false
-		}
-
-		// If there are positive tags but none match, hide
-		hasPositiveTags := false
-		for _, tag := range eventTags {
-			if !tag.IsNegated {
-				hasPositiveTags = true
-				break
-			}
-		}
-		if hasPositiveTags && !hasPositiveMatch {
-			return false
-		}
-	}
-
-	return true
-}
-
-// getEventAndJewishDayTags returns tags that are event or jewish_day type
 func getEventAndJewishDayTags(tags []ZmanTag) []ZmanTag {
 	var result []ZmanTag
 	for _, t := range tags {
@@ -1157,7 +1040,8 @@ func getEventAndJewishDayTags(tags []ZmanTag) []ZmanTag {
 	return result
 }
 
-// sliceContainsString checks if a string slice contains a specific string
+// Deprecated: sliceContainsString - logic moved to ZmanimService
+// Kept for backward compatibility but should not be used in new code
 func sliceContainsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {

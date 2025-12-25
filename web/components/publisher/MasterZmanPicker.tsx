@@ -38,6 +38,7 @@ import {
 } from '@/lib/hooks/useZmanimList';
 import { useTimeCategories } from '@/lib/hooks/useCategories';
 import { getIcon } from '@/lib/icons';
+import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Search,
@@ -76,6 +77,7 @@ export function MasterZmanPicker({
   const [customFormula, setCustomFormula] = useState<string>('');
   const [showCustomizeStep, setShowCustomizeStep] = useState(false);
   const [viewMode, setViewMode] = useState<'everyday' | 'events'>('everyday');
+  const getTagName = useTagDisplayName();
 
   // Fetch categories from database
   const { data: timeCategories, isLoading: loadingTimeCategories } = useTimeCategories();
@@ -338,7 +340,7 @@ export function MasterZmanPicker({
                                         color={getTagTypeColor(tag.tag_type)}
                                         size="sm"
                                       >
-                                        {tag.display_name_english}
+                                        {getTagName(tag)}
                                       </ColorBadge>
                                     ))}
                                   </div>

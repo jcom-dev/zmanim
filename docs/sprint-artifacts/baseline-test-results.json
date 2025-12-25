@@ -1,0 +1,38 @@
+[
+  {
+    "date": "2025-12-21",
+    "name": "Winter Solstice",
+    "formulas": {
+      "first_valid(solar(16.1, before_visible_sunrise), visible_sunrise - 72min)": "05:17:11",
+      "midpoint(visible_sunrise, visible_sunset)": "11:37:17",
+      "proportional_hours(3, gra)": "09:08:34",
+      "solar(-16.1, before_visible_sunrise)": "ERROR: runtime error: could not calculate solar(-16.1, before_visible_sunrise) - polar region or invalid parameters",
+      "visible_sunrise": "06:39:52",
+      "visible_sunset - 18min": "16:16:42"
+    }
+  },
+  {
+    "date": "2025-03-20",
+    "name": "Spring Equinox",
+    "formulas": {
+      "first_valid(solar(16.1, before_visible_sunrise), visible_sunrise - 72min)": "04:30:44",
+      "midpoint(visible_sunrise, visible_sunset)": "11:46:46",
+      "proportional_hours(3, gra)": "08:46:58",
+      "solar(-16.1, before_visible_sunrise)": "ERROR: runtime error: could not calculate solar(-16.1, before_visible_sunrise) - polar region or invalid parameters",
+      "visible_sunrise": "05:47:10",
+      "visible_sunset - 18min": "17:28:23"
+    }
+  },
+  {
+    "date": "2025-06-21",
+    "name": "Summer Solstice",
+    "formulas": {
+      "first_valid(solar(16.1, before_visible_sunrise), visible_sunrise - 72min)": "04:06:29",
+      "midpoint(visible_sunrise, visible_sunset)": "12:40:59",
+      "proportional_hours(3, gra)": "09:10:00",
+      "solar(-16.1, before_visible_sunrise)": "ERROR: runtime error: could not calculate solar(-16.1, before_visible_sunrise) - polar region or invalid parameters",
+      "visible_sunrise": "05:39:02",
+      "visible_sunset - 18min": "19:24:57"
+    }
+  }
+]

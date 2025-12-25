@@ -104,8 +104,14 @@ cat "$TEMP_FILE" | \
     grep -v "COMMENT ON SCHEMA public" \
     > "$TEMP_FILE2"
 
-# Remove schema_migrations table and its related objects (multi-line blocks)
-sed -i '/-- Name: schema_migrations/,/^);$/d' "$TEMP_FILE2"
+# Remove schema_migrations table and its related objects
+# Use more specific patterns that don't accidentally remove other content
+# 1. Remove CREATE TABLE schema_migrations block (ends with );)
+sed -i '/^CREATE TABLE public\.schema_migrations/,/^);$/d' "$TEMP_FILE2"
+# 2. Remove schema_migrations PRIMARY KEY constraint block (ALTER TABLE + constraint line)
+sed -i '/ALTER TABLE.*schema_migrations/,/;$/d' "$TEMP_FILE2"
+# 3. Remove comment lines mentioning schema_migrations
+sed -i '/-- Name: schema_migrations/d' "$TEMP_FILE2"
 
 cat "$TEMP_FILE2" >> "$MIGRATION_FILE"
 rm -f "$TEMP_FILE2"

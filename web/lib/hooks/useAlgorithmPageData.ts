@@ -30,16 +30,9 @@ export interface DayContext {
   day_name: string; // "Sunday", "Friday", etc.
   hebrew_date: string; // "23 Kislev 5785"
   hebrew_date_formatted: string; // Hebrew letters format
-  is_erev_shabbos: boolean; // Friday
-  is_shabbos: boolean; // Saturday
-  is_yom_tov: boolean; // Yom Tov day
-  is_fast_day: boolean; // Fast day
   holidays: HolidayInfo[];
-  active_event_codes: string[];
-  show_candle_lighting: boolean;
-  show_havdalah: boolean;
-  show_fast_start: boolean;
-  show_fast_end: boolean;
+  active_event_codes: string[]; // Event codes active today (e.g., "erev_shabbos", "shabbos", "yom_tov")
+  special_contexts: string[]; // Special contexts (e.g., "shabbos_to_yomtov")
 }
 
 export interface HolidayInfo {

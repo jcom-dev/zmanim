@@ -78,17 +78,16 @@ interface BatchHolidayInfo {
   name: string;
   name_hebrew: string;
   category: string;
-  is_yom_tov: boolean;
+  yomtov: boolean;
 }
 
 interface BatchDayContext {
   date: string;
   hebrew_date: string;
   hebrew_date_formatted: string;
-  is_yom_tov: boolean;
-  is_fast_day: boolean;
   holidays: BatchHolidayInfo[];
-  show_candle_lighting: boolean;
+  active_event_codes: string[];
+  special_contexts: string[];
 }
 
 interface BatchZman {
@@ -98,10 +97,11 @@ interface BatchZman {
   is_enabled: boolean;
   is_published: boolean;
   is_beta: boolean;
-  is_event_zman?: boolean; // Whether this is an event zman (candle lighting, havdalah, etc.)
+  is_event_zman: boolean; // Server-calculated: true if zman has event-type tags
   time?: string | null; // Exact time with seconds (HH:mm:ss)
   time_rounded?: string | null; // Rounded time per rounding_mode (HH:mm:ss with :00)
   time_display?: string | null; // Rounded time for display (HH:mm, no seconds)
+  tags?: Array<{ tag_type: string; tag_key: string }>; // Tags from zman
 }
 
 interface BatchWeekDay {
@@ -135,10 +135,11 @@ interface DayZman {
   is_published: boolean;
   is_beta: boolean;
   is_enabled: boolean;
-  is_event_zman: boolean; // Whether this is an event zman (candle lighting, havdalah, etc.)
+  is_event_zman: boolean; // Server-calculated: true if zman has event-type tags
   time: string | null; // Exact time with seconds
   time_rounded: string | null; // Rounded time per rounding_mode (HH:mm:ss with :00)
   time_display: string | null; // Rounded time for display (HH:mm, no seconds)
+  tags?: Array<{ tag_type: string; tag_key: string }>; // Tags from zman
 }
 
 interface DayResult {
@@ -313,14 +314,15 @@ export function WeekPreview({ localityId, displayName, initialDate, displayLangu
         if (index >= days.length) return;
 
         const ctx = batchDay.day_context;
-        days[index].isYomTov = ctx.is_yom_tov;
+        // Derive isYomTov from active_event_codes
+        days[index].isYomTov = ctx.active_event_codes?.includes('yom_tov') || false;
 
         // Map holiday objects from API response (handle null/undefined from Go nil slice)
         days[index].holidays = (ctx.holidays || []).map(h => ({
           name: h.name,
           name_hebrew: h.name_hebrew,
           category: h.category,
-          yomtov: h.is_yom_tov,
+          yomtov: h.yomtov,
         }));
 
         // Parse hebrew_date string "23 Kislev 5785"
@@ -342,10 +344,11 @@ export function WeekPreview({ localityId, displayName, initialDate, displayLangu
           is_published: z.is_published,
           is_beta: z.is_beta,
           is_enabled: z.is_enabled,
-          is_event_zman: z.is_event_zman || false,
+          is_event_zman: z.is_event_zman,
           time: z.time || null,
           time_rounded: z.time_rounded || null,
           time_display: z.time_display || null,
+          tags: z.tags,
         }));
       });
     }
@@ -381,6 +384,7 @@ export function WeekPreview({ localityId, displayName, initialDate, displayLangu
 
     seenZmanim.forEach((zman) => {
       // Count event zmanim separately (candle lighting, havdalah, etc.)
+      // Server determines event status via is_event_zman field (based on event-type tags)
       if (zman.is_event_zman) {
         counts.events++;
         return; // Don't double-count event zmanim in other categories

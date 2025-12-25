@@ -19,13 +19,12 @@ INSERT INTO publisher_zman_aliases (
     alias_english,
     alias_transliteration,
     context,
-    is_primary,
-    sort_order
+    is_primary
 )
-SELECT $1, pz.id, $3, $4, $5, $6, $7, $8
+SELECT $1, pz.id, $3, $4, $5, $6, $7
 FROM publisher_zmanim pz
 WHERE pz.publisher_id = $1 AND pz.zman_key = $2
-RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at
+RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, created_at
 `
 
 type CreatePublisherZmanAliasParams struct {
@@ -36,7 +35,6 @@ type CreatePublisherZmanAliasParams struct {
 	AliasTransliteration *string `json:"alias_transliteration"`
 	Context              *string `json:"context"`
 	IsPrimary            bool    `json:"is_primary"`
-	SortOrder            *int32  `json:"sort_order"`
 }
 
 type CreatePublisherZmanAliasRow struct {
@@ -48,7 +46,6 @@ type CreatePublisherZmanAliasRow struct {
 	AliasTransliteration *string            `json:"alias_transliteration"`
 	Context              *string            `json:"context"`
 	IsPrimary            bool               `json:"is_primary"`
-	SortOrder            *int32             `json:"sort_order"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -62,7 +59,6 @@ func (q *Queries) CreatePublisherZmanAlias(ctx context.Context, arg CreatePublis
 		arg.AliasTransliteration,
 		arg.Context,
 		arg.IsPrimary,
-		arg.SortOrder,
 	)
 	var i CreatePublisherZmanAliasRow
 	err := row.Scan(
@@ -74,7 +70,6 @@ func (q *Queries) CreatePublisherZmanAlias(ctx context.Context, arg CreatePublis
 		&i.AliasTransliteration,
 		&i.Context,
 		&i.IsPrimary,
-		&i.SortOrder,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -119,7 +114,6 @@ SELECT
     pza.alias_transliteration,
     pza.context,
     pza.is_primary,
-    pza.sort_order,
     pza.created_at,
     pz.zman_key,
     mzr.canonical_hebrew_name,
@@ -140,7 +134,6 @@ ORDER BY
         WHEN 'midnight' THEN 8
         ELSE 9
     END,
-    pza.sort_order,
     mzr.canonical_hebrew_name
 `
 
@@ -153,7 +146,6 @@ type GetAllPublisherZmanAliasesRow struct {
 	AliasTransliteration *string            `json:"alias_transliteration"`
 	Context              *string            `json:"context"`
 	IsPrimary            bool               `json:"is_primary"`
-	SortOrder            *int32             `json:"sort_order"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	ZmanKey              string             `json:"zman_key"`
 	CanonicalHebrewName  string             `json:"canonical_hebrew_name"`
@@ -180,7 +172,6 @@ func (q *Queries) GetAllPublisherZmanAliases(ctx context.Context, publisherID in
 			&i.AliasTransliteration,
 			&i.Context,
 			&i.IsPrimary,
-			&i.SortOrder,
 			&i.CreatedAt,
 			&i.ZmanKey,
 			&i.CanonicalHebrewName,
@@ -207,7 +198,6 @@ SELECT
     pza.alias_transliteration,
     pza.context,
     pza.is_primary,
-    pza.sort_order,
     pza.created_at,
     pz.zman_key,
     mzr.canonical_hebrew_name,
@@ -232,7 +222,6 @@ type GetPublisherZmanAliasRow struct {
 	AliasTransliteration *string            `json:"alias_transliteration"`
 	Context              *string            `json:"context"`
 	IsPrimary            bool               `json:"is_primary"`
-	SortOrder            *int32             `json:"sort_order"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	ZmanKey              string             `json:"zman_key"`
 	CanonicalHebrewName  string             `json:"canonical_hebrew_name"`
@@ -241,7 +230,7 @@ type GetPublisherZmanAliasRow struct {
 
 // Alias CRUD Queries
 // Epic 5, Story 5.0: Publisher Zman Aliases
-// Schema: id, publisher_zman_id, publisher_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at
+// Schema: id, publisher_zman_id, publisher_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, created_at
 // Get a specific alias for a publisher's zman by zman_key
 func (q *Queries) GetPublisherZmanAlias(ctx context.Context, arg GetPublisherZmanAliasParams) (GetPublisherZmanAliasRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherZmanAlias, arg.PublisherID, arg.ZmanKey)
@@ -255,7 +244,6 @@ func (q *Queries) GetPublisherZmanAlias(ctx context.Context, arg GetPublisherZma
 		&i.AliasTransliteration,
 		&i.Context,
 		&i.IsPrimary,
-		&i.SortOrder,
 		&i.CreatedAt,
 		&i.ZmanKey,
 		&i.CanonicalHebrewName,
@@ -347,10 +335,9 @@ SET alias_hebrew = $2,
     alias_english = $3,
     alias_transliteration = $4,
     context = $5,
-    is_primary = $6,
-    sort_order = $7
+    is_primary = $6
 WHERE id = $1
-RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, sort_order, created_at
+RETURNING id, publisher_id, publisher_zman_id, alias_hebrew, alias_english, alias_transliteration, context, is_primary, created_at
 `
 
 type UpdatePublisherZmanAliasParams struct {
@@ -360,7 +347,6 @@ type UpdatePublisherZmanAliasParams struct {
 	AliasTransliteration *string `json:"alias_transliteration"`
 	Context              *string `json:"context"`
 	IsPrimary            bool    `json:"is_primary"`
-	SortOrder            *int32  `json:"sort_order"`
 }
 
 type UpdatePublisherZmanAliasRow struct {
@@ -372,7 +358,6 @@ type UpdatePublisherZmanAliasRow struct {
 	AliasTransliteration *string            `json:"alias_transliteration"`
 	Context              *string            `json:"context"`
 	IsPrimary            bool               `json:"is_primary"`
-	SortOrder            *int32             `json:"sort_order"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -385,7 +370,6 @@ func (q *Queries) UpdatePublisherZmanAlias(ctx context.Context, arg UpdatePublis
 		arg.AliasTransliteration,
 		arg.Context,
 		arg.IsPrimary,
-		arg.SortOrder,
 	)
 	var i UpdatePublisherZmanAliasRow
 	err := row.Scan(
@@ -397,7 +381,6 @@ func (q *Queries) UpdatePublisherZmanAlias(ctx context.Context, arg UpdatePublis
 		&i.AliasTransliteration,
 		&i.Context,
 		&i.IsPrimary,
-		&i.SortOrder,
 		&i.CreatedAt,
 	)
 	return i, err

@@ -47,3 +47,34 @@ export function getShabbatLabel(transliterationStyle?: 'ashkenazi' | 'sephardi')
 export function getErevShabbatLabel(transliterationStyle?: 'ashkenazi' | 'sephardi'): string {
   return transliterationStyle === 'ashkenazi' ? 'Erev Shabbos' : 'Erev Shabbat';
 }
+
+/**
+ * Hook that provides a function to get the correct tag display name based on publisher settings.
+ * Uses the publisher's transliteration_style preference.
+ *
+ * @example
+ * ```tsx
+ * const getTagName = useTagDisplayName();
+ * // In render:
+ * <span>{getTagName(tag)}</span>
+ * ```
+ */
+export function useTagDisplayName() {
+  const { data: settings } = usePublisherCalculationSettings();
+  const style = settings?.transliteration_style || 'ashkenazi';
+
+  return function getTagName(
+    tag: {
+      display_name_english_ashkenazi?: string;
+      display_name_english_sephardi?: string | null;
+      display_name_english?: string;
+    }
+  ): string {
+    if (style === 'sephardi' && tag.display_name_english_sephardi) {
+      return tag.display_name_english_sephardi;
+    }
+    // For ashkenazi: prefer backend-resolved display_name_english (may already be set
+    // based on publisher preference), then fall back to explicit ashkenazi field
+    return tag.display_name_english || tag.display_name_english_ashkenazi || '';
+  };
+}

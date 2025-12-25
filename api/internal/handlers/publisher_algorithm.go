@@ -398,12 +398,12 @@ func (h *Handlers) PreviewAlgorithm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sort all zmanim using the unified service
-	if h.unifiedZmanimService != nil {
+	if h.zmanimService != nil {
 		sortable := make([]services.SortableZman, len(response.Zmanim))
 		for i := range response.Zmanim {
 			sortable[i] = &response.Zmanim[i]
 		}
-		h.unifiedZmanimService.SortZmanim(sortable, false)
+		h.zmanimService.SortZmanim(sortable, false)
 		// Convert back to original slice (sorted order)
 		sorted := make([]ZmanWithFormula, len(sortable))
 		for i, s := range sortable {

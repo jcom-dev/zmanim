@@ -161,7 +161,8 @@ SELECT
     zrt.is_new_tag_request,
     zrt.created_at,
     zt.tag_key as existing_tag_key,
-    zt.name as existing_tag_name,
+    zt.display_name_english_ashkenazi as existing_tag_name_ashkenazi,
+    zt.display_name_english_sephardi as existing_tag_name_sephardi,
     zt.tag_type_id as existing_tag_type_id,
     tt.key as existing_tag_type
 FROM zman_request_tags zrt
@@ -199,18 +200,18 @@ WHERE zrt.id = $1;
 -- This query only creates the tag, the caller must update the request separately
 INSERT INTO zman_tags (
     tag_key,
-    name,
     display_name_hebrew,
     display_name_english_ashkenazi,
+    display_name_english_sephardi,
     tag_type_id
 ) VALUES (
     $1, -- tag_key (generated from requested_tag_name)
-    $2, -- name (requested_tag_name)
-    $3, -- display_name_hebrew (same as name for now)
-    $4, -- display_name_english_ashkenazi (same as name)
+    $2, -- display_name_hebrew
+    $3, -- display_name_english_ashkenazi
+    $4, -- display_name_english_sephardi (same as ashkenazi if not specified)
     (SELECT tt.id FROM tag_types tt WHERE tt.key = $5)  -- tag_type_id (from requested_tag_type key)
 )
-RETURNING id, tag_key, name, display_name_hebrew, display_name_english_ashkenazi, tag_type_id, created_at;
+RETURNING id, tag_key, display_name_hebrew, display_name_english_ashkenazi, display_name_english_sephardi, tag_type_id, created_at;
 
 -- name: LinkTagToRequest :exec
 -- Update the tag request to link the newly created tag
@@ -223,20 +224,20 @@ SET
     requested_tag_type = NULL
 WHERE id = $1;
 
--- name: FindTagByName :one
--- Find an existing tag by name (case-insensitive match)
+-- name: FindTagByTagKey :one
+-- Find an existing tag by tag_key (case-insensitive match)
 SELECT
     zt.id,
     zt.tag_key,
-    zt.name,
     zt.display_name_hebrew,
     zt.display_name_english_ashkenazi,
+    zt.display_name_english_sephardi,
     zt.tag_type_id,
     tt.key as tag_type,
     zt.created_at
 FROM zman_tags zt
 JOIN tag_types tt ON zt.tag_type_id = tt.id
-WHERE LOWER(zt.name) = LOWER($1)
+WHERE LOWER(zt.tag_key) = LOWER($1)
 LIMIT 1;
 
 -- name: RejectTagRequest :exec

@@ -1,7 +1,7 @@
 // File: zmanim.go
 // Purpose: Public zmanim calculation endpoints
 // Pattern: 6-step-handler
-// Dependencies: Queries: zmanim.sql | Services: UnifiedZmanimService, CalculationLogService
+// Dependencies: Queries: zmanim.sql | Services: ZmanimService, CalculationLogService
 // Frequency: critical - main public API for zmanim calculations
 //
 // # Public Zmanim API
@@ -11,7 +11,7 @@
 //   - POST /zmanim - Calculate zmanim by raw coordinates (legacy)
 //   - DELETE /publisher/cache - Invalidate publisher's cached calculations
 //
-// The GET endpoint uses UnifiedZmanimService for calculations, which handles:
+// The GET endpoint uses ZmanimService for calculations, which handles:
 //   - Coordinate resolution (locality → lat/lon with publisher overrides)
 //   - DSL formula evaluation via the dsl package
 //   - Redis caching for performance
@@ -323,7 +323,7 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 			defaultFormulas[key] = def.formula
 		}
 
-		calculatedTimes, err := h.unifiedZmanimService.ExecuteFormulasWithCoordinates(
+		calculatedTimes, err := h.zmanimService.ExecuteFormulasWithCoordinates(
 			date, latitude, longitude, float64(elevation), tz, defaultFormulas,
 		)
 		if err != nil {
@@ -395,12 +395,12 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 		}
 
 		// Sort default zmanim chronologically by calculated time
-		if h.unifiedZmanimService != nil {
+		if h.zmanimService != nil {
 			sortable := make([]services.SortableZman, len(response.Zmanim))
 			for i := range response.Zmanim {
 				sortable[i] = &response.Zmanim[i]
 			}
-			h.unifiedZmanimService.SortZmanim(sortable, false)
+			h.zmanimService.SortZmanim(sortable, false)
 			sorted := make([]ZmanWithFormula, len(sortable))
 			for i, s := range sortable {
 				sorted[i] = *s.(*ZmanWithFormula)
@@ -457,14 +457,31 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 			IsCertified: pubInfo.IsCertified,
 		}
 
-		// Use unified calculation service (timezone derived from locality)
-		calcResult, err = h.unifiedZmanimService.CalculateZmanim(ctx, services.CalculateParams{
+		// Get active event codes for tag-driven filtering
+		dbAdapter := NewCalendarDBAdapter(h.db.Queries)
+		calService := calendar.NewCalendarServiceWithDB(dbAdapter)
+		loc := calendar.Location{
+			Latitude:  latitude,
+			Longitude: longitude,
+			Timezone:  timezone,
+			IsIsrael:  calendar.IsLocationInIsrael(latitude, longitude),
+		}
+		zmanimCtx := calService.GetZmanimContext(date, loc, "ashkenazi")
+
+		slog.Info("calendar context for zmanim calculation",
+			"date", dateStr,
+			"active_event_codes", zmanimCtx.ActiveEventCodes,
+			"event_count", len(zmanimCtx.ActiveEventCodes))
+
+		// Use unified calculation service with event filtering
+		calcResult, err = h.zmanimService.CalculateZmanim(ctx, services.CalculateParams{
 			LocalityID:         localityID,
 			PublisherID:        pubID,
 			Date:               date,
 			IncludeDisabled:    filters.IncludeDisabled,
 			IncludeUnpublished: filters.IncludeUnpublished,
 			IncludeBeta:        filters.IncludeBeta,
+			ActiveEventCodes:   zmanimCtx.ActiveEventCodes,
 		})
 		if err != nil {
 			slog.Error("calculation failed", "error", err, "publisher_id", publisherID, "locality_id", localityID)
@@ -479,8 +496,15 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 	// Fetch metadata for all zmanim from master registry
 	zmanMetadataMap := h.loadZmanMetadata(ctx)
 
-	// Fetch tags for all zmanim
-	tagsMap := h.loadZmanTags(ctx)
+	// Get publisher's transliteration style for tag display names
+	transliterationStyle, err := h.db.Queries.GetPublisherTransliterationStyle(ctx, pubID)
+	if err != nil {
+		slog.Warn("failed to get publisher transliteration style, using default", "error", err, "publisher_id", pubID)
+		transliterationStyle = "ashkenazi" // Default to Ashkenazi
+	}
+
+	// Fetch tags for all zmanim with correct transliteration style
+	tagsMap := h.loadZmanTags(ctx, transliterationStyle)
 
 	// Load publisher zmanim for enrichment
 	publisherZmanim, err := h.db.Queries.GetPublisherZmanim(ctx, pubID)
@@ -579,16 +603,17 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 
-	// Filter zmanim based on negated tags (e.g., "NOT on Shabbos")
-	h.filterByNegatedTags(ctx, &response, date)
+	// NOTE: Negated tag filtering is now handled centrally by ZmanimService.ShouldShowZman()
+	// The service already filters zmanim based on ActiveEventCodes passed in CalculateParams
+	// No duplicate filtering needed here
 
 	// Sort all zmanim using the unified service
-	if h.unifiedZmanimService != nil {
+	if h.zmanimService != nil {
 		sortable := make([]services.SortableZman, len(response.Zmanim))
 		for i := range response.Zmanim {
 			sortable[i] = &response.Zmanim[i]
 		}
-		h.unifiedZmanimService.SortZmanim(sortable, false)
+		h.zmanimService.SortZmanim(sortable, false)
 		// Convert back to original slice (sorted order)
 		sorted := make([]ZmanWithFormula, len(sortable))
 		for i, s := range sortable {
@@ -649,8 +674,9 @@ func (h *Handlers) loadZmanMetadata(ctx context.Context) map[string]zmanMetadata
 	return result
 }
 
-// loadZmanTags fetches tags for all zmanim
-func (h *Handlers) loadZmanTags(ctx context.Context) map[string][]ZmanTag {
+// loadZmanTags fetches tags for all zmanim with transliteration style applied
+// transliterationStyle: "ashkenazi" (default) or "sephardi" - controls tag display names
+func (h *Handlers) loadZmanTags(ctx context.Context, transliterationStyle string) map[string][]ZmanTag {
 	result := make(map[string][]ZmanTag)
 	tagsRows, err := h.db.Queries.GetAllZmanimTags(ctx)
 	if err != nil {
@@ -659,22 +685,24 @@ func (h *Handlers) loadZmanTags(ctx context.Context) map[string][]ZmanTag {
 	}
 
 	for _, row := range tagsRows {
-		sortOrder := 0
-		if row.SortOrder != nil {
-			sortOrder = int(*row.SortOrder)
+		// Select display name based on transliteration style
+		displayName := row.DisplayNameEnglishAshkenazi // Default
+		if transliterationStyle == "sephardi" && row.DisplayNameEnglishSephardi != nil && *row.DisplayNameEnglishSephardi != "" {
+			displayName = *row.DisplayNameEnglishSephardi
 		}
+
 		tag := ZmanTag{
-			ID:                 row.ID,
-			TagKey:             row.TagKey,
-			Name:               row.Name,
-			DisplayNameEnglish: row.DisplayNameEnglishAshkenazi,
-			DisplayNameHebrew:  row.DisplayNameHebrew,
-			TagType:            row.TagType,
-			Color:              row.Color,
-			SortOrder:          sortOrder,
-			IsNegated:          row.IsNegated,
-			CreatedAt:          row.CreatedAt.Time,
-			Description:        nil,
+			ID:                          row.ID,
+			TagKey:                      row.TagKey,
+			DisplayNameEnglish:          displayName, // Set based on transliteration style for backwards compatibility
+			DisplayNameEnglishAshkenazi: row.DisplayNameEnglishAshkenazi,
+			DisplayNameEnglishSephardi:  row.DisplayNameEnglishSephardi,
+			DisplayNameHebrew:           row.DisplayNameHebrew,
+			TagType:                     row.TagType,
+			Color:                       row.Color,
+			IsNegated:                   row.IsNegated,
+			CreatedAt:                   row.CreatedAt.Time,
+			Description:                 nil,
 		}
 		result[row.ZmanKey] = append(result[row.ZmanKey], tag)
 	}
@@ -689,48 +717,10 @@ func getFormulaExplanation(aiExplanation *string) string {
 	return ""
 }
 
-// filterByNegatedTags filters zmanim based on negated tags (e.g., "NOT on Shabbos")
-func (h *Handlers) filterByNegatedTags(ctx context.Context, response *ZmanimWithFormulaResponse, date time.Time) {
-	calService := calendar.NewCalendarService()
-	hebrewDate := calService.GetHebrewDate(date)
-	hebrewMonth := int32(hebrewDate.MonthNum)
-	hebrewDay := int32(hebrewDate.Day)
-
-	todayTags, err := h.db.Queries.GetTagsForHebrewDate(ctx, sqlcgen.GetTagsForHebrewDateParams{
-		HebrewMonth:    &hebrewMonth,
-		HebrewDayStart: &hebrewDay,
-	})
-	if err != nil {
-		slog.Error("failed to get tags for Hebrew date", "error", err, "date", date.Format("2006-01-02"))
-		return
-	}
-
-	// Create map of today's tag IDs for fast lookup
-	todayTagIDs := make(map[int32]bool)
-	for _, tag := range todayTags {
-		todayTagIDs[tag.ID] = true
-	}
-
-	// Filter zmanim: exclude if any negated tag matches today
-	filteredZmanim := make([]ZmanWithFormula, 0, len(response.Zmanim))
-	for _, zman := range response.Zmanim {
-		shouldInclude := true
-		for _, tag := range zman.Tags {
-			if tag.IsNegated && todayTagIDs[tag.ID] {
-				shouldInclude = false
-				slog.Debug("excluding zman due to negated tag",
-					"zman", zman.Key,
-					"tag", tag.Name,
-					"date", date.Format("2006-01-02"))
-				break
-			}
-		}
-		if shouldInclude {
-			filteredZmanim = append(filteredZmanim, zman)
-		}
-	}
-	response.Zmanim = filteredZmanim
-}
+// DEPRECATED: filterByNegatedTags is no longer used.
+// All event/tag filtering is now centralized in ZmanimService.ShouldShowZman()
+// which is called during CalculateZmanim() with the ActiveEventCodes parameter.
+// This function is kept only for reference and will be removed in a future cleanup.
 
 // GetZmanimByCoordinates calculates zmanim for coordinates (legacy)
 //

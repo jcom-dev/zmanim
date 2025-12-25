@@ -81,6 +81,7 @@ Platform for Halachic Authorities to publish zmanim with complete autonomy over 
 ```
 publishers, master_zmanim_registry, publisher_zmanim, publisher_coverage
 geo_localities (~4M), geo_regions, geo_search_index
+zman_tags, tag_event_mappings, publisher_zman_tags  # Tag-driven events
 ```
 
 ### Structure
@@ -90,6 +91,38 @@ api/internal/db/queries/  # SQLc SQL files
 web/app/                  # Next.js pages (admin/, publisher/, zmanim/)
 web/lib/api-client.ts     # useApi() hook
 ```
+
+### Tag-Driven Event Architecture
+
+**CRITICAL**: ALL event filtering is tag-driven. NO hardcoded event logic allowed.
+
+**Flow**: HebCal API → Database patterns (`tag_event_mappings`) → ActiveEventCodes → Tag filtering
+
+```go
+// FORBIDDEN - hardcoded event logic
+if isErevShabbos || isErevYomTov {
+    showCandleLighting = true  // ❌ NEVER DO THIS
+}
+
+// REQUIRED - tag-driven
+activeEventCodes := []string{"erev_shabbos", "chanukah"}
+result := service.CalculateZmanim(ctx, CalculateParams{
+    ActiveEventCodes: activeEventCodes,  // ✅ Service filters by tags
+})
+```
+
+**Adding new events**: SQL only, no code changes
+```sql
+-- Add event tag
+INSERT INTO zman_tags (tag_key, display_name_hebrew, display_name_english_ashkenazi, tag_type_id)
+VALUES ('new_event', 'Hebrew', 'English', 170);
+
+-- Map to HebCal pattern
+INSERT INTO tag_event_mappings (tag_id, hebcal_event_pattern)
+SELECT id, 'HebCal Event Name' FROM zman_tags WHERE tag_key = 'new_event';
+```
+
+**Docs**: `docs/architecture/tag-driven-events.md`, `docs/migration/eliminate-hardcoded-logic.md`
 
 ---
 
@@ -114,6 +147,28 @@ await api.admin.get('/admin/stats');  // Auth only
 ```
 
 **DSL formulas:** `sunrise`, `sunset - 18min`, `solar(-16.1)`, `@alos_hashachar + 30min`
+
+**Tag-driven event filtering:**
+```go
+// Service filters BEFORE calculation
+func (s *ZmanimService) CalculateZmanim(ctx, params CalculateParams) {
+    for _, zman := range publisherZmanim {
+        // Filter by tag matching with ActiveEventCodes
+        if !s.ShouldShowZman(zman.tags, params.ActiveEventCodes) {
+            continue  // Skip - don't calculate
+        }
+        formulas[zman.key] = zman.formula
+    }
+    // Calculate only filtered zmanim
+    result := dsl.ExecuteFormulaSet(formulas, dslCtx)
+}
+```
+
+**Key Query Files:**
+- `tag_events.sql` - HebCal event pattern matching and tag lookups
+- `master_registry.sql` - Master zmanim definitions
+- `publisher_zmanim.sql` - Publisher-specific zmanim with tags
+- `zmanim_unified.sql` - Combined queries for zmanim with metadata
 
 ---
 

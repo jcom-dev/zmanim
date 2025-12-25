@@ -44,6 +44,7 @@ export function FixedOffsetForm({
   const isLoading = zmanimLoading || primitivesLoading;
 
   // Filter daily zmanim (not event-specific) - already sorted by time_category from API
+  // Server determines event status via is_event_zman field (based on event-type tags)
   const dailyZmanim = zmanim.filter((z) => !z.is_event_zman);
 
   // Find selected zman info for display

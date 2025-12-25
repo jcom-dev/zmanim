@@ -47,23 +47,22 @@ SELECT
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category,
     -- Category sort order for ordering
     COALESCE(mr_tc.sort_order, tc.sort_order, 99) AS category_sort_order,
-    -- Check if this zman is an event zman (has event tags or special category tags)
+    -- Check if this zman is an event zman (has any tag with tag_type = 'event')
     EXISTS (
         SELECT 1 FROM (
             -- Check master zman tags
-            SELECT tt.key, zt.tag_key FROM master_zman_tags mzt
+            SELECT tt.key FROM master_zman_tags mzt
             JOIN zman_tags zt ON mzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
             UNION ALL
             -- Check publisher-specific tags
-            SELECT tt.key, zt.tag_key FROM publisher_zman_tags pzt
+            SELECT tt.key FROM publisher_zman_tags pzt
             JOIN zman_tags zt ON pzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE pzt.publisher_zman_id = pz.id
         ) all_tags
         WHERE all_tags.key = 'event'
-           OR all_tags.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end')
     ) AS is_event_zman,
     -- Tags: Publisher tags take precedence over master tags (no duplicates)
     -- If publisher has customized tags, show ONLY publisher tags
@@ -74,23 +73,19 @@ SELECT
         (SELECT json_agg(json_build_object(
             'id', sub.id,
             'tag_key', sub.tag_key,
-            'name', sub.name,
             'display_name_hebrew', sub.display_name_hebrew,
-            'display_name_english', CASE
-                WHEN COALESCE($2::text, 'ashkenazi') = 'sephardi'
-                THEN COALESCE(sub.display_name_english_sephardi, sub.display_name_english_ashkenazi)
-                ELSE sub.display_name_english_ashkenazi
-            END,
+            'display_name_english_ashkenazi', sub.display_name_english_ashkenazi,
+            'display_name_english_sephardi', sub.display_name_english_sephardi,
             'tag_type', sub.tag_type,
             'is_negated', sub.is_negated,
             'is_modified', sub.is_modified,
             'source_is_negated', sub.source_is_negated
-        ) ORDER BY sub.sort_order)
+        ) ORDER BY sub.tag_key)
         FROM (
             -- Publisher-specific tags (if any exist, these take full precedence)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
                    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
-                   tt.key AS tag_type, t.sort_order, pzt.is_negated,
+                   tt.key AS tag_type, pzt.is_negated,
                    -- Check if this tag is modified from master registry
                    CASE
                        WHEN mzt.tag_id IS NULL THEN true  -- Tag added by publisher (not in master)
@@ -104,11 +99,12 @@ SELECT
             LEFT JOIN master_zman_tags mzt ON mzt.master_zman_id = pz.master_zman_id
                                             AND mzt.tag_id = pzt.tag_id
             WHERE pzt.publisher_zman_id = pz.id
+              AND t.is_hidden = false  -- Exclude hidden tags from UI display
             UNION ALL
             -- Master tags (only if NO publisher tags exist for this zman)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
                    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
-                   tt.key AS tag_type, t.sort_order, mzt.is_negated,
+                   tt.key AS tag_type, mzt.is_negated,
                    false AS is_modified,  -- Not modified since using master tags
                    mzt.is_negated AS source_is_negated
             FROM master_zman_tags mzt
@@ -116,6 +112,7 @@ SELECT
             JOIN tag_types tt ON t.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
               AND NOT EXISTS (SELECT 1 FROM publisher_zman_tags WHERE publisher_zman_id = pz.id)
+              AND t.is_hidden = false  -- Exclude hidden tags from UI display
         ) sub),
         '[]'::json
     ) AS tags,
@@ -126,19 +123,19 @@ SELECT
          THEN true ELSE false END AS linked_source_is_deleted,
     -- Source/original values from registry or linked publisher (for diff/revert UI)
     -- Only include when explicitly requested (avoid unnecessary data in normal queries)
-    CASE WHEN COALESCE($3::boolean, false) = true THEN
+    CASE WHEN COALESCE($2::boolean, false) = true THEN
         COALESCE(mr.canonical_hebrew_name, linked_pz.hebrew_name, '')
     ELSE '' END AS source_hebrew_name,
-    CASE WHEN COALESCE($3::boolean, false) = true THEN
+    CASE WHEN COALESCE($2::boolean, false) = true THEN
         COALESCE(mr.canonical_english_name, linked_pz.english_name, '')
     ELSE '' END AS source_english_name,
-    CASE WHEN COALESCE($3::boolean, false) = true THEN
+    CASE WHEN COALESCE($2::boolean, false) = true THEN
         COALESCE(mr.transliteration, linked_pz.transliteration, '')
     ELSE '' END AS source_transliteration,
-    CASE WHEN COALESCE($3::boolean, false) = true THEN
+    CASE WHEN COALESCE($2::boolean, false) = true THEN
         COALESCE(mr.description, linked_pz.description, '')
     ELSE '' END AS source_description,
-    CASE WHEN COALESCE($3::boolean, false) = true THEN
+    CASE WHEN COALESCE($2::boolean, false) = true THEN
         COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl, '')
     ELSE '' END AS source_formula_dsl
 FROM publisher_zmanim pz
@@ -149,25 +146,24 @@ LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
 LEFT JOIN time_categories mr_tc ON mr.time_category_id = mr_tc.id
 WHERE pz.publisher_id = $1
   -- Soft delete filter (default: exclude deleted)
-  AND (COALESCE($4::boolean, false) = true OR pz.deleted_at IS NULL)
+  AND (COALESCE($3::boolean, false) = true OR pz.deleted_at IS NULL)
   -- Status filters (all default to false = exclude)
-  AND (COALESCE($5::boolean, false) = true OR pz.is_enabled = true)
-  AND (COALESCE($6::boolean, false) = true OR pz.is_published = true)
+  AND (COALESCE($4::boolean, false) = true OR pz.is_enabled = true)
+  AND (COALESCE($5::boolean, false) = true OR pz.is_published = true)
   -- Beta filter (default: true = include beta)
-  AND (COALESCE($7::boolean, true) = true OR pz.is_beta = false)
+  AND (COALESCE($6::boolean, true) = true OR pz.is_beta = false)
 ORDER BY
     COALESCE(mr_tc.sort_order, tc.sort_order, 99),
     pz.hebrew_name
 `
 
 type GetUnifiedPublisherZmanimParams struct {
-	PublisherID          int32   `json:"publisher_id"`
-	TransliterationStyle *string `json:"transliteration_style"`
-	IncludeSource        *bool   `json:"include_source"`
-	IncludeDeleted       *bool   `json:"include_deleted"`
-	IncludeDisabled      *bool   `json:"include_disabled"`
-	IncludeUnpublished   *bool   `json:"include_unpublished"`
-	IncludeBeta          *bool   `json:"include_beta"`
+	PublisherID        int32 `json:"publisher_id"`
+	IncludeSource      *bool `json:"include_source"`
+	IncludeDeleted     *bool `json:"include_deleted"`
+	IncludeDisabled    *bool `json:"include_disabled"`
+	IncludeUnpublished *bool `json:"include_unpublished"`
+	IncludeBeta        *bool `json:"include_beta"`
 }
 
 type GetUnifiedPublisherZmanimRow struct {
@@ -227,7 +223,6 @@ type GetUnifiedPublisherZmanimRow struct {
 func (q *Queries) GetUnifiedPublisherZmanim(ctx context.Context, arg GetUnifiedPublisherZmanimParams) ([]GetUnifiedPublisherZmanimRow, error) {
 	rows, err := q.db.Query(ctx, getUnifiedPublisherZmanim,
 		arg.PublisherID,
-		arg.TransliterationStyle,
 		arg.IncludeSource,
 		arg.IncludeDeleted,
 		arg.IncludeDisabled,
@@ -297,12 +292,11 @@ SELECT
     pzt.publisher_zman_id,
     t.id,
     t.tag_key,
-    t.name,
     t.display_name_hebrew,
     t.display_name_english_ashkenazi,
+    t.display_name_english_sephardi,
     tt.key AS tag_type,
     t.color,
-    t.sort_order,
     pzt.is_negated,
     -- Check if modified from master
     CASE
@@ -317,19 +311,18 @@ JOIN tag_types tt ON t.tag_type_id = tt.id
 LEFT JOIN publisher_zmanim pz ON pzt.publisher_zman_id = pz.id
 LEFT JOIN master_zman_tags mzt ON mzt.master_zman_id = pz.master_zman_id AND mzt.tag_id = pzt.tag_id
 WHERE pzt.publisher_zman_id = ANY($1::int[])
-ORDER BY pzt.publisher_zman_id, t.sort_order
+ORDER BY pzt.publisher_zman_id, tt.sort_order, t.tag_key
 `
 
 type GetZmanTagsBatchRow struct {
 	PublisherZmanID             int32   `json:"publisher_zman_id"`
 	ID                          int32   `json:"id"`
 	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
 	DisplayNameHebrew           string  `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
 	TagType                     string  `json:"tag_type"`
 	Color                       *string `json:"color"`
-	SortOrder                   *int32  `json:"sort_order"`
 	IsNegated                   bool    `json:"is_negated"`
 	IsModified                  bool    `json:"is_modified"`
 	SourceIsNegated             *bool   `json:"source_is_negated"`
@@ -351,12 +344,11 @@ func (q *Queries) GetZmanTagsBatch(ctx context.Context, dollar_1 []int32) ([]Get
 			&i.PublisherZmanID,
 			&i.ID,
 			&i.TagKey,
-			&i.Name,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
 			&i.TagType,
 			&i.Color,
-			&i.SortOrder,
 			&i.IsNegated,
 			&i.IsModified,
 			&i.SourceIsNegated,

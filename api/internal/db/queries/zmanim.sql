@@ -12,7 +12,7 @@ SELECT
     COALESCE(linked_pz.formula_dsl, pz.formula_dsl) AS formula_dsl,
     pz.ai_explanation, pz.publisher_comment,
     pz.is_enabled, pz.is_visible, pz.is_published, pz.is_beta, pz.is_custom,
-    pz.display_status,
+    pz.display_status, pz.show_in_preview,
     pz.dependencies, pz.rounding_mode, pz.created_at, pz.updated_at,
     pz.master_zman_id, pz.linked_publisher_zman_id,
     -- Time category ID and display values
@@ -26,23 +26,22 @@ SELECT
     COALESCE(mr.transliteration, linked_pz.transliteration) AS source_transliteration,
     COALESCE(mr.description, linked_pz.description) AS source_description,
     COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl, '') AS source_formula_dsl,
-    -- Check if this zman is an event zman (has event tags or special category tags like category_candle_lighting, category_havdalah, etc.)
+    -- Check if this zman is an event zman (has any tag with tag_type = 'event')
     EXISTS (
         SELECT 1 FROM (
             -- Check master zman tags
-            SELECT tt.key, zt.tag_key FROM master_zman_tags mzt
+            SELECT tt.key FROM master_zman_tags mzt
             JOIN zman_tags zt ON mzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
             UNION ALL
             -- Check publisher-specific tags
-            SELECT tt.key, zt.tag_key FROM publisher_zman_tags pzt
+            SELECT tt.key FROM publisher_zman_tags pzt
             JOIN zman_tags zt ON pzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE pzt.publisher_zman_id = pz.id
         ) all_tags
         WHERE all_tags.key = 'event'
-           OR all_tags.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end')
     ) AS is_event_zman,
     -- Tags: Publisher tags take precedence over master tags (no duplicates)
     -- If publisher has customized tags, show ONLY publisher tags
@@ -52,18 +51,19 @@ SELECT
         (SELECT json_agg(json_build_object(
             'id', sub.id,
             'tag_key', sub.tag_key,
-            'name', sub.name,
             'display_name_hebrew', sub.display_name_hebrew,
-            'display_name_english', sub.display_name_english_ashkenazi,
+            'display_name_english_ashkenazi', sub.display_name_english_ashkenazi,
+            'display_name_english_sephardi', sub.display_name_english_sephardi,
             'tag_type', sub.tag_type,
             'is_negated', sub.is_negated,
             'is_modified', sub.is_modified,
             'source_is_negated', sub.source_is_negated
-        ) ORDER BY sub.sort_order)
+        ) ORDER BY sub.tag_key)
         FROM (
             -- Publisher-specific tags (if any exist, these take full precedence)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english_ashkenazi,
-                   tt.key AS tag_type, t.sort_order, pzt.is_negated,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
+                   t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+                   tt.key AS tag_type, pzt.is_negated,
                    -- Check if this tag is modified from master registry
                    CASE
                        WHEN mzt.tag_id IS NULL THEN true  -- Tag added by publisher (not in master)
@@ -77,10 +77,12 @@ SELECT
             LEFT JOIN master_zman_tags mzt ON mzt.master_zman_id = pz.master_zman_id
                                             AND mzt.tag_id = pzt.tag_id
             WHERE pzt.publisher_zman_id = pz.id
+              AND t.is_hidden = false  -- Exclude hidden tags from UI display
             UNION ALL
             -- Master tags (only if NO publisher tags exist for this zman)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english_ashkenazi,
-                   tt.key AS tag_type, t.sort_order, mzt.is_negated,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
+                   t.display_name_english_ashkenazi, t.display_name_english_sephardi,
+                   tt.key AS tag_type, mzt.is_negated,
                    false AS is_modified,  -- Not modified since using master tags
                    mzt.is_negated AS source_is_negated
             FROM master_zman_tags mzt
@@ -88,6 +90,7 @@ SELECT
             JOIN tag_types tt ON t.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
               AND NOT EXISTS (SELECT 1 FROM publisher_zman_tags WHERE publisher_zman_id = pz.id)
+              AND t.is_hidden = false  -- Exclude hidden tags from UI display
         ) sub),
         '[]'::json
     ) AS tags,
@@ -309,18 +312,20 @@ WHERE pz.id = $1;
 
 -- name: GetPublisherZmanTags :many
 -- Get all tags for a specific publisher zman (including is_negated)
+-- User-facing query - excludes hidden tags
 SELECT
-    t.id, t.tag_key, t.name, t.display_name_hebrew, t.display_name_english_ashkenazi,
+    t.id, t.tag_key, t.display_name_hebrew,
+    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
     t.tag_type_id,
     tt.key AS tag_type,
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
-    t.description, t.sort_order, pzt.is_negated
+    t.description, pzt.is_negated
 FROM publisher_zman_tags pzt
 JOIN zman_tags t ON t.id = pzt.tag_id
 LEFT JOIN tag_types tt ON t.tag_type_id = tt.id
-WHERE pzt.publisher_zman_id = $1
-ORDER BY t.sort_order, t.display_name_english_ashkenazi;
+WHERE pzt.publisher_zman_id = $1 AND t.is_hidden = false
+ORDER BY tt.sort_order, t.tag_key, t.display_name_english_ashkenazi;
 
 -- name: AddTagToPublisherZman :exec
 -- Add a tag to a publisher zman (with optional is_negated)
@@ -375,23 +380,22 @@ SELECT
     COALESCE(mr.transliteration, linked_pz.transliteration) AS source_transliteration,
     COALESCE(mr.description, linked_pz.description) AS source_description,
     COALESCE(mr.default_formula_dsl, linked_pz.formula_dsl, '') AS source_formula_dsl,
-    -- Check if this zman is an event zman (has event tags or special category tags like category_candle_lighting, category_havdalah, etc.)
+    -- Check if this zman is an event zman (has any tag with tag_type = 'event')
     EXISTS (
         SELECT 1 FROM (
             -- Check master zman tags
-            SELECT tt.key, zt.tag_key FROM master_zman_tags mzt
+            SELECT tt.key FROM master_zman_tags mzt
             JOIN zman_tags zt ON mzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
             UNION ALL
             -- Check publisher-specific tags
-            SELECT tt.key, zt.tag_key FROM publisher_zman_tags pzt
+            SELECT tt.key FROM publisher_zman_tags pzt
             JOIN zman_tags zt ON pzt.tag_id = zt.id
             JOIN tag_types tt ON zt.tag_type_id = tt.id
             WHERE pzt.publisher_zman_id = pz.id
         ) all_tags
         WHERE all_tags.key = 'event'
-           OR all_tags.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end')
     ) AS is_event_zman,
     -- Tags: Publisher tags take precedence over master tags (no duplicates)
     -- If publisher has customized tags, show ONLY publisher tags
@@ -402,23 +406,19 @@ SELECT
         (SELECT json_agg(json_build_object(
             'id', sub.id,
             'tag_key', sub.tag_key,
-            'name', sub.name,
             'display_name_hebrew', sub.display_name_hebrew,
-            'display_name_english', CASE
-                WHEN COALESCE(sqlc.narg('transliteration_style')::text, 'ashkenazi') = 'sephardi'
-                THEN COALESCE(sub.display_name_english_sephardi, sub.display_name_english_ashkenazi)
-                ELSE sub.display_name_english_ashkenazi
-            END,
+            'display_name_english_ashkenazi', sub.display_name_english_ashkenazi,
+            'display_name_english_sephardi', sub.display_name_english_sephardi,
             'tag_type', sub.tag_type,
             'is_negated', sub.is_negated,
             'is_modified', sub.is_modified,
             'source_is_negated', sub.source_is_negated
-        ) ORDER BY sub.sort_order)
+        ) ORDER BY sub.tag_key)
         FROM (
             -- Publisher-specific tags (if any exist, these take full precedence)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
                    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
-                   tt.key AS tag_type, t.sort_order, pzt.is_negated,
+                   tt.key AS tag_type, pzt.is_negated,
                    -- Check if this tag is modified from master registry
                    CASE
                        WHEN mzt.tag_id IS NULL THEN true  -- Tag added by publisher (not in master)
@@ -432,11 +432,12 @@ SELECT
             LEFT JOIN master_zman_tags mzt ON mzt.master_zman_id = pz.master_zman_id
                                             AND mzt.tag_id = pzt.tag_id
             WHERE pzt.publisher_zman_id = pz.id
+              AND t.is_hidden = false  -- Exclude hidden tags from UI display
             UNION ALL
             -- Master tags (only if NO publisher tags exist for this zman)
-            SELECT t.id, t.tag_key, t.name, t.display_name_hebrew,
+            SELECT t.id, t.tag_key, t.display_name_hebrew,
                    t.display_name_english_ashkenazi, t.display_name_english_sephardi,
-                   tt.key AS tag_type, t.sort_order, mzt.is_negated,
+                   tt.key AS tag_type, mzt.is_negated,
                    false AS is_modified,  -- Not modified since using master tags
                    mzt.is_negated AS source_is_negated
             FROM master_zman_tags mzt
@@ -444,6 +445,7 @@ SELECT
             JOIN tag_types tt ON t.tag_type_id = tt.id
             WHERE mzt.master_zman_id = pz.master_zman_id
               AND NOT EXISTS (SELECT 1 FROM publisher_zman_tags WHERE publisher_zman_id = pz.id)
+              AND t.is_hidden = false  -- Exclude hidden tags from UI display
         ) sub),
         '[]'::json
     ) AS tags,
@@ -606,24 +608,24 @@ LEFT JOIN time_categories tc ON mr.time_category_id = tc.id;
 -- name: GetAllZmanimTags :many
 -- Get all tags for all zmanim with tag type key, sort order, and negation status
 -- Returns both Ashkenazi and Sephardi display names for Go code to select based on context
+-- User-facing query - excludes hidden tags
 SELECT
     mr.zman_key,
     t.id,
     t.tag_key,
-    t.name,
     t.display_name_english_ashkenazi,
     t.display_name_english_sephardi,
     t.display_name_hebrew,
     tt.key AS tag_type,
     t.color,
-    t.sort_order,
     COALESCE(mzt.is_negated, false) AS is_negated,
     t.created_at
 FROM master_zmanim_registry mr
 JOIN master_zman_tags mzt ON mr.id = mzt.master_zman_id
 JOIN zman_tags t ON mzt.tag_id = t.id
 JOIN tag_types tt ON t.tag_type_id = tt.id
-ORDER BY mr.zman_key, tt.key, t.sort_order;
+WHERE t.is_hidden = false
+ORDER BY mr.zman_key, tt.key, t.tag_key;
 
 -- ============================================================================
 -- Import/Export Queries

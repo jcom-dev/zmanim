@@ -52,7 +52,7 @@ export function FormulaEditorPage({
   const [nameHebrew, setNameHebrew] = useState(initialZman?.nameHebrew || '');
   const [nameEnglish, setNameEnglish] = useState(initialZman?.nameEnglish || '');
   const [transliteration, setTransliteration] = useState(initialZman?.transliteration || '');
-  const [formula, setFormula] = useState(initialZman?.formula || 'sunrise');
+  const [formula, setFormula] = useState(initialZman?.formula || 'visible_sunrise');
   const [halachicNotes, setHalachicNotes] = useState(initialZman?.halachicNotes || '');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 

@@ -16,7 +16,7 @@
 //
 // # Architecture
 //
-// UnifiedZmanimService is the single entry point for all zmanim calculations.
+// ZmanimService is the single entry point for all zmanim calculations.
 // It replaces the legacy fragmented approach with a consolidated service that:
 //   - Handles all locality coordinate resolution (with publisher overrides)
 //   - Manages Redis caching with intelligent key generation
@@ -27,7 +27,7 @@
 //
 // Create the service at application startup:
 //
-//	svc, err := services.NewUnifiedZmanimService(ctx, db, cache)
+//	svc, err := services.NewZmanimService(ctx, db, cache)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -67,14 +67,14 @@ import (
 // SECTION 1: TYPES & STRUCTS
 // ===========================================================================
 
-// UnifiedZmanimService consolidates ALL zmanim operations
+// ZmanimService consolidates ALL zmanim operations
 // This is THE SINGLE SOURCE OF TRUTH for:
 // - Calculation (DSL execution)
 // - Ordering (category-based sorting)
 // - Linking (copy/link between publishers)
 // - Filtering (tag-based event filtering)
 // - Caching (per-publisher, per-locality)
-type UnifiedZmanimService struct {
+type ZmanimService struct {
 	db            *db.DB
 	cache         *cache.Cache
 	categoryOrder map[string]int      // Populated from time_categories.sort_order
@@ -89,6 +89,10 @@ type CalculateParams struct {
 	IncludeDisabled    bool
 	IncludeUnpublished bool
 	IncludeBeta        bool
+	IncludeInactive    bool     // If true, disable show_in_preview filtering (Algorithm Editor mode)
+	// Active event codes for tag-driven filtering and is_active_today computation
+	// ALWAYS provide actual event codes (even with IncludeInactive=true) for is_active_today computation
+	ActiveEventCodes []string
 }
 
 // FormulaParams defines parameters for single formula calculation (preview mode)
@@ -102,6 +106,10 @@ type FormulaParams struct {
 	References map[string]string // Other formulas for @ references
 }
 
+// ActiveEventCodesProvider is a callback function that returns ActiveEventCodes for a given date.
+// This allows CalculateRange to get calendar context for each day without importing calendar package.
+type ActiveEventCodesProvider func(date time.Time) []string
+
 // RangeParams defines parameters for date range calculations
 type RangeParams struct {
 	LocalityID  int64
@@ -113,6 +121,9 @@ type RangeParams struct {
 	IncludeDisabled    bool
 	IncludeUnpublished bool
 	IncludeBeta        bool
+	// ActiveEventCodesProvider returns ActiveEventCodes for each day (for is_active_today calculation)
+	// If nil, all event zmanim will have is_active_today=true (no filtering)
+	ActiveEventCodesProvider ActiveEventCodesProvider
 }
 
 // CalculationResult represents the result of a zmanim calculation
@@ -125,13 +136,14 @@ type CalculationResult struct {
 
 // CalculatedZman represents a single calculated zman
 type CalculatedZman struct {
-	ID           int64     `json:"id"`
-	Key          string    `json:"zman_key"`
-	Time         time.Time `json:"-"` // Not serialized (use TimeExact/TimeRounded for JSON)
-	TimeExact    string    `json:"time"`         // HH:MM:SS with actual seconds
-	TimeRounded  string    `json:"time_rounded"` // HH:MM rounded (no seconds)
-	Timestamp    int64     `json:"timestamp"`
-	RoundingMode string    `json:"rounding_mode"`
+	ID            int64     `json:"id"`
+	Key           string    `json:"zman_key"`
+	Time          time.Time `json:"-"` // Not serialized (use TimeExact/TimeRounded for JSON)
+	TimeExact     string    `json:"time"`          // HH:MM:SS with actual seconds
+	TimeRounded   string    `json:"time_rounded"`  // HH:MM rounded (no seconds)
+	Timestamp     int64     `json:"timestamp"`
+	RoundingMode  string    `json:"rounding_mode"`
+	IsActiveToday bool      `json:"is_active_today"` // Whether this zman is active for the current day's events
 }
 
 // FormulaResult represents the result of a single formula calculation
@@ -201,9 +213,9 @@ var (
 // SECTION 2: CONSTRUCTOR & INITIALIZATION
 // ===========================================================================
 
-// NewUnifiedZmanimService creates the unified service and loads configuration from database
-func NewUnifiedZmanimService(ctx context.Context, database *db.DB, c *cache.Cache) (*UnifiedZmanimService, error) {
-	s := &UnifiedZmanimService{
+// NewZmanimService creates the unified service and loads configuration from database
+func NewZmanimService(ctx context.Context, database *db.DB, c *cache.Cache) (*ZmanimService, error) {
+	s := &ZmanimService{
 		db:            database,
 		cache:         c,
 		categoryOrder: make(map[string]int),
@@ -221,15 +233,13 @@ func NewUnifiedZmanimService(ctx context.Context, database *db.DB, c *cache.Cach
 	}
 	s.categoryOrder["uncategorized"] = 99
 
-	// Initialize category tag mappings (formerly behavior tags)
-	// NOTE: No separate table needed - zman tags already handle category filtering
-	// Calendar service provides active event codes, shouldShowZman matches zman tags against events
-	s.behaviorTags = map[string][]string{
-		"category_candle_lighting": {"erev_shabbos", "erev_yom_tov"},
-		"category_havdalah":        {"motzei_shabbos", "motzei_yom_tov"},
-		"category_fast_start":      {"fast_start"},
-		"category_fast_end":        {"fast_end", "tisha_bav_end"},
-	}
+	// Initialize behavior tags map (legacy - kept for reference but not actively used)
+	// NOTE: Category filtering is now handled entirely by the tag system:
+	// - Category tags (category_candle_lighting, etc.) are stored in zman_tags table
+	// - Calendar service provides active event codes via ZmanimContext
+	// - Handler functions (shouldShowZman) match category tags against calendar context flags
+	// This map documents the conceptual relationship but is not used in filtering logic
+	s.behaviorTags = make(map[string][]string)
 
 	return s, nil
 }
@@ -240,7 +250,7 @@ func NewUnifiedZmanimService(ctx context.Context, database *db.DB, c *cache.Cach
 
 // CalculateZmanim is the main entry point for publisher zmanim calculation
 // This method handles caching, locality lookup, coordinate resolution, and formula execution
-func (s *UnifiedZmanimService) CalculateZmanim(ctx context.Context, params CalculateParams) (*CalculationResult, error) {
+func (s *ZmanimService) CalculateZmanim(ctx context.Context, params CalculateParams) (*CalculationResult, error) {
 	// Format date for caching
 	dateStr := params.Date.Format("2006-01-02")
 
@@ -294,10 +304,11 @@ func (s *UnifiedZmanimService) CalculateZmanim(ctx context.Context, params Calcu
 	zmanConfigMap := make(map[string]struct {
 		ID           int32
 		RoundingMode string
+		Tags         []EventFilterTag
 	})
 
 	for _, pz := range publisherZmanim {
-		// Apply filters
+		// Apply publication status filters
 		if !params.IncludeDisabled && !pz.IsEnabled {
 			continue
 		}
@@ -306,6 +317,46 @@ func (s *UnifiedZmanimService) CalculateZmanim(ctx context.Context, params Calcu
 		}
 		if !params.IncludeBeta && pz.IsBeta {
 			continue
+		}
+
+		// Convert SQLc tags (interface{}) to EventFilterTag for this zman
+		var tags []EventFilterTag
+		if pz.Tags != nil {
+			tagsBytes, err := json.Marshal(pz.Tags)
+			if err != nil {
+				slog.Error("failed to marshal tags", "zman_key", pz.ZmanKey, "error", err)
+			} else {
+				if err := json.Unmarshal(tagsBytes, &tags); err != nil {
+					slog.Error("failed to unmarshal tags", "zman_key", pz.ZmanKey, "error", err)
+				}
+			}
+		}
+
+		// Apply calendar context filtering (event zmanim)
+		// Only filter if ALL conditions met:
+		// 1. NOT in Algorithm Editor mode (IncludeInactive = false)
+		// 2. Zman requires event filtering (show_in_preview = false)
+		if !params.IncludeInactive && !pz.ShowInPreview {
+			slog.Info("preview mode: checking event filtering for event-based zman",
+				"zman_key", pz.ZmanKey,
+				"show_in_preview", pz.ShowInPreview,
+				"active_event_codes", params.ActiveEventCodes)
+
+			// Check if this zman should be shown based on calendar context
+			shouldShow := s.ShouldShowZman(tags, params.ActiveEventCodes)
+			slog.Info("event filtering decision",
+				"zman_key", pz.ZmanKey,
+				"should_show", shouldShow,
+				"active_events", params.ActiveEventCodes,
+				"tag_count", len(tags))
+			if !shouldShow {
+				slog.Info("filtering out event-based zman", "zman_key", pz.ZmanKey, "active_events", params.ActiveEventCodes)
+				continue
+			}
+		} else if !params.IncludeInactive {
+			slog.Debug("preview mode: skipping filter (show_in_preview=true)",
+				"zman_key", pz.ZmanKey,
+				"show_in_preview", pz.ShowInPreview)
 		}
 
 		// Skip if no formula
@@ -318,9 +369,11 @@ func (s *UnifiedZmanimService) CalculateZmanim(ctx context.Context, params Calcu
 		zmanConfigMap[pz.ZmanKey] = struct {
 			ID           int32
 			RoundingMode string
+			Tags         []EventFilterTag
 		}{
 			ID:           pz.ID,
 			RoundingMode: pz.RoundingMode,
+			Tags:         tags,
 		}
 	}
 
@@ -356,14 +409,23 @@ func (s *UnifiedZmanimService) CalculateZmanim(ctx context.Context, params Calcu
 		// Apply rounding to get both exact and display times
 		exactTime, displayTime := ApplyRounding(calculatedTime, roundingMode)
 
+		// Compute is_active_today based on tags and active event codes
+		// When includeInactive=true (ActiveEventCodes=nil), ALL zmanim pass filtering above,
+		// but we still need to compute IsActiveToday for frontend preview filtering
+		isActiveToday := true
+		if params.ActiveEventCodes != nil {
+			isActiveToday = s.ShouldShowZman(config.Tags, params.ActiveEventCodes)
+		}
+
 		result.Zmanim = append(result.Zmanim, CalculatedZman{
-			ID:           int64(config.ID),
-			Key:          zmanKey,
-			Time:         calculatedTime,
-			TimeExact:    exactTime,    // HH:MM:SS with actual seconds
-			TimeRounded:  displayTime,  // HH:MM rounded
-			Timestamp:    calculatedTime.Unix(),
-			RoundingMode: roundingMode,
+			ID:            int64(config.ID),
+			Key:           zmanKey,
+			Time:          calculatedTime,
+			TimeExact:     exactTime,    // HH:MM:SS with actual seconds
+			TimeRounded:   displayTime,  // HH:MM rounded
+			Timestamp:     calculatedTime.Unix(),
+			RoundingMode:  roundingMode,
+			IsActiveToday: isActiveToday,
 		})
 	}
 
@@ -378,7 +440,7 @@ func (s *UnifiedZmanimService) CalculateZmanim(ctx context.Context, params Calcu
 }
 
 // CalculateFormula calculates a single DSL formula (for preview mode)
-func (s *UnifiedZmanimService) CalculateFormula(ctx context.Context, params FormulaParams) (*FormulaResult, error) {
+func (s *ZmanimService) CalculateFormula(ctx context.Context, params FormulaParams) (*FormulaResult, error) {
 	// Create DSL execution context
 	dslCtx := dsl.NewExecutionContext(params.Date, params.Latitude, params.Longitude, params.Elevation, params.Timezone)
 
@@ -413,7 +475,7 @@ func (s *UnifiedZmanimService) CalculateFormula(ctx context.Context, params Form
 }
 
 // CalculateRange calculates zmanim for a date range (batch calculation)
-func (s *UnifiedZmanimService) CalculateRange(ctx context.Context, params RangeParams) ([]DayResult, error) {
+func (s *ZmanimService) CalculateRange(ctx context.Context, params RangeParams) ([]DayResult, error) {
 	// Validate date range
 	if params.EndDate.Before(params.StartDate) {
 		return nil, fmt.Errorf("end date must be after start date")
@@ -430,6 +492,12 @@ func (s *UnifiedZmanimService) CalculateRange(ctx context.Context, params RangeP
 	// Calculate for each day
 	currentDate := params.StartDate
 	for currentDate.Before(params.EndDate) || currentDate.Equal(params.EndDate) {
+		// Get active event codes for this day if provider is available
+		var activeEventCodes []string
+		if params.ActiveEventCodesProvider != nil {
+			activeEventCodes = params.ActiveEventCodesProvider(currentDate)
+		}
+
 		// Calculate zmanim for this day
 		calcParams := CalculateParams{
 			LocalityID:         params.LocalityID,
@@ -438,6 +506,7 @@ func (s *UnifiedZmanimService) CalculateRange(ctx context.Context, params RangeP
 			IncludeDisabled:    params.IncludeDisabled,
 			IncludeUnpublished: params.IncludeUnpublished,
 			IncludeBeta:        params.IncludeBeta,
+			ActiveEventCodes:   activeEventCodes,
 		}
 
 		dayResult, err := s.CalculateZmanim(ctx, calcParams)
@@ -477,7 +546,7 @@ func (s *UnifiedZmanimService) CalculateRange(ctx context.Context, params RangeP
 // ExecuteFormulasWithCoordinates executes a set of formulas using raw coordinates
 // This is used for calculations that don't involve a specific locality (e.g., exports, previews)
 // Returns a map of zman_key -> calculated time
-func (s *UnifiedZmanimService) ExecuteFormulasWithCoordinates(
+func (s *ZmanimService) ExecuteFormulasWithCoordinates(
 	date time.Time,
 	latitude, longitude, elevation float64,
 	timezone *time.Location,
@@ -500,7 +569,7 @@ func (s *UnifiedZmanimService) ExecuteFormulasWithCoordinates(
 // ===========================================================================
 
 // GetCategoryOrder returns sort order for a category key
-func (s *UnifiedZmanimService) GetCategoryOrder(category string) int {
+func (s *ZmanimService) GetCategoryOrder(category string) int {
 	if order, ok := s.categoryOrder[category]; ok {
 		return order
 	}
@@ -517,7 +586,7 @@ func (s *UnifiedZmanimService) GetCategoryOrder(category string) int {
 // The sortByCategory parameter is kept for API compatibility but category-based
 // sorting is always applied since it correctly handles the Jewish day structure
 // (sunset to sunset) where times after midnight belong at the end of the day.
-func (s *UnifiedZmanimService) SortZmanim(zmanim []SortableZman, sortByCategory bool) {
+func (s *ZmanimService) SortZmanim(zmanim []SortableZman, sortByCategory bool) {
 	sort.SliceStable(zmanim, func(i, j int) bool {
 		// 1. Category order - always applied to handle Jewish day correctly
 		catI := s.GetCategoryOrder(zmanim[i].GetTimeCategory())
@@ -561,7 +630,7 @@ func (s *UnifiedZmanimService) SortZmanim(zmanim []SortableZman, sortByCategory 
 // 6. Complete action with result
 //
 // Transaction boundaries are explicit - this operation uses a transaction to ensure atomicity.
-func (s *UnifiedZmanimService) LinkOrCopyZman(ctx context.Context, req LinkOrCopyZmanRequest) (*LinkOrCopyZmanResult, error) {
+func (s *ZmanimService) LinkOrCopyZman(ctx context.Context, req LinkOrCopyZmanRequest) (*LinkOrCopyZmanResult, error) {
 	// Validate mode
 	if req.Mode != "copy" && req.Mode != "link" {
 		return nil, ErrInvalidMode
@@ -729,11 +798,186 @@ func (s *UnifiedZmanimService) LinkOrCopyZman(ctx context.Context, req LinkOrCop
 // These will implement tag-based filtering using the behaviorTags map
 
 // ===========================================================================
-// SECTION 7: CACHE METHODS
+// SECTION 7: EVENT FILTERING METHODS
+// ===========================================================================
+
+// EventFilterTag represents a minimal tag interface for event filtering
+type EventFilterTag struct {
+	TagKey    string `json:"tag_key"`
+	TagType   string `json:"tag_type"`
+	IsNegated bool   `json:"is_negated"`
+}
+
+// ShouldShowZman determines if a zman should be shown based on its tags and active event codes
+// This is entirely tag-driven with timing tag support:
+// - event/jewish_day tags are checked against activeEventCodes
+// - timing tags (day_before, motzei) modify how event tags are matched:
+//   - day_before + shabbos matches erev_shabbos in activeEventCodes
+//   - motzei + shabbos matches shabbos in activeEventCodes (from MoetzeiEvents)
+func (s *ZmanimService) ShouldShowZman(tags []EventFilterTag, activeEventCodes []string) bool {
+	// Extract zman_key for logging (if available in first tag)
+	zmanKey := "unknown"
+	if len(tags) > 0 {
+		// Note: zman_key is not in EventFilterTag struct, using first tag_key as identifier
+		zmanKey = tags[0].TagKey
+	}
+
+	slog.Debug("ShouldShowZman: START",
+		"zman_key", zmanKey,
+		"input_tags_count", len(tags),
+		"input_tags", tags,
+		"active_event_codes", activeEventCodes)
+
+	// Separate event tags and timing tags
+	eventTags := []EventFilterTag{}
+	timingTags := []EventFilterTag{}
+	for _, tag := range tags {
+		switch tag.TagType {
+		case "event", "jewish_day":
+			eventTags = append(eventTags, tag)
+		case "timing":
+			timingTags = append(timingTags, tag)
+		}
+	}
+
+	// Check for timing modifiers
+	hasDayBefore := false
+	hasMoetzei := false
+	for _, tt := range timingTags {
+		if tt.TagKey == "day_before" {
+			hasDayBefore = true
+		}
+		if tt.TagKey == "motzei" {
+			hasMoetzei = true
+		}
+	}
+
+	slog.Debug("ShouldShowZman: after filtering tags",
+		"zman_key", zmanKey,
+		"event_tags", eventTags,
+		"timing_tags", timingTags,
+		"has_day_before", hasDayBefore,
+		"has_motzei", hasMoetzei)
+
+	// If no event tags, always show
+	if len(eventTags) == 0 {
+		slog.Debug("ShouldShowZman: RETURN true",
+			"zman_key", zmanKey,
+			"reason", "no event tags")
+		return true
+	}
+
+	// Check event tags against activeEventCodes, considering timing modifiers
+	hasPositiveMatch := false
+	hasNegativeMatch := false
+	positiveMatchedTags := []string{}
+	negativeMatchedTags := []string{}
+
+	for _, tag := range eventTags {
+		var isActive bool
+
+		// Timing modifiers change HOW we match, not just add alternatives:
+		// - day_before: ONLY match "erev_" + event (NOT the event itself)
+		// - motzei: ONLY match the event when it's motzei time
+		// - no timing tag: direct match to event
+
+		if hasDayBefore && !tag.IsNegated {
+			// day_before timing: candle lighting should show on EREV, not on the day itself
+			// Example: shabbos + day_before matches erev_shabbos (Friday), NOT shabbos (Saturday)
+			erevCode := "erev_" + tag.TagKey
+			isActive = s.sliceContainsString(activeEventCodes, erevCode)
+			if isActive {
+				slog.Debug("ShouldShowZman: day_before timing match",
+					"zman_key", zmanKey,
+					"event_tag", tag.TagKey,
+					"matched_via", erevCode)
+			}
+		} else if hasMoetzei && !tag.IsNegated {
+			// motzei timing: havdalah should show when the event ends
+			// MoetzeiEvents populates activeEventCodes with event codes for motzei
+			isActive = s.sliceContainsString(activeEventCodes, tag.TagKey)
+			if isActive {
+				slog.Debug("ShouldShowZman: motzei timing match",
+					"zman_key", zmanKey,
+					"event_tag", tag.TagKey)
+			}
+		} else {
+			// No timing modifier: direct match to event
+			isActive = s.sliceContainsString(activeEventCodes, tag.TagKey)
+		}
+
+		if tag.IsNegated {
+			if isActive {
+				hasNegativeMatch = true
+				negativeMatchedTags = append(negativeMatchedTags, tag.TagKey)
+			}
+		} else {
+			if isActive {
+				hasPositiveMatch = true
+				positiveMatchedTags = append(positiveMatchedTags, tag.TagKey)
+			}
+		}
+	}
+
+	slog.Debug("ShouldShowZman: after matching against active codes",
+		"zman_key", zmanKey,
+		"hasPositiveMatch", hasPositiveMatch,
+		"positive_matched_tags", positiveMatchedTags,
+		"hasNegativeMatch", hasNegativeMatch,
+		"negative_matched_tags", negativeMatchedTags)
+
+	// Negated tags take precedence
+	if hasNegativeMatch {
+		slog.Debug("ShouldShowZman: RETURN false",
+			"zman_key", zmanKey,
+			"reason", "negated tag matched",
+			"matched_negated_tags", negativeMatchedTags)
+		return false
+	}
+
+	// If there are positive tags, at least one must match
+	hasPositiveTags := false
+	for _, tag := range eventTags {
+		if !tag.IsNegated {
+			hasPositiveTags = true
+			break
+		}
+	}
+
+	slog.Debug("ShouldShowZman: checking positive tags requirement",
+		"zman_key", zmanKey,
+		"hasPositiveTags", hasPositiveTags,
+		"hasPositiveMatch", hasPositiveMatch)
+
+	if hasPositiveTags && !hasPositiveMatch {
+		slog.Debug("ShouldShowZman: RETURN false",
+			"zman_key", zmanKey,
+			"reason", "has positive tags but none matched")
+		return false
+	}
+
+	slog.Debug("ShouldShowZman: RETURN true",
+		"zman_key", zmanKey,
+		"reason", "all checks passed")
+	return true
+}
+
+// sliceContainsString checks if a string slice contains a given string
+func (s *ZmanimService) sliceContainsString(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}
+
+// ===========================================================================
+// SECTION 8: CACHE METHODS
 // ===========================================================================
 
 // buildCacheKey creates a unique cache key including filter parameters
-func (s *UnifiedZmanimService) buildCacheKey(publisherID int32, localityID int64, date string, includeDisabled, includeUnpublished, includeBeta bool) string {
+func (s *ZmanimService) buildCacheKey(publisherID int32, localityID int64, date string, includeDisabled, includeUnpublished, includeBeta bool) string {
 	// Format: calc:{publisherId}:{localityId}:{date}:{filterHash}
 	filterParts := []string{}
 	if includeDisabled {
@@ -755,7 +999,7 @@ func (s *UnifiedZmanimService) buildCacheKey(publisherID int32, localityID int64
 }
 
 // getCachedResult retrieves a cached calculation result
-func (s *UnifiedZmanimService) getCachedResult(ctx context.Context, cacheKey string) (*CalculationResult, error) {
+func (s *ZmanimService) getCachedResult(ctx context.Context, cacheKey string) (*CalculationResult, error) {
 	// Use cache's GetZmanim with the cache key format
 	// Cache key format: calc:{publisherId}:{localityId}:{date}:{filterHash}
 	// Extract components for cache lookup
@@ -795,7 +1039,7 @@ func (s *UnifiedZmanimService) getCachedResult(ctx context.Context, cacheKey str
 }
 
 // setCachedResult stores a calculation result in cache
-func (s *UnifiedZmanimService) setCachedResult(ctx context.Context, cacheKey string, result *CalculationResult) error {
+func (s *ZmanimService) setCachedResult(ctx context.Context, cacheKey string, result *CalculationResult) error {
 	// Extract cache key components
 	parts := strings.Split(cacheKey, ":")
 	if len(parts) < 5 {
@@ -816,7 +1060,7 @@ func (s *UnifiedZmanimService) setCachedResult(ctx context.Context, cacheKey str
 
 // InvalidatePublisherCache clears all cached calculations for a publisher
 // This should be called when publisher zmanim configuration changes
-func (s *UnifiedZmanimService) InvalidatePublisherCache(ctx context.Context, publisherID int32) error {
+func (s *ZmanimService) InvalidatePublisherCache(ctx context.Context, publisherID int32) error {
 	if s.cache == nil {
 		return nil
 	}
@@ -827,7 +1071,7 @@ func (s *UnifiedZmanimService) InvalidatePublisherCache(ctx context.Context, pub
 
 // InvalidateLocalityCache clears cached calculations for a specific locality and publisher
 // This should be called when locality coordinates are updated
-func (s *UnifiedZmanimService) InvalidateLocalityCache(ctx context.Context, publisherID int32, localityID int64) error {
+func (s *ZmanimService) InvalidateLocalityCache(ctx context.Context, publisherID int32, localityID int64) error {
 	if s.cache == nil {
 		return nil
 	}
@@ -883,7 +1127,7 @@ func ApplyRounding(t time.Time, mode string) (string, string) {
 // ===========================================================================
 
 // LegacyZmanimService handles zmanim calculation business logic
-// DEPRECATED: Use UnifiedZmanimService instead
+// DEPRECATED: Use ZmanimService instead
 // This exists temporarily to avoid breaking builds during migration
 type LegacyZmanimService struct {
 	db               *db.DB
@@ -891,7 +1135,7 @@ type LegacyZmanimService struct {
 }
 
 // NewLegacyZmanimService creates a new legacy zmanim service
-// DEPRECATED: Use NewUnifiedZmanimService instead
+// DEPRECATED: Use NewZmanimService instead
 func NewLegacyZmanimService(database *db.DB, publisherService *PublisherService) *LegacyZmanimService {
 	return &LegacyZmanimService{
 		db:               database,
@@ -900,7 +1144,7 @@ func NewLegacyZmanimService(database *db.DB, publisherService *PublisherService)
 }
 
 // CalculateZmanim calculates zmanim for a given request
-// DEPRECATED: Legacy implementation - use UnifiedZmanimService.CalculateZmanim
+// DEPRECATED: Legacy implementation - use ZmanimService.CalculateZmanim
 func (s *LegacyZmanimService) CalculateZmanim(ctx context.Context, req *models.ZmanimRequest) (*models.ZmanimResponse, error) {
 	// Parse date
 	date, err := time.Parse("2006-01-02", req.Date)

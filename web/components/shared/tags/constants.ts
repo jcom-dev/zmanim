@@ -44,6 +44,8 @@ export const TAG_TYPE_BADGE_CLASSES: Record<TagType, string> = {
 
 // Event Tags grouped for better UX (includes former jewish_day tags)
 // Note: No "erev" tags - use day_before() DSL function for erev-specific times
+// IMPORTANT: This constant is ONLY for UI grouping/display purposes.
+// Do NOT use this for filtering logic - instead check tag_type === 'event' dynamically.
 export const EVENT_GROUPS = {
   'Yamim Tovim': [
     'rosh_hashanah',
@@ -91,13 +93,32 @@ export const EVENT_GROUPS = {
 export interface Tag {
   id: number; // Changed from string to number to match backend int32
   tag_key: string;
-  name: string;
   display_name_hebrew: string;
-  display_name_english: string;
+  display_name_english: string; // Deprecated: use display_name_english_ashkenazi
+  display_name_english_ashkenazi: string; // English name with Ashkenazi transliteration (e.g., "Shabbos")
+  display_name_english_sephardi?: string | null; // English name with Sephardi transliteration (e.g., "Shabbat")
   tag_type: TagType;
   description?: string;
   color?: string;
   sort_order: number;
+  is_hidden?: boolean; // When true, tag is used for internal filtering only (not displayed in UI)
+}
+
+export type TransliterationStyle = 'ashkenazi' | 'sephardi';
+
+/**
+ * Get the appropriate English display name for a tag based on transliteration style.
+ * Falls back to Ashkenazi if Sephardi is not available.
+ */
+export function getTagDisplayName(
+  tag: Pick<Tag, 'display_name_english_ashkenazi' | 'display_name_english_sephardi' | 'display_name_english'>,
+  style: TransliterationStyle = 'ashkenazi'
+): string {
+  if (style === 'sephardi' && tag.display_name_english_sephardi) {
+    return tag.display_name_english_sephardi;
+  }
+  // Prefer new field, fall back to deprecated field for backwards compatibility
+  return tag.display_name_english_ashkenazi || tag.display_name_english;
 }
 
 // Tag type metadata for the type filter dropdown
@@ -117,4 +138,20 @@ export function getTagTypeInfo(type: TagType): TagTypeInfo {
     color: TAG_TYPE_COLORS[type],
     badgeClass: TAG_TYPE_BADGE_CLASSES[type],
   };
+}
+
+/**
+ * Filter out hidden tags from a tag array.
+ * Hidden tags are used for internal filtering/matching but should not be displayed in user-facing UI.
+ * Admin views may choose to show hidden tags.
+ */
+export function filterVisibleTags(tags: Tag[]): Tag[] {
+  return tags.filter((tag) => !tag.is_hidden);
+}
+
+/**
+ * Check if a tag is hidden (used for internal filtering only).
+ */
+export function isTagHidden(tag: Tag): boolean {
+  return tag.is_hidden === true;
 }

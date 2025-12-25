@@ -23,8 +23,6 @@ export interface Token {
 
 // DSL keywords
 export const PRIMITIVES = [
-  'sunrise',
-  'sunset',
   'visible_sunrise',
   'visible_sunset',
   'geometric_sunrise',

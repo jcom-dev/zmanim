@@ -34,7 +34,9 @@ export interface ZmanTag {
   tag_key: string;
   name: string;
   display_name_hebrew: string;
-  display_name_english: string;
+  display_name_english: string; // Deprecated: use display_name_english_ashkenazi
+  display_name_english_ashkenazi?: string;
+  display_name_english_sephardi?: string | null;
   tag_type: 'event' | 'timing' | 'behavior' | 'shita' | 'calculation' | 'category' | 'jewish_day';
   description?: string | null;
   color?: string | null;

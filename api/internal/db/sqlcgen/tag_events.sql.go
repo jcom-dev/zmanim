@@ -59,47 +59,55 @@ func (q *Queries) CountTagsByType(ctx context.Context) ([]CountTagsByTypeRow, er
 
 const getAllTagsWithKey = `-- name: GetAllTagsWithKey :many
 
+
+
+
 SELECT
     t.id,
     t.tag_key,
-    t.name,
     t.display_name_hebrew,
     t.display_name_english_ashkenazi,
     t.display_name_english_sephardi,
-    t.hebcal_basename,
     t.tag_type_id,
     tt.key AS tag_type,
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.color,
-    t.sort_order
+    t.color
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
-ORDER BY tt.sort_order, t.sort_order, t.display_name_english_ashkenazi
+WHERE t.is_hidden = false
+ORDER BY tt.sort_order, t.tag_key, t.display_name_english_ashkenazi
 `
 
 type GetAllTagsWithKeyRow struct {
 	ID                          int32   `json:"id"`
 	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
 	DisplayNameHebrew           string  `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
 	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
-	HebcalBasename              *string `json:"hebcal_basename"`
 	TagTypeID                   int32   `json:"tag_type_id"`
 	TagType                     string  `json:"tag_type"`
 	TagTypeDisplayHebrew        string  `json:"tag_type_display_hebrew"`
 	TagTypeDisplayEnglish       string  `json:"tag_type_display_english"`
 	Description                 *string `json:"description"`
 	Color                       *string `json:"color"`
-	SortOrder                   *int32  `json:"sort_order"`
 }
 
+// REMOVED: GetTagByHebcalBasename
+// The hebcal_basename column has been removed in the new schema
+// Use match_hebcal_event() function instead for HebCal event matching
+// REMOVED: GetTagsForHebCalEvent
+// This query used the old tag_event_mappings table
+// Use the match_hebcal_event() PostgreSQL function instead
+// REMOVED: GetTagsForHebrewDate
+// This query used the old tag_event_mappings table with Hebrew date matching
+// Hebrew date matching is now handled via HebCal API integration and match_hebcal_event()
 // ============================================================================
 // All Tags Queries (with tag_key - extends master_registry.sql queries)
 // ============================================================================
 // Get all tags ordered by type and sort order (includes tag_key and multilingual names)
+// User-facing query - excludes hidden tags
 func (q *Queries) GetAllTagsWithKey(ctx context.Context) ([]GetAllTagsWithKeyRow, error) {
 	rows, err := q.db.Query(ctx, getAllTagsWithKey)
 	if err != nil {
@@ -112,18 +120,15 @@ func (q *Queries) GetAllTagsWithKey(ctx context.Context) ([]GetAllTagsWithKeyRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TagKey,
-			&i.Name,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
 			&i.DisplayNameEnglishSephardi,
-			&i.HebcalBasename,
 			&i.TagTypeID,
 			&i.TagType,
 			&i.TagTypeDisplayHebrew,
 			&i.TagTypeDisplayEnglish,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 		); err != nil {
 			return nil, err
 		}
@@ -139,43 +144,38 @@ const getJewishDayTags = `-- name: GetJewishDayTags :many
 SELECT
     t.id,
     t.tag_key,
-    t.name,
     t.display_name_hebrew,
     t.display_name_english_ashkenazi,
     t.display_name_english_sephardi,
-    t.hebcal_basename,
     t.tag_type_id,
     tt.key AS tag_type,
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.color,
-    t.sort_order
+    t.color
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
-WHERE tt.key = 'event'
-ORDER BY t.sort_order, t.display_name_english_ashkenazi
+WHERE tt.key = 'event' AND t.is_hidden = false
+ORDER BY t.tag_key, t.display_name_english_ashkenazi
 `
 
 type GetJewishDayTagsRow struct {
 	ID                          int32   `json:"id"`
 	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
 	DisplayNameHebrew           string  `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
 	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
-	HebcalBasename              *string `json:"hebcal_basename"`
 	TagTypeID                   int32   `json:"tag_type_id"`
 	TagType                     string  `json:"tag_type"`
 	TagTypeDisplayHebrew        string  `json:"tag_type_display_hebrew"`
 	TagTypeDisplayEnglish       string  `json:"tag_type_display_english"`
 	Description                 *string `json:"description"`
 	Color                       *string `json:"color"`
-	SortOrder                   *int32  `json:"sort_order"`
 }
 
 // Get all event tags that represent Jewish days/holidays (for calendar filtering)
 // Note: Jewish day tags are now part of 'event' type after tag consolidation
+// User-facing query - excludes hidden tags
 func (q *Queries) GetJewishDayTags(ctx context.Context) ([]GetJewishDayTagsRow, error) {
 	rows, err := q.db.Query(ctx, getJewishDayTags)
 	if err != nil {
@@ -188,18 +188,15 @@ func (q *Queries) GetJewishDayTags(ctx context.Context) ([]GetJewishDayTagsRow, 
 		if err := rows.Scan(
 			&i.ID,
 			&i.TagKey,
-			&i.Name,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
 			&i.DisplayNameEnglishSephardi,
-			&i.HebcalBasename,
 			&i.TagTypeID,
 			&i.TagType,
 			&i.TagTypeDisplayHebrew,
 			&i.TagTypeDisplayEnglish,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
 		); err != nil {
 			return nil, err
 		}
@@ -277,74 +274,19 @@ func (q *Queries) GetMasterZmanimByTags(ctx context.Context, dollar_1 []string) 
 	return items, nil
 }
 
-const getTagByHebcalBasename = `-- name: GetTagByHebcalBasename :one
-SELECT
-    t.id,
-    t.tag_key,
-    t.name,
-    t.display_name_hebrew,
-    t.display_name_english_ashkenazi,
-    t.display_name_english_sephardi,
-    t.hebcal_basename,
-    t.tag_type_id,
-    tt.key AS tag_type,
-    t.description,
-    t.sort_order
-FROM zman_tags t
-JOIN tag_types tt ON tt.id = t.tag_type_id
-WHERE t.hebcal_basename = $1
-`
-
-type GetTagByHebcalBasenameRow struct {
-	ID                          int32   `json:"id"`
-	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
-	DisplayNameHebrew           string  `json:"display_name_hebrew"`
-	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
-	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
-	HebcalBasename              *string `json:"hebcal_basename"`
-	TagTypeID                   int32   `json:"tag_type_id"`
-	TagType                     string  `json:"tag_type"`
-	Description                 *string `json:"description"`
-	SortOrder                   *int32  `json:"sort_order"`
-}
-
-// Direct lookup by Hebcal basename (e.g., "Shavuot" -> shavuos tag)
-func (q *Queries) GetTagByHebcalBasename(ctx context.Context, hebcalBasename *string) (GetTagByHebcalBasenameRow, error) {
-	row := q.db.QueryRow(ctx, getTagByHebcalBasename, hebcalBasename)
-	var i GetTagByHebcalBasenameRow
-	err := row.Scan(
-		&i.ID,
-		&i.TagKey,
-		&i.Name,
-		&i.DisplayNameHebrew,
-		&i.DisplayNameEnglishAshkenazi,
-		&i.DisplayNameEnglishSephardi,
-		&i.HebcalBasename,
-		&i.TagTypeID,
-		&i.TagType,
-		&i.Description,
-		&i.SortOrder,
-	)
-	return i, err
-}
-
 const getTagByKey = `-- name: GetTagByKey :one
 SELECT
     t.id,
     t.tag_key,
-    t.name,
     t.display_name_hebrew,
     t.display_name_english_ashkenazi,
     t.display_name_english_sephardi,
-    t.hebcal_basename,
     t.tag_type_id,
     tt.key AS tag_type,
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.color,
-    t.sort_order
+    t.color
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
 WHERE t.tag_key = $1
@@ -353,18 +295,15 @@ WHERE t.tag_key = $1
 type GetTagByKeyRow struct {
 	ID                          int32   `json:"id"`
 	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
 	DisplayNameHebrew           string  `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
 	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
-	HebcalBasename              *string `json:"hebcal_basename"`
 	TagTypeID                   int32   `json:"tag_type_id"`
 	TagType                     string  `json:"tag_type"`
 	TagTypeDisplayHebrew        string  `json:"tag_type_display_hebrew"`
 	TagTypeDisplayEnglish       string  `json:"tag_type_display_english"`
 	Description                 *string `json:"description"`
 	Color                       *string `json:"color"`
-	SortOrder                   *int32  `json:"sort_order"`
 }
 
 // Get a single tag by its key
@@ -374,18 +313,15 @@ func (q *Queries) GetTagByKey(ctx context.Context, tagKey string) (GetTagByKeyRo
 	err := row.Scan(
 		&i.ID,
 		&i.TagKey,
-		&i.Name,
 		&i.DisplayNameHebrew,
 		&i.DisplayNameEnglishAshkenazi,
 		&i.DisplayNameEnglishSephardi,
-		&i.HebcalBasename,
 		&i.TagTypeID,
 		&i.TagType,
 		&i.TagTypeDisplayHebrew,
 		&i.TagTypeDisplayEnglish,
 		&i.Description,
 		&i.Color,
-		&i.SortOrder,
 	)
 	return i, err
 }
@@ -394,21 +330,24 @@ const getTagEventMappings = `-- name: GetTagEventMappings :many
 
 
 SELECT
-    t.tag_key,
-    t.hebcal_basename,
-    m.hebcal_event_pattern AS pattern,
-    m.priority
-FROM tag_event_mappings m
-JOIN zman_tags t ON t.id = m.tag_id
-WHERE m.hebcal_event_pattern IS NOT NULL
-ORDER BY m.priority DESC
+    tag_key,
+    hebcal_match_type,
+    COALESCE(hebcal_match_string, hebcal_match_pattern, hebcal_match_category) AS match_value
+FROM zman_tags
+WHERE hebcal_match_type IS NOT NULL
+ORDER BY
+    CASE hebcal_match_type
+        WHEN 'category' THEN 1
+        WHEN 'exact' THEN 2
+        WHEN 'group' THEN 3
+    END,
+    tag_key
 `
 
 type GetTagEventMappingsRow struct {
-	TagKey         string  `json:"tag_key"`
-	HebcalBasename *string `json:"hebcal_basename"`
-	Pattern        *string `json:"pattern"`
-	Priority       *int32  `json:"priority"`
+	TagKey          string              `json:"tag_key"`
+	HebcalMatchType NullHebcalMatchType `json:"hebcal_match_type"`
+	MatchValue      *string             `json:"match_value"`
 }
 
 // Tag Events SQL Queries
@@ -417,6 +356,7 @@ type GetTagEventMappingsRow struct {
 // Tag Event Mappings
 // ============================================================================
 // Get all HebCal event mappings for tag matching
+// Uses new schema where match data is stored directly in zman_tags
 func (q *Queries) GetTagEventMappings(ctx context.Context) ([]GetTagEventMappingsRow, error) {
 	rows, err := q.db.Query(ctx, getTagEventMappings)
 	if err != nil {
@@ -426,12 +366,7 @@ func (q *Queries) GetTagEventMappings(ctx context.Context) ([]GetTagEventMapping
 	items := []GetTagEventMappingsRow{}
 	for rows.Next() {
 		var i GetTagEventMappingsRow
-		if err := rows.Scan(
-			&i.TagKey,
-			&i.HebcalBasename,
-			&i.Pattern,
-			&i.Priority,
-		); err != nil {
+		if err := rows.Scan(&i.TagKey, &i.HebcalMatchType, &i.MatchValue); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -446,39 +381,33 @@ const getTagsByKeys = `-- name: GetTagsByKeys :many
 SELECT
     t.id,
     t.tag_key,
-    t.name,
     t.display_name_hebrew,
     t.display_name_english_ashkenazi,
     t.display_name_english_sephardi,
-    t.hebcal_basename,
     t.tag_type_id,
     tt.key AS tag_type,
     tt.display_name_hebrew AS tag_type_display_hebrew,
     tt.display_name_english AS tag_type_display_english,
     t.description,
-    t.color,
-    t.sort_order
+    t.color
 FROM zman_tags t
 JOIN tag_types tt ON tt.id = t.tag_type_id
 WHERE t.tag_key = ANY($1::text[])
-ORDER BY t.sort_order, t.display_name_english_ashkenazi
+ORDER BY t.tag_key, t.display_name_english_ashkenazi
 `
 
 type GetTagsByKeysRow struct {
 	ID                          int32   `json:"id"`
 	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
 	DisplayNameHebrew           string  `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
 	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
-	HebcalBasename              *string `json:"hebcal_basename"`
 	TagTypeID                   int32   `json:"tag_type_id"`
 	TagType                     string  `json:"tag_type"`
 	TagTypeDisplayHebrew        string  `json:"tag_type_display_hebrew"`
 	TagTypeDisplayEnglish       string  `json:"tag_type_display_english"`
 	Description                 *string `json:"description"`
 	Color                       *string `json:"color"`
-	SortOrder                   *int32  `json:"sort_order"`
 }
 
 // Get multiple tags by their keys
@@ -494,184 +423,15 @@ func (q *Queries) GetTagsByKeys(ctx context.Context, dollar_1 []string) ([]GetTa
 		if err := rows.Scan(
 			&i.ID,
 			&i.TagKey,
-			&i.Name,
 			&i.DisplayNameHebrew,
 			&i.DisplayNameEnglishAshkenazi,
 			&i.DisplayNameEnglishSephardi,
-			&i.HebcalBasename,
 			&i.TagTypeID,
 			&i.TagType,
 			&i.TagTypeDisplayHebrew,
 			&i.TagTypeDisplayEnglish,
 			&i.Description,
 			&i.Color,
-			&i.SortOrder,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTagsForHebCalEvent = `-- name: GetTagsForHebCalEvent :many
-SELECT DISTINCT
-    t.id,
-    t.tag_key,
-    t.name,
-    t.display_name_hebrew,
-    t.display_name_english_ashkenazi,
-    t.display_name_english_sephardi,
-    t.hebcal_basename,
-    t.tag_type_id,
-    tt.key AS tag_type,
-    tt.display_name_hebrew AS tag_type_display_hebrew,
-    tt.display_name_english AS tag_type_display_english,
-    t.description,
-    t.sort_order,
-    m.priority
-FROM zman_tags t
-JOIN tag_types tt ON tt.id = t.tag_type_id
-JOIN tag_event_mappings m ON m.tag_id = t.id
-WHERE m.hebcal_event_pattern IS NOT NULL
-  AND (
-    $1 LIKE m.hebcal_event_pattern OR
-    m.hebcal_event_pattern LIKE $1 OR
-    -- Handle wildcards: convert % to pattern matching
-    $1 LIKE REPLACE(m.hebcal_event_pattern, '%', '')::text || '%' OR
-    $1 LIKE '%' || REPLACE(m.hebcal_event_pattern, '%', '')::text
-  )
-ORDER BY m.priority DESC, t.sort_order
-`
-
-type GetTagsForHebCalEventRow struct {
-	ID                          int32   `json:"id"`
-	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
-	DisplayNameHebrew           string  `json:"display_name_hebrew"`
-	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
-	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
-	HebcalBasename              *string `json:"hebcal_basename"`
-	TagTypeID                   int32   `json:"tag_type_id"`
-	TagType                     string  `json:"tag_type"`
-	TagTypeDisplayHebrew        string  `json:"tag_type_display_hebrew"`
-	TagTypeDisplayEnglish       string  `json:"tag_type_display_english"`
-	Description                 *string `json:"description"`
-	SortOrder                   *int32  `json:"sort_order"`
-	Priority                    *int32  `json:"priority"`
-}
-
-// Get tags that match a specific HebCal event name using pattern matching
-// The pattern supports SQL LIKE wildcards (%)
-func (q *Queries) GetTagsForHebCalEvent(ctx context.Context, hebcalEventPattern *string) ([]GetTagsForHebCalEventRow, error) {
-	rows, err := q.db.Query(ctx, getTagsForHebCalEvent, hebcalEventPattern)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetTagsForHebCalEventRow{}
-	for rows.Next() {
-		var i GetTagsForHebCalEventRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TagKey,
-			&i.Name,
-			&i.DisplayNameHebrew,
-			&i.DisplayNameEnglishAshkenazi,
-			&i.DisplayNameEnglishSephardi,
-			&i.HebcalBasename,
-			&i.TagTypeID,
-			&i.TagType,
-			&i.TagTypeDisplayHebrew,
-			&i.TagTypeDisplayEnglish,
-			&i.Description,
-			&i.SortOrder,
-			&i.Priority,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTagsForHebrewDate = `-- name: GetTagsForHebrewDate :many
-SELECT DISTINCT
-    t.id,
-    t.tag_key,
-    t.name,
-    t.display_name_hebrew,
-    t.display_name_english_ashkenazi,
-    t.display_name_english_sephardi,
-    t.hebcal_basename,
-    t.tag_type_id,
-    tt.key AS tag_type,
-    tt.display_name_hebrew AS tag_type_display_hebrew,
-    tt.display_name_english AS tag_type_display_english,
-    t.description,
-    t.sort_order,
-    m.priority
-FROM zman_tags t
-JOIN tag_types tt ON tt.id = t.tag_type_id
-JOIN tag_event_mappings m ON m.tag_id = t.id
-WHERE m.hebrew_month = $1
-  AND $2 BETWEEN m.hebrew_day_start AND COALESCE(m.hebrew_day_end, m.hebrew_day_start)
-ORDER BY m.priority DESC, t.sort_order
-`
-
-type GetTagsForHebrewDateParams struct {
-	HebrewMonth    *int32 `json:"hebrew_month"`
-	HebrewDayStart *int32 `json:"hebrew_day_start"`
-}
-
-type GetTagsForHebrewDateRow struct {
-	ID                          int32   `json:"id"`
-	TagKey                      string  `json:"tag_key"`
-	Name                        string  `json:"name"`
-	DisplayNameHebrew           string  `json:"display_name_hebrew"`
-	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
-	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
-	HebcalBasename              *string `json:"hebcal_basename"`
-	TagTypeID                   int32   `json:"tag_type_id"`
-	TagType                     string  `json:"tag_type"`
-	TagTypeDisplayHebrew        string  `json:"tag_type_display_hebrew"`
-	TagTypeDisplayEnglish       string  `json:"tag_type_display_english"`
-	Description                 *string `json:"description"`
-	SortOrder                   *int32  `json:"sort_order"`
-	Priority                    *int32  `json:"priority"`
-}
-
-// Get tags that match a specific Hebrew date (month and day)
-func (q *Queries) GetTagsForHebrewDate(ctx context.Context, arg GetTagsForHebrewDateParams) ([]GetTagsForHebrewDateRow, error) {
-	rows, err := q.db.Query(ctx, getTagsForHebrewDate, arg.HebrewMonth, arg.HebrewDayStart)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetTagsForHebrewDateRow{}
-	for rows.Next() {
-		var i GetTagsForHebrewDateRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TagKey,
-			&i.Name,
-			&i.DisplayNameHebrew,
-			&i.DisplayNameEnglishAshkenazi,
-			&i.DisplayNameEnglishSephardi,
-			&i.HebcalBasename,
-			&i.TagTypeID,
-			&i.TagType,
-			&i.TagTypeDisplayHebrew,
-			&i.TagTypeDisplayEnglish,
-			&i.Description,
-			&i.SortOrder,
-			&i.Priority,
 		); err != nil {
 			return nil, err
 		}
@@ -761,6 +521,85 @@ func (q *Queries) GetZmanimByActiveTags(ctx context.Context, arg GetZmanimByActi
 			&i.Category,
 			&i.CategoryDisplayHebrew,
 			&i.CategoryDisplayEnglish,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const matchHebcalEvent = `-- name: MatchHebcalEvent :many
+
+SELECT
+    t.id,
+    t.tag_key,
+    t.display_name_hebrew,
+    t.display_name_english_ashkenazi,
+    t.display_name_english_sephardi,
+    t.tag_type_id,
+    tt.key AS tag_type,
+    tt.display_name_hebrew AS tag_type_display_hebrew,
+    tt.display_name_english AS tag_type_display_english,
+    t.description,
+    t.color,
+    t.hebcal_match_type AS match_type
+FROM match_hebcal_event($1, $2) m
+JOIN zman_tags t ON t.id = m.tag_id
+JOIN tag_types tt ON tt.id = t.tag_type_id
+`
+
+type MatchHebcalEventParams struct {
+	HebcalTitle    string `json:"hebcal_title"`
+	HebcalCategory string `json:"hebcal_category"`
+}
+
+type MatchHebcalEventRow struct {
+	ID                          int32               `json:"id"`
+	TagKey                      string              `json:"tag_key"`
+	DisplayNameHebrew           string              `json:"display_name_hebrew"`
+	DisplayNameEnglishAshkenazi string              `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string             `json:"display_name_english_sephardi"`
+	TagTypeID                   int32               `json:"tag_type_id"`
+	TagType                     string              `json:"tag_type"`
+	TagTypeDisplayHebrew        string              `json:"tag_type_display_hebrew"`
+	TagTypeDisplayEnglish       string              `json:"tag_type_display_english"`
+	Description                 *string             `json:"description"`
+	Color                       *string             `json:"color"`
+	MatchType                   NullHebcalMatchType `json:"match_type"`
+}
+
+// ============================================================================
+// Event Mapping Queries
+// ============================================================================
+// Get the best matching tag for a HebCal event using the PostgreSQL function
+// This wraps the match_hebcal_event() function for use with SQLc
+// Returns tag details including display names for matched events
+func (q *Queries) MatchHebcalEvent(ctx context.Context, arg MatchHebcalEventParams) ([]MatchHebcalEventRow, error) {
+	rows, err := q.db.Query(ctx, matchHebcalEvent, arg.HebcalTitle, arg.HebcalCategory)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []MatchHebcalEventRow{}
+	for rows.Next() {
+		var i MatchHebcalEventRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TagKey,
+			&i.DisplayNameHebrew,
+			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
+			&i.TagTypeID,
+			&i.TagType,
+			&i.TagTypeDisplayHebrew,
+			&i.TagTypeDisplayEnglish,
+			&i.Description,
+			&i.Color,
+			&i.MatchType,
 		); err != nil {
 			return nil, err
 		}

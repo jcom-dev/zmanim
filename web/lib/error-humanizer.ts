@@ -44,7 +44,8 @@ const FUNCTION_PARAM_EXPLANATIONS: Record<string, string> = {
 
 // Known primitives for fuzzy matching
 const KNOWN_PRIMITIVES = [
-  'sunrise', 'sunset', 'solar_noon', 'midnight',
+  'visible_sunrise', 'visible_sunset', 'geometric_sunrise', 'geometric_sunset',
+  'solar_noon', 'solar_midnight',
   'civil_dawn', 'civil_dusk', 'nautical_dawn', 'nautical_dusk',
   'astronomical_dawn', 'astronomical_dusk',
   'alos_hashachar', 'misheyakir', 'tzeis_hakochavim', 'chatzos',
@@ -57,7 +58,8 @@ const KNOWN_FUNCTIONS = [
 
 // Known directions
 const KNOWN_DIRECTIONS = [
-  'before_visible_sunrise', 'after_sunrise', 'before_sunset', 'after_visible_sunset',
+  'before_visible_sunrise', 'after_visible_sunrise', 'before_visible_sunset', 'after_visible_sunset',
+  'before_geometric_sunrise', 'after_geometric_sunrise', 'before_geometric_sunset', 'after_geometric_sunset',
   'before_noon', 'after_noon',
 ];
 

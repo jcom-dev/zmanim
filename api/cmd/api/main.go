@@ -127,13 +127,13 @@ func main() {
 		defer redisCache.Close()
 	}
 
-	// Initialize unified zmanim service (calculation, ordering, linking, filtering)
+	// Initialize zmanim service (calculation, ordering, linking, filtering)
 	ctx := context.Background()
-	unifiedZmanimService, err := services.NewUnifiedZmanimService(ctx, database, redisCache)
+	zmanimService, err := services.NewZmanimService(ctx, database, redisCache)
 	if err != nil {
-		log.Fatalf("Failed to initialize unified zmanim service: %v", err)
+		log.Fatalf("Failed to initialize zmanim service: %v", err)
 	}
-	h.SetUnifiedZmanimService(unifiedZmanimService)
+	h.SetZmanimService(zmanimService)
 	log.Println("Unified zmanim service initialized")
 
 	// Initialize AI services (optional - only if API keys are set)
@@ -172,7 +172,7 @@ func main() {
 	if redisCache != nil {
 		redisClient = redisCache.Client()
 	}
-	pdfReportService := services.NewPDFReportService(database, unifiedZmanimService, redisClient, mapboxAPIKey)
+	pdfReportService := services.NewPDFReportService(database, zmanimService, redisClient, mapboxAPIKey)
 	publisherReportsHandler := handlers.NewPublisherReportsHandler(pdfReportService, h.GetPublisherResolver())
 	log.Println("PDF report service initialized")
 
@@ -311,6 +311,9 @@ func main() {
 			r.Get("/calendar/hebrew-date", h.GetHebrewDate)
 			r.Get("/calendar/gregorian-date", h.GetGregorianDate)
 			r.Get("/calendar/shabbat", h.GetShabbatTimes)
+			r.Get("/calendar/day-info", h.GetEventDayInfo)
+			r.Get("/calendar/zmanim-context", h.GetZmanimContext)
+			r.Get("/calendar/week-events", h.GetWeekEventInfo)
 
 			// Public algorithm browsing (Story 4-12)
 			r.Get("/algorithms/public", h.BrowsePublicAlgorithms)
@@ -322,7 +325,6 @@ func main() {
 			// Master Zmanim Registry (public)
 			r.Get("/registry/zmanim", h.GetMasterZmanim)
 			r.Get("/registry/zmanim/grouped", h.GetMasterZmanimGrouped)
-			r.Get("/registry/zmanim/events", h.GetEventZmanimGrouped)
 			r.Get("/registry/zmanim/validate-key", h.ValidateZmanKey)
 			r.Get("/registry/zmanim/{zmanKey}", h.GetMasterZman)
 			r.Get("/registry/tags", h.GetAllTags)

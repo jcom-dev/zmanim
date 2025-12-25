@@ -57,7 +57,7 @@ type Handlers struct {
 	db                    *db.DB
 	cache                 *cache.Cache
 	publisherService      *services.PublisherService
-	unifiedZmanimService  *services.UnifiedZmanimService
+	zmanimService  *services.ZmanimService
 	legacyZmanimService   *services.LegacyZmanimService
 	clerkService          *services.ClerkService
 	emailService          *services.EmailService
@@ -123,9 +123,9 @@ func (h *Handlers) SetCalculationLogService(s *services.CalculationLogService) {
 	h.calculationLogService = s
 }
 
-// SetUnifiedZmanimService configures the unified zmanim service
-func (h *Handlers) SetUnifiedZmanimService(s *services.UnifiedZmanimService) {
-	h.unifiedZmanimService = s
+// SetZmanimService configures the zmanim service
+func (h *Handlers) SetZmanimService(s *services.ZmanimService) {
+	h.zmanimService = s
 }
 
 // GetPublisherResolver returns the publisher resolver for use by other handlers

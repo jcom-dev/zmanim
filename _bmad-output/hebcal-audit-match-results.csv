@@ -1,0 +1,397 @@
+HebCal Title,HebCal Category,Date,Location,Israel Mode,Matched Tag,Match Type,Hebrew Year
+Asara B'Tevet,fast,2015-01-01,Jerusalem,true,asara_btevet,exact,5775
+Asara B'Tevet,fast,2015-01-01,Salford,false,asara_btevet,exact,5775
+Erev Tish'a B'Av,fast,2015-07-25,Jerusalem,true,erev_tisha_bav,exact,5775
+Erev Tish'a B'Av,fast,2015-07-25,Salford,false,erev_tisha_bav,exact,5775
+Ta'anit Bechorot,fast,2015-04-03,Jerusalem,true,taanit_bechorot,exact,5775
+Ta'anit Bechorot,fast,2015-04-03,Salford,false,taanit_bechorot,exact,5775
+Ta'anit Esther,fast,2015-03-04,Jerusalem,true,taanit_esther,exact,5775
+Ta'anit Esther,fast,2015-03-04,Salford,false,taanit_esther,exact,5775
+Tish'a B'Av,fast,2017-08-01,Jerusalem,true,tisha_bav,group,5777
+Tish'a B'Av,fast,2017-08-01,Salford,false,tisha_bav,group,5777
+Tish'a B'Av (observed),fast,2015-07-26,Jerusalem,true,tisha_bav,group,5775
+Tish'a B'Av (observed),fast,2015-07-26,Salford,false,tisha_bav,group,5775
+Tzom Gedaliah,fast,2014-09-28,Jerusalem,true,tzom_gedaliah,exact,5775
+Tzom Gedaliah,fast,2014-09-28,Salford,false,tzom_gedaliah,exact,5775
+Tzom Tammuz,fast,2015-07-05,Jerusalem,true,tzom_tammuz,exact,5775
+Tzom Tammuz,fast,2015-07-05,Salford,false,tzom_tammuz,exact,5775
+Yom Kippur,fast,2014-10-04,Jerusalem,true,yom_kippur,exact,5775
+Yom Kippur,fast,2014-10-04,Salford,false,yom_kippur,exact,5775
+Ben-Gurion Day,holiday,2014-11-30,Jerusalem,true,israeli_civic_ben_gurion,exact,5775
+Birkat Hachamah,holiday,2037-04-08,Jerusalem,true,birkat_hachamah,exact,5797
+Birkat Hachamah,holiday,2037-04-08,Salford,false,birkat_hachamah,exact,5797
+Chag HaBanot,holiday,2014-12-22,Jerusalem,true,chag_habanot,exact,5775
+Chag HaBanot,holiday,2014-12-22,Salford,false,chag_habanot,exact,5775
+Chanukah: 1 Candle,holiday,2014-12-16,Jerusalem,true,chanukah,group,5775
+Chanukah: 1 Candle,holiday,2014-12-16,Salford,false,chanukah,group,5775
+Chanukah: 2 Candles,holiday,2014-12-17,Jerusalem,true,chanukah,group,5775
+Chanukah: 2 Candles,holiday,2014-12-17,Salford,false,chanukah,group,5775
+Chanukah: 3 Candles,holiday,2014-12-18,Jerusalem,true,chanukah,group,5775
+Chanukah: 3 Candles,holiday,2014-12-18,Salford,false,chanukah,group,5775
+Chanukah: 4 Candles,holiday,2014-12-19,Jerusalem,true,chanukah,group,5775
+Chanukah: 4 Candles,holiday,2014-12-19,Salford,false,chanukah,group,5775
+Chanukah: 5 Candles,holiday,2014-12-20,Jerusalem,true,chanukah,group,5775
+Chanukah: 5 Candles,holiday,2014-12-20,Salford,false,chanukah,group,5775
+Chanukah: 6 Candles,holiday,2014-12-21,Jerusalem,true,chanukah,group,5775
+Chanukah: 6 Candles,holiday,2014-12-21,Salford,false,chanukah,group,5775
+Chanukah: 7 Candles,holiday,2014-12-22,Jerusalem,true,chanukah,group,5775
+Chanukah: 7 Candles,holiday,2014-12-22,Salford,false,chanukah,group,5775
+Chanukah: 8 Candles,holiday,2014-12-23,Jerusalem,true,chanukah,group,5775
+Chanukah: 8 Candles,holiday,2014-12-23,Salford,false,chanukah,group,5775
+Chanukah: 8th Day,holiday,2014-12-24,Jerusalem,true,chanukah,group,5775
+Chanukah: 8th Day,holiday,2014-12-24,Salford,false,chanukah,group,5775
+Erev Pesach,holiday,2015-04-03,Jerusalem,true,erev_pesach,exact,5775
+Erev Pesach,holiday,2015-04-03,Salford,false,erev_pesach,exact,5775
+Erev Purim,holiday,2015-03-04,Jerusalem,true,erev_purim,exact,5775
+Erev Purim,holiday,2015-03-04,Salford,false,erev_purim,exact,5775
+Erev Rosh Hashana,holiday,2014-09-24,Jerusalem,true,erev_rosh_hashana,exact,5774
+Erev Rosh Hashana,holiday,2014-09-24,Salford,false,erev_rosh_hashana,exact,5774
+Erev Shavuot,holiday,2015-05-23,Jerusalem,true,erev_shavuos,exact,5775
+Erev Shavuot,holiday,2015-05-23,Salford,false,erev_shavuos,exact,5775
+Erev Sukkot,holiday,2014-10-08,Jerusalem,true,erev_sukkos,exact,5775
+Erev Sukkot,holiday,2014-10-08,Salford,false,erev_sukkos,exact,5775
+Erev Yom Kippur,holiday,2014-10-03,Jerusalem,true,erev_yom_kippur,exact,5775
+Erev Yom Kippur,holiday,2014-10-03,Salford,false,erev_yom_kippur,exact,5775
+Family Day,holiday,2015-02-19,Jerusalem,true,israeli_civic_family_day,exact,5775
+Hebrew Language Day,holiday,2015-01-12,Jerusalem,true,israeli_civic_hebrew_language,exact,5775
+Herzl Day,holiday,2015-04-29,Jerusalem,true,israeli_civic_herzl,exact,5775
+Jabotinsky Day,holiday,2015-07-16,Jerusalem,true,israeli_civic_jabotinsky,exact,5775
+Lag BaOmer,holiday,2015-05-07,Jerusalem,true,lag_baomer,exact,5775
+Lag BaOmer,holiday,2015-05-07,Salford,false,lag_baomer,exact,5775
+Leil Selichot,holiday,2015-09-05,Jerusalem,true,leil_selichos,exact,5775
+Leil Selichot,holiday,2015-09-05,Salford,false,leil_selichos,exact,5775
+Pesach I,holiday,2015-04-04,Jerusalem,true,pesach,group,5775
+Pesach I,holiday,2015-04-04,Salford,false,pesach,group,5775
+Pesach II,holiday,2015-04-05,Salford,false,pesach,group,5775
+Pesach II (CH''M),holiday,2015-04-05,Jerusalem,true,pesach,group,5775
+Pesach III (CH''M),holiday,2015-04-06,Jerusalem,true,pesach,group,5775
+Pesach III (CH''M),holiday,2015-04-06,Salford,false,pesach,group,5775
+Pesach IV (CH''M),holiday,2015-04-07,Jerusalem,true,pesach,group,5775
+Pesach IV (CH''M),holiday,2015-04-07,Salford,false,pesach,group,5775
+Pesach Sheni,holiday,2015-05-03,Jerusalem,true,pesach_sheni,exact,5775
+Pesach Sheni,holiday,2015-05-03,Salford,false,pesach_sheni,exact,5775
+Pesach V (CH''M),holiday,2015-04-08,Jerusalem,true,pesach,group,5775
+Pesach V (CH''M),holiday,2015-04-08,Salford,false,pesach,group,5775
+Pesach VI (CH''M),holiday,2015-04-09,Jerusalem,true,pesach,group,5775
+Pesach VI (CH''M),holiday,2015-04-09,Salford,false,pesach,group,5775
+Pesach VII,holiday,2015-04-10,Jerusalem,true,pesach,group,5775
+Pesach VII,holiday,2015-04-10,Salford,false,pesach,group,5775
+Pesach VIII,holiday,2015-04-11,Salford,false,pesach,group,5775
+Purim,holiday,2015-03-05,Jerusalem,true,purim,exact,5775
+Purim,holiday,2015-03-05,Salford,false,purim,exact,5775
+Purim Katan,holiday,2016-02-23,Jerusalem,true,purim_katan,exact,5776
+Purim Katan,holiday,2016-02-23,Salford,false,purim_katan,exact,5776
+Purim Meshulash,holiday,2021-02-28,Jerusalem,true,purim_meshulash,exact,5781
+Purim Meshulash,holiday,2021-02-28,Salford,false,purim_meshulash,exact,5781
+Rosh Hashana 5775,holiday,2014-09-25,Jerusalem,true,rosh_hashana,group,5775
+Rosh Hashana 5775,holiday,2014-09-25,Salford,false,rosh_hashana,group,5775
+Rosh Hashana 5776,holiday,2015-09-14,Jerusalem,true,rosh_hashana,group,5776
+Rosh Hashana 5776,holiday,2015-09-14,Salford,false,rosh_hashana,group,5776
+Rosh Hashana 5777,holiday,2016-10-03,Jerusalem,true,rosh_hashana,group,5777
+Rosh Hashana 5777,holiday,2016-10-03,Salford,false,rosh_hashana,group,5777
+Rosh Hashana 5778,holiday,2017-09-21,Jerusalem,true,rosh_hashana,group,5778
+Rosh Hashana 5778,holiday,2017-09-21,Salford,false,rosh_hashana,group,5778
+Rosh Hashana 5779,holiday,2018-09-10,Jerusalem,true,rosh_hashana,group,5779
+Rosh Hashana 5779,holiday,2018-09-10,Salford,false,rosh_hashana,group,5779
+Rosh Hashana 5780,holiday,2019-09-30,Jerusalem,true,rosh_hashana,group,5780
+Rosh Hashana 5780,holiday,2019-09-30,Salford,false,rosh_hashana,group,5780
+Rosh Hashana 5781,holiday,2020-09-19,Jerusalem,true,rosh_hashana,group,5781
+Rosh Hashana 5781,holiday,2020-09-19,Salford,false,rosh_hashana,group,5781
+Rosh Hashana 5782,holiday,2021-09-07,Jerusalem,true,rosh_hashana,group,5782
+Rosh Hashana 5782,holiday,2021-09-07,Salford,false,rosh_hashana,group,5782
+Rosh Hashana 5783,holiday,2022-09-26,Jerusalem,true,rosh_hashana,group,5783
+Rosh Hashana 5783,holiday,2022-09-26,Salford,false,rosh_hashana,group,5783
+Rosh Hashana 5784,holiday,2023-09-16,Jerusalem,true,rosh_hashana,group,5784
+Rosh Hashana 5784,holiday,2023-09-16,Salford,false,rosh_hashana,group,5784
+Rosh Hashana 5785,holiday,2024-10-03,Jerusalem,true,rosh_hashana,group,5785
+Rosh Hashana 5785,holiday,2024-10-03,Salford,false,rosh_hashana,group,5785
+Rosh Hashana 5786,holiday,2025-09-23,Jerusalem,true,rosh_hashana,group,5786
+Rosh Hashana 5786,holiday,2025-09-23,Salford,false,rosh_hashana,group,5786
+Rosh Hashana 5787,holiday,2026-09-12,Jerusalem,true,rosh_hashana,group,5787
+Rosh Hashana 5787,holiday,2026-09-12,Salford,false,rosh_hashana,group,5787
+Rosh Hashana 5788,holiday,2027-10-02,Jerusalem,true,rosh_hashana,group,5788
+Rosh Hashana 5788,holiday,2027-10-02,Salford,false,rosh_hashana,group,5788
+Rosh Hashana 5789,holiday,2028-09-21,Jerusalem,true,rosh_hashana,group,5789
+Rosh Hashana 5789,holiday,2028-09-21,Salford,false,rosh_hashana,group,5789
+Rosh Hashana 5790,holiday,2029-09-10,Jerusalem,true,rosh_hashana,group,5790
+Rosh Hashana 5790,holiday,2029-09-10,Salford,false,rosh_hashana,group,5790
+Rosh Hashana 5791,holiday,2030-09-28,Jerusalem,true,rosh_hashana,group,5791
+Rosh Hashana 5791,holiday,2030-09-28,Salford,false,rosh_hashana,group,5791
+Rosh Hashana 5792,holiday,2031-09-18,Jerusalem,true,rosh_hashana,group,5792
+Rosh Hashana 5792,holiday,2031-09-18,Salford,false,rosh_hashana,group,5792
+Rosh Hashana 5793,holiday,2032-09-06,Jerusalem,true,rosh_hashana,group,5793
+Rosh Hashana 5793,holiday,2032-09-06,Salford,false,rosh_hashana,group,5793
+Rosh Hashana 5794,holiday,2033-09-24,Jerusalem,true,rosh_hashana,group,5794
+Rosh Hashana 5794,holiday,2033-09-24,Salford,false,rosh_hashana,group,5794
+Rosh Hashana 5795,holiday,2034-09-14,Jerusalem,true,rosh_hashana,group,5795
+Rosh Hashana 5795,holiday,2034-09-14,Salford,false,rosh_hashana,group,5795
+Rosh Hashana 5796,holiday,2035-10-04,Jerusalem,true,rosh_hashana,group,5796
+Rosh Hashana 5796,holiday,2035-10-04,Salford,false,rosh_hashana,group,5796
+Rosh Hashana 5797,holiday,2036-09-22,Jerusalem,true,rosh_hashana,group,5797
+Rosh Hashana 5797,holiday,2036-09-22,Salford,false,rosh_hashana,group,5797
+Rosh Hashana 5798,holiday,2037-09-10,Jerusalem,true,rosh_hashana,group,5798
+Rosh Hashana 5798,holiday,2037-09-10,Salford,false,rosh_hashana,group,5798
+Rosh Hashana 5799,holiday,2038-09-30,Jerusalem,true,rosh_hashana,group,5799
+Rosh Hashana 5799,holiday,2038-09-30,Salford,false,rosh_hashana,group,5799
+Rosh Hashana 5800,holiday,2039-09-19,Jerusalem,true,rosh_hashana,group,5800
+Rosh Hashana 5800,holiday,2039-09-19,Salford,false,rosh_hashana,group,5800
+Rosh Hashana 5801,holiday,2040-09-08,Jerusalem,true,rosh_hashana,group,5801
+Rosh Hashana 5801,holiday,2040-09-08,Salford,false,rosh_hashana,group,5801
+Rosh Hashana 5802,holiday,2041-09-26,Jerusalem,true,rosh_hashana,group,5802
+Rosh Hashana 5802,holiday,2041-09-26,Salford,false,rosh_hashana,group,5802
+Rosh Hashana 5803,holiday,2042-09-15,Jerusalem,true,rosh_hashana,group,5803
+Rosh Hashana 5803,holiday,2042-09-15,Salford,false,rosh_hashana,group,5803
+Rosh Hashana 5804,holiday,2043-10-05,Jerusalem,true,rosh_hashana,group,5804
+Rosh Hashana 5804,holiday,2043-10-05,Salford,false,rosh_hashana,group,5804
+Rosh Hashana 5805,holiday,2044-09-22,Jerusalem,true,rosh_hashana,group,5805
+Rosh Hashana 5805,holiday,2044-09-22,Salford,false,rosh_hashana,group,5805
+Rosh Hashana 5806,holiday,2045-09-12,Jerusalem,true,rosh_hashana,group,5806
+Rosh Hashana 5806,holiday,2045-09-12,Salford,false,rosh_hashana,group,5806
+Rosh Hashana 5807,holiday,2046-10-01,Jerusalem,true,rosh_hashana,group,5807
+Rosh Hashana 5807,holiday,2046-10-01,Salford,false,rosh_hashana,group,5807
+Rosh Hashana 5808,holiday,2047-09-21,Jerusalem,true,rosh_hashana,group,5808
+Rosh Hashana 5808,holiday,2047-09-21,Salford,false,rosh_hashana,group,5808
+Rosh Hashana 5809,holiday,2048-09-08,Jerusalem,true,rosh_hashana,group,5809
+Rosh Hashana 5809,holiday,2048-09-08,Salford,false,rosh_hashana,group,5809
+Rosh Hashana 5810,holiday,2049-09-27,Jerusalem,true,rosh_hashana,group,5810
+Rosh Hashana 5810,holiday,2049-09-27,Salford,false,rosh_hashana,group,5810
+Rosh Hashana 5811,holiday,2050-09-17,Jerusalem,true,rosh_hashana,group,5811
+Rosh Hashana 5811,holiday,2050-09-17,Salford,false,rosh_hashana,group,5811
+Rosh Hashana 5812,holiday,2051-09-07,Jerusalem,true,rosh_hashana,group,5812
+Rosh Hashana 5812,holiday,2051-09-07,Salford,false,rosh_hashana,group,5812
+Rosh Hashana 5813,holiday,2052-09-24,Jerusalem,true,rosh_hashana,group,5813
+Rosh Hashana 5813,holiday,2052-09-24,Salford,false,rosh_hashana,group,5813
+Rosh Hashana 5814,holiday,2053-09-13,Jerusalem,true,rosh_hashana,group,5814
+Rosh Hashana 5814,holiday,2053-09-13,Salford,false,rosh_hashana,group,5814
+Rosh Hashana 5815,holiday,2054-10-03,Jerusalem,true,rosh_hashana,group,5815
+Rosh Hashana 5815,holiday,2054-10-03,Salford,false,rosh_hashana,group,5815
+Rosh Hashana 5816,holiday,2055-09-23,Jerusalem,true,rosh_hashana,group,5816
+Rosh Hashana 5816,holiday,2055-09-23,Salford,false,rosh_hashana,group,5816
+Rosh Hashana 5817,holiday,2056-09-11,Jerusalem,true,rosh_hashana,group,5817
+Rosh Hashana 5817,holiday,2056-09-11,Salford,false,rosh_hashana,group,5817
+Rosh Hashana 5818,holiday,2057-09-29,Jerusalem,true,rosh_hashana,group,5818
+Rosh Hashana 5818,holiday,2057-09-29,Salford,false,rosh_hashana,group,5818
+Rosh Hashana 5819,holiday,2058-09-19,Jerusalem,true,rosh_hashana,group,5819
+Rosh Hashana 5819,holiday,2058-09-19,Salford,false,rosh_hashana,group,5819
+Rosh Hashana 5820,holiday,2059-09-08,Jerusalem,true,rosh_hashana,group,5820
+Rosh Hashana 5820,holiday,2059-09-08,Salford,false,rosh_hashana,group,5820
+Rosh Hashana 5821,holiday,2060-09-25,Jerusalem,true,rosh_hashana,group,5821
+Rosh Hashana 5821,holiday,2060-09-25,Salford,false,rosh_hashana,group,5821
+Rosh Hashana 5822,holiday,2061-09-15,Jerusalem,true,rosh_hashana,group,5822
+Rosh Hashana 5822,holiday,2061-09-15,Salford,false,rosh_hashana,group,5822
+Rosh Hashana 5823,holiday,2062-10-05,Jerusalem,true,rosh_hashana,group,5823
+Rosh Hashana 5823,holiday,2062-10-05,Salford,false,rosh_hashana,group,5823
+Rosh Hashana 5824,holiday,2063-09-24,Jerusalem,true,rosh_hashana,group,5824
+Rosh Hashana 5824,holiday,2063-09-24,Salford,false,rosh_hashana,group,5824
+Rosh Hashana 5825,holiday,2064-09-11,Jerusalem,true,rosh_hashana,group,5825
+Rosh Hashana 5825,holiday,2064-09-11,Salford,false,rosh_hashana,group,5825
+Rosh Hashana 5826,holiday,2065-10-01,Jerusalem,true,rosh_hashana,group,5826
+Rosh Hashana 5826,holiday,2065-10-01,Salford,false,rosh_hashana,group,5826
+Rosh Hashana 5827,holiday,2066-09-20,Jerusalem,true,rosh_hashana,group,5827
+Rosh Hashana 5827,holiday,2066-09-20,Salford,false,rosh_hashana,group,5827
+Rosh Hashana 5828,holiday,2067-09-10,Jerusalem,true,rosh_hashana,group,5828
+Rosh Hashana 5828,holiday,2067-09-10,Salford,false,rosh_hashana,group,5828
+Rosh Hashana 5829,holiday,2068-09-27,Jerusalem,true,rosh_hashana,group,5829
+Rosh Hashana 5829,holiday,2068-09-27,Salford,false,rosh_hashana,group,5829
+Rosh Hashana 5830,holiday,2069-09-16,Jerusalem,true,rosh_hashana,group,5830
+Rosh Hashana 5830,holiday,2069-09-16,Salford,false,rosh_hashana,group,5830
+Rosh Hashana 5831,holiday,2070-09-06,Jerusalem,true,rosh_hashana,group,5831
+Rosh Hashana 5831,holiday,2070-09-06,Salford,false,rosh_hashana,group,5831
+Rosh Hashana 5832,holiday,2071-09-24,Jerusalem,true,rosh_hashana,group,5832
+Rosh Hashana 5832,holiday,2071-09-24,Salford,false,rosh_hashana,group,5832
+Rosh Hashana 5833,holiday,2072-09-13,Jerusalem,true,rosh_hashana,group,5833
+Rosh Hashana 5833,holiday,2072-09-13,Salford,false,rosh_hashana,group,5833
+Rosh Hashana 5834,holiday,2073-10-02,Jerusalem,true,rosh_hashana,group,5834
+Rosh Hashana 5834,holiday,2073-10-02,Salford,false,rosh_hashana,group,5834
+Rosh Hashana 5835,holiday,2074-09-22,Jerusalem,true,rosh_hashana,group,5835
+Rosh Hashana 5835,holiday,2074-09-22,Salford,false,rosh_hashana,group,5835
+Rosh Hashana 5836,holiday,2075-09-10,Jerusalem,true,rosh_hashana,group,5836
+Rosh Hashana 5836,holiday,2075-09-10,Salford,false,rosh_hashana,group,5836
+Rosh Hashana 5837,holiday,2076-09-28,Jerusalem,true,rosh_hashana,group,5837
+Rosh Hashana 5837,holiday,2076-09-28,Salford,false,rosh_hashana,group,5837
+Rosh Hashana 5838,holiday,2077-09-18,Jerusalem,true,rosh_hashana,group,5838
+Rosh Hashana 5838,holiday,2077-09-18,Salford,false,rosh_hashana,group,5838
+Rosh Hashana 5839,holiday,2078-09-08,Jerusalem,true,rosh_hashana,group,5839
+Rosh Hashana 5839,holiday,2078-09-08,Salford,false,rosh_hashana,group,5839
+Rosh Hashana 5840,holiday,2079-09-26,Jerusalem,true,rosh_hashana,group,5840
+Rosh Hashana 5840,holiday,2079-09-26,Salford,false,rosh_hashana,group,5840
+Rosh Hashana 5841,holiday,2080-09-14,Jerusalem,true,rosh_hashana,group,5841
+Rosh Hashana 5841,holiday,2080-09-14,Salford,false,rosh_hashana,group,5841
+Rosh Hashana 5842,holiday,2081-10-04,Jerusalem,true,rosh_hashana,group,5842
+Rosh Hashana 5842,holiday,2081-10-04,Salford,false,rosh_hashana,group,5842
+Rosh Hashana 5843,holiday,2082-09-24,Jerusalem,true,rosh_hashana,group,5843
+Rosh Hashana 5843,holiday,2082-09-24,Salford,false,rosh_hashana,group,5843
+Rosh Hashana 5844,holiday,2083-09-13,Jerusalem,true,rosh_hashana,group,5844
+Rosh Hashana 5844,holiday,2083-09-13,Salford,false,rosh_hashana,group,5844
+Rosh Hashana 5845,holiday,2084-09-30,Jerusalem,true,rosh_hashana,group,5845
+Rosh Hashana 5845,holiday,2084-09-30,Salford,false,rosh_hashana,group,5845
+Rosh Hashana 5846,holiday,2085-09-20,Jerusalem,true,rosh_hashana,group,5846
+Rosh Hashana 5846,holiday,2085-09-20,Salford,false,rosh_hashana,group,5846
+Rosh Hashana 5847,holiday,2086-09-09,Jerusalem,true,rosh_hashana,group,5847
+Rosh Hashana 5847,holiday,2086-09-09,Salford,false,rosh_hashana,group,5847
+Rosh Hashana 5848,holiday,2087-09-27,Jerusalem,true,rosh_hashana,group,5848
+Rosh Hashana 5848,holiday,2087-09-27,Salford,false,rosh_hashana,group,5848
+Rosh Hashana 5849,holiday,2088-09-16,Jerusalem,true,rosh_hashana,group,5849
+Rosh Hashana 5849,holiday,2088-09-16,Salford,false,rosh_hashana,group,5849
+Rosh Hashana 5850,holiday,2089-09-05,Jerusalem,true,rosh_hashana,group,5850
+Rosh Hashana 5850,holiday,2089-09-05,Salford,false,rosh_hashana,group,5850
+Rosh Hashana 5851,holiday,2090-09-25,Jerusalem,true,rosh_hashana,group,5851
+Rosh Hashana 5851,holiday,2090-09-25,Salford,false,rosh_hashana,group,5851
+Rosh Hashana 5852,holiday,2091-09-13,Jerusalem,true,rosh_hashana,group,5852
+Rosh Hashana 5852,holiday,2091-09-13,Salford,false,rosh_hashana,group,5852
+Rosh Hashana 5853,holiday,2092-10-02,Jerusalem,true,rosh_hashana,group,5853
+Rosh Hashana 5853,holiday,2092-10-02,Salford,false,rosh_hashana,group,5853
+Rosh Hashana 5854,holiday,2093-09-21,Jerusalem,true,rosh_hashana,group,5854
+Rosh Hashana 5854,holiday,2093-09-21,Salford,false,rosh_hashana,group,5854
+Rosh Hashana 5855,holiday,2094-09-11,Jerusalem,true,rosh_hashana,group,5855
+Rosh Hashana 5855,holiday,2094-09-11,Salford,false,rosh_hashana,group,5855
+Rosh Hashana 5856,holiday,2095-09-29,Jerusalem,true,rosh_hashana,group,5856
+Rosh Hashana 5856,holiday,2095-09-29,Salford,false,rosh_hashana,group,5856
+Rosh Hashana 5857,holiday,2096-09-17,Jerusalem,true,rosh_hashana,group,5857
+Rosh Hashana 5857,holiday,2096-09-17,Salford,false,rosh_hashana,group,5857
+Rosh Hashana 5858,holiday,2097-09-07,Jerusalem,true,rosh_hashana,group,5858
+Rosh Hashana 5858,holiday,2097-09-07,Salford,false,rosh_hashana,group,5858
+Rosh Hashana 5859,holiday,2098-09-27,Jerusalem,true,rosh_hashana,group,5859
+Rosh Hashana 5859,holiday,2098-09-27,Salford,false,rosh_hashana,group,5859
+Rosh Hashana 5860,holiday,2099-09-15,Jerusalem,true,rosh_hashana,group,5860
+Rosh Hashana 5860,holiday,2099-09-15,Salford,false,rosh_hashana,group,5860
+Rosh Hashana 5861,holiday,2100-10-04,Jerusalem,true,rosh_hashana,group,5861
+Rosh Hashana 5861,holiday,2100-10-04,Salford,false,rosh_hashana,group,5861
+Rosh Hashana 5862,holiday,2101-09-24,Jerusalem,true,rosh_hashana,group,5862
+Rosh Hashana 5862,holiday,2101-09-24,Salford,false,rosh_hashana,group,5862
+Rosh Hashana 5863,holiday,2102-09-14,Jerusalem,true,rosh_hashana,group,5863
+Rosh Hashana 5863,holiday,2102-09-14,Salford,false,rosh_hashana,group,5863
+Rosh Hashana 5864,holiday,2103-10-02,Jerusalem,true,rosh_hashana,group,5864
+Rosh Hashana 5864,holiday,2103-10-02,Salford,false,rosh_hashana,group,5864
+Rosh Hashana 5865,holiday,2104-09-20,Jerusalem,true,rosh_hashana,group,5865
+Rosh Hashana 5865,holiday,2104-09-20,Salford,false,rosh_hashana,group,5865
+Rosh Hashana 5866,holiday,2105-09-10,Jerusalem,true,rosh_hashana,group,5866
+Rosh Hashana 5866,holiday,2105-09-10,Salford,false,rosh_hashana,group,5866
+Rosh Hashana 5867,holiday,2106-09-30,Jerusalem,true,rosh_hashana,group,5867
+Rosh Hashana 5867,holiday,2106-09-30,Salford,false,rosh_hashana,group,5867
+Rosh Hashana 5868,holiday,2107-09-19,Jerusalem,true,rosh_hashana,group,5868
+Rosh Hashana 5868,holiday,2107-09-19,Salford,false,rosh_hashana,group,5868
+Rosh Hashana 5869,holiday,2108-09-06,Jerusalem,true,rosh_hashana,group,5869
+Rosh Hashana 5869,holiday,2108-09-06,Salford,false,rosh_hashana,group,5869
+Rosh Hashana 5870,holiday,2109-09-26,Jerusalem,true,rosh_hashana,group,5870
+Rosh Hashana 5870,holiday,2109-09-26,Salford,false,rosh_hashana,group,5870
+Rosh Hashana 5871,holiday,2110-09-15,Jerusalem,true,rosh_hashana,group,5871
+Rosh Hashana 5871,holiday,2110-09-15,Salford,false,rosh_hashana,group,5871
+Rosh Hashana 5872,holiday,2111-10-03,Jerusalem,true,rosh_hashana,group,5872
+Rosh Hashana 5872,holiday,2111-10-03,Salford,false,rosh_hashana,group,5872
+Rosh Hashana 5873,holiday,2112-09-22,Jerusalem,true,rosh_hashana,group,5873
+Rosh Hashana 5873,holiday,2112-09-22,Salford,false,rosh_hashana,group,5873
+Rosh Hashana 5874,holiday,2113-09-11,Jerusalem,true,rosh_hashana,group,5874
+Rosh Hashana 5874,holiday,2113-09-11,Salford,false,rosh_hashana,group,5874
+Rosh Hashana 5875,holiday,2114-10-01,Jerusalem,true,rosh_hashana,group,5875
+Rosh Hashana 5875,holiday,2114-10-01,Salford,false,rosh_hashana,group,5875
+Rosh Hashana 5876,holiday,2115-09-19,Jerusalem,true,rosh_hashana,group,5876
+Rosh Hashana 5876,holiday,2115-09-19,Salford,false,rosh_hashana,group,5876
+Rosh Hashana 5877,holiday,2116-09-07,Jerusalem,true,rosh_hashana,group,5877
+Rosh Hashana 5877,holiday,2116-09-07,Salford,false,rosh_hashana,group,5877
+Rosh Hashana 5878,holiday,2117-09-27,Jerusalem,true,rosh_hashana,group,5878
+Rosh Hashana 5878,holiday,2117-09-27,Salford,false,rosh_hashana,group,5878
+Rosh Hashana 5879,holiday,2118-09-17,Jerusalem,true,rosh_hashana,group,5879
+Rosh Hashana 5879,holiday,2118-09-17,Salford,false,rosh_hashana,group,5879
+Rosh Hashana 5880,holiday,2119-10-05,Jerusalem,true,rosh_hashana,group,5880
+Rosh Hashana 5880,holiday,2119-10-05,Salford,false,rosh_hashana,group,5880
+Rosh Hashana 5881,holiday,2120-09-23,Jerusalem,true,rosh_hashana,group,5881
+Rosh Hashana 5881,holiday,2120-09-23,Salford,false,rosh_hashana,group,5881
+Rosh Hashana 5882,holiday,2121-09-13,Jerusalem,true,rosh_hashana,group,5882
+Rosh Hashana 5882,holiday,2121-09-13,Salford,false,rosh_hashana,group,5882
+Rosh Hashana 5883,holiday,2122-10-01,Jerusalem,true,rosh_hashana,group,5883
+Rosh Hashana 5883,holiday,2122-10-01,Salford,false,rosh_hashana,group,5883
+Rosh Hashana 5884,holiday,2123-09-21,Jerusalem,true,rosh_hashana,group,5884
+Rosh Hashana 5884,holiday,2123-09-21,Salford,false,rosh_hashana,group,5884
+Rosh Hashana 5885,holiday,2124-09-09,Jerusalem,true,rosh_hashana,group,5885
+Rosh Hashana 5885,holiday,2124-09-09,Salford,false,rosh_hashana,group,5885
+Rosh Hashana II,holiday,2014-09-26,Jerusalem,true,rosh_hashana,group,5775
+Rosh Hashana II,holiday,2014-09-26,Salford,false,rosh_hashana,group,5775
+Rosh Hashana LaBehemot,holiday,2015-08-16,Jerusalem,true,rosh_hashana_labehemos,exact,5775
+Rosh Hashana LaBehemot,holiday,2015-08-16,Salford,false,rosh_hashana_labehemos,exact,5775
+Shabbat Chazon,holiday,2015-07-25,Jerusalem,true,shabbos_chazon,exact,5775
+Shabbat Chazon,holiday,2015-07-25,Salford,false,shabbos_chazon,exact,5775
+Shabbat HaChodesh,holiday,2015-03-21,Jerusalem,true,shabbos_hachodesh,exact,5775
+Shabbat HaChodesh,holiday,2015-03-21,Salford,false,shabbos_hachodesh,exact,5775
+Shabbat HaGadol,holiday,2015-03-28,Jerusalem,true,shabbos_hagadol,exact,5775
+Shabbat HaGadol,holiday,2015-03-28,Salford,false,shabbos_hagadol,exact,5775
+Shabbat Nachamu,holiday,2015-08-01,Jerusalem,true,shabbos_nachamu,exact,5775
+Shabbat Nachamu,holiday,2015-08-01,Salford,false,shabbos_nachamu,exact,5775
+Shabbat Parah,holiday,2015-03-14,Jerusalem,true,shabbos_parah,exact,5775
+Shabbat Parah,holiday,2015-03-14,Salford,false,shabbos_parah,exact,5775
+Shabbat Shekalim,holiday,2015-02-14,Jerusalem,true,shabbos_shekalim,exact,5775
+Shabbat Shekalim,holiday,2015-02-14,Salford,false,shabbos_shekalim,exact,5775
+Shabbat Shirah,holiday,2015-01-31,Jerusalem,true,shabbos_shirah,exact,5775
+Shabbat Shirah,holiday,2015-01-31,Salford,false,shabbos_shirah,exact,5775
+Shabbat Shuva,holiday,2014-09-27,Jerusalem,true,shabbos_shuva,exact,5775
+Shabbat Shuva,holiday,2014-09-27,Salford,false,shabbos_shuva,exact,5775
+Shabbat Zachor,holiday,2015-02-28,Jerusalem,true,shabbos_zachor,exact,5775
+Shabbat Zachor,holiday,2015-02-28,Salford,false,shabbos_zachor,exact,5775
+Shavuot,holiday,2015-05-24,Jerusalem,true,shavuos_israel,exact,5775
+Shavuot I,holiday,2015-05-24,Salford,false,shavuos,group,5775
+Shavuot II,holiday,2015-05-25,Salford,false,shavuos,group,5775
+Shmini Atzeret,holiday,2014-10-16,Jerusalem,true,shmini_atzeres,exact,5775
+Shmini Atzeret,holiday,2014-10-16,Salford,false,shmini_atzeres,exact,5775
+Shushan Purim,holiday,2015-03-06,Jerusalem,true,shushan_purim,exact,5775
+Shushan Purim,holiday,2015-03-06,Salford,false,shushan_purim,exact,5775
+Shushan Purim Katan,holiday,2016-02-24,Jerusalem,true,shushan_purim_katan,exact,5776
+Shushan Purim Katan,holiday,2016-02-24,Salford,false,shushan_purim_katan,exact,5776
+Sigd,holiday,2014-11-20,Jerusalem,true,sigd,exact,5775
+Sigd,holiday,2014-11-20,Salford,false,sigd,exact,5775
+Simchat Torah,holiday,2014-10-17,Salford,false,simchas_torah,exact,5775
+Sukkot I,holiday,2014-10-09,Jerusalem,true,sukkos,group,5775
+Sukkot I,holiday,2014-10-09,Salford,false,sukkos,group,5775
+Sukkot II,holiday,2014-10-10,Salford,false,sukkos,group,5775
+Sukkot II (CH''M),holiday,2014-10-10,Jerusalem,true,sukkos,group,5775
+Sukkot III (CH''M),holiday,2014-10-11,Jerusalem,true,sukkos,group,5775
+Sukkot III (CH''M),holiday,2014-10-11,Salford,false,sukkos,group,5775
+Sukkot IV (CH''M),holiday,2014-10-12,Jerusalem,true,sukkos,group,5775
+Sukkot IV (CH''M),holiday,2014-10-12,Salford,false,sukkos,group,5775
+Sukkot V (CH''M),holiday,2014-10-13,Jerusalem,true,sukkos,group,5775
+Sukkot V (CH''M),holiday,2014-10-13,Salford,false,sukkos,group,5775
+Sukkot VI (CH''M),holiday,2014-10-14,Jerusalem,true,sukkos,group,5775
+Sukkot VI (CH''M),holiday,2014-10-14,Salford,false,sukkos,group,5775
+Sukkot VII (Hoshana Raba),holiday,2014-10-15,Jerusalem,true,sukkos,group,5775
+Sukkot VII (Hoshana Raba),holiday,2014-10-15,Salford,false,sukkos,group,5775
+Tu B'Av,holiday,2015-07-31,Jerusalem,true,tu_bav,exact,5775
+Tu B'Av,holiday,2015-07-31,Salford,false,tu_bav,exact,5775
+Tu BiShvat,holiday,2015-02-04,Jerusalem,true,tu_bishvat,exact,5775
+Tu BiShvat,holiday,2015-02-04,Salford,false,tu_bishvat,exact,5775
+Yitzhak Rabin Memorial Day,holiday,2014-11-05,Jerusalem,true,israeli_civic_rabin_memorial,exact,5775
+Yom HaAliyah,holiday,2017-04-06,Jerusalem,true,yom_haaliyah,exact,5777
+Yom HaAliyah,holiday,2017-04-06,Salford,false,yom_haaliyah,exact,5777
+Yom HaAliyah School Observance,holiday,2016-11-08,Jerusalem,true,israeli_civic_yom_haaliyah_school,exact,5777
+Yom HaAtzma'ut,holiday,2015-04-23,Jerusalem,true,yom_haatzmaut,exact,5775
+Yom HaAtzma'ut,holiday,2015-04-23,Salford,false,yom_haatzmaut,exact,5775
+Yom HaShoah,holiday,2015-04-16,Jerusalem,true,yom_hashoah,exact,5775
+Yom HaShoah,holiday,2015-04-16,Salford,false,yom_hashoah,exact,5775
+Yom HaZikaron,holiday,2015-04-22,Jerusalem,true,yom_hazikaron,exact,5775
+Yom HaZikaron,holiday,2015-04-22,Salford,false,yom_hazikaron,exact,5775
+Yom Yerushalayim,holiday,2015-05-17,Jerusalem,true,yom_yerushalayim,exact,5775
+Yom Yerushalayim,holiday,2015-05-17,Salford,false,yom_yerushalayim,exact,5775
+Rosh Chodesh Adar,roshchodesh,2015-02-19,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Adar,roshchodesh,2015-02-19,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Adar I,roshchodesh,2016-02-09,Jerusalem,true,hebcal_rosh_chodesh,category,5776
+Rosh Chodesh Adar I,roshchodesh,2016-02-09,Salford,false,hebcal_rosh_chodesh,category,5776
+Rosh Chodesh Adar II,roshchodesh,2016-03-10,Jerusalem,true,hebcal_rosh_chodesh,category,5776
+Rosh Chodesh Adar II,roshchodesh,2016-03-10,Salford,false,hebcal_rosh_chodesh,category,5776
+Rosh Chodesh Av,roshchodesh,2015-07-17,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Av,roshchodesh,2015-07-17,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Cheshvan,roshchodesh,2014-10-24,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Cheshvan,roshchodesh,2014-10-24,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Elul,roshchodesh,2015-08-15,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Elul,roshchodesh,2015-08-15,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Iyyar,roshchodesh,2015-04-19,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Iyyar,roshchodesh,2015-04-19,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Kislev,roshchodesh,2014-11-23,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Kislev,roshchodesh,2014-11-23,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Nisan,roshchodesh,2015-03-21,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Nisan,roshchodesh,2015-03-21,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Sh'vat,roshchodesh,2015-01-21,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Sh'vat,roshchodesh,2015-01-21,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Sivan,roshchodesh,2015-05-19,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Sivan,roshchodesh,2015-05-19,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Tammuz,roshchodesh,2015-06-17,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Tammuz,roshchodesh,2015-06-17,Salford,false,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Tevet,roshchodesh,2014-12-22,Jerusalem,true,hebcal_rosh_chodesh,category,5775
+Rosh Chodesh Tevet,roshchodesh,2014-12-22,Salford,false,hebcal_rosh_chodesh,category,5775

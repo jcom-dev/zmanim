@@ -1,6 +1,7 @@
 package calendar
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"regexp"
@@ -12,6 +13,33 @@ import (
 	"github.com/hebcal/hebcal-go/event"
 	"github.com/hebcal/hebcal-go/hebcal"
 )
+
+// Type aliases for sqlc generated types to avoid circular imports
+// These types are defined in internal/db/sqlcgen/tag_events.sql.go
+// We use concrete struct definitions here to avoid import cycles
+
+// MatchHebcalEventParams matches the sqlcgen type
+type MatchHebcalEventParams struct {
+	HebcalTitle    string
+	HebcalCategory string
+}
+
+// MatchHebcalEventRow matches the sqlcgen type structure
+type MatchHebcalEventRow struct {
+	ID                          int32
+	TagKey                      string
+	DisplayNameHebrew           string
+	DisplayNameEnglishAshkenazi string
+	DisplayNameEnglishSephardi  *string
+	TagTypeID                   int32
+	TagType                     string
+	TagTypeDisplayHebrew        string
+	TagTypeDisplayEnglish       string
+	Description                 *string
+	Color                       *string
+	SortOrder                   *int32
+	MatchType                   interface{} // NullHebcalMatchType
+}
 
 // chanukahCandleRegex matches "Chanukah: X Candles" pattern from Hebcal
 var chanukahCandleRegex = regexp.MustCompile(`(\d+)\s*Candles?`)
@@ -50,12 +78,13 @@ type HebrewDate struct {
 
 // Holiday represents a Jewish holiday or event
 type Holiday struct {
-	Name       string `json:"name"`
-	NameHebrew string `json:"name_hebrew"`
-	Category   string `json:"category"` // "major", "minor", "shabbat", "roshchodesh", "fast"
-	Candles    bool   `json:"candles"`  // Should light candles
-	Yomtov     bool   `json:"yomtov"`   // Is yom tov
-	Desc       string `json:"desc,omitempty"`
+	Name           string `json:"name"`
+	NameHebrew     string `json:"name_hebrew"`
+	Category       string `json:"category"`           // "major", "minor", "shabbat", "roshchodesh", "fast"
+	Candles        bool   `json:"candles"`            // Should light candles
+	Yomtov         bool   `json:"yomtov"`             // Is yom tov
+	Desc           string `json:"desc,omitempty"`
+	HebcalOriginal string `json:"hebcal_original,omitempty"` // Original HebCal event name (for database matching)
 }
 
 // DayInfo contains information about a single day
@@ -115,12 +144,29 @@ var hebrewMonthNames = map[hdate.HMonth]string{
 	hdate.Adar2:    "אדר ב׳",
 }
 
-// CalendarService provides Hebrew calendar functionality
-type CalendarService struct{}
+// DBAdapter interface for database operations needed by CalendarService
+// This interface allows CalendarService to use database queries without
+// importing sqlcgen package (avoiding circular dependencies)
+type DBAdapter interface {
+	MatchHebcalEvent(ctx context.Context, params MatchHebcalEventParams) ([]MatchHebcalEventRow, error)
+}
 
-// NewCalendarService creates a new calendar service
+// CalendarService provides Hebrew calendar functionality
+type CalendarService struct {
+	db DBAdapter // Optional database for tag-driven event matching
+}
+
+// NewCalendarService creates a new calendar service without database
+// Use this for standalone calendar operations that don't need event tag mapping
 func NewCalendarService() *CalendarService {
 	return &CalendarService{}
+}
+
+// NewCalendarServiceWithDB creates a new calendar service with database integration
+// Use this when you need database-driven HebCal event matching to tags
+// The db parameter should be created using the adapter in the handlers package
+func NewCalendarServiceWithDB(db DBAdapter) *CalendarService {
+	return &CalendarService{db: db}
 }
 
 // HebrewToGregorian converts a Hebrew date to Gregorian date string
@@ -420,6 +466,7 @@ func transformChanukahHebrewName(name string) string {
 func eventToHoliday(ev event.CalEvent) Holiday {
 	desc := ev.Render("en")
 	hebrewName := ev.Render("he")
+	originalDesc := desc // Capture original before transformation
 
 	// Transform Chanukah candle count to day number
 	desc = transformChanukahName(desc)
@@ -447,10 +494,11 @@ func eventToHoliday(ev event.CalEvent) Holiday {
 	}
 
 	return Holiday{
-		Name:       desc,
-		NameHebrew: hebrewName,
-		Category:   category,
-		Candles:    candles,
-		Yomtov:     yomtov,
+		Name:           desc,
+		NameHebrew:     hebrewName,
+		Category:       category,
+		Candles:        candles,
+		Yomtov:         yomtov,
+		HebcalOriginal: originalDesc, // Store original for database matching
 	}
 }

@@ -261,50 +261,140 @@ TABLES_WITH_TRIGGERS = [
     "geo_names",
 ]
 
+# Foreign keys to drop before import (prevents constraint violations during TRUNCATE/COPY)
+FOREIGN_KEYS_TO_DROP = [
+    ("geo_countries", "fk_geo_countries_continent"),
+    ("geo_countries", "fk_geo_countries_source"),
+    ("geo_regions", "fk_geo_regions_country"),
+    ("geo_regions", "fk_geo_regions_continent"),
+    ("geo_regions", "fk_geo_regions_parent"),
+    ("geo_regions", "fk_geo_regions_type"),
+    ("geo_regions", "fk_geo_regions_source"),
+    ("geo_localities", "fk_geo_localities_continent"),
+    ("geo_localities", "fk_geo_localities_country"),
+    ("geo_localities", "fk_geo_localities_type"),
+    ("geo_localities", "fk_geo_localities_source"),
+    ("geo_locality_locations", "fk_geo_locality_locations_locality"),
+    ("geo_locality_locations", "fk_geo_locality_locations_source"),
+    ("geo_locality_elevations", "fk_geo_locality_elevations_locality"),
+    ("geo_locality_elevations", "fk_geo_locality_elevations_source"),
+    ("geo_names", "fk_geo_names_source"),
+]
+
+# Foreign keys to create after import
+FOREIGN_KEYS_DDL = [
+    "ALTER TABLE geo_countries ADD CONSTRAINT fk_geo_countries_continent FOREIGN KEY (continent_id) REFERENCES geo_continents(id)",
+    "ALTER TABLE geo_countries ADD CONSTRAINT fk_geo_countries_source FOREIGN KEY (source_id) REFERENCES geo_data_sources(id)",
+    "ALTER TABLE geo_regions ADD CONSTRAINT fk_geo_regions_country FOREIGN KEY (country_id) REFERENCES geo_countries(id)",
+    "ALTER TABLE geo_regions ADD CONSTRAINT fk_geo_regions_continent FOREIGN KEY (continent_id) REFERENCES geo_continents(id)",
+    "ALTER TABLE geo_regions ADD CONSTRAINT fk_geo_regions_parent FOREIGN KEY (parent_region_id) REFERENCES geo_regions(id)",
+    "ALTER TABLE geo_regions ADD CONSTRAINT fk_geo_regions_type FOREIGN KEY (region_type_id) REFERENCES geo_region_types(id)",
+    "ALTER TABLE geo_regions ADD CONSTRAINT fk_geo_regions_source FOREIGN KEY (source_id) REFERENCES geo_data_sources(id)",
+    "ALTER TABLE geo_localities ADD CONSTRAINT fk_geo_localities_continent FOREIGN KEY (continent_id) REFERENCES geo_continents(id)",
+    "ALTER TABLE geo_localities ADD CONSTRAINT fk_geo_localities_country FOREIGN KEY (country_id) REFERENCES geo_countries(id)",
+    "ALTER TABLE geo_localities ADD CONSTRAINT fk_geo_localities_type FOREIGN KEY (locality_type_id) REFERENCES geo_locality_types(id)",
+    "ALTER TABLE geo_localities ADD CONSTRAINT fk_geo_localities_source FOREIGN KEY (source_id) REFERENCES geo_data_sources(id)",
+    "ALTER TABLE geo_locality_locations ADD CONSTRAINT fk_geo_locality_locations_locality FOREIGN KEY (locality_id) REFERENCES geo_localities(id) ON DELETE CASCADE",
+    "ALTER TABLE geo_locality_locations ADD CONSTRAINT fk_geo_locality_locations_source FOREIGN KEY (source_id) REFERENCES geo_data_sources(id)",
+    "ALTER TABLE geo_locality_elevations ADD CONSTRAINT fk_geo_locality_elevations_locality FOREIGN KEY (locality_id) REFERENCES geo_localities(id) ON DELETE CASCADE",
+    "ALTER TABLE geo_locality_elevations ADD CONSTRAINT fk_geo_locality_elevations_source FOREIGN KEY (source_id) REFERENCES geo_data_sources(id)",
+    "ALTER TABLE geo_names ADD CONSTRAINT fk_geo_names_source FOREIGN KEY (source_id) REFERENCES geo_data_sources(id)",
+]
+
 INDEXES_TO_DROP = [
+    # geo_countries indexes
+    "idx_geo_countries_continent",
+    "idx_geo_countries_source",
+    "idx_geo_countries_boundary_gist",
+    # geo_regions indexes
+    "idx_geo_regions_country",
+    "idx_geo_regions_continent",
+    "idx_geo_regions_parent",
+    "idx_geo_regions_type",
+    "idx_geo_regions_boundary_gist",
     # geo_localities indexes (dropped for faster COPY import)
     "idx_geo_localities_parent_overture",
     "idx_geo_localities_overture",
     "idx_geo_localities_type",
     "idx_geo_localities_name",
     "idx_geo_localities_population",
+    "idx_geo_localities_continent",
+    "idx_geo_localities_country",
     # Old indexes (may exist from previous schema)
     "idx_geo_localities_region",
     "idx_geo_localities_parent",
     # geo_locality_locations indexes (dropped for faster COPY import)
     "idx_geo_locality_locations_gist",
+    "idx_geo_locality_locations_locality",
+    "idx_geo_locality_locations_publisher",
+    # geo_locality_elevations indexes
+    "idx_geo_locality_elevations_locality",
+    "idx_geo_locality_elevations_publisher",
+    # geo_names indexes
+    "idx_geo_names_entity_id",
+    "idx_geo_names_entity_lookup",
     # geo_search_index indexes (dropped since table is truncated/refilled)
     "idx_geo_search_keywords",
+    "idx_geo_search_keywords_gin",
+    "idx_geo_search_keywords_locality",
     "idx_geo_search_trgm",
     "idx_geo_search_pop",
+    "idx_geo_search_population",
     "idx_geo_search_type",
     "idx_geo_search_country",
+    "idx_geo_search_locality_country",
     "idx_geo_search_inherited_region",
     "idx_geo_search_direct_parent",
     "idx_geo_search_entity",
+    "idx_geo_search_continent",
+    "idx_geo_search_parent",
+    "idx_geo_search_parent_browse",
+    "idx_geo_search_ancestor_regions",
+    "idx_geo_search_ancestor_regions_gin",
     # Old search indexes (may exist from previous schema)
     "idx_geo_search_region",
 ]
 
 INDEXES_DDL = [
+    # geo_countries indexes
+    "CREATE INDEX IF NOT EXISTS idx_geo_countries_continent ON geo_countries(continent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_countries_source ON geo_countries(source_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_countries_boundary_gist ON geo_countries USING GIST(boundary) WHERE boundary IS NOT NULL",
+    # geo_regions indexes
+    "CREATE INDEX IF NOT EXISTS idx_geo_regions_country ON geo_regions(country_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_regions_continent ON geo_regions(continent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_regions_parent ON geo_regions(parent_region_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_regions_type ON geo_regions(region_type_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_regions_boundary_gist ON geo_regions USING GIST(boundary) WHERE boundary IS NOT NULL",
     # geo_localities indexes
     "CREATE INDEX IF NOT EXISTS idx_geo_localities_parent_overture ON geo_localities(parent_overture_id)",
     "CREATE INDEX IF NOT EXISTS idx_geo_localities_overture ON geo_localities(overture_id)",
     "CREATE INDEX IF NOT EXISTS idx_geo_localities_type ON geo_localities(locality_type_id)",
     "CREATE INDEX IF NOT EXISTS idx_geo_localities_name ON geo_localities(name)",
     "CREATE INDEX IF NOT EXISTS idx_geo_localities_population ON geo_localities(population DESC NULLS LAST)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_localities_continent ON geo_localities(continent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_localities_country ON geo_localities(country_id)",
     # geo_locality_locations indexes
     "CREATE INDEX IF NOT EXISTS idx_geo_locality_locations_gist ON geo_locality_locations USING GIST(location)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_locality_locations_locality ON geo_locality_locations(locality_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_locality_locations_publisher ON geo_locality_locations(publisher_id)",
+    # geo_locality_elevations indexes
+    "CREATE INDEX IF NOT EXISTS idx_geo_locality_elevations_locality ON geo_locality_elevations(locality_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_locality_elevations_publisher ON geo_locality_elevations(publisher_id)",
+    # geo_names indexes
+    "CREATE INDEX IF NOT EXISTS idx_geo_names_entity_id ON geo_names(entity_id)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_names_entity_lookup ON geo_names(entity_type, entity_id, language_code)",
     # geo_search_index indexes
     "CREATE INDEX IF NOT EXISTS idx_geo_search_keywords ON geo_search_index USING GIN(keywords)",
+    "CREATE INDEX IF NOT EXISTS idx_geo_search_ancestor_regions_gin ON geo_search_index USING GIN(ancestor_region_ids)",
     "CREATE INDEX IF NOT EXISTS idx_geo_search_trgm ON geo_search_index USING GIN(display_name gin_trgm_ops)",
     "CREATE INDEX IF NOT EXISTS idx_geo_search_pop ON geo_search_index(population DESC NULLS LAST)",
     "CREATE INDEX IF NOT EXISTS idx_geo_search_type ON geo_search_index(entity_type)",
     "CREATE INDEX IF NOT EXISTS idx_geo_search_country ON geo_search_index(country_id)",
-    # New hierarchy indexes
+    "CREATE INDEX IF NOT EXISTS idx_geo_search_continent ON geo_search_index(continent_id)",
     "CREATE INDEX IF NOT EXISTS idx_geo_search_inherited_region ON geo_search_index(inherited_region_id)",
     "CREATE INDEX IF NOT EXISTS idx_geo_search_direct_parent ON geo_search_index(direct_parent_type, direct_parent_id)",
-    # Entity lookup index (for JOIN on entity_type, entity_id)
+    "CREATE INDEX IF NOT EXISTS idx_geo_search_parent ON geo_search_index(direct_parent_type, direct_parent_id)",
     "CREATE INDEX IF NOT EXISTS idx_geo_search_entity ON geo_search_index(entity_type, entity_id)",
 ]
 
@@ -526,7 +616,13 @@ def disable_constraints(conn: psycopg.Connection) -> None:
             print(f"  Dropping index {idx}...")
             cur.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(idx)))
 
-        # Drop FK constraint on geo_names
+        # Drop FK constraints for geo tables
+        for table, fk_name in FOREIGN_KEYS_TO_DROP:
+            print(f"  Dropping FK {fk_name} on {table}...")
+            cur.execute(sql.SQL("ALTER TABLE {} DROP CONSTRAINT IF EXISTS {}").format(
+                sql.Identifier(table), sql.Identifier(fk_name)))
+
+        # Drop legacy FK constraint on geo_names
         print("  Dropping geo_names FK constraint...")
         cur.execute("ALTER TABLE geo_names DROP CONSTRAINT IF EXISTS geo_names_language_code_fkey")
 
@@ -1659,6 +1755,13 @@ def enable_constraints(conn: psycopg.Connection) -> None:
         for ddl in INDEXES_DDL:
             idx_name = ddl.split("IF NOT EXISTS ")[1].split(" ON")[0]
             print(f"  Creating index {idx_name}...")
+            cur.execute(ddl)
+
+        # Recreate foreign key constraints
+        for ddl in FOREIGN_KEYS_DDL:
+            # Extract constraint name from DDL for logging
+            fk_name = ddl.split("ADD CONSTRAINT ")[1].split(" FOREIGN")[0]
+            print(f"  Creating FK constraint {fk_name}...")
             cur.execute(ddl)
 
         # Restore FK constraint on geo_names

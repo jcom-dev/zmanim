@@ -28,13 +28,13 @@ import (
 // PDFReportService generates PDF reports for publisher zmanim
 type PDFReportService struct {
 	db            *db.DB
-	zmanimService *UnifiedZmanimService
+	zmanimService *ZmanimService
 	cache         *redis.Client
 	mapboxAPIKey  string
 }
 
 // NewPDFReportService creates a new PDF report service
-func NewPDFReportService(database *db.DB, zmanimService *UnifiedZmanimService, cache *redis.Client, mapboxAPIKey string) *PDFReportService {
+func NewPDFReportService(database *db.DB, zmanimService *ZmanimService, cache *redis.Client, mapboxAPIKey string) *PDFReportService {
 	return &PDFReportService{
 		db:            database,
 		zmanimService: zmanimService,
@@ -89,6 +89,7 @@ type ZmanReportRow struct {
 	DSLFormula      string
 	Explanation     string
 	RoundedTime     string
+	RoundingMode    string
 	HasError        bool
 	ErrorMessage    string
 	TimeCategory    string
@@ -147,8 +148,18 @@ func (s *PDFReportService) fetchReportData(ctx context.Context, params ZmanimRep
 		return nil, fmt.Errorf("get locality: %w", err)
 	}
 
-	// Fetch publisher zmanim
-	publisherZmanim, err := s.db.Queries.ListPublisherZmanimForReport(ctx, params.PublisherID)
+	// Get publisher's transliteration style preference for tag display names
+	transliterationStyle, err := s.db.Queries.GetPublisherTransliterationStyle(ctx, params.PublisherID)
+	if err != nil {
+		// Default to Ashkenazi if not found
+		transliterationStyle = "ashkenazi"
+	}
+
+	// Fetch publisher zmanim with transliteration style
+	publisherZmanim, err := s.db.Queries.ListPublisherZmanimForReport(ctx, sqlcgen.ListPublisherZmanimForReportParams{
+		PublisherID: params.PublisherID,
+		Column2:     transliterationStyle,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list publisher zmanim: %w", err)
 	}
@@ -207,6 +218,7 @@ func (s *PDFReportService) fetchReportData(ctx context.Context, params ZmanimRep
 		row.HebrewName = pz.HebrewName
 		row.DSLFormula = formula
 		row.TimeCategory = pz.TimeCategory
+		row.RoundingMode = pz.RoundingMode
 
 		if pz.Description != nil {
 			row.Explanation = *pz.Description
@@ -340,6 +352,7 @@ func (s *PDFReportService) buildPDF(data *ZmanimReportData, includeGlossary bool
 		"/usr/bin/google-chrome",
 		"/usr/bin/chromium",
 		"/usr/bin/chromium-browser",
+		"/snap/bin/chromium",
 	}
 	for _, chromePath := range chromePaths {
 		if _, err := os.Stat(chromePath); err == nil {
@@ -361,23 +374,11 @@ func (s *PDFReportService) buildPDF(data *ZmanimReportData, includeGlossary bool
 	var pdfBuf []byte
 	htmlContent := htmlBuf.String()
 
-	// Write HTML to a temporary file - this ensures data URIs are handled correctly
-	// by Chrome when loading the page via file:// protocol
-	tmpFile, err := os.CreateTemp("", "zmanim-report-*.html")
-	if err != nil {
-		return nil, fmt.Errorf("create temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
-
-	if _, err := tmpFile.WriteString(htmlContent); err != nil {
-		tmpFile.Close()
-		return nil, fmt.Errorf("write temp file: %w", err)
-	}
-	tmpFile.Close()
+	// Use data URL to avoid file:// protocol issues with snap chromium sandbox
+	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(htmlContent))
 
 	if err := chromedp.Run(ctx,
-		chromedp.Navigate("file://"+tmpPath),
+		chromedp.Navigate(dataURL),
 		chromedp.Sleep(2*time.Second), // Wait for rendering and fonts to load
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var err error
@@ -464,6 +465,9 @@ func (s *PDFReportService) prepareTemplateData(data *ZmanimReportData, includeGl
 			"FormulaSyntaxHighlighted":  HighlightDSLFormula(zman.DSLFormula),
 			"Explanation":               zman.Explanation,
 			"RoundedTime":               zman.RoundedTime,
+			"RoundingMode":              zman.RoundingMode,
+			"RoundingIcon":              getRoundingIcon(zman.RoundingMode),
+			"RoundingLabel":             getRoundingLabel(zman.RoundingMode),
 			"CalculatedTime":            zman.CalculatedTime.Format("15:04:05"),
 			"HasError":                  zman.HasError,
 			"ErrorMessage":              zman.ErrorMessage,
@@ -635,6 +639,34 @@ func getCategoryIcon(category string) string {
 		return "🌑"
 	default:
 		return ""
+	}
+}
+
+// getRoundingIcon returns an icon for the rounding mode
+func getRoundingIcon(mode string) string {
+	switch mode {
+	case "ceil":
+		return "↑"
+	case "floor":
+		return "↓"
+	case "math":
+		return "≈"
+	default:
+		return "≈"
+	}
+}
+
+// getRoundingLabel returns a human-readable label for the rounding mode
+func getRoundingLabel(mode string) string {
+	switch mode {
+	case "ceil":
+		return "Rounded up"
+	case "floor":
+		return "Rounded down"
+	case "math":
+		return "Standard rounding"
+	default:
+		return "Standard rounding"
 	}
 }
 
@@ -862,6 +894,12 @@ func (s *PDFReportService) GenerateWeeklyCalendarPDF(ctx context.Context, params
 		return nil, fmt.Errorf("get effective locality location: %w", err)
 	}
 
+	// Get publisher's transliteration style preference for event names
+	transliterationStyle, err := s.db.Queries.GetPublisherTransliterationStyle(ctx, params.PublisherID)
+	if err != nil {
+		transliterationStyle = "ashkenazi" // Default to Ashkenazi
+	}
+
 	// Fetch publisher zmanim based on filters
 	publisherZmanim, err := s.fetchFilteredZmanim(ctx, params)
 	if err != nil {
@@ -878,7 +916,7 @@ func (s *PDFReportService) GenerateWeeklyCalendarPDF(ctx context.Context, params
 	days := make([]DayData, 7)
 	for i := 0; i < 7; i++ {
 		date := params.StartDate.AddDate(0, 0, i)
-		dayData, err := s.calculateDayZmanim(ctx, date, publisherZmanim, effectiveLocation, tz, params.IncludeEvents, params.Language)
+		dayData, err := s.calculateDayZmanim(ctx, date, publisherZmanim, effectiveLocation, tz, params.IncludeEvents, params.Language, transliterationStyle)
 		if err != nil {
 			return nil, fmt.Errorf("calculate day %d zmanim: %w", i, err)
 		}
@@ -899,10 +937,20 @@ func (s *PDFReportService) GenerateWeeklyCalendarPDF(ctx context.Context, params
 
 // fetchFilteredZmanim fetches zmanim based on the filter parameters
 func (s *PDFReportService) fetchFilteredZmanim(ctx context.Context, params WeeklyCalendarParams) ([]sqlcgen.ListPublisherZmanimForReportRow, error) {
-	// Get all zmanim for the publisher
+	// Get publisher's transliteration style preference for tag display names
+	transliterationStyle, err := s.db.Queries.GetPublisherTransliterationStyle(ctx, params.PublisherID)
+	if err != nil {
+		// Default to Ashkenazi if not found
+		transliterationStyle = "ashkenazi"
+	}
+
+	// Get all zmanim for the publisher with transliteration style
 	// Note: ListPublisherZmanimForReport already fetches published zmanim
 	// Additional filtering based on params can be implemented later if needed
-	allZmanim, err := s.db.Queries.ListPublisherZmanimForReport(ctx, params.PublisherID)
+	allZmanim, err := s.db.Queries.ListPublisherZmanimForReport(ctx, sqlcgen.ListPublisherZmanimForReportParams{
+		PublisherID: params.PublisherID,
+		Column2:     transliterationStyle,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -924,6 +972,7 @@ func (s *PDFReportService) calculateDayZmanim(
 	tz *time.Location,
 	includeEvents bool,
 	language string,
+	transliterationStyle string,
 ) (DayData, error) {
 	dayData := DayData{
 		Date:          date,
@@ -967,7 +1016,7 @@ func (s *PDFReportService) calculateDayZmanim(
 		Timezone:  tz.String(),
 		IsIsrael:  calendar.IsLocationInIsrael(lat, lon),
 	}
-	zmanimCtx := calService.GetZmanimContext(date, loc)
+	zmanimCtx := calService.GetZmanimContext(date, loc, transliterationStyle)
 
 	// Extract all @references from formulas
 	formulas := make([]string, 0, len(publisherZmanim))
@@ -992,8 +1041,7 @@ func (s *PDFReportService) calculateDayZmanim(
 
 	// Calculate all zman times, separating regular zmanim from event zmanim
 	zmanimItems := make([]ZmanItem, 0, len(publisherZmanim))
-	eventZmanimItems := make([]ZmanItem, 0)           // Event zmanim displayed at bottom
-	eventZmanimLookup := make(map[string]string)      // zman_key -> formatted time (for SpecialTimes lookup)
+	eventZmanimItems := make([]ZmanItem, 0) // Event zmanim displayed at bottom
 	elev := float64(effectiveLocation.ElevationM)
 
 	for _, pz := range publisherZmanim {
@@ -1028,12 +1076,14 @@ func (s *PDFReportService) calculateDayZmanim(
 		// Check if this is an event zman
 		if pz.IsEventZman {
 			// Check if this event zman should be shown today based on its tags
-			if !shouldShowEventZman(pz, zmanimCtx) {
+			// Uses centralized ShouldShowZman which properly handles timing tags (day_before, motzei)
+			tags := convertToEventFilterTags(parseZmanTags(pz.Tags))
+			if !s.zmanimService.ShouldShowZman(tags, zmanimCtx.ActiveEventCodes) {
 				continue
 			}
 
-			// Store event zmanim separately for bottom display
-			eventZmanimLookup[pz.ZmanKey] = formattedTime
+			// Event zmanim are displayed in a separate section at the bottom
+			// Only include if the IncludeEvents parameter is set
 			if includeEvents {
 				eventZmanimItems = append(eventZmanimItems, ZmanItem{
 					Name: displayName,
@@ -1041,6 +1091,7 @@ func (s *PDFReportService) calculateDayZmanim(
 				})
 			}
 		} else {
+			// Regular daily zmanim
 			zmanimItems = append(zmanimItems, ZmanItem{
 				Name: displayName,
 				Time: formattedTime,
@@ -1066,67 +1117,25 @@ func (s *PDFReportService) calculateDayZmanim(
 	dayData.ZmanimColumns = columns
 	dayData.EventZmanim = eventZmanimItems
 
-	// Add special times for Friday/Shabbos using actual calculated event zmanim
-	// Use Hebrew labels when language is "he"
-	candleLabel := "🕯️ Candles"
-	havdalahLabel := "⭐ Havdalah"
-	if language == "he" {
-		candleLabel = "🕯️ הדלקת נרות"
-		havdalahLabel = "⭐ הבדלה"
-	}
-
-	if dayData.IsFriday {
-		// Look for candle lighting time
-		candleTime := findEventTime(eventZmanimLookup, "candle_lighting", "hadlakas_neiros")
-		if candleTime != "" {
-			dayData.SpecialTimes = append(dayData.SpecialTimes, SpecialTime{
-				Label: candleLabel,
-				Time:  candleTime,
-			})
-		}
-	}
-	if dayData.IsShabbat {
-		// Look for havdalah time
-		havdalahTime := findEventTime(eventZmanimLookup, "shabbos_ends", "havdalah", "tzeis")
-		if havdalahTime != "" {
-			dayData.SpecialTimes = append(dayData.SpecialTimes, SpecialTime{
-				Label: havdalahLabel,
-				Time:  havdalahTime,
-			})
-		}
-	}
+	// Note: Special times (candle lighting, havdalah, etc.) are now displayed
+	// in the EventZmanim section which is tag-driven and calendar-aware.
+	// The legacy SpecialTimes field is kept for backwards compatibility but not populated.
 
 	return dayData, nil
 }
 
-// shouldShowEventZman checks if an event zman should be shown on a given day
-// based on its category tags and the calendar context
-func shouldShowEventZman(pz sqlcgen.ListPublisherZmanimForReportRow, ctx calendar.ZmanimContext) bool {
-	// Parse tags from the zman to check for category restrictions
-	tags := parseZmanTags(pz.Tags)
-
-	for _, tag := range tags {
-		switch tag.TagKey {
-		case "category_candle_lighting":
-			if !ctx.ShowCandleLighting && !ctx.ShowCandleLightingSheni {
-				return false
-			}
-		case "category_havdalah":
-			if !ctx.ShowShabbosYomTovEnds {
-				return false
-			}
-		case "category_fast_start":
-			if !ctx.ShowFastStarts {
-				return false
-			}
-		case "category_fast_end":
-			if !ctx.ShowFastEnds {
-				return false
-			}
-		}
+// convertToEventFilterTags converts PDFZmanTag slice to EventFilterTag slice
+// for use with ZmanimService.ShouldShowZman
+func convertToEventFilterTags(tags []PDFZmanTag) []EventFilterTag {
+	result := make([]EventFilterTag, 0, len(tags))
+	for _, t := range tags {
+		result = append(result, EventFilterTag{
+			TagKey:    t.TagKey,
+			TagType:   t.TagType,
+			IsNegated: t.IsNegated,
+		})
 	}
-
-	return true
+	return result
 }
 
 // parseZmanTags parses the JSON tags from a zman row
@@ -1157,23 +1166,6 @@ func parseZmanTags(tagsInterface interface{}) []PDFZmanTag {
 		}
 	}
 	return tags
-}
-
-// findEventTime searches for an event time by checking multiple possible zman keys
-func findEventTime(eventZmanim map[string]string, keys ...string) string {
-	for _, key := range keys {
-		// Check exact match
-		if t, ok := eventZmanim[key]; ok {
-			return t
-		}
-		// Check keys that contain this substring
-		for zmKey, t := range eventZmanim {
-			if strings.Contains(strings.ToLower(zmKey), strings.ToLower(key)) {
-				return t
-			}
-		}
-	}
-	return ""
 }
 
 // buildCalendarData builds the template data structure
@@ -1246,6 +1238,7 @@ func (s *PDFReportService) buildWeeklyCalendarPDF(data *WeeklyCalendarData) ([]b
 		"/usr/bin/google-chrome",
 		"/usr/bin/chromium",
 		"/usr/bin/chromium-browser",
+		"/snap/bin/chromium",
 	}
 	for _, chromePath := range chromePaths {
 		if _, err := os.Stat(chromePath); err == nil {
@@ -1267,22 +1260,11 @@ func (s *PDFReportService) buildWeeklyCalendarPDF(data *WeeklyCalendarData) ([]b
 	var pdfBuf []byte
 	htmlContent := htmlBuf.String()
 
-	// Write HTML to a temporary file
-	tmpFile, err := os.CreateTemp("", "weekly-calendar-*.html")
-	if err != nil {
-		return nil, fmt.Errorf("create temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
-
-	if _, err := tmpFile.WriteString(htmlContent); err != nil {
-		tmpFile.Close()
-		return nil, fmt.Errorf("write temp file: %w", err)
-	}
-	tmpFile.Close()
+	// Use data URL to avoid file:// protocol issues with snap chromium sandbox
+	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(htmlContent))
 
 	if err := chromedp.Run(ctx,
-		chromedp.Navigate("file://"+tmpPath),
+		chromedp.Navigate(dataURL),
 		chromedp.Sleep(2*time.Second), // Wait for rendering and fonts to load
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var err error

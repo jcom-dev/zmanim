@@ -40,25 +40,19 @@ SEED_TABLES=(
   "astronomical_primitives"
   "primitive_categories"
 
-  # Master Zmanim Registry (canonical definitions)
-  "master_zmanim_registry"
-  "master_zman_tags"
-  # Note: master_zman_day_types and master_zman_events are DEPRECATED (empty, tag-driven instead)
-
-  # Jewish Calendar & Events
-  # Note: jewish_events, jewish_event_types, event_categories, fast_start_types REMOVED
-  # (consolidated into zman_tags - see migration 20241224120000)
-  "day_types"
-
-  # Tags & Mappings
-  "tag_types"
-  "zman_tags"
-  "tag_event_mappings"
-
   # Display & UI Configuration
   "display_groups"
   "time_categories"
   # Note: zman_display_contexts is DEPRECATED (empty, not used)
+
+  # Tags & Mappings
+  "tag_types"
+  "zman_tags"
+
+  # Master Zmanim Registry (canonical definitions)
+  "master_zmanim_registry"
+  "master_zman_tags"
+  # Note: master_zman_day_types and master_zman_events are DEPRECATED (empty, tag-driven instead)
 
   # Publisher Configuration
   "publisher_statuses"
@@ -163,8 +157,9 @@ sed -i '/^SELECT pg_catalog/d' "$MIGRATION_FILE"
 sed -i '/^--$/d' "$MIGRATION_FILE"
 sed -i '/^-- Dumped/d' "$MIGRATION_FILE"
 sed -i '/^-- PostgreSQL database dump/d' "$MIGRATION_FILE"
-sed -i '/^\\restrict/d' "$MIGRATION_FILE"
-sed -i '/^\\unrestrict/d' "$MIGRATION_FILE"
+# Remove all psql backslash meta-commands that cause sqlc parsing issues
+# This includes \restrict, \unrestrict, \connect, etc.
+sed -i '/^\\[a-zA-Z]/d' "$MIGRATION_FILE"
 
 # Get final stats
 line_count=$(wc -l < "$MIGRATION_FILE")

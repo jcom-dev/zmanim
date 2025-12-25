@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,44 +18,79 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, Download, MapPin } from 'lucide-react';
+import { Loader2, Download, MapPin, Calendar } from 'lucide-react';
+import { LocalityPicker } from '@/components/shared/LocalityPicker';
 import { useYearExport, getAvailableHebrewYears } from '@/lib/hooks/useYearExport';
+import type { LocalitySelection } from '@/types/geography';
 
 interface YearExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Locality ID for the export - backend resolves coordinates/timezone */
-  localityId?: number;
+  /** Default locality ID from the algorithm page */
+  defaultLocalityId?: number;
+  /** Default locality name for display */
+  defaultLocalityName?: string;
 }
 
 export function YearExportDialog({
   open,
   onOpenChange,
-  localityId,
+  defaultLocalityId,
+  defaultLocalityName,
 }: YearExportDialogProps) {
   const yearExport = useYearExport();
   const availableYears = getAvailableHebrewYears();
 
   // Default to current Hebrew year (middle of the list)
   const [selectedYear, setSelectedYear] = useState<number>(availableYears[5]);
+  const [selectedLocality, setSelectedLocality] = useState<LocalitySelection | null>(null);
+
+  // Set default locality when dialog opens or defaults change
+  useEffect(() => {
+    if (open && defaultLocalityId && defaultLocalityName && !selectedLocality) {
+      setSelectedLocality({
+        type: 'locality',
+        id: String(defaultLocalityId),
+        name: defaultLocalityName,
+        description: defaultLocalityName,
+      });
+    }
+  }, [open, defaultLocalityId, defaultLocalityName, selectedLocality]);
+
+  // Reset locality when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedLocality(null);
+    }
+  }, [open]);
+
+  const handleLocalityChange = useCallback((selection: LocalitySelection | LocalitySelection[]) => {
+    if (Array.isArray(selection)) {
+      setSelectedLocality(selection.length > 0 ? selection[0] : null);
+    } else {
+      setSelectedLocality(selection);
+    }
+  }, []);
 
   const handleExport = async () => {
-    if (!localityId) return;
+    if (!selectedLocality) return;
 
     await yearExport.mutateAsync({
       hebrewYear: selectedYear,
-      localityId,
+      localityId: parseInt(selectedLocality.id, 10),
     });
 
     onOpenChange(false);
   };
 
+  const localityId = selectedLocality ? parseInt(selectedLocality.id, 10) : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
+            <Download className="h-5 w-5 text-primary" />
             Export Full Year
           </DialogTitle>
           <DialogDescription>
@@ -64,17 +99,18 @@ export function YearExportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-6 py-4">
           {/* Hebrew Year Selection */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="year" className="text-right">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
               Hebrew Year
             </Label>
             <Select
               value={selectedYear.toString()}
               onValueChange={(v) => setSelectedYear(parseInt(v))}
             >
-              <SelectTrigger className="col-span-3">
+              <SelectTrigger>
                 <SelectValue placeholder="Select year" />
               </SelectTrigger>
               <SelectContent>
@@ -87,21 +123,32 @@ export function YearExportDialog({
             </Select>
           </div>
 
-          {/* Location display */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">
-              <MapPin className="h-4 w-4 inline mr-1" />
+          {/* Location Selection */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
               Location
             </Label>
-            <div className="col-span-3 text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
-              {localityId ? `Locality ID: ${localityId}` : 'No location selected'}
-            </div>
+            <LocalityPicker
+              mode="single"
+              variant="dropdown"
+              filterPreset="coverage"
+              onSelect={handleLocalityChange}
+              placeholder="Search for a location..."
+            />
+            {selectedLocality && (
+              <p className="text-sm text-muted-foreground">
+                Selected: {selectedLocality.name}
+                {selectedLocality.region && `, ${selectedLocality.region}`}
+                {selectedLocality.country_code && ` (${selectedLocality.country_code})`}
+              </p>
+            )}
           </div>
         </div>
 
         {!localityId && (
           <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-md mb-4">
-            Please select a location on the Algorithm page before exporting.
+            Please select a location to export zmanim for.
           </div>
         )}
 

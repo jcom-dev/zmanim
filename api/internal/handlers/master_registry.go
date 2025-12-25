@@ -62,19 +62,20 @@ type MasterZman struct {
 
 // ZmanTag represents a tag for categorizing zmanim
 type ZmanTag struct {
-	ID                 int32     `json:"id"`      // Changed from string to int32 to match database
-	TagKey             string    `json:"tag_key"` // Unique key like "category_candle_lighting", "category_havdalah", "shabbos", "rosh_hashanah"
-	Name               string    `json:"name"`
-	DisplayNameHebrew  string    `json:"display_name_hebrew"`
-	DisplayNameEnglish string    `json:"display_name_english"`
-	TagType            string    `json:"tag_type"`
-	Description        *string   `json:"description,omitempty"`
-	Color              *string   `json:"color,omitempty"`
-	SortOrder          int       `json:"sort_order"`
-	IsNegated          bool      `json:"is_negated"`                  // When true, zman should NOT appear on days matching this tag
-	IsModified         bool      `json:"is_modified"`                 // True if tag differs from master registry (added, removed, or negation changed)
-	SourceIsNegated    *bool     `json:"source_is_negated,omitempty"` // Original negation state from master registry (nil if tag not in master)
-	CreatedAt          time.Time `json:"created_at"`
+	ID                        int32     `json:"id"`      // Changed from string to int32 to match database
+	TagKey                    string    `json:"tag_key"` // Unique key like "category_candle_lighting", "category_havdalah", "shabbos", "rosh_hashanah"
+	Name                      string    `json:"name"`
+	DisplayNameHebrew         string    `json:"display_name_hebrew"`
+	DisplayNameEnglish        string    `json:"display_name_english"`                    // Deprecated: use display_name_english_ashkenazi
+	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`          // English name with Ashkenazi transliteration (e.g., "Shabbos")
+	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi,omitempty"` // English name with Sephardi transliteration (e.g., "Shabbat")
+	TagType                   string    `json:"tag_type"`
+	Description               *string   `json:"description,omitempty"`
+	Color                     *string   `json:"color,omitempty"`
+	IsNegated                 bool      `json:"is_negated"`                  // When true, zman should NOT appear on days matching this tag
+	IsModified                bool      `json:"is_modified"`                 // True if tag differs from master registry (added, removed, or negation changed)
+	SourceIsNegated           *bool     `json:"source_is_negated,omitempty"` // Original negation state from master registry (nil if tag not in master)
+	CreatedAt                 time.Time `json:"created_at"`
 }
 
 // MasterZmanimGrouped represents zmanim grouped by time category
@@ -368,13 +369,28 @@ func convertToMasterZman(row any) MasterZman {
 							tagID = int32(v)
 						}
 
-						tag := ZmanTag{
-							ID:                 tagID,
-							TagKey:             fmt.Sprintf("%v", tagMap["tag_key"]),
-							Name:               fmt.Sprintf("%v", tagMap["name"]),
-							DisplayNameHebrew:  fmt.Sprintf("%v", tagMap["display_name_hebrew"]),
-							DisplayNameEnglish: fmt.Sprintf("%v", tagMap["display_name_english"]),
-							TagType:            fmt.Sprintf("%v", tagMap["tag_type"]),
+						// Get sephardi name if present
+					var sephardi *string
+					if sephardiVal, ok := tagMap["display_name_english_sephardi"]; ok && sephardiVal != nil {
+						sephardiStr := fmt.Sprintf("%v", sephardiVal)
+						if sephardiStr != "" && sephardiStr != "<nil>" {
+							sephardi = &sephardiStr
+						}
+					}
+					ashkenazi := fmt.Sprintf("%v", tagMap["display_name_english_ashkenazi"])
+					if ashkenazi == "" || ashkenazi == "<nil>" {
+						// Fallback to display_name_english for backwards compatibility
+						ashkenazi = fmt.Sprintf("%v", tagMap["display_name_english"])
+					}
+					tag := ZmanTag{
+							ID:                          tagID,
+							TagKey:                      fmt.Sprintf("%v", tagMap["tag_key"]),
+							Name:                        fmt.Sprintf("%v", tagMap["name"]),
+							DisplayNameHebrew:           fmt.Sprintf("%v", tagMap["display_name_hebrew"]),
+							DisplayNameEnglish:          ashkenazi, // Deprecated
+							DisplayNameEnglishAshkenazi: ashkenazi,
+							DisplayNameEnglishSephardi:  sephardi,
+							TagType:                     fmt.Sprintf("%v", tagMap["tag_type"]),
 						}
 						z.Tags = append(z.Tags, tag)
 					}
@@ -556,9 +572,6 @@ func (h *Handlers) GetMasterZmanim(w http.ResponseWriter, r *http.Request) {
 					}
 					tag.Description = tagRow.Description
 					tag.Color = tagRow.Color
-					if tagRow.SortOrder != nil {
-						tag.SortOrder = int(*tagRow.SortOrder)
-					}
 					tag.IsNegated = tagRow.IsNegated
 					tag.CreatedAt = tagRow.CreatedAt.Time
 
@@ -675,78 +688,6 @@ func (h *Handlers) GetMasterZmanimGrouped(w http.ResponseWriter, r *http.Request
 	RespondJSON(w, r, http.StatusOK, result)
 }
 
-// GetEventZmanimGrouped returns event zmanim grouped by behavior tags
-//
-//	@Summary	Get event zmanim grouped by category (candles, havdalah, etc.)
-//	@Tags		Registry
-//	@Produce	json
-//	@Success	200	{object}	map[string][]MasterZman
-//	@Router		/api/v1/registry/zmanim/events [get]
-func (h *Handlers) GetEventZmanimGrouped(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Category order for display - derived from behavior tags
-	categoryOrder := []string{"candles", "havdalah", "fast_day", "tisha_bav", "pesach"}
-
-	// Get all event zmanim with their behavior tags using SQLc query
-	results, err := h.db.Queries.GetEventZmanim(ctx)
-	if err != nil {
-		slog.Error("error getting event zmanim", "error", err)
-		RespondInternalError(w, r, "Failed to get event zmanim")
-		return
-	}
-
-	// Convert to MasterZman slice (includes tag parsing)
-	zmanim := convertToMasterZmanSlice(results)
-
-	// Group by category tags
-	grouped := make(map[string][]MasterZman)
-	for _, z := range zmanim {
-		// Determine category from category tags
-		category := ""
-		for _, tag := range z.Tags {
-			if tag.TagType == "category" {
-				switch tag.Name {
-				case "category_candle_lighting":
-					category = "candles"
-				case "category_havdalah":
-					category = "havdalah"
-				case "category_fast_start", "category_fast_end":
-					// Check if it's Tisha B'Av specific
-					for _, t := range z.Tags {
-						if t.Name == "tisha_bav" {
-							category = "tisha_bav"
-							break
-						}
-					}
-					if category == "" {
-						category = "fast_day"
-					}
-				case "category_chametz":
-					category = "pesach"
-				}
-				if category != "" {
-					break
-				}
-			}
-		}
-
-		if category != "" {
-			grouped[category] = append(grouped[category], z)
-		}
-	}
-
-	// Build result in category order
-	result := make(map[string][]MasterZman)
-	for _, cat := range categoryOrder {
-		if zmanimList, ok := grouped[cat]; ok {
-			result[cat] = zmanimList
-		}
-	}
-
-	RespondJSON(w, r, http.StatusOK, result)
-}
-
 // GetMasterZman returns a single zman from the master registry
 //
 //	@Summary	Get master zman by key
@@ -779,21 +720,17 @@ func (h *Handlers) GetMasterZman(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		z.Tags = make([]ZmanTag, 0, len(tagRows))
 		for _, t := range tagRows {
-			var sortOrder int
-			if t.SortOrder != nil {
-				sortOrder = int(*t.SortOrder)
-			}
 			z.Tags = append(z.Tags, ZmanTag{
-				ID:                 t.ID,
-				TagKey:             t.Name,
-				Name:               t.Name,
-				DisplayNameHebrew:  t.DisplayNameHebrew,
-				DisplayNameEnglish: t.DisplayNameEnglishAshkenazi,
-				TagType:            safeStringValue(t.TagType),
-				Description:        t.Description,
-				Color:              t.Color,
-				SortOrder:          sortOrder,
-				CreatedAt:          t.CreatedAt.Time,
+				ID:                          t.ID,
+				TagKey:                      t.TagKey,
+				DisplayNameHebrew:           t.DisplayNameHebrew,
+				DisplayNameEnglish:          t.DisplayNameEnglishAshkenazi, // Deprecated
+				DisplayNameEnglishAshkenazi: t.DisplayNameEnglishAshkenazi,
+				DisplayNameEnglishSephardi:  t.DisplayNameEnglishSephardi,
+				TagType:                     safeStringValue(t.TagType),
+				Description:                 t.Description,
+				Color:                       t.Color,
+				CreatedAt:                   t.CreatedAt.Time,
 			})
 		}
 	}
@@ -935,40 +872,32 @@ func (h *Handlers) GetAllTags(w http.ResponseWriter, r *http.Request) {
 	tags := make([]ZmanTag, 0)
 	if tagType != "" {
 		for _, t := range tagRows {
-			var sortOrder int
-			if t.SortOrder != nil {
-				sortOrder = int(*t.SortOrder)
-			}
 			tags = append(tags, ZmanTag{
-				ID:                 t.ID,
-				TagKey:             t.Name,
-				Name:               t.Name,
-				DisplayNameHebrew:  t.DisplayNameHebrew,
-				DisplayNameEnglish: t.DisplayNameEnglishAshkenazi,
-				TagType:            safeStringValue(t.TagType),
-				Description:        t.Description,
-				Color:              t.Color,
-				SortOrder:          sortOrder,
-				CreatedAt:          t.CreatedAt.Time,
+				ID:                          t.ID,
+				TagKey:                      t.TagKey,
+				DisplayNameHebrew:           t.DisplayNameHebrew,
+				DisplayNameEnglish:          t.DisplayNameEnglishAshkenazi, // Deprecated, kept for backwards compatibility
+				DisplayNameEnglishAshkenazi: t.DisplayNameEnglishAshkenazi,
+				DisplayNameEnglishSephardi:  t.DisplayNameEnglishSephardi,
+				TagType:                     safeStringValue(t.TagType),
+				Description:                 t.Description,
+				Color:                       t.Color,
+				CreatedAt:                   t.CreatedAt.Time,
 			})
 		}
 	} else {
 		for _, t := range allTagRows {
-			var sortOrder int
-			if t.SortOrder != nil {
-				sortOrder = int(*t.SortOrder)
-			}
 			tags = append(tags, ZmanTag{
-				ID:                 t.ID,
-				TagKey:             t.TagKey,
-				Name:               t.Name,
-				DisplayNameHebrew:  t.DisplayNameHebrew,
-				DisplayNameEnglish: t.DisplayNameEnglishAshkenazi,
-				TagType:            safeStringValue(t.TagType),
-				Description:        t.Description,
-				Color:              t.Color,
-				SortOrder:          sortOrder,
-				CreatedAt:          t.CreatedAt.Time,
+				ID:                          t.ID,
+				TagKey:                      t.TagKey,
+				DisplayNameHebrew:           t.DisplayNameHebrew,
+				DisplayNameEnglish:          t.DisplayNameEnglishAshkenazi, // Deprecated, kept for backwards compatibility
+				DisplayNameEnglishAshkenazi: t.DisplayNameEnglishAshkenazi,
+				DisplayNameEnglishSephardi:  t.DisplayNameEnglishSephardi,
+				TagType:                     safeStringValue(t.TagType),
+				Description:                 t.Description,
+				Color:                       t.Color,
+				CreatedAt:                   t.CreatedAt.Time,
 			})
 		}
 	}
@@ -2078,7 +2007,7 @@ type ZmanRequestTagResponse struct {
 	RequestedTagType *string `json:"requested_tag_type,omitempty"`
 	IsNewTagRequest  bool    `json:"is_new_tag_request"`
 	ExistingTagKey   *string `json:"existing_tag_key,omitempty"`
-	ExistingTagName  *string `json:"existing_tag_name,omitempty"`
+	ExistingTagName  *string `json:"existing_tag_name,omitempty"` // Ashkenazi display name
 	ExistingTagType  *string `json:"existing_tag_type,omitempty"`
 }
 
@@ -2116,39 +2045,6 @@ func (h *Handlers) AdminGetZmanRequestTags(w http.ResponseWriter, r *http.Reques
 			IsNewTagRequest: t.IsNewTagRequest,
 		}
 
-		// Check if this is a new tag request that might already exist
-		if t.IsNewTagRequest && t.RequestedTagName != nil {
-			// Try to find an existing tag with the same name
-			existingTag, findErr := h.db.Queries.FindTagByName(ctx, *t.RequestedTagName)
-			if findErr == nil {
-				// Tag already exists - auto-link it
-				slog.Info("auto-linking existing tag to request",
-					"tag_request_id", t.ID,
-					"existing_tag_id", existingTag.ID,
-					"tag_name", *t.RequestedTagName)
-
-				// Link the tag to the request
-				linkErr := h.db.Queries.LinkTagToRequest(ctx, db.LinkTagToRequestParams{
-					ID:    t.ID,
-					TagID: &existingTag.ID,
-				})
-				if linkErr != nil {
-					slog.Error("failed to auto-link tag", "error", linkErr, "tag_request_id", t.ID)
-					// Continue anyway, just don't auto-link
-				} else {
-					// Update the response to reflect the linked tag
-					tag.TagID = &existingTag.ID
-					tag.IsNewTagRequest = false
-					tag.ExistingTagKey = &existingTag.TagKey
-					tag.ExistingTagName = &existingTag.Name
-					tag.ExistingTagType = &existingTag.TagType
-					result = append(result, tag)
-					continue
-				}
-			}
-			// Tag doesn't exist or find failed - keep as new tag request
-		}
-
 		// Copy TagID if present
 		if t.TagID != nil {
 			tag.TagID = t.TagID
@@ -2162,8 +2058,8 @@ func (h *Handlers) AdminGetZmanRequestTags(w http.ResponseWriter, r *http.Reques
 		if t.ExistingTagKey != nil {
 			tag.ExistingTagKey = t.ExistingTagKey
 		}
-		if t.ExistingTagName != nil {
-			tag.ExistingTagName = t.ExistingTagName
+		if t.ExistingTagNameAshkenazi != nil {
+			tag.ExistingTagName = t.ExistingTagNameAshkenazi
 		}
 		if t.ExistingTagType != nil {
 			tag.ExistingTagType = t.ExistingTagType
@@ -2178,9 +2074,8 @@ func (h *Handlers) AdminGetZmanRequestTags(w http.ResponseWriter, r *http.Reques
 type ApprovedTagResponse struct {
 	ID                 int32  `json:"id"`
 	TagKey             string `json:"tag_key"`
-	Name               string `json:"name"`
 	DisplayNameHebrew  string `json:"display_name_hebrew"`
-	DisplayNameEnglish string `json:"display_name_english"`
+	DisplayNameEnglish string `json:"display_name_english"` // Ashkenazi
 	TagType            string `json:"tag_type"`
 }
 
@@ -2249,7 +2144,7 @@ func (h *Handlers) AdminApproveTagRequest(w http.ResponseWriter, r *http.Request
 	// Create the new tag
 	newTag, err := h.db.Queries.ApproveTagRequest(ctx, db.ApproveTagRequestParams{
 		TagKey:                      tagKey,
-		Name:                        *tagReq.RequestedTagName,
+
 		DisplayNameHebrew:           *tagReq.RequestedTagName, // Same for now
 		DisplayNameEnglishAshkenazi: *tagReq.RequestedTagName, // Same for now
 		Key:                         tagTypeKey,
@@ -2275,7 +2170,6 @@ func (h *Handlers) AdminApproveTagRequest(w http.ResponseWriter, r *http.Request
 	RespondJSON(w, r, http.StatusOK, ApprovedTagResponse{
 		ID:                 newTag.ID,
 		TagKey:             newTag.TagKey,
-		Name:               newTag.Name,
 		DisplayNameHebrew:  newTag.DisplayNameHebrew,
 		DisplayNameEnglish: newTag.DisplayNameEnglishAshkenazi,
 		TagType:            tagTypeKey,
@@ -2467,10 +2361,6 @@ func (h *Handlers) loadPrimitivesCache(ctx context.Context) error {
 
 // convertPrimitive converts DB primitive to API type
 func convertPrimitive(p db.GetAstronomicalPrimitivesGroupedRow) AstronomicalPrimitive {
-	var sortOrder int
-	if p.SortOrder != nil {
-		sortOrder = int(*p.SortOrder)
-	}
 	var category string
 	if p.Category != nil {
 		category = *p.Category
@@ -2482,7 +2372,6 @@ func convertPrimitive(p db.GetAstronomicalPrimitivesGroupedRow) AstronomicalPrim
 		Description:  p.Description,
 		FormulaDSL:   p.FormulaDsl,
 		Category:     category,
-		SortOrder:    sortOrder,
 	}
 }
 
@@ -2665,7 +2554,7 @@ func (h *Handlers) GetAstronomicalPrimitivesPreview(w http.ResponseWriter, r *ht
 
 	for _, primitive := range allPrimitives {
 		// Execute the DSL formula using the unified service
-		result, err := h.unifiedZmanimService.CalculateFormula(ctx, services.FormulaParams{
+		result, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
 			Formula:    primitive.FormulaDSL,
 			Date:       date,
 			Latitude:   lat,
@@ -2829,7 +2718,7 @@ func (h *Handlers) AdminGetMasterZmanByID(w http.ResponseWriter, r *http.Request
 		for _, tagRow := range tagRows {
 			var tag ZmanTag
 			tag.ID = tagRow.ID
-			tag.Name = tagRow.Name
+			tag.TagKey = tagRow.TagKey
 			tag.DisplayNameHebrew = tagRow.DisplayNameHebrew
 			tag.DisplayNameEnglish = tagRow.DisplayNameEnglishAshkenazi
 			if tagRow.TagType != nil {
@@ -2837,9 +2726,6 @@ func (h *Handlers) AdminGetMasterZmanByID(w http.ResponseWriter, r *http.Request
 			}
 			tag.Description = tagRow.Description
 			tag.Color = tagRow.Color
-			if tagRow.SortOrder != nil {
-				tag.SortOrder = int(*tagRow.SortOrder)
-			}
 			tag.CreatedAt = tagRow.CreatedAt.Time
 			z.Tags = append(z.Tags, tag)
 		}
@@ -3235,7 +3121,7 @@ func (h *Handlers) AdminGetTags(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		var tag ZmanTag
 		tag.ID = row.ID
-		tag.Name = row.Name
+		tag.TagKey = row.TagKey
 		tag.DisplayNameHebrew = row.DisplayNameHebrew
 		tag.DisplayNameEnglish = row.DisplayNameEnglishAshkenazi
 		if row.TagType != nil {
@@ -3243,9 +3129,6 @@ func (h *Handlers) AdminGetTags(w http.ResponseWriter, r *http.Request) {
 		}
 		tag.Description = row.Description
 		tag.Color = row.Color
-		if row.SortOrder != nil {
-			tag.SortOrder = int(*row.SortOrder)
-		}
 		tag.CreatedAt = row.CreatedAt.Time
 		tags = append(tags, tag)
 	}
@@ -3482,7 +3365,7 @@ func (h *Handlers) ListMasterZmanimForRegistry(w http.ResponseWriter, r *http.Re
 				elevation = float64(*locality.ElevationM)
 			}
 
-			result, err := h.unifiedZmanimService.CalculateFormula(ctx, services.FormulaParams{
+			result, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
 				Formula:   *row.DefaultFormulaDsl,
 				Date:      previewDate,
 				Latitude:  *locality.Latitude,

@@ -131,7 +131,7 @@ export default function Home() {
     const locality = Array.isArray(selection) ? selection[0] : selection;
     if (locality) {
       setLocality(parseInt(locality.id, 10));
-      router.push(`/zmanim/${locality.id}/default`);
+      router.push(`/zmanim/${locality.id}`);
     }
   }, [setLocality, router]);
 
@@ -166,7 +166,7 @@ export default function Home() {
       if (nearbyLocality) {
         // Save locality to cookie via preferences context
         setLocality(nearbyLocality.id);
-        router.push(`/zmanim/${nearbyLocality.id}/default`);
+        router.push(`/zmanim/${nearbyLocality.id}`);
       } else {
         setError('No locality found near your location');
       }
@@ -210,7 +210,7 @@ export default function Home() {
       if (item.entity_type === 'locality' || item.locality_id) {
         const localityId = item.locality_id ?? item.entity_id;
         setLocality(localityId);
-        router.push(`/zmanim/${localityId}/default`);
+        router.push(`/zmanim/${localityId}`);
       }
     }
   };
@@ -326,7 +326,7 @@ export default function Home() {
                 <div className="flex gap-2 justify-center">
                   <button
                     type="button"
-                    onClick={() => router.push(`/zmanim/${savedLocalityDetails.id}/default`)}
+                    onClick={() => router.push(`/zmanim/${savedLocalityDetails.id}`)}
                     className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors text-sm font-medium"
                   >
                     Go to Saved Location

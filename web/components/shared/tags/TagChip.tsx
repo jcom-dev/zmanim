@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tag, TagType, TAG_TYPE_BADGE_CLASSES } from './constants';
+import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
 
 interface TagChipProps {
   tag: Tag;
@@ -25,6 +26,8 @@ export function TagChip({
   showNegatedIndicator = false,
   showModifiedIndicator = false,
 }: TagChipProps) {
+  const getTagName = useTagDisplayName();
+  const displayName = getTagName(tag);
   const badgeClass = TAG_TYPE_BADGE_CLASSES[tag.tag_type as TagType] || TAG_TYPE_BADGE_CLASSES.category;
   const isNegated = 'is_negated' in tag && (tag as { is_negated?: boolean }).is_negated === true;
   const isModified = 'is_modified' in tag && (tag as { is_modified?: boolean }).is_modified === true;
@@ -37,19 +40,31 @@ export function TagChip({
         badgeClass,
         selected && 'ring-2 ring-primary ring-offset-1',
         onClick && 'cursor-pointer hover:opacity-80',
-        showNegatedIndicator && isNegated && 'ring-2 ring-red-500 ring-offset-1',
+        // Negated: red border + strikethrough effect
+        showNegatedIndicator && isNegated && 'border-2 border-red-500 dark:border-red-400',
       )}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
+      {/* Red X icon for negated tags */}
+      {showNegatedIndicator && isNegated && (
+        <X className={cn(
+          'shrink-0 text-red-500',
+          size === 'sm' ? 'h-2.5 w-2.5' : 'h-3 w-3'
+        )} />
+      )}
       {showType && (
         <span className="opacity-60 text-xs">
           {tag.tag_type}:
         </span>
       )}
-      <span className="truncate max-w-[150px]">
-        {tag.display_name_english}
+      <span className={cn(
+        'truncate max-w-[150px]',
+        // Strikethrough for negated tags
+        showNegatedIndicator && isNegated && 'line-through decoration-red-500'
+      )}>
+        {displayName}
       </span>
       {showModifiedIndicator && isModified && (
         <span
@@ -66,7 +81,7 @@ export function TagChip({
             onRemove();
           }}
           className="ml-0.5 hover:bg-black/10 rounded-full p-0.5 transition-colors"
-          aria-label={`Remove ${tag.display_name_english}`}
+          aria-label={`Remove ${displayName}`}
         >
           <X className="h-3 w-3" />
         </button>

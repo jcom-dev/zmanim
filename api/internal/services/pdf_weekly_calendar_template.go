@@ -10,11 +10,20 @@ func PDFWeeklyCalendarTemplate() string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weekly Zmanim Calendar - {{.Publisher.Name}}</title>
+    <!-- Modern Fonts: Inter for UI, Heebo for Hebrew -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* ============================================
+           BOLD MODERN WEEKLY CALENDAR - v2.0
+           Clean, spacious, contemporary design
+           ============================================ */
+
         /* A4 Page Setup */
         @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 8mm;
         }
 
         * {
@@ -23,11 +32,75 @@ func PDFWeeklyCalendarTemplate() string {
             box-sizing: border-box;
         }
 
+        :root {
+            /* Modern color palette - softer, more refined */
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+
+            /* Accent colors */
+            --primary: #4f46e5;
+            --primary-light: #6366f1;
+
+            /* Soft day colors - reduced saturation for elegance */
+            --sunday-bg: #fef7f7;
+            --sunday-accent: #fecaca;
+            --sunday-sidebar: linear-gradient(180deg, #fca5a5 0%, #f87171 100%);
+            --sunday-text: #991b1b;
+
+            --monday-bg: #fefaf6;
+            --monday-accent: #fed7aa;
+            --monday-sidebar: linear-gradient(180deg, #fdba74 0%, #fb923c 100%);
+            --monday-text: #9a3412;
+
+            --tuesday-bg: #fefef6;
+            --tuesday-accent: #fef08a;
+            --tuesday-sidebar: linear-gradient(180deg, #fde047 0%, #facc15 100%);
+            --tuesday-text: #854d0e;
+
+            --wednesday-bg: #f6fef9;
+            --wednesday-accent: #bbf7d0;
+            --wednesday-sidebar: linear-gradient(180deg, #86efac 0%, #4ade80 100%);
+            --wednesday-text: #166534;
+
+            --thursday-bg: #f6f9fe;
+            --thursday-accent: #bfdbfe;
+            --thursday-sidebar: linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%);
+            --thursday-text: #1e40af;
+
+            --friday-bg: #fefcf6;
+            --friday-accent: #fde68a;
+            --friday-sidebar: linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%);
+            --friday-text: #92400e;
+
+            --shabbos-bg: #faf8fe;
+            --shabbos-accent: #e9d5ff;
+            --shabbos-sidebar: linear-gradient(180deg, #c4b5fd 0%, #a78bfa 100%);
+            --shabbos-text: #5b21b6;
+        }
+
         body {
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: white;
             padding: 0;
             margin: 0;
+            color: var(--gray-800);
+            font-size: 9pt;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Hebrew text styling */
+        .hebrew, [dir="rtl"] {
+            font-family: 'Heebo', 'Segoe UI', sans-serif;
+            direction: rtl;
         }
 
         /* A4 Paper Container */
@@ -35,96 +108,99 @@ func PDFWeeklyCalendarTemplate() string {
             width: 210mm;
             min-height: 297mm;
             background: white;
-            padding: 8mm;
+            padding: 6mm;
             display: flex;
             flex-direction: column;
         }
 
-        /* Header Bar */
+        /* ============ HEADER ============ */
         .header-bar {
-            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            background: linear-gradient(135deg, var(--gray-800) 0%, var(--gray-900) 100%);
             color: white;
-            padding: 4mm 6mm;
+            padding: 5mm 6mm;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 3mm;
+            border-radius: 3mm;
+            margin-bottom: 4mm;
         }
 
         .header-bar .publisher-name {
-            font-size: 11pt;
-            font-weight: bold;
+            font-size: 13pt;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
 
         .header-bar .hebrew-title {
-            font-size: 11pt;
-            font-weight: bold;
+            font-family: 'Heebo', sans-serif;
+            font-size: 13pt;
+            font-weight: 600;
             direction: rtl;
+            opacity: 0.95;
         }
 
-        /* Sub Header */
+        /* ============ SUB HEADER ============ */
         .sub-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 2mm 0;
-            border-bottom: 1px solid #ccc;
-            margin-bottom: 2mm;
+            padding: 3mm 1mm;
+            margin-bottom: 3mm;
         }
 
         .sub-header .week-info {
-            font-size: 12pt;
-            font-weight: bold;
-            color: #1a1a1a;
+            font-size: 11pt;
+            font-weight: 600;
+            color: var(--gray-800);
+            letter-spacing: -0.01em;
         }
 
         .sub-header .location-info {
-            font-size: 9pt;
-            color: #666;
+            font-size: 8.5pt;
+            color: var(--gray-500);
+            font-weight: 500;
         }
 
-        /* Main Calendar Grid */
+        /* ============ CALENDAR GRID ============ */
         .calendar-grid {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 0;
+            gap: 2mm;
         }
 
-        /* Day Row */
+        /* ============ DAY ROW ============ */
         .day-row {
             display: grid;
-            grid-template-columns: 1fr auto;
-            border: 1px solid #999;
-            border-bottom: none;
-            min-height: 32mm;
+            grid-template-columns: 1fr 30mm;
+            border-radius: 2.5mm;
+            overflow: hidden;
+            min-height: 34mm;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border: 1px solid var(--gray-200);
         }
 
-        .day-row:last-child {
-            border-bottom: 1px solid #999;
-        }
-
-        /* Zmanim Section (left side) */
+        /* ============ ZMANIM SECTION (left) ============ */
         .zmanim-section {
             display: flex;
             flex-direction: column;
-            border-right: 1px solid #ccc;
         }
 
         .zmanim-columns {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 0;
-            padding: 2mm;
+            padding: 3mm 3.5mm;
             flex: 1;
+            align-content: start;
         }
 
         .zman-column {
             display: flex;
             flex-direction: column;
-            gap: 1mm;
-            padding: 0 2mm;
-            border-right: 1px solid #eee;
+            gap: 1.8mm;
+            padding: 0 2.5mm;
+            border-right: 1px solid var(--gray-200);
         }
 
         .zman-column:last-child {
@@ -135,236 +211,243 @@ func PDFWeeklyCalendarTemplate() string {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            font-size: 8pt;
-            line-height: 1.4;
+            gap: 2mm;
         }
 
         .zman-item .time {
-            font-weight: bold;
-            font-size: 9pt;
-            min-width: 28px;
+            font-weight: 600;
+            font-size: 9.5pt;
+            color: var(--gray-800);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.01em;
         }
 
         .zman-item .name {
-            color: #444;
+            color: var(--gray-500);
             font-size: 7pt;
             text-align: right;
             flex: 1;
-            margin-left: 2mm;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* Day Info Section (right side) */
+        /* ============ DAY INFO SIDEBAR (right) ============ */
         .day-info {
-            width: 28mm;
+            width: 30mm;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 2mm;
-            background: #f8f8f8;
+            padding: 3mm 2mm;
             text-align: center;
+            gap: 0.5mm;
         }
 
         .day-info .hebrew-day {
-            font-size: 10pt;
-            font-weight: bold;
-            color: #1a1a1a;
+            font-family: 'Heebo', sans-serif;
+            font-size: 11pt;
+            font-weight: 600;
             direction: rtl;
+            line-height: 1.2;
         }
 
         .day-info .hebrew-date-num {
-            font-size: 22pt;
-            font-weight: bold;
-            color: #1a1a1a;
+            font-family: 'Heebo', sans-serif;
+            font-size: 26pt;
+            font-weight: 700;
             line-height: 1;
             direction: rtl;
+            letter-spacing: -0.02em;
         }
 
         .day-info .english-day {
-            font-size: 7pt;
-            color: white;
+            font-size: 6.5pt;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: bold;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            margin-top: 1mm;
+            opacity: 0.85;
         }
 
         .day-info .gregorian-num {
-            font-size: 16pt;
-            font-weight: bold;
-            color: #333;
+            font-size: 15pt;
+            font-weight: 700;
             line-height: 1;
+            letter-spacing: -0.02em;
         }
 
-        /* Pastel Day-of-Week Backgrounds - Light & Soft */
+        /* ============ DAY COLOR THEMES ============ */
 
-        /* Sunday - Soft Rose/Pink */
+        /* Sunday - Soft Rose */
         .day-row.sunday {
-            background: linear-gradient(to right, #fff5f5 0%, #ffe4e6 100%);
+            background: var(--sunday-bg);
         }
         .day-row.sunday .day-info {
-            background: linear-gradient(135deg, #fda4af 0%, #fb7185 100%);
+            background: var(--sunday-sidebar);
         }
         .day-row.sunday .day-info .hebrew-day,
         .day-row.sunday .day-info .hebrew-date-num,
         .day-row.sunday .day-info .gregorian-num {
-            color: #881337;
+            color: var(--sunday-text);
+        }
+        .day-row.sunday .day-info .english-day {
+            color: white;
         }
 
-        /* Monday - Soft Peach/Orange */
+        /* Monday - Soft Peach */
         .day-row.monday {
-            background: linear-gradient(to right, #fff7ed 0%, #ffedd5 100%);
+            background: var(--monday-bg);
         }
         .day-row.monday .day-info {
-            background: linear-gradient(135deg, #fdba74 0%, #fb923c 100%);
+            background: var(--monday-sidebar);
         }
         .day-row.monday .day-info .hebrew-day,
         .day-row.monday .day-info .hebrew-date-num,
         .day-row.monday .day-info .gregorian-num {
-            color: #7c2d12;
+            color: var(--monday-text);
+        }
+        .day-row.monday .day-info .english-day {
+            color: white;
         }
 
-        /* Tuesday - Soft Lemon/Yellow */
+        /* Tuesday - Soft Lemon */
         .day-row.tuesday {
-            background: linear-gradient(to right, #fefce8 0%, #fef9c3 100%);
+            background: var(--tuesday-bg);
         }
         .day-row.tuesday .day-info {
-            background: linear-gradient(135deg, #fde047 0%, #facc15 100%);
+            background: var(--tuesday-sidebar);
         }
         .day-row.tuesday .day-info .hebrew-day,
         .day-row.tuesday .day-info .hebrew-date-num,
         .day-row.tuesday .day-info .gregorian-num {
-            color: #713f12;
+            color: var(--tuesday-text);
+        }
+        .day-row.tuesday .day-info .english-day {
+            color: var(--tuesday-text);
         }
 
-        /* Wednesday - Soft Mint/Green */
+        /* Wednesday - Soft Mint */
         .day-row.wednesday {
-            background: linear-gradient(to right, #f0fdf4 0%, #dcfce7 100%);
+            background: var(--wednesday-bg);
         }
         .day-row.wednesday .day-info {
-            background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+            background: var(--wednesday-sidebar);
         }
         .day-row.wednesday .day-info .hebrew-day,
         .day-row.wednesday .day-info .hebrew-date-num,
         .day-row.wednesday .day-info .gregorian-num {
-            color: #14532d;
+            color: var(--wednesday-text);
+        }
+        .day-row.wednesday .day-info .english-day {
+            color: white;
         }
 
-        /* Thursday - Soft Sky/Blue */
+        /* Thursday - Soft Sky */
         .day-row.thursday {
-            background: linear-gradient(to right, #eff6ff 0%, #dbeafe 100%);
+            background: var(--thursday-bg);
         }
         .day-row.thursday .day-info {
-            background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
+            background: var(--thursday-sidebar);
         }
         .day-row.thursday .day-info .hebrew-day,
         .day-row.thursday .day-info .hebrew-date-num,
         .day-row.thursday .day-info .gregorian-num {
-            color: #1e3a8a;
+            color: var(--thursday-text);
+        }
+        .day-row.thursday .day-info .english-day {
+            color: white;
         }
 
-        /* Friday - Soft Amber/Gold for Erev Shabbos */
+        /* Friday - Soft Amber (Erev Shabbos) */
         .day-row.friday {
-            background: linear-gradient(to right, #fffbeb 0%, #fef3c7 100%);
+            background: var(--friday-bg);
         }
         .day-row.friday .day-info {
-            background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%);
+            background: var(--friday-sidebar);
         }
         .day-row.friday .day-info .hebrew-day,
         .day-row.friday .day-info .hebrew-date-num,
         .day-row.friday .day-info .gregorian-num {
-            color: #78350f;
+            color: var(--friday-text);
+        }
+        .day-row.friday .day-info .english-day {
+            color: white;
         }
 
-        /* Shabbos - Soft Lavender/Purple */
+        /* Shabbos - Soft Lavender */
         .day-row.shabbos {
-            background: linear-gradient(to right, #faf5ff 0%, #f3e8ff 70%, #e9d5ff 100%);
+            background: var(--shabbos-bg);
         }
         .day-row.shabbos .day-info {
-            background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+            background: var(--shabbos-sidebar);
         }
         .day-row.shabbos .day-info .hebrew-day,
         .day-row.shabbos .day-info .hebrew-date-num,
         .day-row.shabbos .day-info .gregorian-num {
-            color: #4c1d95;
+            color: var(--shabbos-text);
         }
-        .day-row.shabbos .hebrew-day {
-            font-size: 11pt;
+        .day-row.shabbos .day-info .english-day {
+            color: white;
+        }
+        .day-row.shabbos .day-info .hebrew-day {
+            font-size: 12pt;
         }
 
-        /* Event Zmanim Section (bottom of each day) */
+        /* ============ EVENT ZMANIM (Prominent but Soft) ============ */
         .event-zmanim-section {
-            grid-column: 1 / -1;
             display: flex;
             flex-wrap: wrap;
-            gap: 1.5mm 3mm;
-            padding: 2mm;
-            border-top: 1px dashed #9b59b6;
-            background: linear-gradient(to right, rgba(155, 89, 182, 0.03), rgba(155, 89, 182, 0.08));
+            gap: 2mm;
+            padding: 2.5mm 3.5mm;
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.04) 0%, rgba(139, 92, 246, 0.08) 100%);
+            border-top: 1px solid rgba(139, 92, 246, 0.15);
         }
 
         .event-zman-item {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 1.5mm;
-            background: rgba(155, 89, 182, 0.12);
-            padding: 1mm 2.5mm;
-            border-radius: 2mm;
-            white-space: nowrap;
+            gap: 2mm;
+            background: white;
+            padding: 1.5mm 3mm;
+            border-radius: 10mm;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            box-shadow: 0 1px 2px rgba(139, 92, 246, 0.08);
         }
 
         .event-zman-item .time {
-            font-weight: bold;
-            font-size: 8pt;
-            color: #6b21a8;
+            font-weight: 700;
+            font-size: 9pt;
+            color: #7c3aed;
+            font-variant-numeric: tabular-nums;
         }
 
         .event-zman-item .name {
-            font-size: 7pt;
-            color: #7c3aed;
+            font-size: 7.5pt;
+            color: #6d28d9;
+            font-weight: 500;
         }
 
-        /* Special Times Section (legacy) */
-        .special-times {
-            display: flex;
-            gap: 3mm;
-            margin-top: auto;
-            padding-top: 2mm;
-            border-top: 1px dashed #ccc;
-            font-size: 8pt;
-        }
-
-        .special-time {
-            display: flex;
-            align-items: center;
-            gap: 1mm;
-        }
-
-        .special-time .label {
-            font-size: 7pt;
-            color: #666;
-        }
-
-        .special-time .time {
-            font-weight: bold;
-            font-size: 9pt;
-        }
-
-        /* Footer */
+        /* ============ FOOTER ============ */
         .footer {
-            margin-top: 3mm;
-            padding-top: 2mm;
-            border-top: 1px solid #ccc;
+            margin-top: 4mm;
+            padding-top: 3mm;
+            border-top: 1px solid var(--gray-200);
             display: flex;
             justify-content: space-between;
-            font-size: 6pt;
-            color: #666;
+            font-size: 6.5pt;
+            color: var(--gray-400);
+            font-weight: 500;
         }
 
-        /* Print Styles */
+        /* ============ PRINT STYLES ============ */
         @media print {
             body {
                 background: white;
                 padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
 
             .a4-page {
@@ -372,6 +455,10 @@ func PDFWeeklyCalendarTemplate() string {
                 min-height: auto;
                 box-shadow: none;
                 page-break-after: always;
+            }
+
+            .day-row {
+                box-shadow: none;
             }
         }
     </style>

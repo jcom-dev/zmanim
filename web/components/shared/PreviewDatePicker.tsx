@@ -281,7 +281,7 @@ export function PreviewDatePicker({
             value={currentDate.getMonth().toString()}
             onValueChange={(value) => handleGregorianMonthChange(parseInt(value))}
           >
-            <SelectTrigger className="h-9 w-auto px-3 text-sm font-medium border-input bg-background hover:bg-muted/50 gap-1">
+            <SelectTrigger className="h-9 w-[72px] px-3 text-sm font-medium border-input bg-background hover:bg-muted/50 gap-1">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -297,7 +297,7 @@ export function PreviewDatePicker({
             value={currentDate.getDate().toString()}
             onValueChange={(value) => handleGregorianDayChange(parseInt(value))}
           >
-            <SelectTrigger className="h-9 w-[60px] px-3 text-sm font-medium border-input bg-background hover:bg-muted/50 gap-1">
+            <SelectTrigger className="h-9 w-[64px] px-3 text-sm font-medium border-input bg-background hover:bg-muted/50 gap-1">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -316,7 +316,7 @@ export function PreviewDatePicker({
             value={currentDate.getFullYear().toString()}
             onValueChange={(value) => handleGregorianYearChange(parseInt(value))}
           >
-            <SelectTrigger className="h-9 w-auto px-3 text-sm font-medium border-input bg-background hover:bg-muted/50 gap-1">
+            <SelectTrigger className="h-9 w-[80px] px-3 text-sm font-medium border-input bg-background hover:bg-muted/50 gap-1">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

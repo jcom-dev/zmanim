@@ -196,7 +196,7 @@ func (h *Handlers) PreviewDSLFormula(w http.ResponseWriter, r *http.Request) {
 	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
 
 	// Use the calculation service to execute the formula
-	result, err := h.unifiedZmanimService.CalculateFormula(ctx, services.FormulaParams{
+	result, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
 		Formula:    req.Formula,
 		Date:       date,
 		Latitude:   latitude,
@@ -370,7 +370,7 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 		}
 
 		// Calculate sunrise using the service
-		sunriseResult, err := h.unifiedZmanimService.CalculateFormula(ctx, services.FormulaParams{
+		sunriseResult, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
 			Formula:   "sunrise",
 			Date:      currentDate,
 			Latitude:  latitude,
@@ -384,7 +384,7 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 		}
 
 		// Calculate sunset using the service
-		sunsetResult, err := h.unifiedZmanimService.CalculateFormula(ctx, services.FormulaParams{
+		sunsetResult, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
 			Formula:   "sunset",
 			Date:      currentDate,
 			Latitude:  latitude,
@@ -398,7 +398,7 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 		}
 
 		// Calculate the requested formula using the service
-		result, err := h.unifiedZmanimService.CalculateFormula(ctx, services.FormulaParams{
+		result, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
 			Formula:   req.Formula,
 			Date:      currentDate,
 			Latitude:  latitude,

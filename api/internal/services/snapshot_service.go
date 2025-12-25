@@ -620,7 +620,7 @@ func (s *SnapshotService) ImportSnapshot(ctx context.Context, publisherID int32,
 	})
 	if err != nil {
 		// Don't fail the import if audit trail fails, just log it
-		fmt.Printf("Warning: failed to record import in audit trail: %v\n", err)
+		slog.Warn("Failed to record import in audit trail", "error", err)
 	}
 
 	return result, nil

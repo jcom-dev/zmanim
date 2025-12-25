@@ -90,34 +90,34 @@ func (q *Queries) AddZmanRequestTag(ctx context.Context, arg AddZmanRequestTagPa
 const approveTagRequest = `-- name: ApproveTagRequest :one
 INSERT INTO zman_tags (
     tag_key,
-    name,
     display_name_hebrew,
     display_name_english_ashkenazi,
+    display_name_english_sephardi,
     tag_type_id
 ) VALUES (
     $1, -- tag_key (generated from requested_tag_name)
-    $2, -- name (requested_tag_name)
-    $3, -- display_name_hebrew (same as name for now)
-    $4, -- display_name_english_ashkenazi (same as name)
+    $2, -- display_name_hebrew
+    $3, -- display_name_english_ashkenazi
+    $4, -- display_name_english_sephardi (same as ashkenazi if not specified)
     (SELECT tt.id FROM tag_types tt WHERE tt.key = $5)  -- tag_type_id (from requested_tag_type key)
 )
-RETURNING id, tag_key, name, display_name_hebrew, display_name_english_ashkenazi, tag_type_id, created_at
+RETURNING id, tag_key, display_name_hebrew, display_name_english_ashkenazi, display_name_english_sephardi, tag_type_id, created_at
 `
 
 type ApproveTagRequestParams struct {
-	TagKey                      string `json:"tag_key"`
-	Name                        string `json:"name"`
-	DisplayNameHebrew           string `json:"display_name_hebrew"`
-	DisplayNameEnglishAshkenazi string `json:"display_name_english_ashkenazi"`
-	Key                         string `json:"key"`
+	TagKey                      string  `json:"tag_key"`
+	DisplayNameHebrew           string  `json:"display_name_hebrew"`
+	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
+	Key                         string  `json:"key"`
 }
 
 type ApproveTagRequestRow struct {
 	ID                          int32              `json:"id"`
 	TagKey                      string             `json:"tag_key"`
-	Name                        string             `json:"name"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagTypeID                   int32              `json:"tag_type_id"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
@@ -128,18 +128,18 @@ type ApproveTagRequestRow struct {
 func (q *Queries) ApproveTagRequest(ctx context.Context, arg ApproveTagRequestParams) (ApproveTagRequestRow, error) {
 	row := q.db.QueryRow(ctx, approveTagRequest,
 		arg.TagKey,
-		arg.Name,
 		arg.DisplayNameHebrew,
 		arg.DisplayNameEnglishAshkenazi,
+		arg.DisplayNameEnglishSephardi,
 		arg.Key,
 	)
 	var i ApproveTagRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.TagKey,
-		&i.Name,
 		&i.DisplayNameHebrew,
 		&i.DisplayNameEnglishAshkenazi,
+		&i.DisplayNameEnglishSephardi,
 		&i.TagTypeID,
 		&i.CreatedAt,
 	)
@@ -392,43 +392,43 @@ func (q *Queries) DeleteZmanRequestTags(ctx context.Context, requestID int32) er
 	return err
 }
 
-const findTagByName = `-- name: FindTagByName :one
+const findTagByTagKey = `-- name: FindTagByTagKey :one
 SELECT
     zt.id,
     zt.tag_key,
-    zt.name,
     zt.display_name_hebrew,
     zt.display_name_english_ashkenazi,
+    zt.display_name_english_sephardi,
     zt.tag_type_id,
     tt.key as tag_type,
     zt.created_at
 FROM zman_tags zt
 JOIN tag_types tt ON zt.tag_type_id = tt.id
-WHERE LOWER(zt.name) = LOWER($1)
+WHERE LOWER(zt.tag_key) = LOWER($1)
 LIMIT 1
 `
 
-type FindTagByNameRow struct {
+type FindTagByTagKeyRow struct {
 	ID                          int32              `json:"id"`
 	TagKey                      string             `json:"tag_key"`
-	Name                        string             `json:"name"`
 	DisplayNameHebrew           string             `json:"display_name_hebrew"`
 	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
 	TagTypeID                   int32              `json:"tag_type_id"`
 	TagType                     string             `json:"tag_type"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
-// Find an existing tag by name (case-insensitive match)
-func (q *Queries) FindTagByName(ctx context.Context, lower string) (FindTagByNameRow, error) {
-	row := q.db.QueryRow(ctx, findTagByName, lower)
-	var i FindTagByNameRow
+// Find an existing tag by tag_key (case-insensitive match)
+func (q *Queries) FindTagByTagKey(ctx context.Context, lower string) (FindTagByTagKeyRow, error) {
+	row := q.db.QueryRow(ctx, findTagByTagKey, lower)
+	var i FindTagByTagKeyRow
 	err := row.Scan(
 		&i.ID,
 		&i.TagKey,
-		&i.Name,
 		&i.DisplayNameHebrew,
 		&i.DisplayNameEnglishAshkenazi,
+		&i.DisplayNameEnglishSephardi,
 		&i.TagTypeID,
 		&i.TagType,
 		&i.CreatedAt,
@@ -729,7 +729,8 @@ SELECT
     zrt.is_new_tag_request,
     zrt.created_at,
     zt.tag_key as existing_tag_key,
-    zt.name as existing_tag_name,
+    zt.display_name_english_ashkenazi as existing_tag_name_ashkenazi,
+    zt.display_name_english_sephardi as existing_tag_name_sephardi,
     zt.tag_type_id as existing_tag_type_id,
     tt.key as existing_tag_type
 FROM zman_request_tags zrt
@@ -739,17 +740,18 @@ WHERE zrt.request_id = $1
 `
 
 type GetZmanRequestTagsRow struct {
-	ID                int32              `json:"id"`
-	RequestID         int32              `json:"request_id"`
-	TagID             *int32             `json:"tag_id"`
-	RequestedTagName  *string            `json:"requested_tag_name"`
-	RequestedTagType  *string            `json:"requested_tag_type"`
-	IsNewTagRequest   bool               `json:"is_new_tag_request"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	ExistingTagKey    *string            `json:"existing_tag_key"`
-	ExistingTagName   *string            `json:"existing_tag_name"`
-	ExistingTagTypeID *int32             `json:"existing_tag_type_id"`
-	ExistingTagType   *string            `json:"existing_tag_type"`
+	ID                       int32              `json:"id"`
+	RequestID                int32              `json:"request_id"`
+	TagID                    *int32             `json:"tag_id"`
+	RequestedTagName         *string            `json:"requested_tag_name"`
+	RequestedTagType         *string            `json:"requested_tag_type"`
+	IsNewTagRequest          bool               `json:"is_new_tag_request"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	ExistingTagKey           *string            `json:"existing_tag_key"`
+	ExistingTagNameAshkenazi *string            `json:"existing_tag_name_ashkenazi"`
+	ExistingTagNameSephardi  *string            `json:"existing_tag_name_sephardi"`
+	ExistingTagTypeID        *int32             `json:"existing_tag_type_id"`
+	ExistingTagType          *string            `json:"existing_tag_type"`
 }
 
 // Get all tags (existing and requested) for a zman request
@@ -771,7 +773,8 @@ func (q *Queries) GetZmanRequestTags(ctx context.Context, requestID int32) ([]Ge
 			&i.IsNewTagRequest,
 			&i.CreatedAt,
 			&i.ExistingTagKey,
-			&i.ExistingTagName,
+			&i.ExistingTagNameAshkenazi,
+			&i.ExistingTagNameSephardi,
 			&i.ExistingTagTypeID,
 			&i.ExistingTagType,
 		); err != nil {

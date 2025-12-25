@@ -219,7 +219,7 @@ export function WeeklyPreviewDialog({
                   setStartDate(date.toISOString().split('T')[0]);
                 }}
               >
-                <SelectTrigger className="min-w-[60px]">
+                <SelectTrigger className="min-w-[64px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -8,14 +8,14 @@
 -- Fetches all tags for a specific publisher zman with source tracking
 -- Combines master zman tags (if linked to master registry) with publisher-specific tags
 -- Includes source_is_negated, is_modified, and tag_source for modification tracking
+-- User-facing query - excludes hidden tags
 SELECT
     t.id,
     t.tag_key,
-    t.name,
     t.display_name_hebrew,
     t.display_name_english_ashkenazi,
+    t.display_name_english_sephardi,
     tt.key AS tag_type,
-    t.sort_order,
     COALESCE(pzt.is_negated, mzt.is_negated, false) AS is_negated,
     CASE
         WHEN mzt.tag_id IS NOT NULL THEN 'master'
@@ -47,28 +47,28 @@ JOIN tag_types tt ON t.tag_type_id = tt.id
 LEFT JOIN master_zman_tags mzt ON mzt.tag_id = t.id
     AND mzt.master_zman_id = (SELECT pz.master_zman_id FROM publisher_zmanim pz WHERE pz.id = $1)
 LEFT JOIN publisher_zman_tags pzt ON pzt.tag_id = t.id AND pzt.publisher_zman_id = $1
-ORDER BY t.sort_order;
+WHERE t.is_hidden = false
+ORDER BY tt.sort_order, t.tag_key;
 
 -- name: CheckIfEventZman :one
--- Checks if a zman has event tags or special category tags (candle lighting, havdalah, fast start/end)
+-- Checks if a zman has any tag with tag_type = 'event'
 SELECT EXISTS (
     SELECT 1 FROM (
         -- Check master zman tags
-        SELECT tt.key, zt.tag_key
+        SELECT tt.key
         FROM master_zman_tags mzt
         JOIN zman_tags zt ON mzt.tag_id = zt.id
         JOIN tag_types tt ON zt.tag_type_id = tt.id
         WHERE mzt.master_zman_id = (SELECT pz.master_zman_id FROM publisher_zmanim pz WHERE pz.id = $1)
         UNION ALL
         -- Check publisher-specific tags
-        SELECT tt.key, zt.tag_key
+        SELECT tt.key
         FROM publisher_zman_tags pzt
         JOIN zman_tags zt ON pzt.tag_id = zt.id
         JOIN tag_types tt ON zt.tag_type_id = tt.id
         WHERE pzt.publisher_zman_id = $1
     ) all_tags
     WHERE all_tags.key = 'event'
-       OR all_tags.tag_key IN ('category_candle_lighting', 'category_havdalah', 'category_fast_start', 'category_fast_end')
 ) AS is_event;
 
 -- name: RevertPublisherZmanTags :exec

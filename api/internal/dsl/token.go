@@ -167,10 +167,6 @@ var Primitives = map[string]bool{
 	"nautical_dusk":     true,
 	"astronomical_dawn": true,
 	"astronomical_dusk": true,
-
-	// Backward compatibility aliases (default to visible sunrise/sunset)
-	"sunrise": true, // Alias for visible_sunrise
-	"sunset":  true, // Alias for visible_sunset
 }
 
 // Functions are built-in DSL functions
@@ -187,11 +183,6 @@ var Functions = map[string]bool{
 
 // Directions are valid direction parameters for the solar function
 var Directions = map[string]bool{
-	// Backward compatibility aliases (default to visible sunrise/sunset)
-	"before_sunrise": true, // Alias for before_visible_sunrise
-	"after_sunrise":  true, // Alias for after_visible_sunrise
-	"after_sunset":   true, // Alias for after_visible_sunset
-
 	// Visible sunrise/sunset directions (standard - includes atmospheric refraction)
 	"before_visible_sunrise": true,
 	"after_visible_sunrise":  true,

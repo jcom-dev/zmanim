@@ -1,0 +1,170 @@
+category,event_name_english,event_name_hebrew,pattern_type,base_pattern,notes
+holiday,Asara B’Tevet,עשרה בטבת,EXACT,Asara B’Tevet,""
+holiday,Chag HaBanot,חג הבנות,EXACT,Chag HaBanot,""
+holiday,Chanukah: 1 Candle,חנוכה: א׳ נר,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 2 Candles,חנוכה: ב׳ נרות,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 3 Candles,חנוכה: ג׳ נרות,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 4 Candles,חנוכה: ד׳ נרות,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 5 Candles,חנוכה: ה׳ נרות,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 6 Candles,חנוכה: ו׳ נרות,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 7 Candles,חנוכה: ז׳ נרות,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 8 Candles,חנוכה: ח׳ נרות,NUMBERED,Chanukah,Contains numeric variations
+holiday,Chanukah: 8th Day,חנוכה: יום ח׳,COMBINED,Chanukah: 8th Day,""
+holiday,Erev Pesach,ערב פסח,EXACT,Erev Pesach,""
+holiday,Erev Purim,ערב פורים,EXACT,Erev Purim,""
+holiday,Erev Purim,��רב פורים,EXACT,Erev Purim,""
+holiday,Erev Rosh Hashana,ערב ראש השנה,EXACT,Erev Rosh Hashana,""
+holiday,Erev Shavuot,ערב שבועות,EXACT,Erev Shavuot,""
+holiday,Erev Sukkot,ערב סוכות,EXACT,Erev Sukkot,""
+holiday,Erev Tish’a B’Av,ערב תשעה באב,EXACT,Erev Tish’a B’Av,""
+holiday,Erev Yom Kippur,ערב יום כפור,EXACT,Erev Yom Kippur,""
+holiday,Lag BaOmer,ל״ג בעומר,EXACT,Lag BaOmer,""
+holiday,Leil Selichot,סליחות,EXACT,Leil Selichot,""
+holiday,Pesach I,פסח א׳,EXACT,Pesach I,""
+holiday,Pesach II,פסח ב׳,EXACT,Pesach II,""
+holiday,Pesach III (CH’’M),פסח ג׳ (חוה״מ),EXACT,Pesach III,""
+holiday,Pesach IV (CH’’M),פסח ד׳ (חוה״מ),EXACT,Pesach IV,""
+holiday,Pesach Sheni,פסח שני,EXACT,Pesach Sheni,""
+holiday,Pesach V (CH’’M),פסח ה׳ (חוה״מ),EXACT,Pesach V,""
+holiday,Pesach VI (CH’’M),פסח ו׳ (חוה״מ),EXACT,Pesach VI,""
+holiday,Pesach VII,פסח ז׳,EXACT,Pesach VII,""
+holiday,Pesach VIII,פסח ח׳,EXACT,Pesach VIII,""
+holiday,Purim,פורים,EXACT,Purim,""
+holiday,Purim Katan,פורים קטן,EXACT,Purim Katan,""
+holiday,Purim Meshulash,פורים משולש,EXACT,Purim Meshulash,""
+holiday,Rosh Hashana 5781,ראש השנה 5781,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5782,ראש השנה 5782,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5783,ראש השנה 5783,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5784,ראש השנה 5784,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5785,ראש השנה 5785,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5786,ראש השנה 5786,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5787,ראש השנה 5787,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5788,ראש השנה 5788,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5789,ראש השנה 5789,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5790,ראש השנה 5790,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana 5791,ראש השנה 5791,YEARLY,Rosh Hashana,""
+holiday,Rosh Hashana II,ראש השנה ב׳,EXACT,Rosh Hashana II,""
+holiday,Rosh Hashana LaBehemot,ראש השנה למעשר בהמה,EXACT,Rosh Hashana LaBehemot,""
+holiday,Shabbat Chazon,שבת חזון,EXACT,Shabbat Chazon,""
+holiday,Shabbat HaChodesh,שבת החדש,EXACT,Shabbat HaChodesh,""
+holiday,Shabbat HaGadol,שבת הגדול,EXACT,Shabbat HaGadol,""
+holiday,Shabbat Nachamu,שבת נחמו,EXACT,Shabbat Nachamu,""
+holiday,Shabbat Parah,שבת פרה,EXACT,Shabbat Parah,""
+holiday,Shabbat Shekalim,שבת שקלים,EXACT,Shabbat Shekalim,""
+holiday,Shabbat Shirah,שבת שירה,EXACT,Shabbat Shirah,""
+holiday,Shabbat Shuva,שבת שובה,EXACT,Shabbat Shuva,""
+holiday,Shabbat Zachor,שבת זכור,EXACT,Shabbat Zachor,""
+holiday,Shavuot I,שבועות א׳,EXACT,Shavuot I,""
+holiday,Shavuot II,שבועות ב׳,EXACT,Shavuot II,""
+holiday,Shmini Atzeret,שמיני עצרת,EXACT,Shmini Atzeret,""
+holiday,Shushan Purim,שושן פורים,EXACT,Shushan Purim,""
+holiday,Shushan Purim Katan,שושן פורים קטן,EXACT,Shushan Purim Katan,""
+holiday,Sigd,חג הסיגד,EXACT,Sigd,""
+holiday,Simchat Torah,שמחת תורה,EXACT,Simchat Torah,""
+holiday,Sukkot I,סוכות א׳,EXACT,Sukkot I,""
+holiday,Sukkot II,סוכות ב׳,EXACT,Sukkot II,""
+holiday,Sukkot III (CH’’M),סוכות ג׳ (חוה״מ),EXACT,Sukkot III,""
+holiday,Sukkot IV (CH’’M),סוכות ד׳ (חוה״מ),EXACT,Sukkot IV,""
+holiday,Sukkot V (CH’’M),סוכות ה׳ (חוה״מ),EXACT,Sukkot V,""
+holiday,Sukkot VI (CH’’M),סוכות ו׳ (חוה״מ),EXACT,Sukkot VI,""
+holiday,Sukkot VII (Hoshana Raba),סוכות ז׳ (הושענא רבה),EXACT,Sukkot VII,""
+holiday,Ta’anit Bechorot,תענית בכורות,EXACT,Ta’anit Bechorot,""
+holiday,Ta’anit Esther,תענית אסתר,EXACT,Ta’anit Esther,""
+holiday,Tish’a B’Av,תשעה באב,EXACT,Tish’a B’Av,""
+holiday,Tish’a B’Av,ת��עה באב,EXACT,Tish’a B’Av,""
+holiday,Tish’a B’Av (observed),(תשעה באב (נדחה,EXACT,Tish’a B’Av,""
+holiday,Tu B’Av,ט״ו באב,EXACT,Tu B’Av,""
+holiday,Tu BiShvat,ט״ו בשבט,EXACT,Tu BiShvat,""
+holiday,Tzom Gedaliah,צום גדליה,EXACT,Tzom Gedaliah,""
+holiday,Tzom Tammuz,צום י״ז בתמוז,EXACT,Tzom Tammuz,""
+holiday,Yom HaAliyah,יום העליה,EXACT,Yom HaAliyah,""
+holiday,Yom HaAtzma’ut,יום העצמאות,EXACT,Yom HaAtzma’ut,""
+holiday,Yom HaShoah,יום השואה,EXACT,Yom HaShoah,""
+holiday,Yom HaZikaron,יום הזכרון,EXACT,Yom HaZikaron,""
+holiday,Yom Kippur,יום כפור,EXACT,Yom Kippur,""
+holiday,Yom Yerushalayim,יום ירושלים,EXACT,Yom Yerushalayim,""
+mevarchim,Mevarchim Chodesh Adar,מברכים חודש אדר,EXACT,Mevarchim Chodesh Adar,""
+mevarchim,Mevarchim Chodesh Adar I,מברכים חודש אדר א׳,EXACT,Mevarchim Chodesh Adar I,""
+mevarchim,Mevarchim Chodesh Adar II,מברכים חודש אדר ב׳,EXACT,Mevarchim Chodesh Adar II,""
+mevarchim,Mevarchim Chodesh Av,מברכים חודש אב,EXACT,Mevarchim Chodesh Av,""
+mevarchim,Mevarchim Chodesh Cheshvan,מברכים חודש חשון,EXACT,Mevarchim Chodesh Cheshvan,""
+mevarchim,Mevarchim Chodesh Elul,מברכים חודש אלול,EXACT,Mevarchim Chodesh Elul,""
+mevarchim,Mevarchim Chodesh Iyyar,מברכים חודש אייר,EXACT,Mevarchim Chodesh Iyyar,""
+mevarchim,Mevarchim Chodesh Kislev,מברכים חודש כסלו,EXACT,Mevarchim Chodesh Kislev,""
+mevarchim,Mevarchim Chodesh Nisan,מברכים חודש ניסן,EXACT,Mevarchim Chodesh Nisan,""
+mevarchim,Mevarchim Chodesh Sh’vat,מברכים חודש שבט,EXACT,Mevarchim Chodesh Sh’vat,""
+mevarchim,Mevarchim Chodesh Sivan,מברכים חודש סיון,EXACT,Mevarchim Chodesh Sivan,""
+mevarchim,Mevarchim Chodesh Tamuz,מברכים חודש תמוז,EXACT,Mevarchim Chodesh Tamuz,""
+mevarchim,Mevarchim Chodesh Tevet,מברכים חודש טבת,EXACT,Mevarchim Chodesh Tevet,""
+parashat,Parashat Achrei Mot,פרשת אחרי מות,PARASHAT,Achrei Mot,Weekly Torah portion
+parashat,Parashat Achrei Mot-Kedoshim,פרשת אחרי מות-קדשים,PARASHAT,Achrei Mot-Kedoshim,Weekly Torah portion
+parashat,Parashat Balak,פרשת בלק,PARASHAT,Balak,Weekly Torah portion
+parashat,Parashat Bamidbar,פרשת במדבר,PARASHAT,Bamidbar,Weekly Torah portion
+parashat,Parashat Bechukotai,פרשת בחקתי,PARASHAT,Bechukotai,Weekly Torah portion
+parashat,Parashat Beha’alotcha,פרשת בהעלתך,PARASHAT,Beha’alotcha,Weekly Torah portion
+parashat,Parashat Behar,פרשת בהר,PARASHAT,Behar,Weekly Torah portion
+parashat,Parashat Behar-Bechukotai,פרשת בהר-בחקתי,PARASHAT,Behar-Bechukotai,Weekly Torah portion
+parashat,Parashat Bereshit,פרשת בראשית,PARASHAT,Bereshit,Weekly Torah portion
+parashat,Parashat Beshalach,פרשת בשלח,PARASHAT,Beshalach,Weekly Torah portion
+parashat,Parashat Bo,פרשת בא,PARASHAT,Bo,Weekly Torah portion
+parashat,Parashat Chayei Sara,פרשת חיי שרה,PARASHAT,Chayei Sara,Weekly Torah portion
+parashat,Parashat Chayei Sara,פרשת חיי ש��ה,PARASHAT,Chayei Sara,Weekly Torah portion
+parashat,Parashat Chukat,פרשת חוקת,PARASHAT,Chukat,Weekly Torah portion
+parashat,Parashat Chukat-Balak,פרשת חוקת-בלק,PARASHAT,Chukat-Balak,Weekly Torah portion
+parashat,Parashat Devarim,פרשת דברים,PARASHAT,Devarim,Weekly Torah portion
+parashat,Parashat Eikev,פרשת עקב,PARASHAT,Eikev,Weekly Torah portion
+parashat,Parashat Emor,פרשת אמור,PARASHAT,Emor,Weekly Torah portion
+parashat,Parashat Ha’azinu,פרשת האזינו,PARASHAT,Ha’azinu,Weekly Torah portion
+parashat,Parashat Kedoshim,פרשת קדשים,PARASHAT,Kedoshim,Weekly Torah portion
+parashat,Parashat Ki Tavo,פרשת כי־תבוא,PARASHAT,Ki Tavo,Weekly Torah portion
+parashat,Parashat Ki Teitzei,פרשת כי־תצא,PARASHAT,Ki Teitzei,Weekly Torah portion
+parashat,Parashat Ki Tisa,פרשת כי תשא,PARASHAT,Ki Tisa,Weekly Torah portion
+parashat,Parashat Korach,פרשת קורח,PARASHAT,Korach,Weekly Torah portion
+parashat,Parashat Lech-Lecha,פרשת לך־לך,PARASHAT,Lech-Lecha,Weekly Torah portion
+parashat,Parashat Matot-Masei,פרשת מטות-מסעי,PARASHAT,Matot-Masei,Weekly Torah portion
+parashat,Parashat Metzora,פרשת מצרע,PARASHAT,Metzora,Weekly Torah portion
+parashat,Parashat Miketz,פרשת מקץ,PARASHAT,Miketz,Weekly Torah portion
+parashat,Parashat Mishpatim,פרשת משפטים,PARASHAT,Mishpatim,Weekly Torah portion
+parashat,Parashat Nasso,פרשת נשא,PARASHAT,Nasso,Weekly Torah portion
+parashat,Parashat Nitzavim,פרשת נצבים,PARASHAT,Nitzavim,Weekly Torah portion
+parashat,Parashat Nitzavim-Vayeilech,פרשת נצבים-וילך,PARASHAT,Nitzavim-Vayeilech,Weekly Torah portion
+parashat,Parashat Noach,פרשת נח,PARASHAT,Noach,Weekly Torah portion
+parashat,Parashat Pekudei,פרשת פקודי,PARASHAT,Pekudei,Weekly Torah portion
+parashat,Parashat Pinchas,פרשת פינחס,PARASHAT,Pinchas,Weekly Torah portion
+parashat,Parashat Re’eh,פרשת ראה,PARASHAT,Re’eh,Weekly Torah portion
+parashat,Parashat Sh’lach,פרשת שלח־לך,PARASHAT,Sh’lach,Weekly Torah portion
+parashat,Parashat Shemot,פרשת שמות,PARASHAT,Shemot,Weekly Torah portion
+parashat,Parashat Shmini,פרשת שמיני,PARASHAT,Shmini,Weekly Torah portion
+parashat,Parashat Shoftim,פרשת שופטים,PARASHAT,Shoftim,Weekly Torah portion
+parashat,Parashat Tazria,פרשת תזריע,PARASHAT,Tazria,Weekly Torah portion
+parashat,Parashat Tazria-Metzora,פרשת תזריע-מצרע,PARASHAT,Tazria-Metzora,Weekly Torah portion
+parashat,Parashat Terumah,פרשת תרומה,PARASHAT,Terumah,Weekly Torah portion
+parashat,Parashat Tetzaveh,פרשת תצוה,PARASHAT,Tetzaveh,Weekly Torah portion
+parashat,Parashat Toldot,פרשת תולדות,PARASHAT,Toldot,Weekly Torah portion
+parashat,Parashat Tzav,פרשת צו,PARASHAT,Tzav,Weekly Torah portion
+parashat,Parashat Vaera,פרשת וארא,PARASHAT,Vaera,Weekly Torah portion
+parashat,Parashat Vaetchanan,פרשת ואתחנן,PARASHAT,Vaetchanan,Weekly Torah portion
+parashat,Parashat Vayakhel,פרשת ויקהל,PARASHAT,Vayakhel,Weekly Torah portion
+parashat,Parashat Vayakhel-Pekudei,פרשת ויקהל-פקודי,PARASHAT,Vayakhel-Pekudei,Weekly Torah portion
+parashat,Parashat Vayechi,פרשת ויחי,PARASHAT,Vayechi,Weekly Torah portion
+parashat,Parashat Vayeilech,פרשת וילך,PARASHAT,Vayeilech,Weekly Torah portion
+parashat,Parashat Vayera,פרשת וירא,PARASHAT,Vayera,Weekly Torah portion
+parashat,Parashat Vayeshev,פרשת וישב,PARASHAT,Vayeshev,Weekly Torah portion
+parashat,Parashat Vayetzei,פרשת ויצא,PARASHAT,Vayetzei,Weekly Torah portion
+parashat,Parashat Vayigash,פרשת ויגש,PARASHAT,Vayigash,Weekly Torah portion
+parashat,Parashat Vayikra,פרשת ויקרא,PARASHAT,Vayikra,Weekly Torah portion
+parashat,Parashat Vayishlach,פרשת וישלח,PARASHAT,Vayishlach,Weekly Torah portion
+parashat,Parashat Yitro,פרשת יתרו,PARASHAT,Yitro,Weekly Torah portion
+roshchodesh,Rosh Chodesh Adar,ראש חודש אדר,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Adar I,ראש חודש אדר א׳,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Adar II,ראש חודש אדר ב׳,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Av,ראש חודש אב,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Cheshvan,ראש חודש חשון,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Elul,ראש חודש אלול,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Iyyar,ראש חודש אייר,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Kislev,ראש חודש כסלו,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Nisan,ראש חודש ניסן,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Sh’vat,ראש חודש שבט,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Sivan,ראש חודש סיון,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Tamuz,ראש חודש תמוז,MONTHLY,Rosh Chodesh,Monthly recurring event
+roshchodesh,Rosh Chodesh Tevet,ראש חודש טבת,MONTHLY,Rosh Chodesh,Monthly recurring event

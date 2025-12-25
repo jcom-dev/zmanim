@@ -519,6 +519,38 @@ func PDFHTMLTemplate() string {
             font-weight: 600;
         }
 
+        /* Rounding Badge */
+        .rounding-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .rounding-ceil {
+            background: rgba(239, 68, 68, 0.1);
+            color: #DC2626;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .rounding-floor {
+            background: rgba(34, 197, 94, 0.1);
+            color: #16A34A;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .rounding-math {
+            background: rgba(107, 114, 128, 0.1);
+            color: var(--gray-500);
+            border: 1px solid rgba(107, 114, 128, 0.3);
+        }
+
         /* Formula Cell */
         .formula-cell {
             min-width: 200px;
@@ -617,9 +649,49 @@ func PDFHTMLTemplate() string {
             white-space: nowrap;
         }
 
+        /* Tag type colors */
+        .tag-badge.tag-type-event {
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: #93c5fd;
+        }
+
+        .tag-badge.tag-type-jewish_day {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #fcd34d;
+        }
+
+        .tag-badge.tag-type-timing {
+            background: #d1fae5;
+            color: #065f46;
+            border-color: #6ee7b7;
+        }
+
+        .tag-badge.tag-type-shita {
+            background: #ede9fe;
+            color: #5b21b6;
+            border-color: #c4b5fd;
+        }
+
+        .tag-badge.tag-type-category {
+            background: #fce7f3;
+            color: #9d174d;
+            border-color: #f9a8d4;
+        }
+
         .tag-badge.tag-negated {
             text-decoration: line-through;
-            opacity: 0.7;
+            border: 2px solid var(--error-600) !important;
+            position: relative;
+        }
+
+        .tag-badge.tag-negated::before {
+            content: "✕";
+            font-size: 8px;
+            color: var(--error-600);
+            margin-right: 2px;
+            font-weight: 700;
         }
 
         /* Glossary Section */
@@ -924,7 +996,7 @@ func PDFHTMLTemplate() string {
                                 {{if .Tags}}
                                 <div class="tags-group">
                                     {{range .Tags}}
-                                    <span class="tag-badge {{if .Color}}custom-color{{end}}"{{if .Color}} style="background-color: {{.Color}}22; border-color: {{.Color}}; color: {{.Color}};"{{end}}>
+                                    <span class="tag-badge tag-type-{{.TagType}}{{if .Color}} custom-color{{end}}"{{if .Color}} style="background-color: {{.Color}}22; border-color: {{.Color}}; color: {{.Color}};"{{end}}>
                                         {{.DisplayNameEnglish}}{{if .IsModified}}*{{end}}
                                     </span>
                                     {{end}}
@@ -934,7 +1006,7 @@ func PDFHTMLTemplate() string {
                                 <div class="tags-group negated-tags">
                                     <span class="negated-label">NOT:</span>
                                     {{range .NegatedTags}}
-                                    <span class="tag-badge tag-negated {{if .Color}}custom-color{{end}}"{{if .Color}} style="background-color: {{.Color}}22; border-color: {{.Color}}; color: {{.Color}}; opacity: 0.6;"{{end}}>
+                                    <span class="tag-badge tag-type-{{.TagType}} tag-negated{{if .Color}} custom-color{{end}}"{{if .Color}} style="background-color: {{.Color}}22; border-color: {{.Color}}; color: {{.Color}}; opacity: 0.6;"{{end}}>
                                         {{.DisplayNameEnglish}}{{if .IsModified}}*{{end}}
                                     </span>
                                     {{end}}
@@ -948,7 +1020,7 @@ func PDFHTMLTemplate() string {
                             <div class="time-rounded time-error">Error</div>
                             {{else}}
                             <div class="time-calculated">{{.CalculatedTime}}</div>
-                            <div class="time-rounded">{{.RoundedTime}}</div>
+                            <div class="time-rounded">{{.RoundedTime}}<span class="rounding-badge rounding-{{.RoundingMode}}" title="{{.RoundingLabel}}">{{.RoundingIcon}}</span></div>
                             {{end}}
                         </td>
                         <td class="formula-cell">

@@ -1,10 +1,13 @@
 package calendar
 
 import (
+	"context"
+	"log/slog"
 	"time"
 
 	"github.com/hebcal/hdate"
 	"github.com/hebcal/hebcal-go/hebcal"
+	"github.com/hebcal/hebcal-go/locales"
 )
 
 // JewishEvent represents a Jewish event from our database model
@@ -62,7 +65,8 @@ func IsLocationInIsrael(lat, lon float64) bool {
 }
 
 // GetEventDayInfo returns comprehensive event information for a date and location
-func (s *CalendarService) GetEventDayInfo(date time.Time, loc Location) EventDayInfo {
+// transliterationStyle: "ashkenazi" for Ashkenazi transliterations, "sephardi" or "" for Sephardi (default)
+func (s *CalendarService) GetEventDayInfo(date time.Time, loc Location, transliterationStyle string) EventDayInfo {
 	hd := s.GetHebrewDate(date)
 	dow := int(date.Weekday())
 	holidays := s.GetHolidays(date)
@@ -87,9 +91,9 @@ func (s *CalendarService) GetEventDayInfo(date time.Time, loc Location) EventDay
 	}
 
 	// Get active events, erev events, and motzei events
-	info.ActiveEvents = s.getActiveEvents(date, loc)
-	info.ErevEvents = s.getErevEvents(date, loc)
-	info.MoetzeiEvents = s.getMoetzeiEvents(date, loc)
+	info.ActiveEvents = s.getActiveEvents(date, loc, transliterationStyle)
+	info.ErevEvents = s.getErevEvents(date, loc, transliterationStyle)
+	info.MoetzeiEvents = s.getMoetzeiEvents(date, loc, transliterationStyle)
 
 	// Detect special contexts
 	info.SpecialContexts = s.detectSpecialContexts(date, loc, &info)
@@ -98,56 +102,65 @@ func (s *CalendarService) GetEventDayInfo(date time.Time, loc Location) EventDay
 }
 
 // getActiveEvents returns events that are active on the given date
-func (s *CalendarService) getActiveEvents(date time.Time, loc Location) []ActiveEvent {
+func (s *CalendarService) getActiveEvents(date time.Time, loc Location, transliterationStyle string) []ActiveEvent {
 	var events []ActiveEvent
 	hd := hdate.FromTime(date)
 
-	// Check if it's Shabbat
+	// Check if it's Shabbat (Saturday - the actual day of Shabbos)
 	if date.Weekday() == time.Saturday {
+		shabbatName := getTransliteratedName("Shabbat", transliterationStyle)
 		events = append(events, ActiveEvent{
 			EventCode:   "shabbos",
 			NameHebrew:  "שבת",
-			NameEnglish: "Shabbos",
+			NameEnglish: shabbatName,
 			DayNumber:   1,
 			TotalDays:   1,
 			IsFinalDay:  true,
 		})
 	}
 
-	// Get holidays from hebcal
-	holidays := s.getHebcalEvents(date)
+	// Get holidays from hebcal (now location-aware for candle lighting)
+	holidays := s.getHebcalEventsWithLocation(date, loc.Latitude, loc.Longitude, transliterationStyle)
+	slog.Info("getActiveEvents: retrieved holidays from HebCal",
+		"date", date.Format("2006-01-02"),
+		"holiday_count", len(holidays))
+
 	for _, h := range holidays {
-		if ev := s.holidayToActiveEvent(h, hd, loc); ev != nil {
+		slog.Info("getActiveEvents: processing holiday", "name", h.Name, "category", h.Category)
+		if ev := s.holidayToActiveEvent(h, hd, loc, transliterationStyle); ev != nil {
 			events = append(events, *ev)
+			slog.Info("getActiveEvents: added active event", "event_code", ev.EventCode)
 		}
 	}
 
+	slog.Info("getActiveEvents: final event count", "count", len(events))
 	return events
 }
 
 // getErevEvents returns events starting tonight (for day_before display)
-func (s *CalendarService) getErevEvents(date time.Time, loc Location) []ActiveEvent {
+func (s *CalendarService) getErevEvents(date time.Time, loc Location, transliterationStyle string) []ActiveEvent {
 	var events []ActiveEvent
 
-	// Check if tomorrow is Shabbat (today is Friday = erev Shabbos)
-	if date.Weekday() == time.Friday {
+	// Check if tomorrow is Shabbat (erev Shabbos today)
+	tomorrow := date.AddDate(0, 0, 1)
+	if tomorrow.Weekday() == time.Saturday {
+		erevShabbosName := getTransliteratedName("Erev Shabbat", transliterationStyle)
 		events = append(events, ActiveEvent{
-			EventCode:   "shabbos",
-			NameHebrew:  "שבת",
-			NameEnglish: "Shabbos",
+			EventCode:   "erev_shabbos",
+			NameHebrew:  "ערב שבת",
+			NameEnglish: erevShabbosName,
 			DayNumber:   1,
 			TotalDays:   1,
 			IsFinalDay:  true,
 		})
 	}
 
-	// Check tomorrow's holidays
-	tomorrow := date.AddDate(0, 0, 1)
-	tomorrowHolidays := s.getHebcalEvents(tomorrow)
+	// Check tomorrow's holidays (tag-driven approach)
+	tomorrowHolidays := s.getHebcalEventsWithLocation(tomorrow, loc.Latitude, loc.Longitude, transliterationStyle)
 	hdTomorrow := hdate.FromTime(tomorrow)
 
 	for _, h := range tomorrowHolidays {
-		ev := s.holidayToActiveEvent(h, hdTomorrow, loc)
+		ev := s.holidayToActiveEvent(h, hdTomorrow, loc, transliterationStyle)
 		if ev != nil && ev.DayNumber == 1 {
 			// Only include if it's the first day of the event
 			events = append(events, *ev)
@@ -158,14 +171,14 @@ func (s *CalendarService) getErevEvents(date time.Time, loc Location) []ActiveEv
 }
 
 // getMoetzeiEvents returns events ending tonight (for day_of display like havdalah)
-func (s *CalendarService) getMoetzeiEvents(date time.Time, loc Location) []ActiveEvent {
+func (s *CalendarService) getMoetzeiEvents(date time.Time, loc Location, transliterationStyle string) []ActiveEvent {
 	var events []ActiveEvent
 
 	// Check if today is Shabbat (motzei Shabbos tonight)
 	if date.Weekday() == time.Saturday {
 		// Check if there's no Yom Tov immediately following
 		tomorrow := date.AddDate(0, 0, 1)
-		tomorrowHolidays := s.getHebcalEvents(tomorrow)
+		tomorrowHolidays := s.getHebcalEventsWithLocation(tomorrow, loc.Latitude, loc.Longitude, transliterationStyle)
 		hasYomTovTomorrow := false
 		for _, h := range tomorrowHolidays {
 			if h.Yomtov {
@@ -175,10 +188,11 @@ func (s *CalendarService) getMoetzeiEvents(date time.Time, loc Location) []Activ
 		}
 
 		if !hasYomTovTomorrow {
+			shabbatName := getTransliteratedName("Shabbat", transliterationStyle)
 			events = append(events, ActiveEvent{
 				EventCode:   "shabbos",
 				NameHebrew:  "שבת",
-				NameEnglish: "Shabbos",
+				NameEnglish: shabbatName,
 				DayNumber:   1,
 				TotalDays:   1,
 				IsFinalDay:  true,
@@ -188,9 +202,9 @@ func (s *CalendarService) getMoetzeiEvents(date time.Time, loc Location) []Activ
 
 	// Check for Yom Tov or fast ending
 	hd := hdate.FromTime(date)
-	holidays := s.getHebcalEvents(date)
+	holidays := s.getHebcalEventsWithLocation(date, loc.Latitude, loc.Longitude, transliterationStyle)
 	for _, h := range holidays {
-		ev := s.holidayToActiveEvent(h, hd, loc)
+		ev := s.holidayToActiveEvent(h, hd, loc, transliterationStyle)
 		if ev != nil && ev.IsFinalDay {
 			events = append(events, *ev)
 		}
@@ -199,15 +213,17 @@ func (s *CalendarService) getMoetzeiEvents(date time.Time, loc Location) []Activ
 	return events
 }
 
-// detectSpecialContexts identifies special situations
+// detectSpecialContexts identifies special situations using HebCal event flags
 func (s *CalendarService) detectSpecialContexts(date time.Time, loc Location, info *EventDayInfo) []string {
 	var contexts []string
 
 	// Check for Shabbos going into Yom Tov
-	if date.Weekday() == time.Saturday {
-		// Check if there's a Yom Tov starting tonight
-		for _, erev := range info.ErevEvents {
-			if erev.EventCode != "shabbos" && isYomTovEvent(erev.EventCode) {
+	if date.Weekday() == time.Saturday && len(info.ErevEvents) > 0 {
+		// Check if any erev event tomorrow is a Yom Tov
+		tomorrow := date.AddDate(0, 0, 1)
+		tomorrowHolidays := s.GetHolidays(tomorrow)
+		for _, h := range tomorrowHolidays {
+			if h.Yomtov {
 				contexts = append(contexts, "shabbos_to_yomtov")
 				break
 			}
@@ -215,7 +231,7 @@ func (s *CalendarService) detectSpecialContexts(date time.Time, loc Location, in
 	}
 
 	// Check for Yom Tov Sheni (Day 2 in Diaspora)
-	if !loc.IsIsrael {
+	if !loc.IsIsrael && len(info.ActiveEvents) > 0 {
 		for _, active := range info.ActiveEvents {
 			if active.DayNumber == 2 && active.TotalDays == 2 {
 				contexts = append(contexts, "yomtov_day2")
@@ -225,16 +241,11 @@ func (s *CalendarService) detectSpecialContexts(date time.Time, loc Location, in
 	}
 
 	// Check for consecutive Yom Tov days (YT to YT)
-	todayHasYomTov := false
-	for _, active := range info.ActiveEvents {
-		if isYomTovEvent(active.EventCode) {
-			todayHasYomTov = true
-			break
-		}
-	}
-	if todayHasYomTov {
-		for _, erev := range info.ErevEvents {
-			if isYomTovEvent(erev.EventCode) && erev.EventCode != "shabbos" {
+	if info.IsYomTov && len(info.ErevEvents) > 0 {
+		tomorrow := date.AddDate(0, 0, 1)
+		tomorrowHolidays := s.GetHolidays(tomorrow)
+		for _, h := range tomorrowHolidays {
+			if h.Yomtov {
 				contexts = append(contexts, "yomtov_to_yomtov")
 				break
 			}
@@ -244,7 +255,7 @@ func (s *CalendarService) detectSpecialContexts(date time.Time, loc Location, in
 	return contexts
 }
 
-// getHebcalEvents gets raw hebcal events for a date
+// getHebcalEvents gets raw hebcal events for a date (without location - legacy)
 func (s *CalendarService) getHebcalEvents(date time.Time) []Holiday {
 	hd := hdate.FromTime(date)
 	year := hd.Year()
@@ -275,158 +286,203 @@ func (s *CalendarService) getHebcalEvents(date time.Time) []Holiday {
 	return holidays
 }
 
-// holidayToActiveEvent converts a Holiday to ActiveEvent
-func (s *CalendarService) holidayToActiveEvent(h Holiday, hd hdate.HDate, loc Location) *ActiveEvent {
-	// Map holiday names to our event codes
-	code, dayNum, totalDays := mapHolidayToEventCode(h.Name, hd, loc.IsIsrael)
-	if code == "" {
+// getHebcalEventsWithLocation gets raw hebcal events for a date with location for candle lighting
+func (s *CalendarService) getHebcalEventsWithLocation(date time.Time, lat, lon float64, transliterationStyle string) []Holiday {
+	// Use HebCal REST API to get events with candle lighting times
+	client := NewClient()
+	ctx := context.Background()
+
+	hebcalEvents, err := client.GetEvents(ctx, date, lat, lon, transliterationStyle)
+	if err != nil {
+		slog.Warn("failed to fetch hebcal events from REST API, falling back to library",
+			"error", err,
+			"date", date.Format("2006-01-02"))
+		// Fallback to library version (no candle lighting)
+		return s.getHebcalEvents(date)
+	}
+
+	// Convert HebCalEvent to Holiday format
+	var holidays []Holiday
+	for _, ev := range hebcalEvents {
+		holidays = append(holidays, Holiday{
+			Name:           ev.Title,
+			NameHebrew:     ev.Hebrew,
+			HebcalOriginal: ev.Title, // Store original for pattern matching
+			Category:       ev.Category,
+			Yomtov:         ev.YomTov,
+			// Note: Date field not needed for event matching
+		})
+	}
+
+	slog.Info("getHebcalEventsWithLocation: fetched events from REST API",
+		"date", date.Format("2006-01-02"),
+		"count", len(holidays))
+
+	return holidays
+}
+
+// holidayToActiveEvent converts a Holiday to ActiveEvent using database-driven event mapping
+func (s *CalendarService) holidayToActiveEvent(h Holiday, hd hdate.HDate, loc Location, transliterationStyle string) *ActiveEvent {
+	// If no database is configured, return nil (service operates in standalone mode)
+	if s.db == nil {
+		slog.Warn("holidayToActiveEvent: database adapter is nil, cannot match events")
 		return nil
 	}
 
-	fastStartType := ""
-	if h.Category == "fast" {
-		fastStartType = getFastStartType(code)
+	// Use original HebCal name for database matching (before transformation)
+	// This ensures "Chanukah: 1 Candle" matches the database pattern "^Chanukah:"
+	hebcalName := h.HebcalOriginal
+	if hebcalName == "" {
+		// Fallback to transformed name if original not available
+		hebcalName = h.Name
 	}
+
+	slog.Info("holidayToActiveEvent: attempting to match HebCal event",
+		"hebcal_original", h.HebcalOriginal,
+		"hebcal_name", hebcalName,
+		"category", h.Category,
+		"yomtov", h.Yomtov)
+
+	// Query database for matching tag using HebCal event name and category
+	tagMatch, metadata, err := s.GetEventCodeFromHebcal(hebcalName, h.Category, hd, loc.IsIsrael)
+	if err != nil {
+		// Error during matching - log and skip
+		slog.Warn("hebcal event matching error", "event", hebcalName, "error", err)
+		return nil
+	}
+	if tagMatch == nil {
+		// No match found - skip this event (this is normal for unmapped events)
+		slog.Debug("no database match found for hebcal event", "event", hebcalName, "category", h.Category)
+		return nil
+	}
+
+	slog.Info("holidayToActiveEvent: matched event to tag",
+		"hebcal_event", hebcalName,
+		"tag_key", tagMatch.TagKey,
+		"hebrew_name", tagMatch.DisplayNameHebrew)
+
+	// Select appropriate English name based on transliteration style
+	englishName := tagMatch.DisplayNameEnglishAshkenazi
+	if transliterationStyle == "sephardi" && tagMatch.DisplayNameEnglishSephardi != nil {
+		englishName = *tagMatch.DisplayNameEnglishSephardi
+	}
+
+	// Determine total days based on location (Israel vs Diaspora)
+	totalDays := metadata.DurationDaysIsrael
+	if !loc.IsIsrael {
+		totalDays = metadata.DurationDaysDiaspora
+	}
+
+	// Extract day number from ORIGINAL event title (e.g., "Chanukah: 3 Candles" or "Pesach II" -> day number)
+	dayNumber := extractDayNumber(hebcalName, totalDays)
+
+	// Determine if this is the final day
+	isFinalDay := (dayNumber == totalDays)
 
 	return &ActiveEvent{
-		EventCode:     code,
-		NameHebrew:    h.NameHebrew,
-		NameEnglish:   h.Name,
-		DayNumber:     dayNum,
+		EventCode:     tagMatch.TagKey,
+		NameHebrew:    tagMatch.DisplayNameHebrew,
+		NameEnglish:   englishName,
+		DayNumber:     dayNumber,
 		TotalDays:     totalDays,
-		IsFinalDay:    dayNum == totalDays,
-		FastStartType: fastStartType,
+		IsFinalDay:    isFinalDay,
+		FastStartType: metadata.FastStartType,
 	}
 }
 
-// mapHolidayToEventCode maps hebcal holiday name to our event code
-func mapHolidayToEventCode(name string, hd hdate.HDate, isIsrael bool) (code string, dayNum, totalDays int) {
-	// This is a simplified mapping - would need to be more comprehensive
-	switch {
-	case contains(name, "Rosh Hashana"):
-		if contains(name, "I") && !contains(name, "II") {
-			return "rosh_hashanah", 1, 2
-		}
-		return "rosh_hashanah", 2, 2
-
-	case contains(name, "Yom Kippur"):
-		return "yom_kippur", 1, 1
-
-	case contains(name, "Sukkot") && (contains(name, "I") || contains(name, "II")):
-		if isIsrael {
-			return "sukkos", 1, 1
-		}
-		if contains(name, "I") && !contains(name, "II") {
-			return "sukkos", 1, 2
-		}
-		return "sukkos", 2, 2
-
-	case contains(name, "Sukkot") && contains(name, "Chol ha-Moed"):
-		return "chol_hamoed_sukkos", 1, 1
-
-	case contains(name, "Hoshana Raba"):
-		return "hoshanah_rabbah", 1, 1
-
-	case contains(name, "Shmini Atzeret"):
-		if isIsrael {
-			return "shemini_atzeres", 1, 1
-		}
-		return "shemini_atzeres", 1, 2
-
-	case contains(name, "Simchat Torah"):
-		if isIsrael {
-			return "shemini_atzeres", 1, 1 // Same day in Israel
-		}
-		return "shemini_atzeres", 2, 2
-
-	case contains(name, "Pesach") && (contains(name, "I") || contains(name, "II")):
-		if isIsrael {
-			if contains(name, "VII") {
-				return "pesach_last", 1, 1
-			}
-			return "pesach_first", 1, 1
-		}
-		if contains(name, "VII") || contains(name, "VIII") {
-			if contains(name, "VII") {
-				return "pesach_last", 1, 2
-			}
-			return "pesach_last", 2, 2
-		}
-		if contains(name, "I") && !contains(name, "II") {
-			return "pesach_first", 1, 2
-		}
-		return "pesach_first", 2, 2
-
-	case contains(name, "Pesach") && contains(name, "Chol ha-Moed"):
-		return "chol_hamoed_pesach", 1, 1
-
-	case contains(name, "Shavuot"):
-		if isIsrael {
-			return "shavuos", 1, 1
-		}
-		if contains(name, "I") && !contains(name, "II") {
-			return "shavuos", 1, 2
-		}
-		if contains(name, "II") {
-			return "shavuos", 2, 2
-		}
-		return "shavuos", 1, 2
-
-	case contains(name, "Tish'a B'Av"):
-		return "tisha_bav", 1, 1
-
-	case contains(name, "Tzom Gedaliah"):
-		return "tzom_gedaliah", 1, 1
-
-	case contains(name, "Asara B'Tevet"):
-		return "asarah_bteves", 1, 1
-
-	case contains(name, "Ta'anit Esther"):
-		return "taanis_esther", 1, 1
-
-	case contains(name, "Tzom Tammuz"), contains(name, "17 of Tamuz"):
-		return "shiva_asar_btamuz", 1, 1
-
-	case contains(name, "Rosh Chodesh"):
-		return "rosh_chodesh", 1, 1
-
-	case contains(name, "Chanukah"):
-		return "chanukah", hd.Day(), 8 // Simplified
-
-	case contains(name, "Purim") && !contains(name, "Shushan"):
-		return "purim", 1, 1
-
-	case contains(name, "Shushan Purim"):
-		return "shushan_purim", 1, 1
-	}
-
-	return "", 0, 0
+// HebcalTagMatch represents a matched tag from the database
+type HebcalTagMatch struct {
+	TagKey                      string
+	DisplayNameHebrew           string
+	DisplayNameEnglishAshkenazi string
+	DisplayNameEnglishSephardi  *string
 }
 
-// getFastStartType returns the start type for a fast
-func getFastStartType(code string) string {
-	switch code {
-	case "yom_kippur", "tisha_bav":
-		return "sunset"
-	case "tzom_gedaliah", "asarah_bteves", "shiva_asar_btamuz", "taanis_esther":
-		return "dawn"
-	default:
-		return ""
-	}
+// EventMetadata contains additional event information
+type EventMetadata struct {
+	DurationDaysIsrael   int
+	DurationDaysDiaspora int
+	FastStartType        string // "dawn" or "sunset"
 }
 
-// isYomTovEvent checks if an event code is a Yom Tov
-func isYomTovEvent(code string) bool {
-	yomTovCodes := map[string]bool{
-		"rosh_hashanah":   true,
-		"yom_kippur":      true,
-		"sukkos":          true,
-		"shemini_atzeres": true,
-		"pesach_first":    true,
-		"pesach_last":     true,
-		"shavuos":         true,
+// GetEventCodeFromHebcal maps HebCal event name to tag using database pattern matching
+// Returns the tag match and metadata from database, or nil if no match found
+func (s *CalendarService) GetEventCodeFromHebcal(hebcalEventName string, hebcalCategory string, hd hdate.HDate, isIsrael bool) (*HebcalTagMatch, *EventMetadata, error) {
+	// If no database is configured, return nil (service operates in standalone mode)
+	if s.db == nil {
+		return nil, nil, nil
 	}
-	return yomTovCodes[code]
+
+	// Query database for matching tags using the PostgreSQL match_hebcal_event function
+	ctx := context.Background()
+	matches, err := s.db.MatchHebcalEvent(ctx, MatchHebcalEventParams{
+		HebcalTitle:    hebcalEventName,
+		HebcalCategory: hebcalCategory,
+	})
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// If no matches found, return nil
+	if len(matches) == 0 {
+		return nil, nil, nil
+	}
+
+	// Take the first match (database function returns best match first)
+	match := matches[0]
+
+	tagMatch := &HebcalTagMatch{
+		TagKey:                      match.TagKey,
+		DisplayNameHebrew:           match.DisplayNameHebrew,
+		DisplayNameEnglishAshkenazi: match.DisplayNameEnglishAshkenazi,
+		DisplayNameEnglishSephardi:  match.DisplayNameEnglishSephardi,
+	}
+
+	// TODO: Event metadata (duration, fast start type) should come from database
+	// For now, return basic metadata structure
+	metadata := &EventMetadata{
+		DurationDaysIsrael:   1,
+		DurationDaysDiaspora: 1,
+		FastStartType:        "",
+	}
+
+	return tagMatch, metadata, nil
+}
+
+// extractDayNumber extracts the day number from HebCal event names like "Rosh Hashana I", "Pesach II", etc.
+// Returns 1-based day number, defaulting to 1 if no Roman numeral found
+func extractDayNumber(hebcalEventName string, totalDays int) int {
+	// Map of Roman numerals to numbers
+	romanToNum := map[string]int{
+		"I":    1,
+		"II":   2,
+		"III":  3,
+		"IV":   4,
+		"V":    5,
+		"VI":   6,
+		"VII":  7,
+		"VIII": 8,
+	}
+
+	// Check for Roman numerals in the event name
+	for roman, num := range romanToNum {
+		// Look for " I", " II", etc. (with space before to avoid false matches)
+		if contains(hebcalEventName, " "+roman) && num <= totalDays {
+			return num
+		}
+	}
+
+	// Special handling for Chanukah which has day numbers like "Chanukah: 3 Candles"
+	if contains(hebcalEventName, "Chanukah") {
+		// For Chanukah, we can infer from the Hebrew date
+		// Chanukah starts on 25 Kislev and lasts 8 days
+		// This is a simplified approach - could be enhanced if needed
+		return 1
+	}
+
+	// Default to day 1 if no specific day found
+	return 1
 }
 
 // contains is a simple string contains helper
@@ -446,101 +502,54 @@ func containsImpl(s, substr string) bool {
 // GetZmanimContext determines which zmanim should be displayed for a date
 // Returns the context info needed to select appropriate zmanim and display names
 type ZmanimContext struct {
-	ShowDailyZmanim         bool     `json:"show_daily_zmanim"`
-	ShowCandleLighting      bool     `json:"show_candle_lighting"`
-	ShowCandleLightingSheni bool     `json:"show_candle_lighting_sheni"` // After tzeis
-	ShowShabbosYomTovEnds   bool     `json:"show_shabbos_yomtov_ends"`
-	ShowFastStarts          bool     `json:"show_fast_starts"`
-	FastStartType           string   `json:"fast_start_type"` // dawn or sunset
-	ShowFastEnds            bool     `json:"show_fast_ends"`
-	ShowChametzTimes        bool     `json:"show_chametz_times"`
-	DisplayContexts         []string `json:"display_contexts"` // shabbos, yom_tov, yom_kippur, etc.
-	ActiveEventCodes        []string `json:"active_event_codes"`
+	DisplayContexts  []string `json:"display_contexts"`   // DEPRECATED: Use category tags instead. Kept for backward compatibility.
+	ActiveEventCodes []string `json:"active_event_codes"` // Event codes active on this date (includes today, erev, and motzei events)
 }
 
 // GetZmanimContext determines what zmanim to show for a date
-func (s *CalendarService) GetZmanimContext(date time.Time, loc Location) ZmanimContext {
-	info := s.GetEventDayInfo(date, loc)
+// transliterationStyle: "ashkenazi" for Ashkenazi transliterations, "sephardi" or "" for Sephardi (default)
+func (s *CalendarService) GetZmanimContext(date time.Time, loc Location, transliterationStyle string) ZmanimContext {
+	info := s.GetEventDayInfo(date, loc, transliterationStyle)
+
+	slog.Info("GetZmanimContext: received event day info",
+		"date", date.Format("2006-01-02"),
+		"active_events_count", len(info.ActiveEvents),
+		"erev_events_count", len(info.ErevEvents),
+		"moetzei_events_count", len(info.MoetzeiEvents))
 
 	ctx := ZmanimContext{
-		ShowDailyZmanim: true, // Always show daily zmanim
+		ActiveEventCodes: []string{}, // Initialize as empty slice, not nil
 	}
 
-	// Collect active event codes
+	// Collect active event codes from events happening today
 	for _, ev := range info.ActiveEvents {
-		ctx.ActiveEventCodes = append(ctx.ActiveEventCodes, ev.EventCode)
+		ctx.ActiveEventCodes = appendUnique(ctx.ActiveEventCodes, ev.EventCode)
+		slog.Info("GetZmanimContext: added active event", "event_code", ev.EventCode)
 	}
 
-	// Check for candle lighting (erev events)
-	// Also add erev events to ActiveEventCodes so event-tagged zmanim show on erev
+	// Add erev events to ActiveEventCodes (for candle lighting zmanim)
+	// These events are starting tonight, so we need their day_before zmanim
 	for _, erev := range info.ErevEvents {
-		if erev.EventCode == "shabbos" || isYomTovEvent(erev.EventCode) {
-			// Add to active event codes so event-tagged zmanim will show
-			ctx.ActiveEventCodes = appendUnique(ctx.ActiveEventCodes, erev.EventCode)
-
-			// Check if we need regular or sheni candle lighting
-			hasSpecialContext := false
-			for _, sc := range info.SpecialContexts {
-				if sc == "shabbos_to_yomtov" || sc == "yomtov_to_yomtov" || sc == "yomtov_day2" {
-					hasSpecialContext = true
-					break
-				}
-			}
-
-			if hasSpecialContext {
-				ctx.ShowCandleLightingSheni = true
-			} else {
-				ctx.ShowCandleLighting = true
-			}
-
-			if erev.EventCode == "shabbos" {
-				ctx.DisplayContexts = appendUnique(ctx.DisplayContexts, "shabbos")
-			} else {
-				ctx.DisplayContexts = appendUnique(ctx.DisplayContexts, erev.EventCode)
-			}
-		}
+		ctx.ActiveEventCodes = appendUnique(ctx.ActiveEventCodes, erev.EventCode)
+		slog.Info("GetZmanimContext: added erev event", "event_code", erev.EventCode)
 	}
 
-	// Check for Shabbos/Yom Tov ends (motzei events)
+	// Add motzei events to ActiveEventCodes (for havdalah zmanim)
+	// These events are ending tonight, so we need their day_of zmanim
+	// This fixes the bug where motzei_shabbos was missing from ActiveEventCodes
 	for _, motzei := range info.MoetzeiEvents {
-		ctx.ShowShabbosYomTovEnds = true
-		if motzei.EventCode == "shabbos" {
-			ctx.DisplayContexts = appendUnique(ctx.DisplayContexts, "shabbos")
-		} else {
-			ctx.DisplayContexts = appendUnique(ctx.DisplayContexts, motzei.EventCode)
-		}
+		ctx.ActiveEventCodes = appendUnique(ctx.ActiveEventCodes, motzei.EventCode)
+		slog.Info("GetZmanimContext: added moetzei event", "event_code", motzei.EventCode)
 	}
 
-	// Check for fast days
-	for _, active := range info.ActiveEvents {
-		if active.FastStartType != "" {
-			ctx.ShowFastEnds = true
-			ctx.DisplayContexts = appendUnique(ctx.DisplayContexts, active.EventCode)
-		}
-	}
+	slog.Info("GetZmanimContext: final result",
+		"active_event_codes", ctx.ActiveEventCodes,
+		"count", len(ctx.ActiveEventCodes))
 
-	// Check for fast starting tomorrow (sunset-based fasts)
-	for _, erev := range info.ErevEvents {
-		if erev.FastStartType == "sunset" {
-			ctx.ShowFastStarts = true
-			ctx.FastStartType = "sunset"
-			ctx.DisplayContexts = appendUnique(ctx.DisplayContexts, erev.EventCode)
-		}
-	}
-
-	// Check for fast starting today at dawn
-	for _, active := range info.ActiveEvents {
-		if active.FastStartType == "dawn" && active.DayNumber == 1 {
-			ctx.ShowFastStarts = true
-			ctx.FastStartType = "dawn"
-		}
-	}
-
-	// Check for Erev Pesach (chametz times)
-	hd := hdate.FromTime(date)
-	if hd.Month() == hdate.Nisan && hd.Day() == 14 {
-		ctx.ShowChametzTimes = true
-	}
+	// DisplayContexts is DEPRECATED - kept for backward compatibility
+	// Frontend should use category tags (category_candle_lighting, category_havdalah, etc.)
+	// instead of DisplayContexts for grouping zmanim
+	ctx.DisplayContexts = ctx.ActiveEventCodes
 
 	return ctx
 }
@@ -552,4 +561,22 @@ func appendUnique(slice []string, s string) []string {
 		}
 	}
 	return append(slice, s)
+}
+
+// getTransliteratedName returns the holiday name in the appropriate transliteration style
+// transliterationStyle: "ashkenazi" for Ashkenazi transliterations, "sephardi" or "" for Sephardi (default)
+func getTransliteratedName(name string, transliterationStyle string) string {
+	// Normalize transliteration style
+	locale := "en" // Default to Sephardic (en)
+	if transliterationStyle == "ashkenazi" {
+		locale = "ashkenazi"
+	}
+
+	// Try to look up the translation from hebcal-go locales
+	if translated, ok := locales.LookupTranslation(name, locale); ok {
+		return translated
+	}
+
+	// If no translation found, return the original name
+	return name
 }

@@ -37,6 +37,7 @@ interface ZmanWithTime {
   is_enabled: boolean;
   is_active_today?: boolean; // Whether this zman is active for the current day context (undefined = true, legacy compat)
   rounding_mode?: 'floor' | 'math' | 'ceil'; // Story 8-34: per-zman rounding mode
+  tags?: Array<{ tag_type: string; tag_key: string }>; // Tags from zman
 }
 
 interface AlgorithmPreviewProps {
@@ -58,8 +59,8 @@ export function AlgorithmPreview({
 }: AlgorithmPreviewProps) {
   const { preferences } = usePreferences();
 
-  // Filter to only show active zmanim in preview (e.g., candle lighting only on Fridays)
-  // Treat undefined is_active_today as true for backwards compatibility
+  // Filter to only show active zmanim in preview using backend-computed is_active_today
+  // Backend determines this by checking zman tags against active event codes
   const preview = useMemo(() => {
     return (zmanim ?? []).filter(z => z.is_active_today !== false);
   }, [zmanim]);
@@ -127,33 +128,33 @@ export function AlgorithmPreview({
             <span className="text-sm text-muted-foreground">{dayContext?.day_name || ''}</span>
           </div>
           <div className="text-xs text-muted-foreground">{dayContext?.hebrew_date || ''}</div>
-          {dayContext && (dayContext.is_erev_shabbos || dayContext.is_shabbos || displayHolidays.length > 0 || chanukahInfo || omerDay) && (
-            <div className={`flex items-center gap-1.5 flex-wrap ${isRTL ? 'flex-row-reverse justify-end' : 'justify-start'}`} dir={isRTL ? 'rtl' : 'ltr'}>
-              {dayContext.is_erev_shabbos && (
-                <Badge variant="solid" className="text-xs gap-1 shrink-0 bg-orange-500 text-white border-orange-600">
+          {dayContext && (dayContext.active_event_codes?.includes('erev_shabbos') || dayContext.active_event_codes?.includes('shabbos') || displayHolidays.length > 0 || chanukahInfo || omerDay) && (
+            <div className={`flex gap-1.5 flex-wrap ${isRTL ? 'flex-row-reverse justify-end' : 'justify-start'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+              {dayContext.active_event_codes?.includes('erev_shabbos') && (
+                <Badge variant="solid" className="text-xs gap-1 shrink-0 bg-orange-500 text-white border-orange-600 whitespace-nowrap">
                   <Flame className="h-3 w-3" />
                   {isRTL ? 'ערב שבת' : 'Erev Shabbos'}
                 </Badge>
               )}
-              {dayContext.is_shabbos && (
-                <Badge variant="solid" className="text-xs gap-1 shrink-0 bg-purple-500 text-white border-purple-600">
+              {dayContext.active_event_codes?.includes('shabbos') && (
+                <Badge variant="solid" className="text-xs gap-1 shrink-0 bg-purple-500 text-white border-purple-600 whitespace-nowrap">
                   <Moon className="h-3 w-3" />
                   {isRTL ? 'שבת' : 'Shabbos'}
                 </Badge>
               )}
               {displayHolidays.map((holiday, i) => (
-                <Badge key={i} variant="solid" className={`text-xs shrink-0 bg-blue-600 text-white border-blue-700 dark:bg-blue-600 dark:text-blue-50 dark:border-blue-500 ${isRTL ? 'font-hebrew' : ''}`}>
+                <Badge key={i} variant="solid" className={`text-xs shrink-0 bg-blue-600 text-white border-blue-700 dark:bg-blue-600 dark:text-blue-50 dark:border-blue-500 whitespace-nowrap ${isRTL ? 'font-hebrew' : ''}`}>
                   {holiday}
                 </Badge>
               ))}
               {chanukahInfo && (
-                <Badge variant="solid" className={`text-xs gap-1 shrink-0 bg-amber-500 text-black border-amber-600 ${isRTL ? 'font-hebrew' : ''}`}>
+                <Badge variant="solid" className={`text-xs gap-1 shrink-0 bg-amber-500 text-black border-amber-600 whitespace-nowrap ${isRTL ? 'font-hebrew' : ''}`}>
                   <Star className="h-3 w-3" />
                   {isRTL ? chanukahInfo.nameHebrew : `Chanukah Day ${chanukahInfo.day}`}
                 </Badge>
               )}
               {omerDay && (
-                <Badge variant="solid" className="text-xs shrink-0 bg-green-600 text-white border-green-700 dark:bg-green-600 dark:text-green-50 dark:border-green-500">
+                <Badge variant="solid" className="text-xs shrink-0 bg-green-600 text-white border-green-700 dark:bg-green-600 dark:text-green-50 dark:border-green-500 whitespace-nowrap">
                   {isRTL ? `עומר ${omerDay}` : `Omer ${omerDay}`}
                 </Badge>
               )}

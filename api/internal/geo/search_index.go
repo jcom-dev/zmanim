@@ -25,6 +25,7 @@ func SearchIndexes() []SearchIndexDef {
 		{"idx_geo_search_trgm", "CREATE INDEX idx_geo_search_trgm ON geo_search_index USING GIN(display_name gin_trgm_ops)", "1-2 min"},
 		{"idx_geo_search_pop", "CREATE INDEX idx_geo_search_pop ON geo_search_index(population DESC NULLS LAST)", "~10 sec"},
 		{"idx_geo_search_country", "CREATE INDEX idx_geo_search_country ON geo_search_index(country_id)", "~10 sec"},
+		{"idx_geo_search_continent", "CREATE INDEX idx_geo_search_continent ON geo_search_index(continent_id)", "~10 sec"},
 		{"idx_geo_search_locality_country", "CREATE INDEX idx_geo_search_locality_country ON geo_search_index(country_id) WHERE entity_type = 'locality'", "~10 sec"},
 		{"idx_geo_search_inherited_region", "CREATE INDEX idx_geo_search_inherited_region ON geo_search_index(inherited_region_id)", "~10 sec"},
 		{"idx_geo_search_ancestor_regions", "CREATE INDEX idx_geo_search_ancestor_regions ON geo_search_index USING GIN(ancestor_region_ids)", "~30 sec"},

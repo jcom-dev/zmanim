@@ -53,17 +53,17 @@ export interface FormulaBuilderState {
 }
 
 export const initialState: FormulaBuilderState = {
-  baseTime: 'sunrise',
+  baseTime: 'visible_sunrise',
   method: null,
-  selectedFixedZman: 'sunrise',
+  selectedFixedZman: 'visible_sunrise',
   solarDegrees: 16.1,
   solarDirection: 'before_visible_sunrise',
   offsetMinutes: 72,
   offsetDirection: 'before',
-  offsetBase: 'sunrise',
+  offsetBase: 'visible_sunrise',
   shaosHours: 3,
   shaosBase: 'gra',
-  generatedFormula: 'sunrise',
+  generatedFormula: 'visible_sunrise',
   validationErrors: [],
   isValid: true,
 };
@@ -73,15 +73,15 @@ export const fixedZmanimOptions = [
   {
     label: 'Day',
     options: [
-      { value: 'sunrise', label: 'Sunrise', description: 'Sun crosses horizon (morning)' },
+      { value: 'visible_sunrise', label: 'Visible Sunrise', description: 'Sun crosses horizon (morning)' },
       { value: 'solar_noon', label: 'Solar Noon', description: 'Sun at highest point' },
-      { value: 'sunset', label: 'Sunset', description: 'Sun crosses horizon (evening)' },
+      { value: 'visible_sunset', label: 'Visible Sunset', description: 'Sun crosses horizon (evening)' },
     ],
   },
   {
     label: 'Night',
     options: [
-      { value: 'midnight', label: 'Midnight', description: 'Solar midnight' },
+      { value: 'solar_midnight', label: 'Solar Midnight', description: 'Solar midnight' },
     ],
   },
 ];
@@ -98,14 +98,14 @@ export const baseTimeOptions = [
   {
     label: 'Day',
     options: [
-      { value: 'sunrise', label: 'Sunrise', description: 'Netz HaChama' },
+      { value: 'visible_sunrise', label: 'Visible Sunrise', description: 'Netz HaChama' },
       { value: 'solar_noon', label: 'Solar Noon', description: 'Chatzos HaYom' },
     ],
   },
   {
     label: 'Dusk',
     options: [
-      { value: 'sunset', label: 'Sunset', description: 'Shkias HaChama' },
+      { value: 'visible_sunset', label: 'Visible Sunset', description: 'Shkias HaChama' },
       { value: 'bein_hashmashos', label: 'Bein HaShmashos', description: 'Between the suns' },
     ],
   },
@@ -113,7 +113,7 @@ export const baseTimeOptions = [
     label: 'Night',
     options: [
       { value: 'tzeis_hakochavim', label: 'Tzeis HaKochavim', description: 'Nightfall (stars visible)' },
-      { value: 'midnight', label: 'Midnight', description: 'Chatzos HaLailah' },
+      { value: 'solar_midnight', label: 'Solar Midnight', description: 'Chatzos HaLailah' },
     ],
   },
 ];
@@ -256,7 +256,22 @@ export function parseFormula(formula: string): ParseResult {
   if (fixedZmanMatch) {
     const zmanName = fixedZmanMatch[1];
     // Check if it's a known primitive
-    const knownPrimitives = ['sunrise', 'sunset', 'solar_noon', 'midnight', 'alos_hashachar', 'misheyakir', 'tzeis_hakochavim', 'bein_hashmashos'];
+    const knownPrimitives = [
+      // Full primitive names - visible horizon events
+      'visible_sunrise', 'visible_sunset',
+      // Geometric horizon events
+      'geometric_sunrise', 'geometric_sunset',
+      // Solar position events
+      'solar_noon', 'solar_midnight',
+      // Civil twilight
+      'civil_dawn', 'civil_dusk',
+      // Nautical twilight
+      'nautical_dawn', 'nautical_dusk',
+      // Astronomical twilight
+      'astronomical_dawn', 'astronomical_dusk',
+      // For midnight reference
+      'midnight'
+    ];
     if (knownPrimitives.includes(zmanName) || trimmed.startsWith('@')) {
       return {
         success: true,

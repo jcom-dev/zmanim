@@ -756,7 +756,7 @@ func resetGeoSequences(ctx context.Context, pool *pgxpool.Pool) error {
 		{"geo_locality_locations", "geo_locality_locations_id_seq"},
 		{"geo_locality_elevations", "geo_locality_elevations_id_seq"},
 		{"geo_names", "geo_names_id_seq"},
-		{"geo_search_index", "geo_search_index_id_seq"},
+		// Note: geo_search_index has no id column (uses composite PK), so no sequence
 		{"geo_locality_types", "geo_locality_types_id_seq"},
 		{"geo_region_types", "geo_region_types_id_seq"},
 		{"geo_data_sources", "geo_data_sources_id_seq"},

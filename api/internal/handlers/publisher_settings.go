@@ -133,7 +133,14 @@ func (h *Handlers) UpdatePublisherCalculationSettings(w http.ResponseWriter, r *
 		return
 	}
 
-	// 6. Log activity
+	// 6. Invalidate cache - calculation settings affect results
+	if h.cache != nil {
+		if err := h.cache.InvalidatePublisherCache(ctx, pc.PublisherID); err != nil {
+			slog.Warn("failed to invalidate cache after settings update", "error", err, "publisher_id", pc.PublisherID)
+		}
+	}
+
+	// 7. Log activity
 	metadata := map[string]interface{}{
 		"ignore_elevation":      req.IgnoreElevation,
 		"transliteration_style": translitStyle,
@@ -148,7 +155,7 @@ func (h *Handlers) UpdatePublisherCalculationSettings(w http.ResponseWriter, r *
 		metadata,
 	)
 
-	// 7. Respond with updated settings
+	// 8. Respond with updated settings
 	RespondJSON(w, r, http.StatusOK, CalculationSettingsResponse{
 		IgnoreElevation:      updated.IgnoreElevation,
 		TransliterationStyle: updated.TransliterationStyle,

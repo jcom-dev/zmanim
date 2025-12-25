@@ -54,6 +54,48 @@ func (ns NullDisplayStatus) Value() (driver.Value, error) {
 	return string(ns.DisplayStatus), nil
 }
 
+type HebcalMatchType string
+
+const (
+	HebcalMatchTypeExact HebcalMatchType = "exact"
+	HebcalMatchTypeGroup HebcalMatchType = "group"
+)
+
+func (e *HebcalMatchType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = HebcalMatchType(s)
+	case string:
+		*e = HebcalMatchType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for HebcalMatchType: %T", src)
+	}
+	return nil
+}
+
+type NullHebcalMatchType struct {
+	HebcalMatchType HebcalMatchType `json:"hebcal_match_type"`
+	Valid           bool            `json:"valid"` // Valid is true if HebcalMatchType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullHebcalMatchType) Scan(value interface{}) error {
+	if value == nil {
+		ns.HebcalMatchType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.HebcalMatchType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullHebcalMatchType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.HebcalMatchType), nil
+}
+
 type Action struct {
 	ID             string             `json:"id"`
 	ActionType     string             `json:"action_type"`
@@ -876,7 +918,6 @@ type PublisherZmanAlias struct {
 	AliasTransliteration *string            `json:"alias_transliteration"`
 	Context              *string            `json:"context"`
 	IsPrimary            bool               `json:"is_primary"`
-	SortOrder            *int32             `json:"sort_order"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -954,6 +995,10 @@ type PublisherZmanim struct {
 	DisplayStatus DisplayStatus `json:"display_status"`
 	// If this zman was copied from another publisher, the source publisher ID. Used for lineage tracking.
 	CopiedFromPublisherID *int32 `json:"copied_from_publisher_id"`
+	// Controls whether this zman appears in preview contexts (week view, reports).
+	// When false, zman only appears in Algorithm Editor (includeInactive=true).
+	// Use false for event-specific zmanim that should only show when their event is active.
+	ShowInPreview bool `json:"show_in_preview"`
 }
 
 type RequestStatus struct {
@@ -964,17 +1009,6 @@ type RequestStatus struct {
 	Description        *string            `json:"description"`
 	Color              *string            `json:"color"`
 	SortOrder          int16              `json:"sort_order"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
-type TagEventMapping struct {
-	ID                 int32              `json:"id"`
-	TagID              int32              `json:"tag_id"`
-	HebcalEventPattern *string            `json:"hebcal_event_pattern"`
-	HebrewMonth        *int32             `json:"hebrew_month"`
-	HebrewDayStart     *int32             `json:"hebrew_day_start"`
-	HebrewDayEnd       *int32             `json:"hebrew_day_end"`
-	Priority           *int32             `json:"priority"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -1000,6 +1034,14 @@ type TimeCategory struct {
 	SortOrder          int32              `json:"sort_order"`
 	IsEveryday         *bool              `json:"is_everyday"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+// View of all HebCal event mappings showing tag keys and their match patterns
+type VHebcalEventMapping struct {
+	TagKey                      string              `json:"tag_key"`
+	DisplayNameEnglishAshkenazi string              `json:"display_name_english_ashkenazi"`
+	HebcalMatchType             NullHebcalMatchType `json:"hebcal_match_type"`
+	MatchValue                  *string             `json:"match_value"`
 }
 
 type ZmanRegistryRequest struct {
@@ -1034,20 +1076,27 @@ type ZmanRequestTag struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+// Tags for categorizing zmanim and events. HebCal event matching is done via hebcal_match_type/string/pattern/category fields.
 type ZmanTag struct {
 	ID                int32              `json:"id"`
 	TagKey            string             `json:"tag_key"`
-	Name              string             `json:"name"`
 	DisplayNameHebrew string             `json:"display_name_hebrew"`
 	TagTypeID         int32              `json:"tag_type_id"`
 	Description       *string            `json:"description"`
 	Color             *string            `json:"color"`
-	SortOrder         *int32             `json:"sort_order"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	// The base event name returned by Hebcal API (e.g., "Shavuot" for Shavuos). Used for direct matching.
-	HebcalBasename *string `json:"hebcal_basename"`
 	// English display name in Ashkenazi pronunciation (e.g., Shabbos, Sukkos, Shavuos)
 	DisplayNameEnglishAshkenazi string `json:"display_name_english_ashkenazi"`
 	// English display name in Sephardi pronunciation (e.g., Shabbat, Sukkot, Shavuot)
 	DisplayNameEnglishSephardi *string `json:"display_name_english_sephardi"`
+	// Indicates if this tag should be hidden from user-facing tag selectors. Used for internal categorization tags like yom_tov, fast_day, and category_* tags.
+	IsHidden bool `json:"is_hidden"`
+	// How to match HebCal events: exact (string), group (regex), or NULL (not a HebCal event)
+	HebcalMatchType NullHebcalMatchType `json:"hebcal_match_type"`
+	// For exact matches: the exact HebCal event title (e.g., "Purim", "Yom Kippur")
+	HebcalMatchString *string `json:"hebcal_match_string"`
+	// For group matches: PostgreSQL regex pattern (e.g., "^Chanukah:", "^Pesach [IVX]+")
+	HebcalMatchPattern *string `json:"hebcal_match_pattern"`
+	// For category matches: HebCal category field (e.g., "candles", "havdalah", "parashat")
+	HebcalMatchCategory *string `json:"hebcal_match_category"`
 }

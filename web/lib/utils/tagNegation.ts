@@ -120,3 +120,29 @@ export function getTagModificationDescription(tag: ZmanTagWithSource): string | 
 
   return 'Modified from registry';
 }
+
+/**
+ * Determines if a zman should be active/displayed for a given day
+ * based on its event tags and the day's active event codes.
+ *
+ * @param zman - Zman with optional tags array
+ * @param activeEventCodes - Array of active event codes for the day (e.g., ['rosh_hashanah', 'shabbos'])
+ * @returns true if zman should be shown, false if it should be hidden
+ *
+ * Logic:
+ * - If zman has NO event tags → always active (everyday zman)
+ * - If zman HAS event tags → only active if ANY of those event tag_keys are in the day's active_event_codes
+ */
+export function isZmanActiveForDay(
+  zman: { tags?: Array<{ tag_type: string; tag_key: string }> },
+  activeEventCodes: string[]
+): boolean {
+  // Extract event tags from zman
+  const eventTags = zman.tags?.filter(t => t.tag_type === 'event') ?? [];
+
+  // If no event tags, zman is always active (everyday zman)
+  if (eventTags.length === 0) return true;
+
+  // If has event tags, only show if ANY event code is active today
+  return eventTags.some(tag => activeEventCodes.includes(tag.tag_key));
+}

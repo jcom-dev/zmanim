@@ -271,9 +271,16 @@ func (h *Handlers) GetEventDayInfo(w http.ResponseWriter, r *http.Request) {
 		IsIsrael:  calendar.IsLocationInIsrael(latitude, longitude),
 	}
 
-	// Get calendar service and day info
-	calendarService := calendar.NewCalendarService()
-	dayInfo := calendarService.GetEventDayInfo(date, loc)
+	// Get transliteration style from query parameter (default to ashkenazi)
+	transliterationStyle := r.URL.Query().Get("transliteration_style")
+	if transliterationStyle == "" {
+		transliterationStyle = "ashkenazi"
+	}
+
+	// Get calendar service with database adapter for event mapping
+	dbAdapter := NewCalendarDBAdapter(h.db.Queries)
+	calendarService := calendar.NewCalendarServiceWithDB(dbAdapter)
+	dayInfo := calendarService.GetEventDayInfo(date, loc, transliterationStyle)
 
 	RespondJSON(w, r, http.StatusOK, dayInfo)
 }
@@ -347,9 +354,16 @@ func (h *Handlers) GetZmanimContext(w http.ResponseWriter, r *http.Request) {
 		IsIsrael:  calendar.IsLocationInIsrael(latitude, longitude),
 	}
 
-	// Get calendar service and zmanim context
-	calendarService := calendar.NewCalendarService()
-	zmanimContext := calendarService.GetZmanimContext(date, loc)
+	// Get transliteration style from query parameter (default to ashkenazi)
+	transliterationStyle := r.URL.Query().Get("transliteration_style")
+	if transliterationStyle == "" {
+		transliterationStyle = "ashkenazi"
+	}
+
+	// Get calendar service with database adapter for event mapping
+	dbAdapter := NewCalendarDBAdapter(h.db.Queries)
+	calendarService := calendar.NewCalendarServiceWithDB(dbAdapter)
+	zmanimContext := calendarService.GetZmanimContext(date, loc, transliterationStyle)
 
 	RespondJSON(w, r, http.StatusOK, zmanimContext)
 }
@@ -423,15 +437,22 @@ func (h *Handlers) GetWeekEventInfo(w http.ResponseWriter, r *http.Request) {
 		IsIsrael:  calendar.IsLocationInIsrael(latitude, longitude),
 	}
 
-	// Get calendar service
-	calendarService := calendar.NewCalendarService()
+	// Get transliteration style from query parameter (default to ashkenazi)
+	transliterationStyle := r.URL.Query().Get("transliteration_style")
+	if transliterationStyle == "" {
+		transliterationStyle = "ashkenazi"
+	}
+
+	// Get calendar service with database adapter for event mapping
+	dbAdapter := NewCalendarDBAdapter(h.db.Queries)
+	calendarService := calendar.NewCalendarServiceWithDB(dbAdapter)
 
 	// Get info for each day of the week
 	weekInfo := make(map[string]calendar.EventDayInfo)
 	for i := 0; i < 7; i++ {
 		date := startDate.AddDate(0, 0, i)
 		dateKey := date.Format("2006-01-02")
-		weekInfo[dateKey] = calendarService.GetEventDayInfo(date, loc)
+		weekInfo[dateKey] = calendarService.GetEventDayInfo(date, loc, transliterationStyle)
 	}
 
 	RespondJSON(w, r, http.StatusOK, weekInfo)

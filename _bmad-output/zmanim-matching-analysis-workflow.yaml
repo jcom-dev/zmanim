@@ -1,0 +1,82 @@
+# Zmanim Matching Analysis Workflow
+# Investigating why zmanim are showing at wrong times and verifying single-service architecture
+
+name: "Zmanim Matching Analysis"
+description: "Comprehensive analysis of zmanim matching logic, event filtering, and service architecture"
+version: "1.0.0"
+
+config_source: "{project-root}/_bmad/bmm/config.yaml"
+
+template: false  # Action workflow - no template document
+
+default_output_file: "{output_folder}/zmanim-matching-analysis-{{date}}.md"
+
+instructions:
+  - step: 1
+    goal: "Understand the problem and gather context"
+    actions:
+      - "Document the observed issue: 'Motzei Shabbos' showing at 4:52:36 PM, mixed with Friday/Shabbos zmanim"
+      - "Key questions to answer:"
+      - "  1. Where is zmanim matching/filtering logic implemented?"
+      - "  2. Is it centralized in a single backend service file?"
+      - "  3. How does tag-driven event filtering work?"
+      - "  4. Why would 'Motzei Shabbos' appear at the wrong time?"
+
+  - step: 2
+    goal: "Map the complete zmanim calculation flow"
+    actions:
+      - "Find the main service file that handles zmanim calculation"
+      - "Search for: api/internal/services/*zmanim*.go"
+      - "Read the complete zmanim service file"
+      - "Document the flow: Request → Event Detection → Tag Filtering → Formula Execution → Response"
+
+  - step: 3
+    goal: "Analyze event-to-tag mapping logic"
+    actions:
+      - "Find how HebCal events map to tags"
+      - "Read: api/internal/calendar/events.go"
+      - "Read: api/internal/calendar/hebcal.go"
+      - "Check database queries: api/internal/db/queries/tag_events.sql"
+      - "Trace: How does a date become 'Motzei Shabbos'?"
+
+  - step: 4
+    goal: "Examine tag filtering in zmanim service"
+    actions:
+      - "In the zmanim service, find where ActiveEventCodes are used"
+      - "Look for ShouldShowZman or similar filtering logic"
+      - "Check if filtering happens BEFORE or AFTER calculation"
+      - "Identify: Is there a single chokepoint for tag matching?"
+
+  - step: 5
+    goal: "Check for scattered logic violations"
+    actions:
+      - "Search handlers: api/internal/handlers/zmanim.go, calendar.go"
+      - "Look for any hardcoded event logic (if statements checking event types)"
+      - "Verify: Does handler pass events to service, or does it have its own logic?"
+      - "Check frontend: web/components/publisher/WeekPreview.tsx for client-side filtering"
+
+  - step: 6
+    goal: "Investigate 'Motzei Shabbos' specific issue"
+    actions:
+      - "Query the database (if possible) or examine seed data:"
+      - "  - What is the tag_key for 'Motzei Shabbos'?"
+      - "  - What hebcal_event_pattern does it map to?"
+      - "  - What is its display order/sort logic?"
+      - "Check: db/migrations/*seed*.sql for 'motzei_shabbos' or 'havdalah'"
+
+  - step: 7
+    goal: "Analyze sorting and display order"
+    actions:
+      - "Find where zmanim results are sorted before display"
+      - "Check service response formatting"
+      - "Check frontend rendering logic"
+      - "Determine: Is 'Motzei Shabbos' in wrong position due to wrong time or wrong sort?"
+
+  - step: 8
+    goal: "Produce comprehensive findings report"
+    actions:
+      - "Summarize architecture: Is logic centralized or scattered?"
+      - "Identify root cause of 'Motzei Shabbos' issue"
+      - "List any violations of single-service pattern"
+      - "Provide specific recommendations for fixes"
+      - "Include file paths and line numbers for all findings"
