@@ -209,17 +209,17 @@ export default function PublisherTeamPage() {
           <p className="text-muted-foreground mt-1">Manage who can access {selectedPublisher.name}</p>
         </div>
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
                 <Button>
                   <UserPlus className="w-4 h-4 mr-2" />
                   Add Member
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>Invite a new team member to manage this publisher</TooltipContent>
-            </Tooltip>
-          </DialogTrigger>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Invite a new team member to manage this publisher</TooltipContent>
+          </Tooltip>
           <DialogContent>
             <form onSubmit={handleAddMember}>
               <DialogHeader>
@@ -375,16 +375,16 @@ export default function PublisherTeamPage() {
                   </div>
                   {!member.is_owner && member.user_id !== userId && (
                     <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertDialogTrigger asChild>
                             <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
                               Remove
                             </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Remove this team member</TooltipContent>
-                        </Tooltip>
-                      </AlertDialogTrigger>
+                          </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Remove this team member</TooltipContent>
+                      </Tooltip>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Remove Team Member</AlertDialogTitle>

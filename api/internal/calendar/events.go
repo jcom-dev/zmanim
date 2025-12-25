@@ -286,35 +286,13 @@ func (s *CalendarService) getHebcalEvents(date time.Time) []Holiday {
 	return holidays
 }
 
-// getHebcalEventsWithLocation gets raw hebcal events for a date with location for candle lighting
+// getHebcalEventsWithLocation gets raw hebcal events for a date with location
+// Uses the hebcal-go library directly (no external API calls)
 func (s *CalendarService) getHebcalEventsWithLocation(date time.Time, lat, lon float64, transliterationStyle string) []Holiday {
-	// Use HebCal REST API to get events with candle lighting times
-	client := NewClient()
-	ctx := context.Background()
+	// Use the hebcal-go library directly for all holiday lookups
+	holidays := s.GetHolidaysWithStyle(date, transliterationStyle)
 
-	hebcalEvents, err := client.GetEvents(ctx, date, lat, lon, transliterationStyle)
-	if err != nil {
-		slog.Warn("failed to fetch hebcal events from REST API, falling back to library",
-			"error", err,
-			"date", date.Format("2006-01-02"))
-		// Fallback to library version (no candle lighting)
-		return s.getHebcalEvents(date)
-	}
-
-	// Convert HebCalEvent to Holiday format
-	var holidays []Holiday
-	for _, ev := range hebcalEvents {
-		holidays = append(holidays, Holiday{
-			Name:           ev.Title,
-			NameHebrew:     ev.Hebrew,
-			HebcalOriginal: ev.Title, // Store original for pattern matching
-			Category:       ev.Category,
-			Yomtov:         ev.YomTov,
-			// Note: Date field not needed for event matching
-		})
-	}
-
-	slog.Info("getHebcalEventsWithLocation: fetched events from REST API",
+	slog.Debug("getHebcalEventsWithLocation: fetched events from library",
 		"date", date.Format("2006-01-02"),
 		"count", len(holidays))
 

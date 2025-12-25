@@ -1,14 +1,14 @@
 package calendar
 
 import (
-	"context"
 	"testing"
 	"time"
 )
 
-// TestShabbosTagOnSaturday verifies that the shabbos tag is added for every Saturday
-func TestShabbosTagOnSaturday(t *testing.T) {
-	client := &Client{}
+// TestShabbosDetection verifies that Shabbos is correctly detected on Saturdays
+func TestShabbosDetection(t *testing.T) {
+	// Create a CalendarService (no database needed for basic Shabbos detection)
+	service := NewCalendarService()
 
 	tests := []struct {
 		name          string
@@ -16,22 +16,22 @@ func TestShabbosTagOnSaturday(t *testing.T) {
 		expectShabbos bool
 	}{
 		{
-			name:          "Saturday should have shabbos tag",
+			name:          "Saturday should be Shabbos",
 			date:          time.Date(2025, 12, 27, 12, 0, 0, 0, time.UTC), // Saturday
 			expectShabbos: true,
 		},
 		{
-			name:          "Sunday should not have shabbos tag",
+			name:          "Sunday should not be Shabbos",
 			date:          time.Date(2025, 12, 28, 12, 0, 0, 0, time.UTC), // Sunday
 			expectShabbos: false,
 		},
 		{
-			name:          "Friday should not have shabbos tag",
+			name:          "Friday should not be Shabbos",
 			date:          time.Date(2025, 12, 26, 12, 0, 0, 0, time.UTC), // Friday
 			expectShabbos: false,
 		},
 		{
-			name:          "Wednesday should not have shabbos tag",
+			name:          "Wednesday should not be Shabbos",
 			date:          time.Date(2025, 12, 24, 12, 0, 0, 0, time.UTC), // Wednesday
 			expectShabbos: false,
 		},
@@ -39,49 +39,77 @@ func TestShabbosTagOnSaturday(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// GetActiveTagsForDate requires context, but we're testing the Saturday logic
-			// which happens after the HebCal API call
-			ctx := context.Background()
-
-			// Use empty mappings since we're only testing the Saturday logic
-			tags, err := client.GetActiveTagsForDate(ctx, tt.date, 40.7128, -74.0060, "ashkenazi", []TagEventMapping{})
-
-			// Note: This will fail when HebCal API is called because we have no real API key
-			// but we can test the logic locally by checking the day of week
-			if err != nil && tt.date.Weekday() == time.Saturday {
-				// Even if HebCal fails, Saturday logic should work
-				t.Logf("HebCal API call failed (expected in test): %v", err)
+			loc := Location{
+				Latitude:  40.7128,
+				Longitude: -74.0060,
+				Timezone:  "America/New_York",
+				IsIsrael:  false,
 			}
 
-			// Check if shabbos tag is present
-			hasShabbos := false
-			for _, tag := range tags {
-				if tag == "shabbos" {
-					hasShabbos = true
-					break
+			info := service.GetEventDayInfo(tt.date, loc, "ashkenazi")
+
+			if info.IsShabbat != tt.expectShabbos {
+				t.Errorf("Expected IsShabbat=%v for %s (%v), got %v",
+					tt.expectShabbos, tt.date.Format("2006-01-02"), tt.date.Weekday(), info.IsShabbat)
+			}
+
+			// Also check that Shabbos appears in active events with correct transliteration
+			if tt.expectShabbos {
+				found := false
+				for _, ev := range info.ActiveEvents {
+					if ev.EventCode == "shabbos" {
+						found = true
+						// Verify Ashkenazi transliteration
+						if ev.NameEnglish != "Shabbos" {
+							t.Errorf("Expected Ashkenazi transliteration 'Shabbos', got '%s'", ev.NameEnglish)
+						}
+						break
+					}
 				}
-			}
-
-			// Verify weekday matches expectation
-			isSaturday := tt.date.Weekday() == time.Saturday
-			if isSaturday != tt.expectShabbos {
-				t.Fatalf("Test setup error: date %s weekday=%v, expected Saturday=%v",
-					tt.date.Format("2006-01-02"), tt.date.Weekday(), tt.expectShabbos)
-			}
-
-			if tt.expectShabbos && !hasShabbos {
-				t.Errorf("Expected shabbos tag on %s (Saturday), got tags: %v",
-					tt.date.Format("2006-01-02"), tags)
-			}
-			if !tt.expectShabbos && hasShabbos {
-				t.Errorf("Did not expect shabbos tag on %s (%v), got tags: %v",
-					tt.date.Format("2006-01-02"), tt.date.Weekday(), tags)
+				if !found {
+					t.Errorf("Expected 'shabbos' event in ActiveEvents for Saturday")
+				}
 			}
 		})
 	}
 }
 
-// TestShabbosTagLogicOnly tests just the Saturday detection logic without HebCal API
+// TestShabbosTransliteration verifies that Shabbos/Shabbat is correctly transliterated
+func TestShabbosTransliteration(t *testing.T) {
+	tests := []struct {
+		name     string
+		style    string
+		expected string
+	}{
+		{
+			name:     "Ashkenazi style should use Shabbos",
+			style:    "ashkenazi",
+			expected: "Shabbos",
+		},
+		{
+			name:     "Sephardi style should use Shabbat",
+			style:    "sephardi",
+			expected: "Shabbat",
+		},
+		{
+			name:     "Empty style should use Shabbat (default)",
+			style:    "",
+			expected: "Shabbat",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetTransliteratedName("Shabbat", tt.style)
+			if result != tt.expected {
+				t.Errorf("GetTransliteratedName('Shabbat', '%s') = '%s', want '%s'",
+					tt.style, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestShabbosTagLogicOnly tests just the Saturday detection logic
 func TestShabbosTagLogicOnly(t *testing.T) {
 	dates := []struct {
 		date     time.Time
