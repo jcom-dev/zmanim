@@ -556,7 +556,7 @@ test.describe('Publisher Examples - Documentation Modal', () => {
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Verify publisher name is in modal
-    await waitForContent(modal, [sourcePublisher.name], { timeout: Timeouts.MEDIUM });
+    await expect(modal.getByText(sourcePublisher.name)).toBeVisible({ timeout: Timeouts.MEDIUM });
   });
 
   test('should display Copy to Clipboard button in modal', async ({ page }) => {

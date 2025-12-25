@@ -30,7 +30,12 @@ async function cleanupTestData(): Promise<void> {
   }
 
   console.log('Connecting to database...');
-  const pool = new Pool({ connectionString: databaseUrl });
+  // Enable SSL for cloud databases (Xata, etc.) - required in CI
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
 
   try {
     // Find ALL test publishers

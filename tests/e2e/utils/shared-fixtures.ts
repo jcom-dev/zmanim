@@ -58,7 +58,12 @@ export async function initializeSharedPublishers(): Promise<void> {
     return;
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  // Enable SSL for cloud databases (Xata, etc.) - required in CI
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
 
   try {
     console.log('Initializing shared test publishers...');
@@ -227,7 +232,12 @@ async function loadPublishersIntoCache(): Promise<void> {
     throw new Error('DATABASE_URL not set - cannot load shared publishers');
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  // Enable SSL for cloud databases (Xata, etc.) - required in CI
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
 
   try {
     workerCache = new Map();

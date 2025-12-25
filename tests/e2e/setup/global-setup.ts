@@ -35,7 +35,12 @@ async function seedTestPublishers(): Promise<void> {
     return;
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  // Enable SSL for cloud databases (Xata, etc.) - required in CI
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
 
   try {
     // Check if we have test publishers
@@ -135,7 +140,12 @@ async function getTestPublisherIds(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) return;
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  // Enable SSL for cloud databases (Xata, etc.) - required in CI
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
 
   try {
     const result = await pool.query(

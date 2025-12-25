@@ -40,7 +40,12 @@ async function resolvePublisherSlug(slug: string): Promise<string | null> {
     return null;
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  // Enable SSL for cloud databases (Xata, etc.) - required in CI
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
   try {
     const result = await pool.query(
       'SELECT id FROM publishers WHERE slug = $1',
