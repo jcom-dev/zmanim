@@ -152,10 +152,24 @@ async function performSignIn(page: any, email: string): Promise<void> {
   console.log('window.Clerk is defined');
 
   // Wait for Clerk to be fully loaded
-  console.log('Waiting for Clerk.loaded to be true...');
+  // Log current Clerk state for debugging
+  const clerkState = await page.evaluate(() => {
+    const clerk = (window as any).Clerk;
+    return {
+      exists: typeof clerk !== 'undefined',
+      loaded: clerk?.loaded,
+      isReady: typeof clerk?.isReady === 'function' ? 'function exists' : 'no isReady',
+      version: clerk?.version,
+    };
+  });
+  console.log('Clerk state before waiting:', JSON.stringify(clerkState));
+
+  // Use a longer polling interval and explicit timeout
+  const CLERK_LOAD_TIMEOUT = 60000; // 60 seconds explicit
+  console.log(`Waiting for Clerk.loaded to be true (timeout: ${CLERK_LOAD_TIMEOUT}ms)...`);
   await page.waitForFunction(
     () => (window as any).Clerk?.loaded === true,
-    { timeout: TIMEOUTS.EXTENDED }
+    { timeout: CLERK_LOAD_TIMEOUT, polling: 500 }
   );
   console.log('Clerk is fully loaded');
 
