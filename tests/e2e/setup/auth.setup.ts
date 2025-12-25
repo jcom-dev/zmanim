@@ -132,16 +132,32 @@ async function performSignIn(page: any, email: string): Promise<void> {
     console.warn('Warning: setupClerkTestingToken failed:', error?.message);
   }
 
-  // Wait for Clerk to be loaded
+  // Wait for Clerk script to be loaded in DOM first
+  console.log('Waiting for Clerk script tag in DOM...');
+  await page.waitForFunction(
+    () => {
+      const script = document.querySelector('script[data-clerk-js-script="true"]');
+      return script !== null;
+    },
+    { timeout: TIMEOUTS.EXTENDED }
+  );
+  console.log('Clerk script found in DOM');
+
+  // Wait for Clerk global to be defined
+  console.log('Waiting for window.Clerk to be defined...');
   await page.waitForFunction(
     () => typeof (window as any).Clerk !== 'undefined',
-    { timeout: TIMEOUTS.CLERK_AUTH }
+    { timeout: TIMEOUTS.EXTENDED }
   );
+  console.log('window.Clerk is defined');
 
+  // Wait for Clerk to be fully loaded
+  console.log('Waiting for Clerk.loaded to be true...');
   await page.waitForFunction(
     () => (window as any).Clerk?.loaded === true,
-    { timeout: TIMEOUTS.CLERK_AUTH }
+    { timeout: TIMEOUTS.EXTENDED }
   );
+  console.log('Clerk is fully loaded');
 
   // Sign in using email-based approach (more reliable in test environments)
   await clerk.signIn({
