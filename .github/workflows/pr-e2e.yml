@@ -43,11 +43,12 @@ jobs:
       PORT: 8080
       ENVIRONMENT: test
 
-      # Clerk configuration (dev environment secrets)
-      CLERK_SECRET_KEY: ${{ secrets.DEV_CLERK_SECRET_KEY }}
-      CLERK_JWKS_URL: ${{ secrets.DEV_CLERK_JWKS_URL }}
-      CLERK_ISSUER: ${{ secrets.DEV_CLERK_ISSUER }}
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.DEV_CLERK_PUBLISHABLE_KEY }}
+      # Clerk configuration - using non-proxied dev instance for E2E tests
+      # The proxied clerk.shtetl.dev doesn't work from GitHub Actions
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      CLERK_JWKS_URL: ${{ secrets.E2E_CLERK_JWKS_URL }}
+      CLERK_ISSUER: ${{ secrets.E2E_CLERK_ISSUER }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
 
       # Test configuration
       BASE_URL: http://localhost:3001
@@ -122,8 +123,8 @@ jobs:
         run: npm run build
         env:
           # Required for Next.js build (Clerk requires secret at build time for edge runtime)
-          CLERK_SECRET_KEY: ${{ secrets.DEV_CLERK_SECRET_KEY }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.DEV_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_API_URL: http://localhost:8080
 
       - name: Start Web Server
@@ -135,8 +136,8 @@ jobs:
           echo "Web server is ready"
         env:
           PORT: 3001
-          CLERK_SECRET_KEY: ${{ secrets.DEV_CLERK_SECRET_KEY }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.DEV_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_API_URL: http://localhost:8080
 
       # Install Playwright
@@ -155,8 +156,8 @@ jobs:
           # Pass all required env vars to test runner
           DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
           BASE_URL: http://localhost:3001
-          CLERK_SECRET_KEY: ${{ secrets.DEV_CLERK_SECRET_KEY }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.DEV_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
           MAILSLURP_API_KEY: ${{ secrets.DEV_MAILSLURP_API_KEY }}
 
       # Upload test results
