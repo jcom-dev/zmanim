@@ -130,36 +130,13 @@ async function performSignIn(page: any, email: string): Promise<void> {
   await page.waitForLoadState('networkidle');
   console.log('Page loaded, waiting for Clerk...');
 
-  // The clerk.signIn helper handles setupClerkTestingToken internally
-  // and waits for Clerk to be loaded before attempting sign-in.
-  // Increased timeout for CI where network might be slower.
-  try {
-    await clerk.signIn({
-      page,
-      signInParams: {
-        strategy: 'password',
-        identifier: email,
-        password: TEST_PASSWORD,
-      },
-      setupClerkTestingTokenOptions: {
-        frontendApiUrl: process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL,
-      },
-    });
-    console.log(`Sign-in request sent for: ${email}`);
-  } catch (signInError: any) {
-    console.error('clerk.signIn failed:', signInError?.message);
-    // Try alternative approach - use setupClerkTestingToken separately
-    console.log('Attempting alternative sign-in approach...');
-    await setupClerkTestingToken({ page });
-    await clerk.signIn({
-      page,
-      signInParams: {
-        strategy: 'password',
-        identifier: email,
-        password: TEST_PASSWORD,
-      },
-    });
-  }
+  // Use email-based sign-in which creates a sign-in token via backend API
+  // This bypasses password requirements and email verification
+  await clerk.signIn({
+    page,
+    emailAddress: email,
+  });
+  console.log(`Sign-in completed for: ${email}`);
 
   // Wait for authentication to complete with generous timeout
   console.log('Waiting for user to be authenticated...');
