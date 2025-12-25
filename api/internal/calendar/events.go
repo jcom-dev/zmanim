@@ -69,7 +69,7 @@ func IsLocationInIsrael(lat, lon float64) bool {
 func (s *CalendarService) GetEventDayInfo(date time.Time, loc Location, transliterationStyle string) EventDayInfo {
 	hd := s.GetHebrewDate(date)
 	dow := int(date.Weekday())
-	holidays := s.GetHolidays(date)
+	holidays := s.GetHolidaysWithStyle(date, transliterationStyle)
 
 	info := EventDayInfo{
 		GregorianDate: date.Format("2006-01-02"),
@@ -108,7 +108,7 @@ func (s *CalendarService) getActiveEvents(date time.Time, loc Location, translit
 
 	// Check if it's Shabbat (Saturday - the actual day of Shabbos)
 	if date.Weekday() == time.Saturday {
-		shabbatName := getTransliteratedName("Shabbat", transliterationStyle)
+		shabbatName := GetTransliteratedName("Shabbat", transliterationStyle)
 		events = append(events, ActiveEvent{
 			EventCode:   "shabbos",
 			NameHebrew:  "שבת",
@@ -144,7 +144,7 @@ func (s *CalendarService) getErevEvents(date time.Time, loc Location, transliter
 	// Check if tomorrow is Shabbat (erev Shabbos today)
 	tomorrow := date.AddDate(0, 0, 1)
 	if tomorrow.Weekday() == time.Saturday {
-		erevShabbosName := getTransliteratedName("Erev Shabbat", transliterationStyle)
+		erevShabbosName := GetTransliteratedName("Erev Shabbat", transliterationStyle)
 		events = append(events, ActiveEvent{
 			EventCode:   "erev_shabbos",
 			NameHebrew:  "ערב שבת",
@@ -188,7 +188,7 @@ func (s *CalendarService) getMoetzeiEvents(date time.Time, loc Location, transli
 		}
 
 		if !hasYomTovTomorrow {
-			shabbatName := getTransliteratedName("Shabbat", transliterationStyle)
+			shabbatName := GetTransliteratedName("Shabbat", transliterationStyle)
 			events = append(events, ActiveEvent{
 				EventCode:   "shabbos",
 				NameHebrew:  "שבת",
@@ -563,9 +563,9 @@ func appendUnique(slice []string, s string) []string {
 	return append(slice, s)
 }
 
-// getTransliteratedName returns the holiday name in the appropriate transliteration style
+// GetTransliteratedName returns the holiday name in the appropriate transliteration style
 // transliterationStyle: "ashkenazi" for Ashkenazi transliterations, "sephardi" or "" for Sephardi (default)
-func getTransliteratedName(name string, transliterationStyle string) string {
+func GetTransliteratedName(name string, transliterationStyle string) string {
 	// Normalize transliteration style
 	locale := "en" // Default to Sephardic (en)
 	if transliterationStyle == "ashkenazi" {

@@ -50,8 +50,8 @@ import { usePublisherContext } from '@/providers/PublisherContext';
 // Types
 // =============================================================================
 
-export interface PublisherQueryOptions<TData>
-  extends Omit<UseQueryOptions<TData, ApiError, TData, QueryKey>, 'queryKey' | 'queryFn'> {
+export interface PublisherQueryOptions<TQueryFnData, TData = TQueryFnData>
+  extends Omit<UseQueryOptions<TQueryFnData, ApiError, TData, QueryKey>, 'queryKey' | 'queryFn'> {
   /**
    * Additional query parameters to append to the URL
    */
@@ -110,10 +110,10 @@ export interface PublisherMutationOptions<TData, TVariables>
  * );
  * ```
  */
-export function usePublisherQuery<TData>(
+export function usePublisherQuery<TQueryFnData, TData = TQueryFnData>(
   key: string | (string | number | null | undefined)[],
   endpoint: string,
-  options?: PublisherQueryOptions<TData>
+  options?: PublisherQueryOptions<TQueryFnData, TData>
 ) {
   const api = useApi();
   const { selectedPublisher, isLoading: publisherLoading } = usePublisherContext();
@@ -138,9 +138,9 @@ export function usePublisherQuery<TData>(
     return queryString ? `${endpoint}?${queryString}` : endpoint;
   };
 
-  return useQuery<TData, ApiError>({
+  return useQuery<TQueryFnData, ApiError, TData>({
     queryKey: [...normalizedKey, selectedPublisher?.id],
-    queryFn: () => api.get<TData>(buildUrl()),
+    queryFn: () => api.get<TQueryFnData>(buildUrl()),
     enabled: !publisherLoading && !!selectedPublisher?.id && enabled,
     ...queryOptions,
   });

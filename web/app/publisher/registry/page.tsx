@@ -167,6 +167,9 @@ function ZmanCard({
                   >
                     {displayName}
                   </h3>
+                  <span className="text-xs font-mono text-muted-foreground/70">
+                    @{zman.zman_key}
+                  </span>
                   {zman.already_imported && (
                     <Badge
                       variant={zman.existing_is_deleted ? "destructive" : "secondary"}
@@ -443,7 +446,11 @@ export default function RegistryPage() {
     const params = new URLSearchParams();
     params.set('page', page.toString());
     params.set('limit', limit.toString());
-    if (deferredSearch) params.set('search', deferredSearch);
+    // Strip leading @ for zman_key searches
+    if (deferredSearch) {
+      const searchTerm = deferredSearch.startsWith('@') ? deferredSearch.slice(1) : deferredSearch;
+      params.set('search', searchTerm);
+    }
     if (status && status !== 'all') params.set('status', status);
     if (selectedCategories.length > 0) {
       params.set('category', selectedCategories.join(','));
@@ -654,7 +661,7 @@ export default function RegistryPage() {
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search zmanim by name or formula..."
+                      placeholder="Search by name, key (@alos_hashachar), or formula..."
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);

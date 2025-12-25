@@ -1,0 +1,78 @@
+{
+  "workflow_version": "1.2.0",
+  "timestamps": {
+    "started": "2025-12-25T00:00:00Z",
+    "completed": "2025-12-25T00:30:00Z"
+  },
+  "mode": "full_rescan",
+  "scan_level": "exhaustive",
+  "project_root": "/home/daniel/repos/zmanim",
+  "output_folder": "/home/daniel/repos/zmanim/docs",
+  "completed_steps": [
+    "step_1_project_classification",
+    "step_2_documentation_discovery",
+    "step_3_technology_stack",
+    "step_4_conditional_analysis",
+    "step_5_source_tree",
+    "step_6_dev_info",
+    "step_7_generate_user_guide",
+    "step_8_update_index"
+  ],
+  "current_step": "complete",
+  "findings": {
+    "project_type": "multi-part-monorepo",
+    "parts": [
+      {
+        "name": "api",
+        "path": "/api",
+        "type": "backend",
+        "tech": "Go 1.24.9",
+        "key_files": ["go.mod", "internal/handlers/", "internal/services/", "internal/dsl/"]
+      },
+      {
+        "name": "web",
+        "path": "/web",
+        "type": "web-frontend",
+        "tech": "Next.js 16.1.1, React 19, TypeScript 5.9",
+        "key_files": ["package.json", "app/", "components/", "lib/"]
+      },
+      {
+        "name": "infrastructure",
+        "path": "/infrastructure",
+        "type": "infrastructure",
+        "tech": "CDKTF 0.21, AWS CDK",
+        "key_files": ["package.json", "main.ts"]
+      },
+      {
+        "name": "db",
+        "path": "/db",
+        "type": "database",
+        "tech": "PostgreSQL 17 + PostGIS + pgvector",
+        "key_files": ["migrations/"]
+      }
+    ],
+    "database_tables": 55,
+    "handlers": 44,
+    "components": 123,
+    "sql_query_files": 20,
+    "services": 13
+  },
+  "outputs_generated": [
+    "project-scan-report.json",
+    "USER_GUIDE.md",
+    "index.md (updated)"
+  ],
+  "documentation_status": {
+    "user_guide": "created",
+    "developer_guide": "existing - comprehensive",
+    "dsl_guide": "existing - comprehensive",
+    "index": "updated with role-based navigation",
+    "tag_system": "existing",
+    "api_reference": "existing",
+    "architecture": "existing",
+    "database": "existing",
+    "frontend": "existing",
+    "infrastructure": "existing"
+  },
+  "resume_instructions": "Scan complete. All documentation updated."
+}

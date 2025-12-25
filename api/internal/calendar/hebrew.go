@@ -250,8 +250,14 @@ var excludedHolidays = map[string]bool{
 	"Rosh Hashana LaBehemot": true, // New Year for Animal Tithes
 }
 
-// GetHolidays returns holidays for a given date
+// GetHolidays returns holidays for a given date (uses Sephardi transliteration by default)
 func (s *CalendarService) GetHolidays(date time.Time) []Holiday {
+	return s.GetHolidaysWithStyle(date, "")
+}
+
+// GetHolidaysWithStyle returns holidays for a given date with specified transliteration style
+// transliterationStyle: "ashkenazi" for Ashkenazi transliterations (Shabbos, Sukkos), "" or "sephardi" for Sephardi (Shabbat, Sukkot)
+func (s *CalendarService) GetHolidaysWithStyle(date time.Time, transliterationStyle string) []Holiday {
 	hd := hdate.FromTime(date)
 	year := hd.Year()
 
@@ -276,7 +282,7 @@ func (s *CalendarService) GetHolidays(date time.Time) []Holiday {
 	for _, ev := range events {
 		evDate := ev.GetDate().Gregorian()
 		if evDate.Format("2006-01-02") == dateStr {
-			holiday := eventToHoliday(ev)
+			holiday := eventToHolidayWithStyle(ev, transliterationStyle)
 			// Skip excluded holidays that have no zmanim significance
 			if excludedHolidays[holiday.Name] {
 				continue
@@ -462,11 +468,23 @@ func transformChanukahHebrewName(name string) string {
 	return name
 }
 
-// eventToHoliday converts a hebcal event to our Holiday type
+// eventToHoliday converts a hebcal event to our Holiday type (uses Sephardi transliteration)
 func eventToHoliday(ev event.CalEvent) Holiday {
-	desc := ev.Render("en")
+	return eventToHolidayWithStyle(ev, "")
+}
+
+// eventToHolidayWithStyle converts a hebcal event to our Holiday type with specified transliteration
+// transliterationStyle: "ashkenazi" for Ashkenazi (Shabbos, Sukkos), "" or "sephardi" for Sephardi (Shabbat, Sukkot)
+func eventToHolidayWithStyle(ev event.CalEvent, transliterationStyle string) Holiday {
+	// Use hebcal-go's built-in locale support for transliteration
+	locale := "en" // Default: Sephardi
+	if transliterationStyle == "ashkenazi" {
+		locale = "ashkenazi"
+	}
+
+	desc := ev.Render(locale)
 	hebrewName := ev.Render("he")
-	originalDesc := desc // Capture original before transformation
+	originalDesc := ev.Render("en") // Always store Sephardi for database matching
 
 	// Transform Chanukah candle count to day number
 	desc = transformChanukahName(desc)
@@ -499,6 +517,6 @@ func eventToHoliday(ev event.CalEvent) Holiday {
 		Category:       category,
 		Candles:        candles,
 		Yomtov:         yomtov,
-		HebcalOriginal: originalDesc, // Store original for database matching
+		HebcalOriginal: originalDesc, // Store original (Sephardi) for database matching
 	}
 }

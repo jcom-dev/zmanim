@@ -44,7 +44,7 @@ function Category({
   items,
   currentFormula,
   onInsert,
-  defaultOpen = true,
+  defaultOpen = false,
   searchQuery,
 }: CategoryProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -231,7 +231,6 @@ export function DSLReferencePanel({
           items={DSL_PROPORTIONAL_BASES}
           currentFormula={currentFormula}
           onInsert={onInsert}
-          defaultOpen={false}
           searchQuery={searchQuery}
         />
 
@@ -242,7 +241,6 @@ export function DSLReferencePanel({
           items={DSL_DIRECTIONS}
           currentFormula={currentFormula}
           onInsert={onInsert}
-          defaultOpen={false}
           searchQuery={searchQuery}
         />
 
@@ -263,7 +261,6 @@ export function DSLReferencePanel({
           items={DSL_CONDITIONALS}
           currentFormula={currentFormula}
           onInsert={onInsert}
-          defaultOpen={false}
           searchQuery={searchQuery}
         />
 
@@ -274,7 +271,6 @@ export function DSLReferencePanel({
           items={DSL_CONDITION_VARIABLES}
           currentFormula={currentFormula}
           onInsert={onInsert}
-          defaultOpen={false}
           searchQuery={searchQuery}
         />
 
@@ -285,7 +281,6 @@ export function DSLReferencePanel({
           items={DSL_DATE_LITERALS}
           currentFormula={currentFormula}
           onInsert={onInsert}
-          defaultOpen={false}
           searchQuery={searchQuery}
         />
 
@@ -297,7 +292,6 @@ export function DSLReferencePanel({
             items={zmanimReferences}
             currentFormula={currentFormula}
             onInsert={onInsert}
-            defaultOpen={false}
             searchQuery={searchQuery}
           />
         )}

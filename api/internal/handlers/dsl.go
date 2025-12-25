@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jcom-dev/zmanim/internal/calendar"
 	"github.com/jcom-dev/zmanim/internal/dsl"
 	"github.com/jcom-dev/zmanim/internal/services"
 )
@@ -236,28 +237,26 @@ func (h *Handlers) PreviewDSLFormula(w http.ResponseWriter, r *http.Request) {
 
 // DSLPreviewWeekRequest represents a request for weekly preview
 type DSLPreviewWeekRequest struct {
-	Formula    string  `json:"formula"`
-	StartDate  string  `json:"start_date"`            // ISO 8601 date (YYYY-MM-DD)
-	LocationID string  `json:"location_id,omitempty"` // Optional: locality/location ID
-	Latitude   float64 `json:"latitude,omitempty"`    // Direct coordinates
-	Longitude  float64 `json:"longitude,omitempty"`
-	Timezone   string  `json:"timezone,omitempty"` // e.g., "America/New_York"
-	Elevation  float64 `json:"elevation,omitempty"`
+	Formula              string            `json:"formula"`
+	StartDate            string            `json:"start_date"`                      // ISO 8601 date (YYYY-MM-DD)
+	LocationID           string            `json:"location_id,omitempty"`           // Optional: locality/location ID
+	Latitude             float64           `json:"latitude,omitempty"`              // Direct coordinates
+	Longitude            float64           `json:"longitude,omitempty"`
+	Timezone             string            `json:"timezone,omitempty"`              // e.g., "America/New_York"
+	Elevation            float64           `json:"elevation,omitempty"`
+	References           map[string]string `json:"references,omitempty"`            // Resolved references: key -> formula
+	TransliterationStyle string            `json:"transliteration_style,omitempty"` // ashkenazi or sephardi
 }
 
 // DayPreview represents a single day's calculation result
 type DayPreview struct {
-	Date         string   `json:"date"`          // YYYY-MM-DD
-	HebrewDate   string   `json:"hebrew_date"`   // Hebrew date string
-	Result       string   `json:"result"`        // Exact time HH:MM:SS with actual seconds
-	ResultRound  string   `json:"result_round"`  // Rounded time HH:MM
-	Sunrise      string   `json:"sunrise"`       // Exact time HH:MM:SS
-	SunriseRound string   `json:"sunrise_round"` // Rounded time HH:MM
-	Sunset       string   `json:"sunset"`        // Exact time HH:MM:SS
-	SunsetRound  string   `json:"sunset_round"`  // Rounded time HH:MM
-	Events       []string `json:"events"`        // Jewish holidays, Shabbat, etc.
-	IsShabbat    bool     `json:"is_shabbat"`
-	IsYomTov     bool     `json:"is_yom_tov"`
+	Date        string   `json:"date"`         // YYYY-MM-DD
+	HebrewDate  string   `json:"hebrew_date"`  // Hebrew date string
+	Result      string   `json:"result"`       // Exact time HH:MM:SS with actual seconds
+	ResultRound string   `json:"result_round"` // Rounded time HH:MM
+	Events      []string `json:"events"`       // Jewish holidays, Shabbat, etc.
+	IsShabbat   bool     `json:"is_shabbat"`
+	IsYomTov    bool     `json:"is_yom_tov"`
 }
 
 // DSLPreviewWeekResponse represents weekly preview response
@@ -355,6 +354,12 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 		loc = time.UTC
 	}
 
+	// Get transliteration style (default to ashkenazi)
+	transliterationStyle := req.TransliterationStyle
+	if transliterationStyle == "" {
+		transliterationStyle = "ashkenazi"
+	}
+
 	// Calculate for 7 days
 	days := []DayPreview{}
 	for i := 0; i < 7; i++ {
@@ -369,42 +374,15 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 			IsYomTov:   false,
 		}
 
-		// Calculate sunrise using the service
-		sunriseResult, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
-			Formula:   "sunrise",
-			Date:      currentDate,
-			Latitude:  latitude,
-			Longitude: longitude,
-			Elevation: req.Elevation,
-			Timezone:  loc,
-		})
-		if err == nil {
-			dayPreview.Sunrise = sunriseResult.TimeExact
-			dayPreview.SunriseRound = sunriseResult.TimeRounded
-		}
-
-		// Calculate sunset using the service
-		sunsetResult, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
-			Formula:   "sunset",
-			Date:      currentDate,
-			Latitude:  latitude,
-			Longitude: longitude,
-			Elevation: req.Elevation,
-			Timezone:  loc,
-		})
-		if err == nil {
-			dayPreview.Sunset = sunsetResult.TimeExact
-			dayPreview.SunsetRound = sunsetResult.TimeRounded
-		}
-
 		// Calculate the requested formula using the service
 		result, err := h.zmanimService.CalculateFormula(ctx, services.FormulaParams{
-			Formula:   req.Formula,
-			Date:      currentDate,
-			Latitude:  latitude,
-			Longitude: longitude,
-			Elevation: req.Elevation,
-			Timezone:  loc,
+			Formula:    req.Formula,
+			Date:       currentDate,
+			Latitude:   latitude,
+			Longitude:  longitude,
+			Elevation:  req.Elevation,
+			Timezone:   loc,
+			References: req.References,
 		})
 
 		if err == nil {
@@ -414,9 +392,10 @@ func (h *Handlers) PreviewDSLFormulaWeek(w http.ResponseWriter, r *http.Request)
 			dayPreview.Result = "Error: " + err.Error()
 		}
 
-		// Add Shabbat to events if applicable
+		// Add Shabbat to events if applicable (with correct transliteration)
 		if dayPreview.IsShabbat {
-			dayPreview.Events = append(dayPreview.Events, "Shabbat")
+			shabbatName := calendar.GetTransliteratedName("Shabbat", transliterationStyle)
+			dayPreview.Events = append(dayPreview.Events, shabbatName)
 		}
 
 		days = append(days, dayPreview)

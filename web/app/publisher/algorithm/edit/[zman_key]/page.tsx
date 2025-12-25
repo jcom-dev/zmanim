@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft,
   Save,
-  Sparkles,
   Calendar,
   Code2,
   GripVertical,
@@ -19,14 +17,11 @@ import {
   Wand2,
   Copy,
   Check,
-  ArrowDownToLine,
-  ChevronDown,
-  MessageSquare,
   RotateCcw,
   Tags,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, formatTime, isHebrewText } from '@/lib/utils';
+import { cn, formatTime } from '@/lib/utils';
 import { useApi } from '@/lib/api-client';
 import { usePublisherContext } from '@/providers/PublisherContext';
 
@@ -35,7 +30,6 @@ import { DSLReferencePanel } from '@/components/editor/DSLReferencePanel';
 import { FormulaBuilder } from '@/components/formula-builder/FormulaBuilder';
 import { AIGeneratePanel } from '@/components/formula-builder/AIGeneratePanel';
 import { parseFormula, type ParseResult } from '@/components/formula-builder/types';
-import { BilingualInput } from '@/components/shared/BilingualInput';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import { WeeklyPreviewDialog } from '@/components/algorithm/WeeklyPreviewDialog';
@@ -91,10 +85,6 @@ export default function ZmanEditorPage() {
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dslEditorRef = useRef<DSLEditorRef>(null);
-
-  // Collapsible sections state (for advanced mode)
-  const [aiExplanationOpen, setAiExplanationOpen] = useState(false);
-  const [publisherCommentOpen, setPublisherCommentOpen] = useState(false);
 
   // Editor state
   const [mode, setMode] = useState<EditorMode>('guided');
@@ -220,12 +210,9 @@ export default function ZmanEditorPage() {
       });
   }, [selectedPublisher?.id, api]);
 
-  // Dialog state
-  const [generatingExplanation, setGeneratingExplanation] = useState<'en' | 'he' | 'mixed' | null>(null);
-
   // Fetch data
   const { data: zman, isLoading: loadingZman } = useZmanDetails(isNewZman ? null : zmanKey);
-  const { data: allZmanim = [] } = useZmanimList();
+  const { data: allZmanim = [] } = useZmanimList({ localityId: previewLocalityId });
   const updateZman = useUpdateZman(zmanKey);
   const createZman = useCreateZman();
   const previewFormula = usePreviewFormula();
@@ -349,30 +336,6 @@ export default function ZmanEditorPage() {
     }
   }, [validateFormula]);
 
-  // Generate AI explanation handler
-  const handleGenerateExplanation = async (language: 'en' | 'he' | 'mixed') => {
-    if (!formula.trim()) {
-      toast.error('Please enter a formula first');
-      return;
-    }
-
-    setGeneratingExplanation(language);
-    try {
-      const response = await api.post<{ explanation: string; language: string; source: string }>(
-        '/ai/explain-formula',
-        { body: JSON.stringify({ formula, language }) }
-      );
-      setAiExplanation(response.explanation);
-      setHasChanges(true);
-      toast.success('AI explanation generated');
-    } catch (error) {
-      console.error('Failed to generate explanation:', error);
-      toast.error('Failed to generate AI explanation. The AI service may not be configured.');
-    } finally {
-      setGeneratingExplanation(null);
-    }
-  };
-
   // Save handler
   const handleSave = async () => {
     if (!hebrewName.trim() || !englishName.trim() || !formula.trim()) {
@@ -424,6 +387,20 @@ export default function ZmanEditorPage() {
 
   // Get zman keys for autocomplete
   const zmanimKeys = (allZmanim || []).map(z => z.zman_key);
+
+  // Build references map for formula preview (memoized)
+  const formulaReferences = useMemo(() => {
+    const refMatches = formula.match(/@([a-zA-Z_][a-zA-Z0-9_]*)/g) || [];
+    const refs: Record<string, string> = {};
+    for (const match of refMatches) {
+      const key = match.substring(1); // Remove @ prefix
+      const referencedZman = allZmanim.find(z => z.zman_key === key);
+      if (referencedZman?.formula_dsl) {
+        refs[key] = referencedZman.formula_dsl;
+      }
+    }
+    return Object.keys(refs).length > 0 ? refs : undefined;
+  }, [formula, allZmanim]);
 
   // Handler for inserting text from reference panel
   const handleInsertAtCursor = useCallback((text: string) => {
@@ -565,63 +542,16 @@ export default function ZmanEditorPage() {
               </TabsList>
             </Tabs>
 
-            {/* Bilingual Name Inputs */}
-            <BilingualInput
-              nameHebrew={hebrewName}
-              nameEnglish={englishName}
-              onHebrewChange={setHebrewName}
-              onEnglishChange={setEnglishName}
-              sourceHebrewName={zman?.source_hebrew_name}
-              sourceEnglishName={zman?.source_english_name}
-              sourceName={zman?.is_linked ? zman?.linked_source_publisher_name || 'Linked Publisher' : 'Registry'}
-            />
-
-            {/* Formula Deviation Indicator */}
-            {zman?.source_formula_dsl && formula !== zman.source_formula_dsl && (
-              <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <Code2 className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        Formula modified from {zman.is_linked ? zman.linked_source_publisher_name || 'Linked Publisher' : 'Registry'}
-                      </p>
-                      <div className="text-xs text-amber-700/80 dark:text-amber-300/80">
-                        <span className="font-medium">Original:</span>{' '}
-                        <code className="bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded font-mono">
-                          {zman.source_formula_dsl}
-                        </code>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFormula(zman.source_formula_dsl!)}
-                    className="h-8 px-3 text-amber-700 border-amber-400 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50 dark:hover:text-amber-200 shrink-0"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                    Revert to Original
-                  </Button>
-                </div>
-              </div>
-            )}
-
             {/* Formula Editor */}
             {mode === 'guided' ? (
               <FormulaBuilder
                 initialFormula={formula}
                 onChange={setFormula}
                 onParseError={handleParseError}
+                localityId={previewLocalityId}
               />
             ) : (
               <>
-                {/* AI Generate Panel - prominent position above DSL editor */}
-                <AIGeneratePanel
-                  onAccept={(generatedFormula) => setFormula(generatedFormula)}
-                  onEdit={(generatedFormula) => setFormula(generatedFormula)}
-                />
-
                 {/* Info banner when Guided Builder is unavailable */}
                 {!guidedModeAvailable && formulaParseResult?.complexityDetails && (
                   <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-2 mb-4">
@@ -676,130 +606,11 @@ export default function ZmanEditorPage() {
                   </CardContent>
                 </Card>
 
-                {/* Collapsible AI Explanation */}
-                <div className="rounded-lg border overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setAiExplanationOpen(!aiExplanationOpen)}
-                    className="flex items-center justify-between w-full px-4 py-3 bg-muted/50 hover:bg-muted transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      <span className="text-sm font-medium">AI Explanation</span>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 text-muted-foreground transition-transform',
-                        aiExplanationOpen && 'rotate-180'
-                      )}
-                    />
-                  </button>
-                  {aiExplanationOpen && (
-                    <div className="p-4 bg-card space-y-3">
-                      <div className="flex justify-end gap-2 flex-wrap">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleGenerateExplanation('mixed')}
-                          disabled={generatingExplanation !== null || !formula.trim()}
-                          title="English with Hebrew terms"
-                        >
-                          {generatingExplanation === 'mixed' ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 mr-2" />
-                          )}
-                          Mixed
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleGenerateExplanation('en')}
-                          disabled={generatingExplanation !== null || !formula.trim()}
-                          title="Full English"
-                        >
-                          {generatingExplanation === 'en' ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 mr-2" />
-                          )}
-                          English
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleGenerateExplanation('he')}
-                          disabled={generatingExplanation !== null || !formula.trim()}
-                          title="Full Hebrew"
-                        >
-                          {generatingExplanation === 'he' ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 mr-2" />
-                          )}
-                          עברית
-                        </Button>
-                      </div>
-                      <Textarea
-                        value={aiExplanation}
-                        onChange={(e) => setAiExplanation(e.target.value)}
-                        placeholder="Generate an AI explanation..."
-                        rows={3}
-                        className={cn(
-                          "min-h-[80px] resize-none",
-                          isHebrewText(aiExplanation) && "text-right"
-                        )}
-                        dir={isHebrewText(aiExplanation) ? "rtl" : "ltr"}
-                      />
-                      {aiExplanation.trim() && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setPublisherComment(aiExplanation);
-                            setHasChanges(true);
-                            toast.success('Copied to Publisher Comment');
-                          }}
-                          className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          <ArrowDownToLine className="h-3 w-3 mr-1.5" />
-                          Copy to Publisher Comment
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Collapsible Publisher Comment */}
-                <div className="rounded-lg border overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setPublisherCommentOpen(!publisherCommentOpen)}
-                    className="flex items-center justify-between w-full px-4 py-3 bg-muted/50 hover:bg-muted transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      <span className="text-sm font-medium">Publisher Comment</span>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 text-muted-foreground transition-transform',
-                        publisherCommentOpen && 'rotate-180'
-                      )}
-                    />
-                  </button>
-                  {publisherCommentOpen && (
-                    <div className="p-4 bg-card">
-                      <Textarea
-                        value={publisherComment}
-                        onChange={(e) => setPublisherComment(e.target.value)}
-                        placeholder="Add a note for users viewing this zman (e.g., halachic source, custom minhag)..."
-                        rows={3}
-                        className="min-h-[80px] resize-none"
-                      />
-                    </div>
-                  )}
-                </div>
+                {/* AI Generate Panel - at the bottom */}
+                <AIGeneratePanel
+                  onAccept={(generatedFormula) => setFormula(generatedFormula)}
+                  onEdit={(generatedFormula) => setFormula(generatedFormula)}
+                />
               </>
             )}
           </div>
@@ -839,6 +650,39 @@ export default function ZmanEditorPage() {
           role="region"
           aria-label={mode === 'advanced' ? 'DSL Reference' : 'Formula preview and calculation'}
         >
+          {/* Formula Deviation Indicator - shown at top of right panel */}
+          {zman?.source_formula_dsl && formula !== zman.source_formula_dsl && (
+            <div className="p-4 border-b bg-amber-50 dark:bg-amber-950/30">
+              <div className="rounded-lg border border-amber-500/50 px-4 py-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <Code2 className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        Formula modified from {zman.is_linked ? zman.linked_source_publisher_name || 'Linked Publisher' : 'Registry'}
+                      </p>
+                      <div className="text-xs text-amber-700/80 dark:text-amber-300/80">
+                        <span className="font-medium">Original:</span>{' '}
+                        <code className="bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded font-mono">
+                          {zman.source_formula_dsl}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormula(zman.source_formula_dsl!)}
+                    className="h-8 px-3 text-amber-700 border-amber-400 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50 dark:hover:text-amber-200 shrink-0"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                    Revert to Original
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {mode === 'advanced' ? (
             /* DSL Reference Panel for Advanced Mode */
             <DSLReferencePanel
@@ -846,7 +690,7 @@ export default function ZmanEditorPage() {
               onSetFormula={setFormula}
               currentFormula={formula}
               zmanimKeys={zmanimKeys}
-              className="h-full"
+              className="flex-1"
             />
           ) : (
             /* Preview Panel for Guided Mode */
@@ -928,105 +772,6 @@ export default function ZmanEditorPage() {
                 </CardContent>
               </Card>
 
-              {/* AI Explanation */}
-              <Card className="border-2">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <CardTitle className="text-lg font-semibold">AI Explanation</CardTitle>
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        size="default"
-                        onClick={() => handleGenerateExplanation('mixed')}
-                        disabled={generatingExplanation !== null || !formula.trim()}
-                        className="h-9 px-3"
-                        title="English with Hebrew terms"
-                      >
-                        {generatingExplanation === 'mixed' ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-4 w-4 mr-2" />
-                        )}
-                        Mixed
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        onClick={() => handleGenerateExplanation('en')}
-                        disabled={generatingExplanation !== null || !formula.trim()}
-                        className="h-9 px-3"
-                        title="Full English"
-                      >
-                        {generatingExplanation === 'en' ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-4 w-4 mr-2" />
-                        )}
-                        English
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        onClick={() => handleGenerateExplanation('he')}
-                        disabled={generatingExplanation !== null || !formula.trim()}
-                        className="h-9 px-3"
-                        title="Full Hebrew"
-                      >
-                        {generatingExplanation === 'he' ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-4 w-4 mr-2" />
-                        )}
-                        עברית
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Textarea
-                    value={aiExplanation}
-                    onChange={(e) => setAiExplanation(e.target.value)}
-                    placeholder="Generate an AI explanation..."
-                    rows={4}
-                    className={cn(
-                      "min-h-[100px] resize-none",
-                      isHebrewText(aiExplanation) && "text-right"
-                    )}
-                    dir={isHebrewText(aiExplanation) ? "rtl" : "ltr"}
-                  />
-                  {aiExplanation.trim() && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setPublisherComment(aiExplanation);
-                        setHasChanges(true);
-                        toast.success('Copied to Publisher Comment');
-                      }}
-                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      <ArrowDownToLine className="h-3 w-3 mr-1.5" />
-                      Copy to Publisher Comment
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Publisher Comment */}
-              <Card className="border-2">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-semibold">Publisher Comment</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    value={publisherComment}
-                    onChange={(e) => setPublisherComment(e.target.value)}
-                    placeholder="Add a note for users viewing this zman (e.g., halachic source, custom minhag)..."
-                    rows={3}
-                    className="min-h-[80px] resize-none"
-                  />
-                </CardContent>
-              </Card>
             </div>
           )}
         </div>
@@ -1040,6 +785,7 @@ export default function ZmanEditorPage() {
           formula={formula}
           location={previewLocation}
           zmanName={englishName || zman?.english_name}
+          references={formulaReferences}
         />
       )}
 

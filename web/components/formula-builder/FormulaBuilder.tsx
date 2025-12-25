@@ -26,6 +26,7 @@ interface FormulaBuilderProps {
   onChange?: (formula: string) => void;
   onParseError?: (error: string) => void;
   className?: string;
+  localityId?: number | null;
 }
 
 export function FormulaBuilder({
@@ -33,6 +34,7 @@ export function FormulaBuilder({
   onChange,
   onParseError,
   className,
+  localityId,
 }: FormulaBuilderProps) {
   const [state, setState] = useState<FormulaBuilderState>(() => ({
     ...initialState,
@@ -272,6 +274,7 @@ export function FormulaBuilder({
               onMinutesChange={handleOffsetMinutesChange}
               onDirectionChange={handleOffsetDirectionChange}
               onBaseChange={handleOffsetBaseChange}
+              localityId={localityId}
             />
           </MethodCard>
 
@@ -292,6 +295,7 @@ export function FormulaBuilder({
               onBaseChange={handleShaosBaseChange}
               onCustomStartChange={handleCustomStartChange}
               onCustomEndChange={handleCustomEndChange}
+              localityId={localityId}
             />
           </MethodCard>
         </div>

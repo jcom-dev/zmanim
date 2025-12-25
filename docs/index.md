@@ -1,42 +1,60 @@
 # Shtetl Zmanim Documentation
 
-Welcome to the Shtetl Zmanim documentation. This is your guide to developing, deploying, and operating the platform for Halachic Authorities to publish zmanim with complete autonomy and transparency.
+Welcome to the Shtetl Zmanim documentation. This platform enables Halachic Authorities to publish zmanim with complete autonomy over calculation formulas and full transparency for their communities.
 
 ---
 
-## Quick Start
+## Quick Start by Role
 
-1. Read [Coding Standards](coding-standards.md) **(MANDATORY before any work)**
-2. Follow [Developer Guide](DEVELOPER_GUIDE.md) for environment setup
-3. Run `./restart.sh` to start services
+### For Users & Publishers
+
+| I want to... | Start here |
+|--------------|------------|
+| **Use zmanim** from my authority | [User Guide](USER_GUIDE.md) |
+| **Publish zmanim** as a Halachic Authority | [User Guide - Publishers](USER_GUIDE.md#for-publishers-setting-up-your-zmanim) |
+| **Write formulas** for zmanim calculations | [DSL Complete Guide](dsl-complete-guide.md) |
+| **Understand tags** and event filtering | [Tag System Reference](TAG-SYSTEM-REFERENCE.md) |
+
+### For Developers
+
+| I want to... | Start here |
+|--------------|------------|
+| **Set up** my development environment | [Developer Guide](DEVELOPER_GUIDE.md) |
+| **Understand** coding rules (MANDATORY) | [Coding Standards](coding-standards.md) |
+| **Build** API integrations | [API Reference](API_REFERENCE.md) |
+| **Understand** the architecture | [Architecture](ARCHITECTURE.md) |
 
 ---
 
 ## Documentation Index
 
-### Core Documentation
+### For Users & Publishers
 
-| Document | Description | Audience |
-|----------|-------------|----------|
-| [README](README.md) | Project overview and quick reference | Everyone |
-| [Coding Standards](coding-standards.md) | **MANDATORY** - Development rules and patterns | Developers |
-| [Developer Guide](DEVELOPER_GUIDE.md) | Complete onboarding and development workflow | New developers |
+| Document | Description |
+|----------|-------------|
+| [User Guide](USER_GUIDE.md) | Complete guide for publishers and community members |
+| [DSL Complete Guide](dsl-complete-guide.md) | Formula language for zmanim calculations |
+| [Tag System Reference](TAG-SYSTEM-REFERENCE.md) | Understanding tags and event-based filtering |
 
-### Technical Reference
+### For Developers
 
-| Document | Description | Audience |
-|----------|-------------|----------|
-| [Architecture](ARCHITECTURE.md) | System design, data flow, security patterns | Architects, senior devs |
-| [API Reference](API_REFERENCE.md) | REST endpoints, authentication, examples | Backend devs, integrators |
-| [Database](DATABASE.md) | Schema, SQLc patterns, queries | Backend devs |
-| [Frontend](FRONTEND.md) | Next.js structure, components, hooks | Frontend devs |
-| [Infrastructure](INFRASTRUCTURE.md) | AWS deployment, CI/CD, operations | DevOps, SREs |
+| Document | Description |
+|----------|-------------|
+| [Coding Standards](coding-standards.md) | **MANDATORY** - Development rules and patterns |
+| [Developer Guide](DEVELOPER_GUIDE.md) | Environment setup and development workflow |
+| [Architecture](ARCHITECTURE.md) | System design, data flow, security patterns |
+| [API Reference](API_REFERENCE.md) | REST endpoints, authentication, examples |
+| [Database](DATABASE.md) | Schema, SQLc patterns, queries |
+| [Frontend](FRONTEND.md) | Next.js structure, components, hooks |
+| [Infrastructure](INFRASTRUCTURE.md) | AWS deployment, CI/CD, operations |
+| [External API](external-api.md) | External API integration documentation |
 
-### Domain Knowledge
+### AI Agent Context
 
-| Document | Description | Audience |
-|----------|-------------|----------|
-| [DSL Complete Guide](dsl-complete-guide.md) | Formula language for zmanim calculations | Everyone |
+| Document | Description |
+|----------|-------------|
+| [Project Context](project-context.md) | Critical rules for AI agents |
+| [AI Quick Start](AI_QUICK_START.md) | Quick reference for AI development |
 
 ---
 

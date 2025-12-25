@@ -137,8 +137,7 @@ export interface DayPreview {
   date: string;
   hebrew_date: string;
   result: string;
-  sunrise: string;
-  sunset: string;
+  result_round: string;
   events: string[];
   is_shabbat: boolean;
   is_yom_tov: boolean;
@@ -192,27 +191,43 @@ export interface ImportZmanimResponse {
  * @example
  * // Conditionally disable query
  * const { data: zmanim } = useZmanimList(
- *   hasCoverage ? { date, latitude, longitude } : { enabled: false }
+ *   hasCoverage ? { date, localityId } : { enabled: false }
  * );
  */
+// Response type for /publisher/zmanim endpoint with locality_id parameter
+// (includes calculated times and day context)
+interface ZmanimWithTimesResponse {
+  day_context: {
+    date: string;
+    day_of_week: number;
+    day_name: string;
+    hebrew_date: string;
+    hebrew_date_formatted: string;
+    holidays: string[];
+    active_event_codes: string[];
+    special_contexts: string[];
+  };
+  zmanim: PublisherZman[];
+}
+
 export const useZmanimList = (params?: {
   date?: string;
-  latitude?: number;
-  longitude?: number;
+  localityId?: number | null;
   enabled?: boolean;
 }) =>
-  usePublisherQuery<PublisherZman[]>(
-    ['publisher-zmanim', params?.date, params?.latitude, params?.longitude],
+  usePublisherQuery<ZmanimWithTimesResponse, PublisherZman[]>(
+    ['publisher-zmanim', params?.date, params?.localityId],
     '/publisher/zmanim',
     {
-      params: params && params.date && params.latitude !== undefined && params.longitude !== undefined
+      params: params?.localityId
         ? {
-            date: params.date,
-            latitude: String(params.latitude),
-            longitude: String(params.longitude),
+            locality_id: String(params.localityId),
+            date: params.date || new Date().toISOString().split('T')[0],
           }
         : undefined,
-      enabled: params?.enabled !== false, // Default to true, only disable if explicitly set to false
+      enabled: params?.enabled !== false && !!params?.localityId,
+      // Extract just the zmanim array from the response
+      select: (data) => data?.zmanim ?? [],
     }
   );
 
@@ -558,7 +573,13 @@ export function usePreviewWeek() {
   const api = useApi();
 
   return useMutation({
-    mutationFn: async (params: { formula: string; start_date: string; location: PreviewLocation }) => {
+    mutationFn: async (params: {
+      formula: string;
+      start_date: string;
+      location: PreviewLocation;
+      references?: Record<string, string>;
+      transliteration_style?: string;
+    }) => {
       return api.post<WeeklyPreviewResult>('/dsl/preview-week', {
         body: JSON.stringify({
           formula: params.formula,
@@ -566,6 +587,8 @@ export function usePreviewWeek() {
           latitude: params.location.latitude,
           longitude: params.location.longitude,
           timezone: params.location.timezone,
+          references: params.references,
+          transliteration_style: params.transliteration_style,
         }),
       });
     },

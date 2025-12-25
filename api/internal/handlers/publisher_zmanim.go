@@ -316,8 +316,8 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 	// Get Hebrew date for day context
 	hebrewDate := calService.GetHebrewDate(dateInTz)
 
-	// Build holidays list
-	holidays := calService.GetHolidays(dateInTz)
+	// Build holidays list (with publisher's transliteration style)
+	holidays := calService.GetHolidaysWithStyle(dateInTz, transliterationStyle)
 	holidayInfos := make([]HolidayInfo, 0, len(holidays))
 	for _, hol := range holidays {
 		holidayInfos = append(holidayInfos, HolidayInfo{
@@ -536,7 +536,7 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 		// Build day context
 		zmanimCtx := calService.GetZmanimContext(date, loc, transliterationStyle)
 		hebrewDate := calService.GetHebrewDate(date)
-		holidays := calService.GetHolidays(date)
+		holidays := calService.GetHolidaysWithStyle(date, transliterationStyle)
 		holidayInfos := make([]HolidayInfo, 0, len(holidays))
 		for _, h := range holidays {
 			holidayInfos = append(holidayInfos, HolidayInfo{

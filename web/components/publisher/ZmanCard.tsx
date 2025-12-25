@@ -403,6 +403,10 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                     </span>
                   </>
                 )}
+                {/* Zman key for reference */}
+                <span className="text-xs font-mono text-muted-foreground/70">
+                  @{zman.zman_key}
+                </span>
                 {/* Modified badge - inline with name */}
                 {hasAnyModification && (
                   <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-[10px] px-1.5 py-0">

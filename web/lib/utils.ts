@@ -11,7 +11,9 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Formatted time like "2:30:36 PM"
  */
 export function formatTime(time: string): string {
+  if (!time || !time.includes(':')) return '--:--';
   const [hours, minutes, seconds] = time.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return '--:--';
   const period = hours >= 12 ? 'PM' : 'AM';
   const hour12 = hours % 12 || 12;
 
@@ -36,7 +38,9 @@ export function formatTime(time: string): string {
  * @deprecated Use API `time_display` field instead
  */
 export function formatTimeShort(time: string): string {
+  if (!time || !time.includes(':')) return '--:--';
   const [hours, minutes] = time.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return '--:--';
   const period = hours >= 12 ? 'PM' : 'AM';
   const hour12 = hours % 12 || 12;
   return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;

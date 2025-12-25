@@ -15,7 +15,8 @@
       "Bash(npm run build:*)",
       "Bash(ls:*)",
       "Bash(source:*)",
-      "Bash(env:*)"
+      "Bash(env:*)",
+      "Bash(npm test:*)"
     ]
   }
 }

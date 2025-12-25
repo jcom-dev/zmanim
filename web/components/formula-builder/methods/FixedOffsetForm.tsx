@@ -23,6 +23,7 @@ interface FixedOffsetFormProps {
   onMinutesChange: (value: number) => void;
   onDirectionChange: (direction: OffsetDirection) => void;
   onBaseChange: (base: string) => void;
+  localityId?: number | null;
 }
 
 export function FixedOffsetForm({
@@ -32,14 +33,20 @@ export function FixedOffsetForm({
   onMinutesChange,
   onDirectionChange,
   onBaseChange,
+  localityId,
 }: FixedOffsetFormProps) {
   // State for collapsible "Your Zmanim" section
   const [yourZmanimExpanded, setYourZmanimExpanded] = useState(false);
 
-  // Fetch publisher's zmanim
-  const { data: zmanim = [], isLoading: zmanimLoading } = useZmanimList();
+  // Fetch publisher's zmanim (requires localityId)
+  const { data: zmanimData, isLoading: zmanimLoading } = useZmanimList(
+    localityId ? { localityId } : undefined
+  );
   // Fetch astronomical primitives from API
   const { data: primitivesGrouped = [], isLoading: primitivesLoading } = useAstronomicalPrimitivesGrouped();
+
+  // Ensure zmanim is always an array (API may return error object)
+  const zmanim = Array.isArray(zmanimData) ? zmanimData : [];
 
   const isLoading = zmanimLoading || primitivesLoading;
 
@@ -160,12 +167,12 @@ export function FixedOffsetForm({
                     Your Zmanim ({dailyZmanim.length})
                   </span>
                 </div>
-                {/* Expanded content */}
-                {yourZmanimExpanded && dailyZmanim.map((zman) => (
+                {/* Render daily zmanim - show when expanded, hide when collapsed */}
+                {dailyZmanim.map((zman) => (
                     <SelectItem
                       key={zman.zman_key}
                       value={zman.zman_key}
-                      className="py-3"
+                      className={yourZmanimExpanded ? 'py-3' : 'hidden'}
                     >
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-3">

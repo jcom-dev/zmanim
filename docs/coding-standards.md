@@ -47,7 +47,60 @@ if (!isLoaded) return <LoadingSpinner />;
 if (!isSignedIn) redirect('/sign-in');
 ```
 
-### 7. Entity References - ALWAYS Use IDs
+### 7. Centralize Logic - NEVER Patch at Consumer
+
+**NON-NEGOTIABLE:** All data transformations, formatting, and business logic MUST be applied at the **source/service layer**, not scattered across consumers.
+
+**FORBIDDEN - Patching in view/consumer code:**
+```tsx
+// ❌ FORBIDDEN - Transforming data at the consumer
+{events.map(event => (
+  <span>{event === 'Shabbat' ? getShabbatLabel(style) : event}</span>
+))}
+
+// ❌ FORBIDDEN - Every consumer must "fix" the data
+function formatZmanName(name: string, style: TransliterationStyle) {
+  // This logic should be in the backend service!
+}
+```
+
+**REQUIRED - Fix at the source:**
+```go
+// ✓ REQUIRED - Backend service returns correctly formatted data
+func (s *ZmanimService) GetEvents(ctx context.Context, params EventParams) []Event {
+    transliterationStyle := params.TransliterationStyle
+    events := []Event{}
+
+    if isShabbat(params.Date) {
+        // Apply transliteration at the source
+        eventName := calendar.GetTransliteratedName("Shabbat", transliterationStyle)
+        events = append(events, Event{Name: eventName})
+    }
+    return events
+}
+```
+
+**Why:**
+- **Consistency:** Every consumer gets correctly formatted data automatically
+- **Maintainability:** One fix location, not N scattered patches
+- **DRY:** Business logic lives in one place
+- **Testability:** Test the service once, not every consumer
+- **Scalability:** New consumers get correct behavior for free
+
+**Detection:**
+```bash
+# Look for suspicious consumer-side transformations
+grep -r "=== 'Shabbat'" web/  # String replacement in view
+grep -r "format.*Name.*style" web/components/  # Formatting helpers that should be backend
+```
+
+**Exceptions:**
+- Pure UI formatting (e.g., date display format for locale)
+- Memoized computed values derived from already-correct data
+
+---
+
+### 8. Entity References - ALWAYS Use IDs
 **FORBIDDEN:** Text-based lookups, name matching, or string identifiers in API calls/database queries.
 
 **REQUIRED:** Numeric IDs for ALL entity references.

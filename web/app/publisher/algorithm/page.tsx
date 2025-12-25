@@ -234,7 +234,9 @@ export default function AlgorithmEditorPage() {
 
     // Apply search filter (using deferred value for non-blocking updates)
     if (deferredSearchQuery.trim() !== '') {
-      const query = deferredSearchQuery.toLowerCase();
+      // Strip leading @ for zman_key searches
+      const rawQuery = deferredSearchQuery.trim();
+      const query = rawQuery.startsWith('@') ? rawQuery.slice(1).toLowerCase() : rawQuery.toLowerCase();
       result = result.filter(z =>
         z.hebrew_name.toLowerCase().includes(query) ||
         z.english_name.toLowerCase().includes(query) ||
@@ -533,7 +535,7 @@ export default function AlgorithmEditorPage() {
                   <div className="relative w-full sm:flex-1 min-w-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search zmanim by name..."
+                      placeholder="Search by name or key (@alos_hashachar)..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 w-full"
