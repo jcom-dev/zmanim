@@ -119,84 +119,54 @@ async function getOrCreatePublisherUser(publisherId: string): Promise<{ id: stri
 
 /**
  * Perform Clerk sign-in and wait for session
+ *
+ * Uses @clerk/testing helpers which handle Clerk loading internally.
  */
 async function performSignIn(page: any, email: string): Promise<void> {
+  console.log(`Starting sign-in process for: ${email}`);
+
   // Navigate to the app first
   await page.goto(BASE_URL);
-  await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('networkidle');
+  console.log('Page loaded, waiting for Clerk...');
 
-  // Setup testing token to bypass bot detection
+  // The clerk.signIn helper handles setupClerkTestingToken internally
+  // and waits for Clerk to be loaded before attempting sign-in.
+  // Increased timeout for CI where network might be slower.
   try {
+    await clerk.signIn({
+      page,
+      signInParams: {
+        strategy: 'password',
+        identifier: email,
+        password: TEST_PASSWORD,
+      },
+      setupClerkTestingTokenOptions: {
+        frontendApiUrl: process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL,
+      },
+    });
+    console.log(`Sign-in request sent for: ${email}`);
+  } catch (signInError: any) {
+    console.error('clerk.signIn failed:', signInError?.message);
+    // Try alternative approach - use setupClerkTestingToken separately
+    console.log('Attempting alternative sign-in approach...');
     await setupClerkTestingToken({ page });
-  } catch (error: any) {
-    console.warn('Warning: setupClerkTestingToken failed:', error?.message);
+    await clerk.signIn({
+      page,
+      signInParams: {
+        strategy: 'password',
+        identifier: email,
+        password: TEST_PASSWORD,
+      },
+    });
   }
 
-  // Wait for Clerk script to be loaded in DOM first
-  console.log('Waiting for Clerk script tag in DOM...');
-  await page.waitForFunction(
-    () => {
-      const script = document.querySelector('script[data-clerk-js-script="true"]');
-      return script !== null;
-    },
-    { timeout: TIMEOUTS.EXTENDED }
-  );
-  console.log('Clerk script found in DOM');
-
-  // Wait for Clerk global to be defined
-  console.log('Waiting for window.Clerk to be defined...');
-  await page.waitForFunction(
-    () => typeof (window as any).Clerk !== 'undefined',
-    { timeout: TIMEOUTS.EXTENDED }
-  );
-  console.log('window.Clerk is defined');
-
-  // Wait for Clerk to be fully loaded
-  // Log current Clerk state for debugging
-  const clerkState = await page.evaluate(() => {
-    const clerk = (window as any).Clerk;
-    return {
-      exists: typeof clerk !== 'undefined',
-      loaded: clerk?.loaded,
-      isReady: typeof clerk?.isReady === 'function' ? 'function exists' : 'no isReady',
-      version: clerk?.version,
-    };
-  });
-  console.log('Clerk state before waiting:', JSON.stringify(clerkState));
-
-  // Use a longer polling interval and explicit timeout
-  const CLERK_LOAD_TIMEOUT = 60000; // 60 seconds explicit
-  console.log(`Waiting for Clerk.loaded to be true (timeout: ${CLERK_LOAD_TIMEOUT}ms)...`);
-  await page.waitForFunction(
-    () => (window as any).Clerk?.loaded === true,
-    { timeout: CLERK_LOAD_TIMEOUT, polling: 500 }
-  );
-  console.log('Clerk is fully loaded');
-
-  // Sign in using email-based approach (more reliable in test environments)
-  await clerk.signIn({
-    page,
-    emailAddress: email,
-  });
-
-  // Wait for authentication to complete
+  // Wait for authentication to complete with generous timeout
+  console.log('Waiting for user to be authenticated...');
   await page.waitForFunction(
     () => (window as any).Clerk?.user !== null,
-    { timeout: TIMEOUTS.CLERK_AUTH }
+    { timeout: TIMEOUTS.EXTENDED }
   );
-
-  // Wait for session to be fully active
-  await page.waitForFunction(
-    () => {
-      const clerk = (window as any).Clerk;
-      return clerk?.user !== null &&
-             clerk?.session?.status === 'active' &&
-             clerk?.user?.primaryEmailAddress !== undefined;
-    },
-    { timeout: TIMEOUTS.CLERK_LOAD }
-  ).catch(() => {
-    // If detailed check times out, the basic auth check passed - continue
-  });
 
   console.log(`Successfully signed in as: ${email}`);
 }
