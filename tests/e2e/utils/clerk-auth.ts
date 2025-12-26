@@ -40,17 +40,20 @@ async function resolvePublisherSlug(slug: string): Promise<string | null> {
   });
   try {
     // First try exact slug match
+    console.log(`[resolvePublisherSlug] Looking for slug: "${slug}"`);
     let result = await pool.query(
-      'SELECT id FROM publishers WHERE slug = $1',
+      'SELECT id, slug FROM publishers WHERE slug = $1',
       [slug]
     );
+    console.log(`[resolvePublisherSlug] Exact match found: ${result.rows.length} rows`);
 
     // If no match, try case-insensitive slug match
     if (result.rows.length === 0) {
       result = await pool.query(
-        'SELECT id FROM publishers WHERE LOWER(slug) = LOWER($1)',
+        'SELECT id, slug FROM publishers WHERE LOWER(slug) = LOWER($1)',
         [slug]
       );
+      console.log(`[resolvePublisherSlug] Case-insensitive match found: ${result.rows.length} rows`);
     }
 
     // If still no match, try by name (convert slug to name format)
@@ -60,12 +63,14 @@ async function resolvePublisherSlug(slug: string): Promise<string | null> {
         part.charAt(0).toUpperCase() + part.slice(1)
       );
       const name = nameParts.join(' ');
+      console.log(`[resolvePublisherSlug] Trying name match: "${name}"`);
       result = await pool.query(
-        'SELECT id FROM publishers WHERE name = $1',
+        'SELECT id, name FROM publishers WHERE name = $1',
         [name]
       );
+      console.log(`[resolvePublisherSlug] Name match found: ${result.rows.length} rows`);
       if (result.rows.length > 0) {
-        console.log(`Resolved slug "${slug}" to ID via name match: ${name}`);
+        console.log(`Resolved slug "${slug}" to ID via name match: ${name} (row: ${JSON.stringify(result.rows[0])})`);
       }
     }
 
@@ -76,6 +81,7 @@ async function resolvePublisherSlug(slug: string): Promise<string | null> {
       return id;
     }
     console.warn(`No publisher found with slug: ${slug}`);
+    // DO NOT cache NULL - publisher might be created later
     return null;
   } catch (error) {
     console.error('Failed to resolve slug:', error);
