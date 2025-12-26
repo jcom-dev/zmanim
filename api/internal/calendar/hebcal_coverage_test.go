@@ -92,12 +92,12 @@ func collectEventsForYear(t *testing.T, hebrewYear int, loc AuditLocation) []Aud
 	opts := hebcal.CalOptions{
 		Year:             hebrewYear,
 		IsHebrewYear:     true,
-		NoHolidays:       false, // Include holidays
-		NoMinorFast:      false, // Include minor fasts
-		NoModern:         false, // Include modern Israeli holidays
-		NoRoshChodesh:    false, // Include Rosh Chodesh
-		NoSpecialShabbat: false, // Include special Shabbatot
-		ShabbatMevarchim: false, // Don't include Shabbat Mevarchim (we handle this separately)
+		NoHolidays:       false,        // Include holidays
+		NoMinorFast:      false,        // Include minor fasts
+		NoModern:         false,        // Include modern Israeli holidays
+		NoRoshChodesh:    false,        // Include Rosh Chodesh
+		NoSpecialShabbat: false,        // Include special Shabbatot
+		ShabbatMevarchim: false,        // Don't include Shabbat Mevarchim (we handle this separately)
 		IL:               loc.IsIsrael, // Israel mode affects Yom Tov Sheni
 	}
 

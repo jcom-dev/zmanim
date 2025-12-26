@@ -590,7 +590,7 @@ func TestBulkZmanimRequest_SingleDay(t *testing.T) {
 	// Should not get validation error for single day
 	if w.Code == http.StatusBadRequest {
 		var response APIResponse
-		json.NewDecoder(w.Body).Decode(&response)
+		_ = json.NewDecoder(w.Body).Decode(&response)
 		if response.Error != nil && strings.Contains(response.Error.Message, "date_range") {
 			t.Errorf("single day should be valid, got error: %s", response.Error.Message)
 		}
@@ -626,7 +626,7 @@ func TestBulkZmanimRequest_MultipleZmanim(t *testing.T) {
 	// Should not get validation error for multiple zmanim
 	if w.Code == http.StatusBadRequest {
 		var response APIResponse
-		json.NewDecoder(w.Body).Decode(&response)
+		_ = json.NewDecoder(w.Body).Decode(&response)
 		if response.Error != nil && strings.Contains(response.Error.Message, "zmanim") {
 			t.Errorf("multiple zmanim should be valid, got error: %s", response.Error.Message)
 		}

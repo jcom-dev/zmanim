@@ -676,15 +676,11 @@ func mergeSunTimes(sunrise, sunset map[string]string) map[string]string {
 		return nil
 	}
 	result := make(map[string]string)
-	if sunrise != nil {
-		for k, v := range sunrise {
-			result[k] = v
-		}
+	for k, v := range sunrise {
+		result[k] = v
 	}
-	if sunset != nil {
-		for k, v := range sunset {
-			result[k] = v
-		}
+	for k, v := range sunset {
+		result[k] = v
 	}
 	return result
 }

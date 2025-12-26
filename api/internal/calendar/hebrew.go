@@ -80,9 +80,9 @@ type HebrewDate struct {
 type Holiday struct {
 	Name           string `json:"name"`
 	NameHebrew     string `json:"name_hebrew"`
-	Category       string `json:"category"`           // "major", "minor", "shabbat", "roshchodesh", "fast"
-	Candles        bool   `json:"candles"`            // Should light candles
-	Yomtov         bool   `json:"yomtov"`             // Is yom tov
+	Category       string `json:"category"` // "major", "minor", "shabbat", "roshchodesh", "fast"
+	Candles        bool   `json:"candles"`  // Should light candles
+	Yomtov         bool   `json:"yomtov"`   // Is yom tov
 	Desc           string `json:"desc,omitempty"`
 	HebcalOriginal string `json:"hebcal_original,omitempty"` // Original HebCal event name (for database matching)
 }

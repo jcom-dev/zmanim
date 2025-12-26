@@ -66,7 +66,7 @@ func isM2MToken(claims *Claims) bool {
 	}
 
 	// M2M tokens should not have user-specific metadata
-	if claims.Metadata != nil && len(claims.Metadata) > 0 {
+	if len(claims.Metadata) > 0 {
 		// Check if metadata contains user-specific fields
 		if _, hasRole := claims.Metadata["role"]; hasRole {
 			slog.Debug("token rejected: contains user role metadata")

@@ -235,11 +235,11 @@ func TestMetadataFromDatabase(t *testing.T) {
 
 	// Verify database schema includes metadata fields
 	metadataFields := []string{
-		"hebrew_month",       // For date-based event matching
-		"hebrew_day_start",   // For date-based event matching
-		"hebrew_day_end",     // For multi-day events
+		"hebrew_month",         // For date-based event matching
+		"hebrew_day_start",     // For date-based event matching
+		"hebrew_day_end",       // For multi-day events
 		"hebcal_event_pattern", // For HebCal event matching
-		"priority",           // For pattern matching priority
+		"priority",             // For pattern matching priority
 	}
 
 	missingFields := []string{}
