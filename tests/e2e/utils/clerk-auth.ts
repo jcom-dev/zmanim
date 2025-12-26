@@ -71,7 +71,7 @@ const getClerkClient = () => {
 
 /**
  * Link a Clerk user to a publisher in the database
- * This creates a record in clerk_user_publishers table
+ * Updates the publisher's clerk_user_id field
  */
 export async function linkClerkUserToPublisher(
   clerkUserId: string,
@@ -91,12 +91,9 @@ export async function linkClerkUserToPublisher(
   });
 
   try {
-    // Insert or update the link
+    // Update the publisher's clerk_user_id
     await pool.query(
-      `INSERT INTO clerk_user_publishers (clerk_user_id, publisher_id, role)
-       VALUES ($1, $2, 'owner')
-       ON CONFLICT (clerk_user_id, publisher_id)
-       DO UPDATE SET role = 'owner'`,
+      `UPDATE publishers SET clerk_user_id = $1 WHERE id = $2`,
       [clerkUserId, publisherId]
     );
     console.log(`Linked Clerk user ${clerkUserId} to publisher ${publisherId}`);
