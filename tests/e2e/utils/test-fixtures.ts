@@ -442,23 +442,27 @@ export async function cleanupTestData(): Promise<void> {
     // This catches all sources of test data:
     // 1. TEST_% - createTestPublisherEntity
     // 2. E2E Test% - global-setup seedTestPublishers
-    // 3. E2E Shared% - shared-fixtures
-    // 4. e2e-% slugs - all E2E sources
-    // 5. @test-zmanim.example.com - TEST_EMAIL_DOMAIN
-    // 6. @mailslurp.dev - fallback email domain from generateTestEmail
+    // 3. e2e-% slugs (EXCLUDING e2e-shared-% which must persist for entire test run)
+    // 4. @test-zmanim.example.com - TEST_EMAIL_DOMAIN
+    // 5. @mailslurp.dev - fallback email domain from generateTestEmail
+    //
+    // CRITICAL: Do NOT delete e2e-shared-% publishers - they are shared fixtures
+    // that must persist for the entire test run. Deleting them causes "Invalid publisher ID"
+    // errors in all subsequent tests.
     const publisherResult = await client.query(
       `SELECT id, name, contact_email as email, slug FROM publishers
-       WHERE name LIKE $1
-          OR name LIKE $2
-          OR name LIKE $3
-          OR slug LIKE $4
-          OR contact_email LIKE $5
-          OR contact_email LIKE $6`,
+       WHERE (
+         name LIKE $1
+         OR name LIKE $2
+         OR (slug LIKE $3 AND (slug IS NULL OR slug NOT LIKE 'e2e-shared-%'))
+         OR contact_email LIKE $4
+         OR contact_email LIKE $5
+       )
+       AND (slug IS NULL OR slug NOT LIKE 'e2e-shared-%')`,
       [
         `${TEST_PREFIX}%`,        // TEST_Publisher...
         'E2E Test%',              // E2E Test Publisher - Verified, etc.
-        'E2E Shared%',            // E2E Shared Verified 1, etc.
-        'e2e-%',                  // e2e-test-verified, e2e-shared-*, etc.
+        'e2e-%',                  // e2e-test-verified, etc. (but NOT e2e-shared-*)
         `%@${TEST_EMAIL_DOMAIN}`, // @test-zmanim.example.com
         '%@mailslurp.dev',        // @mailslurp.dev (fallback emails)
       ]

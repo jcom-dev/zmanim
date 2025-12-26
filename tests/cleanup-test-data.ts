@@ -1,15 +1,17 @@
 /**
- * One-time cleanup script to remove ALL test data from database
+ * One-time cleanup script to remove test data from database
  *
  * Run with: npx tsx cleanup-test-data.ts
  *
  * This cleans up:
  * - TEST_% prefix publishers (from test-fixtures.ts)
  * - E2E Test% publishers (from global-setup.ts)
- * - E2E Shared% publishers (from shared-fixtures.ts)
- * - e2e-% slug publishers
+ * - e2e-% slug publishers (EXCLUDING e2e-shared-% which are shared fixtures)
  * - @test-zmanim.example.com emails
  * - @mailslurp.dev emails
+ *
+ * DOES NOT DELETE:
+ * - e2e-shared-% publishers (shared fixtures that persist for test runs)
  */
 
 import * as dotenv from 'dotenv';
@@ -38,20 +40,22 @@ async function cleanupTestData(): Promise<void> {
   });
 
   try {
-    // Find ALL test publishers
+    // Find ALL test publishers EXCEPT shared fixtures
+    // e2e-shared-% publishers must persist for entire test runs
     const publisherResult = await pool.query(
       `SELECT id, name, email, slug FROM publishers
-       WHERE name LIKE $1
-          OR name LIKE $2
-          OR name LIKE $3
-          OR slug LIKE $4
-          OR email LIKE $5
-          OR email LIKE $6`,
+       WHERE (
+         name LIKE $1
+         OR name LIKE $2
+         OR (slug LIKE $3 AND (slug IS NULL OR slug NOT LIKE 'e2e-shared-%'))
+         OR email LIKE $4
+         OR email LIKE $5
+       )
+       AND (slug IS NULL OR slug NOT LIKE 'e2e-shared-%')`,
       [
         'TEST_%',                    // TEST_Publisher...
         'E2E Test%',                 // E2E Test Publisher - Verified, etc.
-        'E2E Shared%',               // E2E Shared Verified 1, etc.
-        'e2e-%',                     // e2e-test-verified, e2e-shared-*, etc.
+        'e2e-%',                     // e2e-test-verified, etc. (but NOT e2e-shared-*)
         '%@test-zmanim.example.com', // TEST_EMAIL_DOMAIN
         '%@mailslurp.dev',           // fallback emails
       ]
