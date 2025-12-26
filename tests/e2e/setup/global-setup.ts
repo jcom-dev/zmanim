@@ -13,7 +13,8 @@ import { clerkSetup } from '@clerk/testing/playwright';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { Pool } from 'pg';
-import { initializeSharedPublishers } from '../utils/shared-fixtures';
+import { initializeSharedPublishers, getSharedPublisherAsync } from '../utils/shared-fixtures';
+import { createUserPool } from '../utils/shared-users';
 
 // Load environment variables from multiple locations
 function loadEnvFiles() {
@@ -219,6 +220,18 @@ async function globalSetup(config: FullConfig) {
   // Initialize shared publishers for parallel tests
   console.log('\nInitializing shared test fixtures...');
   await initializeSharedPublishers();
+
+  // Create shared user pool
+  console.log('\nCreating shared user pool...');
+  try {
+    // Get the first verified shared publisher for the publisher user
+    const verifiedPublisher = await getSharedPublisherAsync('verified-1');
+    await createUserPool(verifiedPublisher.id);
+    console.log('Shared user pool created successfully');
+  } catch (error: any) {
+    console.error('Error creating user pool:', error?.message);
+    throw error;
+  }
 
   // Initialize Clerk testing token
   console.log('\nInitializing Clerk testing token...');

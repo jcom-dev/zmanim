@@ -32,6 +32,7 @@ const baseURL = process.env.BASE_URL || 'http://localhost:3001';
 // Storage state file paths for authenticated sessions
 const ADMIN_STORAGE_STATE = 'test-results/.auth/admin.json';
 const PUBLISHER_STORAGE_STATE = 'test-results/.auth/publisher.json';
+const USER_STORAGE_STATE = 'test-results/.auth/user.json';
 
 export default defineConfig({
   // Global setup - runs once before all tests
@@ -123,6 +124,17 @@ export default defineConfig({
       testMatch: /.*\/publisher\/.*\.spec\.ts/,
     },
 
+    // Chromium tests with regular user auth
+    {
+      name: 'chromium-user',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: USER_STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+      testMatch: /.*\/user\/.*\.spec\.ts/,
+    },
+
     // Chromium tests without auth (public pages, auth flows)
     {
       name: 'chromium',
@@ -131,6 +143,7 @@ export default defineConfig({
       testIgnore: [
         /.*\/admin\/.*\.spec\.ts/,
         /.*\/publisher\/.*\.spec\.ts/,
+        /.*\/user\/.*\.spec\.ts/,
         /.*\.setup\.ts/,
       ],
     },

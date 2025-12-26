@@ -197,6 +197,7 @@ export const EMAIL_SUBJECTS = {
 export const STORAGE_STATE = {
   ADMIN: 'test-results/.auth/admin.json',
   PUBLISHER: 'test-results/.auth/publisher.json',
+  USER: 'test-results/.auth/user.json',
 } as const;
 
 // =============================================================================

@@ -26,17 +26,17 @@ async function globalTeardown(config: FullConfig) {
     return;
   }
 
-  // Clean up Clerk users
+  // Clean up shared user pool
   try {
-    console.log('Cleaning up Clerk test users...');
-    const clerkAuth = await import('../utils/clerk-auth');
-    if (typeof clerkAuth.cleanupTestUsers === 'function') {
-      await clerkAuth.cleanupTestUsers();
+    console.log('Cleaning up shared user pool...');
+    const sharedUsers = await import('../utils/shared-users');
+    if (typeof sharedUsers.cleanupUserPool === 'function') {
+      await sharedUsers.cleanupUserPool();
     } else {
-      console.log('cleanupTestUsers not available, skipping Clerk cleanup');
+      console.log('cleanupUserPool not available, skipping user pool cleanup');
     }
   } catch (error) {
-    console.error('Error cleaning up Clerk users:', error);
+    console.error('Error cleaning up user pool:', error);
   }
 
   // Clean up database data
