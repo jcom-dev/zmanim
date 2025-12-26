@@ -853,12 +853,12 @@ func TestExecuteFormulaSet(t *testing.T) {
 	ctx := NewExecutionContext(date, 31.7683, 35.2137, 0, loc)
 
 	formulas := map[string]string{
-		"alos_72":  "visible_sunrise - 72min",
-		"visible_sunrise":  "visible_sunrise",
-		"shma_gra": "proportional_hours(3, gra)",
-		"chatzos":  "midpoint(visible_sunrise, visible_sunset)",
-		"visible_sunset":   "visible_sunset",
-		"tzeis_72": "visible_sunset + 72min",
+		"alos_72":         "visible_sunrise - 72min",
+		"visible_sunrise": "visible_sunrise",
+		"shma_gra":        "proportional_hours(3, gra)",
+		"chatzos":         "midpoint(visible_sunrise, visible_sunset)",
+		"visible_sunset":  "visible_sunset",
+		"tzeis_72":        "visible_sunset + 72min",
 	}
 
 	results, err := ExecuteFormulaSet(formulas, ctx)

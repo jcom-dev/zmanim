@@ -43,15 +43,15 @@ func TestHebCalTagMatching(t *testing.T) {
 	t.Log("Starting HebCal Tag Matching Audit - Phase 2: Tag Matching")
 
 	locations := GetAuditLocations()
-	hebrewYears := HebrewYearRange(5775, 5885)  // Testing 111 years for comprehensive coverage
-	
+	hebrewYears := HebrewYearRange(5775, 5885) // Testing 111 years for comprehensive coverage
+
 	t.Logf("Testing %d Hebrew years across %d locations", len(hebrewYears), len(locations))
 
 	// Collect events from HebCal
 	var allEvents []AuditEvent
 	for _, loc := range locations {
 		t.Logf("Collecting events for location: %s (IsIsrael=%v)", loc.Name, loc.IsIsrael)
-		
+
 		for _, year := range hebrewYears {
 			events := collectEventsForYear(t, year, loc)
 
@@ -59,7 +59,7 @@ func TestHebCalTagMatching(t *testing.T) {
 			allEvents = append(allEvents, events...)
 		}
 	}
-	
+
 	t.Logf("Collected %d total event instances", len(allEvents))
 
 	// Phase 2: Match events against database
@@ -67,7 +67,7 @@ func TestHebCalTagMatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to audit event matching: %v", err)
 	}
-	
+
 	t.Logf("Completed matching for %d events", len(matchResults))
 
 	// Export results to CSV
@@ -133,13 +133,13 @@ func TestHebCalTagMatching(t *testing.T) {
 // auditEventMatching tests each event against the database matching function
 func auditEventMatching(t *testing.T, db *sql.DB, events []AuditEvent) ([]MatchResult, error) {
 	t.Helper()
-	
+
 	var results []MatchResult
 	ctx := context.Background()
 
 	// Deduplicate events by (Title, Category, Location)
 	dedup := NewEventDeduplicator()
-	
+
 	for _, event := range events {
 		// Only test unique events
 		if !dedup.AddEvent(event.Title, event.Category, event.Location) {
@@ -171,7 +171,7 @@ func auditEventMatching(t *testing.T, db *sql.DB, events []AuditEvent) ([]MatchR
 			result.MatchedTag = ""
 			result.MatchType = ""
 		} else if err != nil {
-			t.Logf("Warning: Error matching event %q (category: %s): %v", 
+			t.Logf("Warning: Error matching event %q (category: %s): %v",
 				event.Title, event.Category, err)
 			result.MatchedTag = ""
 			result.MatchType = ""
@@ -303,7 +303,7 @@ func reportMatchStatistics(t *testing.T, stats MatchStatistics) {
 
 	if len(stats.UnmappedEvents) > 0 {
 		t.Logf("\n=== Unmapped Events (%d) ===", len(stats.UnmappedEvents))
-		
+
 		// Group by category for clearer reporting
 		byCategory := make(map[string][]UnmappedEvent)
 		for _, event := range stats.UnmappedEvents {
@@ -401,12 +401,12 @@ func exportMatchResultsToCSV(results []MatchResult) error {
 
 // UnusedTag represents a tag that never matched any HebCal event
 type UnusedTag struct {
-	TagKey          string
-	MatchType       string
-	MatchString     string
-	MatchPattern    string
-	MatchCategory   string
-	DisplayName     string
+	TagKey        string
+	MatchType     string
+	MatchString   string
+	MatchPattern  string
+	MatchCategory string
+	DisplayName   string
 }
 
 // generateUnusedTagsReport creates a markdown report of tags that never matched
