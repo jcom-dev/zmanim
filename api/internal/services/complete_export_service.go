@@ -606,17 +606,11 @@ func (s *CompleteExportService) createPublisherFromBackup(ctx context.Context, d
 
 	// Create the publisher
 	publisherRow, err := s.db.Queries.CreatePublisherFromImport(ctx, sqlcgen.CreatePublisherFromImportParams{
-		Name:            backup.Publisher.Name,
-		ContactEmail:    backup.Publisher.Email,
-		Website:         backup.Publisher.Website,
-		Description:     &backup.Publisher.Description,
-		Bio:             &backup.Publisher.Bio,
-		LogoUrl:         backup.Publisher.LogoURL,
-		LogoData:        backup.Publisher.LogoData,
-		Latitude:        backup.Publisher.Latitude,
-		Longitude:       backup.Publisher.Longitude,
-		Timezone:        backup.Publisher.Timezone,
-		IgnoreElevation: backup.Publisher.IgnoreElevation,
+		Name:         backup.Publisher.Name,
+		ContactEmail: backup.Publisher.Email,
+		Website:      backup.Publisher.Website,
+		Description:  &backup.Publisher.Description,
+		Bio:          &backup.Publisher.Bio,
 	})
 	if err != nil {
 		// Check for duplicate email constraint violation
