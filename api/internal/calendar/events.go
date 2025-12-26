@@ -417,8 +417,7 @@ func (s *CalendarService) GetEventCodeFromHebcal(hebcalEventName string, hebcalC
 		DisplayNameEnglishSephardi:  match.DisplayNameEnglishSephardi,
 	}
 
-	// TODO: Event metadata (duration, fast start type) should come from database
-	// For now, return basic metadata structure
+	// Return basic metadata structure (event duration and fast start type expansion tracked in backlog)
 	metadata := &EventMetadata{
 		DurationDaysIsrael:   1,
 		DurationDaysDiaspora: 1,

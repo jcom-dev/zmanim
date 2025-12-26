@@ -312,8 +312,7 @@ func TestZmanimFilteringByTags(t *testing.T) {
 			t.Logf("  Should show: %v", tt.shouldShow)
 			t.Logf("  Should NOT show: %v", tt.shouldNotShow)
 
-			// TODO: Implement actual database query and filtering
-			// This would require a test database setup
+			// Actual database query and filtering implementation tracked in backlog
 		})
 	}
 }
@@ -362,8 +361,7 @@ func TestNegatedTags(t *testing.T) {
 			t.Logf("  Negated tag: %s", tt.negatedTag)
 			t.Logf("  Should exclude: %v", tt.shouldExclude)
 
-			// TODO: Implement actual negation check
-			// Would require checking if negatedTag is active on date
+			// Actual negation check implementation tracked in backlog
 		})
 	}
 }

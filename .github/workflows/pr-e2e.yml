@@ -89,7 +89,7 @@ jobs:
         run: |
           echo "Testing connection to Xata dev database..."
           psql "$DATABASE_URL" -c "SELECT version();" | head -3
-          psql "$DATABASE_URL" -c "SELECT COUNT(*) as cities FROM geo_cities;" | head -3
+          psql "$DATABASE_URL" -c "SELECT COUNT(*) as localities FROM geo_localities;" | head -3
           echo "Database connection verified"
 
       # Verify Redis is ready

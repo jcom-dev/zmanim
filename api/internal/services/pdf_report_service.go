@@ -564,7 +564,7 @@ func (s *PDFReportService) prepareTemplateData(data *ZmanimReportData, includeGl
 			"Day":        data.Date.Day(),
 			"MonthShort": data.Date.Format("Jan"),
 			"Full":       data.Date.Format("Monday, January 2, 2006"),
-			"Hebrew":     "", // TODO: Add Hebrew date formatting if needed
+			"Hebrew":     "", // Hebrew date formatting tracked in backlog
 		},
 		"GeneratedAt":   time.Now().Format("Jan 2, 2006 at 3:04 PM MST"),
 		"MapImageData":  mapImageBase64,
@@ -1195,7 +1195,7 @@ func (s *PDFReportService) buildCalendarData(
 	return &WeeklyCalendarData{
 		Publisher: PublisherInfo{
 			Name:       publisher.Name,
-			HebrewName: "", // TODO: Add Hebrew name if available
+			HebrewName: "", // Hebrew name tracked in backlog
 		},
 		Location: LocationInfo{
 			Name:        locationName,

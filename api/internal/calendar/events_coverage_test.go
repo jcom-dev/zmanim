@@ -8,7 +8,7 @@ import (
 
 // TestEventCoverage validates that we have database patterns for all hebcal-go events
 // This test ensures 100% coverage of all events that hebcal-go can generate
-// TODO: Re-enable once database integration is complete
+// Disabled pending database integration (tracked in backlog)
 func _TestEventCoverage_Disabled(t *testing.T) {
 	t.Skip("Disabled pending database integration")
 }

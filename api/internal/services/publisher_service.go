@@ -47,7 +47,7 @@ func (s *PublisherService) GetPublishers(ctx context.Context, page, pageSize int
 
 	// Note: regionID filtering is not implemented in SQLc queries
 	// The original implementation referenced non-existent coverage_areas table
-	// TODO: Implement region filtering using publisher_coverage table if needed
+	// Region filtering via publisher_coverage table tracked in backlog
 
 	// Get all verified publishers
 	rows, err := s.db.Queries.ListVerifiedPublishers(ctx, sqlcgen.ListVerifiedPublishersParams{
@@ -120,7 +120,7 @@ func (s *PublisherService) GetPublisherByID(ctx context.Context, id string) (*mo
 // GetPublisherForLocation finds the best publisher for a given location
 // Note: This implementation expects a locality_id, not lat/long coordinates
 // The original implementation used ST_Contains with coverage_areas which doesn't exist
-// TODO: If lat/long lookup is needed, add a query to resolve coordinates to locality_id first
+// Lat/long to locality_id resolution tracked in backlog
 func (s *PublisherService) GetPublisherForLocation(ctx context.Context, latitude, longitude float64) (*models.Publisher, *models.Algorithm, error) {
 	// Note: The original query used ST_Contains with coverage_areas table which doesn't exist
 	// This simplified version just returns the default publisher

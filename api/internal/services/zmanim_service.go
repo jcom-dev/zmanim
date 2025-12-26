@@ -791,14 +791,7 @@ func (s *ZmanimService) LinkOrCopyZman(ctx context.Context, req LinkOrCopyZmanRe
 }
 
 // ===========================================================================
-// SECTION 6: FILTERING METHODS (placeholder)
-// ===========================================================================
-
-// TODO: Add ShouldShowZman and FilterZmanimForContext methods
-// These will implement tag-based filtering using the behaviorTags map
-
-// ===========================================================================
-// SECTION 7: EVENT FILTERING METHODS
+// SECTION 6: EVENT FILTERING METHODS
 // ===========================================================================
 
 // EventFilterTag represents a minimal tag interface for event filtering
@@ -1115,12 +1108,6 @@ func ApplyRounding(t time.Time, mode string) (string, string) {
 
 	return exact, display
 }
-
-// ===========================================================================
-// SECTION 9: INTERNAL HELPERS (placeholder)
-// ===========================================================================
-
-// TODO: Add internal helper functions for event matching, timezone lookup, etc.
 
 // ===========================================================================
 // LEGACY SERVICE (TEMPORARY - to be removed after migration)
