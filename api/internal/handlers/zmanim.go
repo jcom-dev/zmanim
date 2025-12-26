@@ -410,113 +410,171 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 
 		RespondJSON(w, r, http.StatusOK, response)
 		return
-	} else {
-		// Publisher-specific calculation
-		pubID, err := stringToInt32(publisherID)
-		if err != nil {
-			RespondBadRequest(w, r, "Invalid publisher ID")
-			return
-		}
+	}
 
-		// Use hierarchical coordinate resolution with publisher context
-		localityID32 := int32(localityID)
-		pubIDForLookup := pgtype.Int4{Int32: pubID, Valid: true}
+	// Publisher-specific calculation
+	pubID, err = stringToInt32(publisherID)
+	if err != nil {
+		RespondBadRequest(w, r, "Invalid publisher ID")
+		return
+	}
 
-		effectiveLocation, err := h.db.Queries.GetEffectiveLocalityLocation(ctx, sqlcgen.GetEffectiveLocalityLocationParams{
+	localityID32 := int32(localityID)
+	pubIDForLookup := pgtype.Int4{Int32: pubID, Valid: true}
+
+	// OPTIMIZATION: Parallelize independent database queries
+	type preloadData struct {
+		effectiveLocation sqlcgen.GetEffectiveLocalityLocationRow
+		publisherInfo     sqlcgen.GetPublisherInfoForZmanimRow
+		publisherZmanim   []sqlcgen.GetPublisherZmanimRow
+		translitStyle     string
+	}
+	var preloaded preloadData
+	var preloadErrs [4]error
+
+	// Use sync pattern for parallel queries
+	done := make(chan struct{})
+	go func() {
+		preloaded.effectiveLocation, preloadErrs[0] = h.db.Queries.GetEffectiveLocalityLocation(ctx, sqlcgen.GetEffectiveLocalityLocationParams{
 			LocalityID:  localityID32,
 			PublisherID: pubIDForLookup,
 		})
-		if err == nil {
-			latitude = effectiveLocation.Latitude
-			longitude = effectiveLocation.Longitude
-			elevation = effectiveLocation.ElevationM
-
-			if effectiveLocation.HasPublisherCoordinateOverride || effectiveLocation.HasAdminCoordinateOverride {
-				slog.Debug("using coordinate override",
-					"publisher_id", publisherID,
-					"locality_id", localityID,
-					"override_lat", latitude,
-					"override_lon", longitude,
-					"source", effectiveLocation.CoordinateSourceKey,
-					"has_publisher_override", effectiveLocation.HasPublisherCoordinateOverride,
-					"has_admin_override", effectiveLocation.HasAdminCoordinateOverride)
-			}
+		done <- struct{}{}
+	}()
+	go func() {
+		preloaded.publisherInfo, preloadErrs[1] = h.db.Queries.GetPublisherInfoForZmanim(ctx, pubID)
+		done <- struct{}{}
+	}()
+	go func() {
+		preloaded.publisherZmanim, preloadErrs[2] = h.db.Queries.GetPublisherZmanim(ctx, pubID)
+		done <- struct{}{}
+	}()
+	go func() {
+		preloaded.translitStyle, preloadErrs[3] = h.db.Queries.GetPublisherTransliterationStyle(ctx, pubID)
+		if preloadErrs[3] != nil {
+			preloaded.translitStyle = "ashkenazi" // Default
 		}
+		done <- struct{}{}
+	}()
 
-		// Get publisher info
-		pubInfo, err := h.db.Queries.GetPublisherInfoForZmanim(ctx, pubID)
-		if err != nil {
-			RespondNotFound(w, r, "Publisher not found")
-			return
-		}
+	// Wait for all queries
+	for i := 0; i < 4; i++ {
+		<-done
+	}
 
-		publisherInfo = &ZmanimPublisherInfo{
-			ID:          publisherID,
-			Name:        pubInfo.Name,
-			Logo:        pubInfo.LogoData,
-			IsCertified: pubInfo.IsCertified,
-		}
+	// Check for critical errors
+	if preloadErrs[0] != nil {
+		RespondNotFound(w, r, "Locality not found")
+		return
+	}
+	if preloadErrs[1] != nil {
+		RespondNotFound(w, r, "Publisher not found")
+		return
+	}
+	if preloadErrs[2] != nil {
+		slog.Error("failed to load publisher zmanim", "error", preloadErrs[2])
+		RespondInternalError(w, r, "Failed to load publisher configuration")
+		return
+	}
 
-		// Get active event codes for tag-driven filtering
-		dbAdapter := NewCalendarDBAdapter(h.db.Queries)
-		calService := calendar.NewCalendarServiceWithDB(dbAdapter)
-		loc := calendar.Location{
-			Latitude:  latitude,
-			Longitude: longitude,
-			Timezone:  timezone,
-			IsIsrael:  calendar.IsLocationInIsrael(latitude, longitude),
-		}
-		zmanimCtx := calService.GetZmanimContext(date, loc, "ashkenazi")
+	// Extract location data
+	effectiveLocation := preloaded.effectiveLocation
+	latitude = effectiveLocation.Latitude
+	longitude = effectiveLocation.Longitude
+	elevation = effectiveLocation.ElevationM
 
-		slog.Info("calendar context for zmanim calculation",
-			"date", dateStr,
-			"active_event_codes", zmanimCtx.ActiveEventCodes,
-			"event_count", len(zmanimCtx.ActiveEventCodes))
+	if effectiveLocation.HasPublisherCoordinateOverride || effectiveLocation.HasAdminCoordinateOverride {
+		slog.Debug("using coordinate override",
+			"publisher_id", publisherID,
+			"locality_id", localityID,
+			"override_lat", latitude,
+			"override_lon", longitude,
+			"source", effectiveLocation.CoordinateSourceKey,
+			"has_publisher_override", effectiveLocation.HasPublisherCoordinateOverride,
+			"has_admin_override", effectiveLocation.HasAdminCoordinateOverride)
+	}
 
-		// Use unified calculation service with event filtering
-		calcResult, err = h.zmanimService.CalculateZmanim(ctx, services.CalculateParams{
-			LocalityID:         localityID,
-			PublisherID:        pubID,
-			Date:               date,
-			IncludeDisabled:    filters.IncludeDisabled,
-			IncludeUnpublished: filters.IncludeUnpublished,
-			IncludeBeta:        filters.IncludeBeta,
-			ActiveEventCodes:   zmanimCtx.ActiveEventCodes,
-		})
-		if err != nil {
-			slog.Error("calculation failed", "error", err, "publisher_id", publisherID, "locality_id", localityID)
-			RespondInternalError(w, r, "Failed to calculate zmanim")
-			return
-		}
+	// Build publisher info
+	publisherInfo = &ZmanimPublisherInfo{
+		ID:          publisherID,
+		Name:        preloaded.publisherInfo.Name,
+		Logo:        preloaded.publisherInfo.LogoData,
+		IsCertified: preloaded.publisherInfo.IsCertified,
+	}
+
+	// Get active event codes for tag-driven filtering
+	dbAdapter := NewCalendarDBAdapter(h.db.Queries)
+	calService := calendar.NewCalendarServiceWithDB(dbAdapter)
+	loc := calendar.Location{
+		Latitude:  latitude,
+		Longitude: longitude,
+		Timezone:  timezone,
+		IsIsrael:  calendar.IsLocationInIsrael(latitude, longitude),
+	}
+	zmanimCtx := calService.GetZmanimContext(date, loc, "ashkenazi")
+
+	slog.Info("calendar context for zmanim calculation",
+		"date", dateStr,
+		"active_event_codes", zmanimCtx.ActiveEventCodes,
+		"event_count", len(zmanimCtx.ActiveEventCodes))
+
+	// Use unified calculation service with preloaded data to avoid duplicate queries
+	calcResult, err = h.zmanimService.CalculateZmanim(ctx, services.CalculateParams{
+		LocalityID:             localityID,
+		PublisherID:            pubID,
+		Date:                   date,
+		IncludeDisabled:        filters.IncludeDisabled,
+		IncludeUnpublished:     filters.IncludeUnpublished,
+		IncludeBeta:            filters.IncludeBeta,
+		ActiveEventCodes:       zmanimCtx.ActiveEventCodes,
+		PreloadedLocation:      &effectiveLocation,
+		PreloadedPublisherZman: preloaded.publisherZmanim,
+	})
+	if err != nil {
+		slog.Error("calculation failed", "error", err, "publisher_id", publisherID, "locality_id", localityID)
+		RespondInternalError(w, r, "Failed to calculate zmanim")
+		return
 	}
 
 	// Track cache status for logging
 	cacheHit := calcResult.FromCache
 
-	// Fetch metadata for all zmanim from master registry
-	zmanMetadataMap := h.loadZmanMetadata(ctx)
-
-	// Get publisher's transliteration style for tag display names
-	transliterationStyle, err := h.db.Queries.GetPublisherTransliterationStyle(ctx, pubID)
-	if err != nil {
-		slog.Warn("failed to get publisher transliteration style, using default", "error", err, "publisher_id", pubID)
-		transliterationStyle = "ashkenazi" // Default to Ashkenazi
+	// OPTIMIZATION: Extract zman keys from calculation result for filtered queries
+	zmanKeys := make([]string, 0, len(calcResult.Zmanim))
+	for _, z := range calcResult.Zmanim {
+		zmanKeys = append(zmanKeys, z.Key)
 	}
 
-	// Fetch tags for all zmanim with correct transliteration style
-	tagsMap := h.loadZmanTags(ctx, transliterationStyle)
+	// OPTIMIZATION: Parallelize metadata/tags loading with filtered queries
+	type enrichmentData struct {
+		metadata map[string]zmanMetadata
+		tags     map[string][]ZmanTag
+	}
+	var enrichment enrichmentData
 
-	// Load publisher zmanim for enrichment
-	publisherZmanim, err := h.db.Queries.GetPublisherZmanim(ctx, pubID)
-	if err != nil {
-		slog.Error("failed to load publisher zmanim", "error", err, "publisher_id", publisherID)
-		RespondInternalError(w, r, "Failed to load publisher zmanim configuration")
-		return
+	enrichDone := make(chan struct{})
+	go func() {
+		// Load ONLY metadata for calculated zmanim (not all zmanim)
+		enrichment.metadata = h.loadZmanMetadataForKeys(ctx, zmanKeys)
+		enrichDone <- struct{}{}
+	}()
+	go func() {
+		// Load ONLY tags for calculated zmanim (not all zmanim)
+		enrichment.tags = h.loadZmanTagsForKeys(ctx, zmanKeys, preloaded.translitStyle)
+		enrichDone <- struct{}{}
+	}()
+
+	// Wait for enrichment queries
+	for i := 0; i < 2; i++ {
+		<-enrichDone
 	}
 
-	// Build lookup map for publisher zmanim config
+	zmanMetadataMap := enrichment.metadata
+	tagsMap := enrichment.tags
+
+	// Build lookup map for publisher zmanim config (already preloaded)
 	zmanConfigMap := make(map[string]sqlcgen.GetPublisherZmanimRow)
-	for _, pz := range publisherZmanim {
+	for _, pz := range preloaded.publisherZmanim {
 		zmanConfigMap[pz.ZmanKey] = pz
 	}
 
@@ -674,6 +732,36 @@ func (h *Handlers) loadZmanMetadata(ctx context.Context) map[string]zmanMetadata
 	return result
 }
 
+// loadZmanMetadataForKeys fetches metadata ONLY for specified zman keys (performance optimized)
+func (h *Handlers) loadZmanMetadataForKeys(ctx context.Context, zmanKeys []string) map[string]zmanMetadata {
+	result := make(map[string]zmanMetadata)
+	if len(zmanKeys) == 0 {
+		return result
+	}
+
+	metadataRows, err := h.db.Queries.GetMasterZmanimMetadataForKeys(ctx, zmanKeys)
+	if err != nil {
+		slog.Error("failed to load master zmanim metadata for keys", "error", err, "key_count", len(zmanKeys))
+		return result
+	}
+
+	for _, row := range metadataRows {
+		isCore := false
+		if row.IsCore != nil {
+			isCore = *row.IsCore
+		}
+		result[row.ZmanKey] = zmanMetadata{
+			TimeCategory:   row.TimeCategory,
+			HebrewName:     row.CanonicalHebrewName,
+			EnglishName:    row.CanonicalEnglishName,
+			DSL:            row.DefaultFormulaDsl,
+			IsCore:         isCore,
+			HalachicSource: row.HalachicSource,
+		}
+	}
+	return result
+}
+
 // loadZmanTags fetches tags for all zmanim with transliteration style applied
 // transliterationStyle: "ashkenazi" (default) or "sephardi" - controls tag display names
 func (h *Handlers) loadZmanTags(ctx context.Context, transliterationStyle string) map[string][]ZmanTag {
@@ -695,6 +783,45 @@ func (h *Handlers) loadZmanTags(ctx context.Context, transliterationStyle string
 			ID:                          row.ID,
 			TagKey:                      row.TagKey,
 			DisplayNameEnglish:          displayName, // Set based on transliteration style for backwards compatibility
+			DisplayNameEnglishAshkenazi: row.DisplayNameEnglishAshkenazi,
+			DisplayNameEnglishSephardi:  row.DisplayNameEnglishSephardi,
+			DisplayNameHebrew:           row.DisplayNameHebrew,
+			TagType:                     row.TagType,
+			Color:                       row.Color,
+			IsNegated:                   row.IsNegated,
+			CreatedAt:                   row.CreatedAt.Time,
+			Description:                 nil,
+		}
+		result[row.ZmanKey] = append(result[row.ZmanKey], tag)
+	}
+	return result
+}
+
+// loadZmanTagsForKeys fetches tags ONLY for specified zman keys (performance optimized)
+// transliterationStyle: "ashkenazi" (default) or "sephardi" - controls tag display names
+func (h *Handlers) loadZmanTagsForKeys(ctx context.Context, zmanKeys []string, transliterationStyle string) map[string][]ZmanTag {
+	result := make(map[string][]ZmanTag)
+	if len(zmanKeys) == 0 {
+		return result
+	}
+
+	tagsRows, err := h.db.Queries.GetZmanimTagsForKeys(ctx, zmanKeys)
+	if err != nil {
+		slog.Error("failed to load zmanim tags for keys", "error", err, "key_count", len(zmanKeys))
+		return result
+	}
+
+	for _, row := range tagsRows {
+		// Select display name based on transliteration style
+		displayName := row.DisplayNameEnglishAshkenazi // Default
+		if transliterationStyle == "sephardi" && row.DisplayNameEnglishSephardi != nil && *row.DisplayNameEnglishSephardi != "" {
+			displayName = *row.DisplayNameEnglishSephardi
+		}
+
+		tag := ZmanTag{
+			ID:                          row.ID,
+			TagKey:                      row.TagKey,
+			DisplayNameEnglish:          displayName,
 			DisplayNameEnglishAshkenazi: row.DisplayNameEnglishAshkenazi,
 			DisplayNameEnglishSephardi:  row.DisplayNameEnglishSephardi,
 			DisplayNameHebrew:           row.DisplayNameHebrew,

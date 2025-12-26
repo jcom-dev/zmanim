@@ -614,6 +614,8 @@ type Querier interface {
 	// Get master zmanim formulas by their keys for resolving @references in formulas
 	GetMasterZmanimFormulasByKeys(ctx context.Context, dollar_1 []string) ([]GetMasterZmanimFormulasByKeysRow, error)
 	GetMasterZmanimGroupedByCategory(ctx context.Context) ([]GetMasterZmanimGroupedByCategoryRow, error)
+	// Get metadata for specific zmanim from master registry (performance optimized)
+	GetMasterZmanimMetadataForKeys(ctx context.Context, dollar_1 []string) ([]GetMasterZmanimMetadataForKeysRow, error)
 	// ============================================================================
 	// Geolocation
 	// ============================================================================
@@ -1011,6 +1013,8 @@ type Querier interface {
 	// ============================================================================
 	// Get publisher zmanim that have any of the specified tags (for calendar day filtering)
 	GetZmanimByActiveTags(ctx context.Context, arg GetZmanimByActiveTagsParams) ([]GetZmanimByActiveTagsRow, error)
+	// Get tags for specific zmanim only (performance optimized)
+	GetZmanimTagsForKeys(ctx context.Context, dollar_1 []string) ([]GetZmanimTagsForKeysRow, error)
 	// Get all of a publisher's zmanim with their primary alias (if any)
 	// Orders by time_category (chronological) then hebrew_name
 	GetZmanimWithAliases(ctx context.Context, publisherID int32) ([]GetZmanimWithAliasesRow, error)

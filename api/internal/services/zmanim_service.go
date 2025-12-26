@@ -93,6 +93,9 @@ type CalculateParams struct {
 	// Active event codes for tag-driven filtering and is_active_today computation
 	// ALWAYS provide actual event codes (even with IncludeInactive=true) for is_active_today computation
 	ActiveEventCodes []string
+	// Optional: Pre-loaded data to avoid duplicate queries (performance optimization)
+	PreloadedLocation      *sqlcgen.GetEffectiveLocalityLocationRow
+	PreloadedPublisherZman []sqlcgen.GetPublisherZmanimRow
 }
 
 // FormulaParams defines parameters for single formula calculation (preview mode)
@@ -267,15 +270,22 @@ func (s *ZmanimService) CalculateZmanim(ctx context.Context, params CalculatePar
 		}
 	}
 
-	// Get effective locality location with hierarchical override resolution
-	// Priority: publisher override > admin override > default (overture/glo90)
-	localityID32 := int32(params.LocalityID)
-	location, err := s.db.Queries.GetEffectiveLocalityLocation(ctx, sqlcgen.GetEffectiveLocalityLocationParams{
-		LocalityID:  localityID32,
-		PublisherID: pgtype.Int4{Int32: params.PublisherID, Valid: true},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("locality not found: %w", err)
+	// Use preloaded location if provided, otherwise query database
+	var location sqlcgen.GetEffectiveLocalityLocationRow
+	if params.PreloadedLocation != nil {
+		location = *params.PreloadedLocation
+	} else {
+		// Get effective locality location with hierarchical override resolution
+		// Priority: publisher override > admin override > default (overture/glo90)
+		localityID32 := int32(params.LocalityID)
+		loc, err := s.db.Queries.GetEffectiveLocalityLocation(ctx, sqlcgen.GetEffectiveLocalityLocationParams{
+			LocalityID:  localityID32,
+			PublisherID: pgtype.Int4{Int32: params.PublisherID, Valid: true},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("locality not found: %w", err)
+		}
+		location = loc
 	}
 
 	// Load timezone from locality
@@ -289,10 +299,17 @@ func (s *ZmanimService) CalculateZmanim(ctx context.Context, params CalculatePar
 	longitude := location.Longitude
 	elevation := float64(location.ElevationM)
 
-	// Load publisher's configured zmanim
-	publisherZmanim, err := s.db.Queries.GetPublisherZmanim(ctx, params.PublisherID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load publisher zmanim: %w", err)
+	// Use preloaded publisher zmanim if provided, otherwise query database
+	var publisherZmanim []sqlcgen.GetPublisherZmanimRow
+	if params.PreloadedPublisherZman != nil {
+		publisherZmanim = params.PreloadedPublisherZman
+	} else {
+		// Load publisher's configured zmanim
+		pz, err := s.db.Queries.GetPublisherZmanim(ctx, params.PublisherID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load publisher zmanim: %w", err)
+		}
+		publisherZmanim = pz
 	}
 
 	if len(publisherZmanim) == 0 {

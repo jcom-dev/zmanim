@@ -627,6 +627,41 @@ JOIN tag_types tt ON t.tag_type_id = tt.id
 WHERE t.is_hidden = false
 ORDER BY mr.zman_key, tt.key, t.tag_key;
 
+-- name: GetMasterZmanimMetadataForKeys :many
+-- Get metadata for specific zmanim from master registry (performance optimized)
+SELECT
+    mr.zman_key,
+    COALESCE(tc.key, '') as time_category,
+    COALESCE(mr.canonical_hebrew_name, '') as canonical_hebrew_name,
+    COALESCE(mr.canonical_english_name, '') as canonical_english_name,
+    COALESCE(mr.default_formula_dsl, '') as default_formula_dsl,
+    mr.is_core,
+    COALESCE(mr.halachic_source, '') as halachic_source
+FROM master_zmanim_registry mr
+LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
+WHERE mr.zman_key = ANY($1::text[]);
+
+-- name: GetZmanimTagsForKeys :many
+-- Get tags for specific zmanim only (performance optimized)
+SELECT
+    mr.zman_key,
+    t.id,
+    t.tag_key,
+    t.display_name_english_ashkenazi,
+    t.display_name_english_sephardi,
+    t.display_name_hebrew,
+    tt.key AS tag_type,
+    t.color,
+    COALESCE(mzt.is_negated, false) AS is_negated,
+    t.created_at
+FROM master_zmanim_registry mr
+JOIN master_zman_tags mzt ON mr.id = mzt.master_zman_id
+JOIN zman_tags t ON mzt.tag_id = t.id
+JOIN tag_types tt ON t.tag_type_id = tt.id
+WHERE t.is_hidden = false
+  AND mr.zman_key = ANY($1::text[])
+ORDER BY mr.zman_key, tt.key, t.tag_key;
+
 -- ============================================================================
 -- Import/Export Queries
 -- ============================================================================

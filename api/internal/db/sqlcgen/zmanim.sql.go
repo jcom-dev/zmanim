@@ -719,6 +719,59 @@ func (q *Queries) GetLocalityDetailsForZmanim(ctx context.Context, id int32) (Ge
 	return i, err
 }
 
+const getMasterZmanimMetadataForKeys = `-- name: GetMasterZmanimMetadataForKeys :many
+SELECT
+    mr.zman_key,
+    COALESCE(tc.key, '') as time_category,
+    COALESCE(mr.canonical_hebrew_name, '') as canonical_hebrew_name,
+    COALESCE(mr.canonical_english_name, '') as canonical_english_name,
+    COALESCE(mr.default_formula_dsl, '') as default_formula_dsl,
+    mr.is_core,
+    COALESCE(mr.halachic_source, '') as halachic_source
+FROM master_zmanim_registry mr
+LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
+WHERE mr.zman_key = ANY($1::text[])
+`
+
+type GetMasterZmanimMetadataForKeysRow struct {
+	ZmanKey              string `json:"zman_key"`
+	TimeCategory         string `json:"time_category"`
+	CanonicalHebrewName  string `json:"canonical_hebrew_name"`
+	CanonicalEnglishName string `json:"canonical_english_name"`
+	DefaultFormulaDsl    string `json:"default_formula_dsl"`
+	IsCore               *bool  `json:"is_core"`
+	HalachicSource       string `json:"halachic_source"`
+}
+
+// Get metadata for specific zmanim from master registry (performance optimized)
+func (q *Queries) GetMasterZmanimMetadataForKeys(ctx context.Context, dollar_1 []string) ([]GetMasterZmanimMetadataForKeysRow, error) {
+	rows, err := q.db.Query(ctx, getMasterZmanimMetadataForKeys, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetMasterZmanimMetadataForKeysRow{}
+	for rows.Next() {
+		var i GetMasterZmanimMetadataForKeysRow
+		if err := rows.Scan(
+			&i.ZmanKey,
+			&i.TimeCategory,
+			&i.CanonicalHebrewName,
+			&i.CanonicalEnglishName,
+			&i.DefaultFormulaDsl,
+			&i.IsCore,
+			&i.HalachicSource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPublisherAlgorithm = `-- name: GetPublisherAlgorithm :one
 SELECT configuration
 FROM algorithms
@@ -1571,6 +1624,72 @@ func (q *Queries) GetVerifiedPublishersForLinking(ctx context.Context, id int32)
 			&i.Name,
 			&i.LogoUrl,
 			&i.ZmanimCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getZmanimTagsForKeys = `-- name: GetZmanimTagsForKeys :many
+SELECT
+    mr.zman_key,
+    t.id,
+    t.tag_key,
+    t.display_name_english_ashkenazi,
+    t.display_name_english_sephardi,
+    t.display_name_hebrew,
+    tt.key AS tag_type,
+    t.color,
+    COALESCE(mzt.is_negated, false) AS is_negated,
+    t.created_at
+FROM master_zmanim_registry mr
+JOIN master_zman_tags mzt ON mr.id = mzt.master_zman_id
+JOIN zman_tags t ON mzt.tag_id = t.id
+JOIN tag_types tt ON t.tag_type_id = tt.id
+WHERE t.is_hidden = false
+  AND mr.zman_key = ANY($1::text[])
+ORDER BY mr.zman_key, tt.key, t.tag_key
+`
+
+type GetZmanimTagsForKeysRow struct {
+	ZmanKey                     string             `json:"zman_key"`
+	ID                          int32              `json:"id"`
+	TagKey                      string             `json:"tag_key"`
+	DisplayNameEnglishAshkenazi string             `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string            `json:"display_name_english_sephardi"`
+	DisplayNameHebrew           string             `json:"display_name_hebrew"`
+	TagType                     string             `json:"tag_type"`
+	Color                       *string            `json:"color"`
+	IsNegated                   bool               `json:"is_negated"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+}
+
+// Get tags for specific zmanim only (performance optimized)
+func (q *Queries) GetZmanimTagsForKeys(ctx context.Context, dollar_1 []string) ([]GetZmanimTagsForKeysRow, error) {
+	rows, err := q.db.Query(ctx, getZmanimTagsForKeys, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetZmanimTagsForKeysRow{}
+	for rows.Next() {
+		var i GetZmanimTagsForKeysRow
+		if err := rows.Scan(
+			&i.ZmanKey,
+			&i.ID,
+			&i.TagKey,
+			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
+			&i.DisplayNameHebrew,
+			&i.TagType,
+			&i.Color,
+			&i.IsNegated,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
