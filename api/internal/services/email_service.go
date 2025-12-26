@@ -381,8 +381,8 @@ func (s *EmailService) SendCorrectionApproved(to, localityName, reviewNotes stri
 
 	data := map[string]string{
 		"locality_name": localityName,
-		"review_notes": reviewNotes,
-		"web_url":      s.webURL,
+		"review_notes":  reviewNotes,
+		"web_url":       s.webURL,
 	}
 
 	html := s.renderTemplate(TemplateCorrectionApproved, data)
@@ -395,8 +395,8 @@ func (s *EmailService) SendCorrectionRejected(to, localityName, reviewNotes stri
 
 	data := map[string]string{
 		"locality_name": localityName,
-		"review_notes": reviewNotes,
-		"web_url":      s.webURL,
+		"review_notes":  reviewNotes,
+		"web_url":       s.webURL,
 	}
 
 	html := s.renderTemplate(TemplateCorrectionRejected, data)

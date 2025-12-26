@@ -869,8 +869,8 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string,
 
 	// Use SQLc generated query (exclude deleted by default)
 	sqlcResults, err := h.db.Queries.FetchPublisherZmanim(ctx, sqlcgen.FetchPublisherZmanimParams{
-		PublisherID:          publisherIDInt32,
-		IncludeDeleted:       nil, // nil = false, exclude deleted items
+		PublisherID:    publisherIDInt32,
+		IncludeDeleted: nil, // nil = false, exclude deleted items
 	})
 	if err != nil {
 		return nil, err
@@ -897,15 +897,15 @@ func (h *Handlers) fetchPublisherZmanim(ctx context.Context, publisherID string,
 		if row.Tags != nil {
 			// Intermediate struct to parse raw JSON with both transliteration fields
 			type rawTag struct {
-				ID                           int32   `json:"id"`
-				TagKey                       string  `json:"tag_key"`
-				DisplayNameHebrew            string  `json:"display_name_hebrew"`
-				DisplayNameEnglishAshkenazi  string  `json:"display_name_english_ashkenazi"`
-				DisplayNameEnglishSephardi   *string `json:"display_name_english_sephardi"`
-				TagType                      string  `json:"tag_type"`
-				IsNegated                    bool    `json:"is_negated"`
-				IsModified                   bool    `json:"is_modified"`
-				SourceIsNegated              *bool   `json:"source_is_negated"`
+				ID                          int32   `json:"id"`
+				TagKey                      string  `json:"tag_key"`
+				DisplayNameHebrew           string  `json:"display_name_hebrew"`
+				DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
+				DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
+				TagType                     string  `json:"tag_type"`
+				IsNegated                   bool    `json:"is_negated"`
+				IsModified                  bool    `json:"is_modified"`
+				SourceIsNegated             *bool   `json:"source_is_negated"`
 			}
 
 			var rawTags []rawTag

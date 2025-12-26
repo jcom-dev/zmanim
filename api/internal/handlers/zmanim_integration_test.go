@@ -214,7 +214,7 @@ func TestMultiDayEvent(t *testing.T) {
 			hasExpectedEvent := false
 			for _, holiday := range dayInfo.Holidays {
 				if holiday.Name == tt.expected ||
-				   holiday.Category == tt.expected {
+					holiday.Category == tt.expected {
 					hasExpectedEvent = true
 					break
 				}
@@ -234,11 +234,11 @@ func TestZmanimFilteringByTags(t *testing.T) {
 	// by simulating different calendar contexts
 
 	tests := []struct {
-		name           string
-		date           time.Time
-		activeTags     []string
-		shouldShow     []string
-		shouldNotShow  []string
+		name          string
+		date          time.Time
+		activeTags    []string
+		shouldShow    []string
+		shouldNotShow []string
 	}{
 		{
 			name:       "Regular weekday - no special zmanim",

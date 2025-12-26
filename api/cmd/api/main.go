@@ -359,11 +359,11 @@ func main() {
 			r.Use(authMiddleware.RequireAuth)
 
 			// Unified correction request endpoints (Story 9.3)
-			r.Get("/correction-requests", h.GetCorrectionRequests)                           // Role-filtered list
-			r.Put("/correction-requests/{id}/status", h.UpdateCorrectionRequestStatus)       // Admin only
-			r.Get("/correction-requests/history", h.GetCorrectionRequestHistory)             // Admin only - correction history
-			r.Post("/correction-requests/{id}/revert", h.RevertCorrectionRequest)            // Admin only - revert approved correction
-			r.Get("/correction-requests/check-duplicates", h.CheckCorrectionDuplicates)      // Check for duplicate requests
+			r.Get("/correction-requests", h.GetCorrectionRequests)                      // Role-filtered list
+			r.Put("/correction-requests/{id}/status", h.UpdateCorrectionRequestStatus)  // Admin only
+			r.Get("/correction-requests/history", h.GetCorrectionRequestHistory)        // Admin only - correction history
+			r.Post("/correction-requests/{id}/revert", h.RevertCorrectionRequest)       // Admin only - revert approved correction
+			r.Get("/correction-requests/check-duplicates", h.CheckCorrectionDuplicates) // Check for duplicate requests
 		})
 
 		// Publisher protected routes

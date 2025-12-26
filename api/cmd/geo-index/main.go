@@ -744,9 +744,9 @@ func loadRegionInfo(ctx context.Context) (map[int32]RegionInfo, error) {
 
 // LocalityInfo holds basic info for building hierarchy chains
 type LocalityInfo struct {
-	Name            string
+	Name             string
 	ParentOvertureID *string
-	CountryID       int16
+	CountryID        int16
 }
 
 // loadLocalityInfo loads name and parent info for all localities (for hierarchy building)
@@ -857,26 +857,26 @@ func populateContinentIndex(
 		})
 
 		indexRows = append(indexRows, []any{
-			"continent",       // entity_type
-			int32(id),         // entity_id
-			nil,               // entity_subtype (continents have no subtype)
-			nil,               // locality_id
-			keywords,          // keywords
-			name,              // display_name
-			name,              // display_hierarchy (just continent name)
-			nil,               // display_names (no multi-language for continents)
-			nil,               // locality_type_id
-			nil,               // direct_parent_type (continents are top-level)
-			nil,               // direct_parent_id
-			nil,               // inherited_region_id
-			hierarchyPath,     // hierarchy_path
-			nil,               // country_id
-			id,                // continent_id
-			nil,               // country_code
-			population,        // population
-			nil,               // latitude (no single point for continent)
-			nil,               // longitude
-			nil,               // timezone
+			"continent",   // entity_type
+			int32(id),     // entity_id
+			nil,           // entity_subtype (continents have no subtype)
+			nil,           // locality_id
+			keywords,      // keywords
+			name,          // display_name
+			name,          // display_hierarchy (just continent name)
+			nil,           // display_names (no multi-language for continents)
+			nil,           // locality_type_id
+			nil,           // direct_parent_type (continents are top-level)
+			nil,           // direct_parent_id
+			nil,           // inherited_region_id
+			hierarchyPath, // hierarchy_path
+			nil,           // country_id
+			id,            // continent_id
+			nil,           // country_code
+			population,    // population
+			nil,           // latitude (no single point for continent)
+			nil,           // longitude
+			nil,           // timezone
 		})
 	}
 
@@ -1132,27 +1132,27 @@ func populateRegionIndex(
 		}
 
 		indexRows = append(indexRows, []any{
-			"region",                         // entity_type
-			id,                               // entity_id
-			regionTypeCode,                   // entity_subtype (state/county/localadmin)
-			nil,                              // locality_id
-			keywords,                         // keywords
-			name,                             // display_name
-			displayHierarchy,                 // display_hierarchy
-			displayNamesToJSON(displayNames), // display_names
-			nil,                              // locality_type_id
-			directParentType,                 // direct_parent_type
-			directParentID,                   // direct_parent_id
-			id,                               // inherited_region_id (self-reference for regions)
+			"region",                              // entity_type
+			id,                                    // entity_id
+			regionTypeCode,                        // entity_subtype (state/county/localadmin)
+			nil,                                   // locality_id
+			keywords,                              // keywords
+			name,                                  // display_name
+			displayHierarchy,                      // display_hierarchy
+			displayNamesToJSON(displayNames),      // display_names
+			nil,                                   // locality_type_id
+			directParentType,                      // direct_parent_type
+			directParentID,                        // direct_parent_id
+			id,                                    // inherited_region_id (self-reference for regions)
 			hierarchyPathToJSON(hierarchyEntries), // hierarchy_path
-			countryID,                        // country_id
-			continentID,                      // continent_id
-			cInfo.Code,                       // country_code
-			nil,                              // population (updated after localities indexed)
-			currentRegionInfo.Latitude,       // latitude (from boundary centroid)
-			currentRegionInfo.Longitude,      // longitude (from boundary centroid)
-			nil,                              // timezone
-			ancestorRegionIDs,                // ancestor_region_ids
+			countryID,                             // country_id
+			continentID,                           // continent_id
+			cInfo.Code,                            // country_code
+			nil,                                   // population (updated after localities indexed)
+			currentRegionInfo.Latitude,            // latitude (from boundary centroid)
+			currentRegionInfo.Longitude,           // longitude (from boundary centroid)
+			nil,                                   // timezone
+			ancestorRegionIDs,                     // ancestor_region_ids
 		})
 	}
 
@@ -1433,27 +1433,27 @@ func populateLocalityIndex(
 
 			// Build row
 			indexRows = append(indexRows, []any{
-				"locality",                        // entity_type
-				id,                                // entity_id
-				localityTypeCode,                  // entity_subtype (city/town/village/hamlet/neighborhood)
-				id,                                // locality_id
-				keywords,                          // keywords
-				name,                              // display_name
-				displayHierarchy,                  // display_hierarchy
-				displayNamesToJSON(displayNames),  // display_names
-				localityTypeID,                    // locality_type_id
-				directParentType,                  // direct_parent_type
-				directParentID,                    // direct_parent_id
-				inheritedRegionID,                 // inherited_region_id (set when parent is a region)
+				"locality",                            // entity_type
+				id,                                    // entity_id
+				localityTypeCode,                      // entity_subtype (city/town/village/hamlet/neighborhood)
+				id,                                    // locality_id
+				keywords,                              // keywords
+				name,                                  // display_name
+				displayHierarchy,                      // display_hierarchy
+				displayNamesToJSON(displayNames),      // display_names
+				localityTypeID,                        // locality_type_id
+				directParentType,                      // direct_parent_type
+				directParentID,                        // direct_parent_id
+				inheritedRegionID,                     // inherited_region_id (set when parent is a region)
 				hierarchyPathToJSON(hierarchyEntries), // hierarchy_path
-				countryID,                         // country_id
-				continentID,                       // continent_id
-				cInfo.Code,                        // country_code
-				population,                        // population
-				latitude,                          // latitude
-				longitude,                         // longitude
-				timezone,                          // timezone
-				ancestorRegionIDs,                 // ancestor_region_ids
+				countryID,                             // country_id
+				continentID,                           // continent_id
+				cInfo.Code,                            // country_code
+				population,                            // population
+				latitude,                              // latitude
+				longitude,                             // longitude
+				timezone,                              // timezone
+				ancestorRegionIDs,                     // ancestor_region_ids
 			})
 		}
 
@@ -1759,11 +1759,11 @@ func computeDescendantAndChildCounts(ctx context.Context) error {
 	// Batch update the database
 	// We'll update entities that have non-zero counts
 	type UpdateRow struct {
-		EntityType      string
-		EntityID        int32
-		DirectChildren  int32
-		Descendants     int32
-		HasChildren     bool
+		EntityType     string
+		EntityID       int32
+		DirectChildren int32
+		Descendants    int32
+		HasChildren    bool
 	}
 
 	var updates []UpdateRow

@@ -148,8 +148,8 @@ func ContextWithTimeout(ctx context.Context, timeout time.Duration) (context.Con
 // GenerateWeeklyCalendarRequest is the request body for weekly calendar PDF generation
 type GenerateWeeklyCalendarRequest struct {
 	LocalityID      int64  `json:"locality_id"`
-	StartDate       string `json:"start_date"`  // YYYY-MM-DD (must be Sunday)
-	Language        string `json:"language"`    // "en" for English, "he" for Hebrew (defaults to "en")
+	StartDate       string `json:"start_date"` // YYYY-MM-DD (must be Sunday)
+	Language        string `json:"language"`   // "en" for English, "he" for Hebrew (defaults to "en")
 	IncludeDraft    bool   `json:"include_draft"`
 	IncludeOptional bool   `json:"include_optional"`
 	IncludeHidden   bool   `json:"include_hidden"`

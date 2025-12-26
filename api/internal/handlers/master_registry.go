@@ -62,20 +62,20 @@ type MasterZman struct {
 
 // ZmanTag represents a tag for categorizing zmanim
 type ZmanTag struct {
-	ID                        int32     `json:"id"`      // Changed from string to int32 to match database
-	TagKey                    string    `json:"tag_key"` // Unique key like "category_candle_lighting", "category_havdalah", "shabbos", "rosh_hashanah"
-	Name                      string    `json:"name"`
-	DisplayNameHebrew         string    `json:"display_name_hebrew"`
-	DisplayNameEnglish        string    `json:"display_name_english"`                    // Deprecated: use display_name_english_ashkenazi
-	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`          // English name with Ashkenazi transliteration (e.g., "Shabbos")
-	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi,omitempty"` // English name with Sephardi transliteration (e.g., "Shabbat")
-	TagType                   string    `json:"tag_type"`
-	Description               *string   `json:"description,omitempty"`
-	Color                     *string   `json:"color,omitempty"`
-	IsNegated                 bool      `json:"is_negated"`                  // When true, zman should NOT appear on days matching this tag
-	IsModified                bool      `json:"is_modified"`                 // True if tag differs from master registry (added, removed, or negation changed)
-	SourceIsNegated           *bool     `json:"source_is_negated,omitempty"` // Original negation state from master registry (nil if tag not in master)
-	CreatedAt                 time.Time `json:"created_at"`
+	ID                          int32     `json:"id"`      // Changed from string to int32 to match database
+	TagKey                      string    `json:"tag_key"` // Unique key like "category_candle_lighting", "category_havdalah", "shabbos", "rosh_hashanah"
+	Name                        string    `json:"name"`
+	DisplayNameHebrew           string    `json:"display_name_hebrew"`
+	DisplayNameEnglish          string    `json:"display_name_english"`                    // Deprecated: use display_name_english_ashkenazi
+	DisplayNameEnglishAshkenazi string    `json:"display_name_english_ashkenazi"`          // English name with Ashkenazi transliteration (e.g., "Shabbos")
+	DisplayNameEnglishSephardi  *string   `json:"display_name_english_sephardi,omitempty"` // English name with Sephardi transliteration (e.g., "Shabbat")
+	TagType                     string    `json:"tag_type"`
+	Description                 *string   `json:"description,omitempty"`
+	Color                       *string   `json:"color,omitempty"`
+	IsNegated                   bool      `json:"is_negated"`                  // When true, zman should NOT appear on days matching this tag
+	IsModified                  bool      `json:"is_modified"`                 // True if tag differs from master registry (added, removed, or negation changed)
+	SourceIsNegated             *bool     `json:"source_is_negated,omitempty"` // Original negation state from master registry (nil if tag not in master)
+	CreatedAt                   time.Time `json:"created_at"`
 }
 
 // MasterZmanimGrouped represents zmanim grouped by time category
@@ -370,19 +370,19 @@ func convertToMasterZman(row any) MasterZman {
 						}
 
 						// Get sephardi name if present
-					var sephardi *string
-					if sephardiVal, ok := tagMap["display_name_english_sephardi"]; ok && sephardiVal != nil {
-						sephardiStr := fmt.Sprintf("%v", sephardiVal)
-						if sephardiStr != "" && sephardiStr != "<nil>" {
-							sephardi = &sephardiStr
+						var sephardi *string
+						if sephardiVal, ok := tagMap["display_name_english_sephardi"]; ok && sephardiVal != nil {
+							sephardiStr := fmt.Sprintf("%v", sephardiVal)
+							if sephardiStr != "" && sephardiStr != "<nil>" {
+								sephardi = &sephardiStr
+							}
 						}
-					}
-					ashkenazi := fmt.Sprintf("%v", tagMap["display_name_english_ashkenazi"])
-					if ashkenazi == "" || ashkenazi == "<nil>" {
-						// Fallback to display_name_english for backwards compatibility
-						ashkenazi = fmt.Sprintf("%v", tagMap["display_name_english"])
-					}
-					tag := ZmanTag{
+						ashkenazi := fmt.Sprintf("%v", tagMap["display_name_english_ashkenazi"])
+						if ashkenazi == "" || ashkenazi == "<nil>" {
+							// Fallback to display_name_english for backwards compatibility
+							ashkenazi = fmt.Sprintf("%v", tagMap["display_name_english"])
+						}
+						tag := ZmanTag{
 							ID:                          tagID,
 							TagKey:                      fmt.Sprintf("%v", tagMap["tag_key"]),
 							Name:                        fmt.Sprintf("%v", tagMap["name"]),
@@ -2143,7 +2143,7 @@ func (h *Handlers) AdminApproveTagRequest(w http.ResponseWriter, r *http.Request
 
 	// Create the new tag
 	newTag, err := h.db.Queries.ApproveTagRequest(ctx, db.ApproveTagRequestParams{
-		TagKey:                      tagKey,
+		TagKey: tagKey,
 
 		DisplayNameHebrew:           *tagReq.RequestedTagName, // Same for now
 		DisplayNameEnglishAshkenazi: *tagReq.RequestedTagName, // Same for now

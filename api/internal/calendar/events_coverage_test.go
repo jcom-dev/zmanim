@@ -25,241 +25,241 @@ func TestSpecificDates(t *testing.T) {
 		expectedShabbat bool
 	}{
 		{
-			name:           "Regular Weekday",
-			date:           "2025-01-15", // Wednesday
-			isIsrael:       false,
-			expectedEvents: []string{},
+			name:            "Regular Weekday",
+			date:            "2025-01-15", // Wednesday
+			isIsrael:        false,
+			expectedEvents:  []string{},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Shabbat",
-			date:           "2025-01-18", // Saturday
-			isIsrael:       false,
-			expectedEvents: []string{}, // Just Shabbat
+			name:            "Shabbat",
+			date:            "2025-01-18", // Saturday
+			isIsrael:        false,
+			expectedEvents:  []string{}, // Just Shabbat
 			expectedShabbat: true,
 		},
 		{
-			name:           "Asarah B'Tevet",
-			date:           "2025-01-10", // 10 Tevet 5785
-			isIsrael:       false,
-			expectedEvents: []string{"asarah_bteves"},
+			name:            "Asarah B'Tevet",
+			date:            "2025-01-10", // 10 Tevet 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"asarah_bteves"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Rosh Hashana Day 1",
-			date:           "2025-09-23", // 1 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"rosh_hashanah"},
+			name:            "Rosh Hashana Day 1",
+			date:            "2025-09-23", // 1 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"rosh_hashanah"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Rosh Hashana Day 2",
-			date:           "2025-09-24", // 2 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"rosh_hashanah"},
+			name:            "Rosh Hashana Day 2",
+			date:            "2025-09-24", // 2 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"rosh_hashanah"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Yom Kippur",
-			date:           "2025-10-02", // 10 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"yom_kippur"},
+			name:            "Yom Kippur",
+			date:            "2025-10-02", // 10 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"yom_kippur"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Sukkot I - Diaspora",
-			date:           "2025-10-07", // 15 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"sukkos"},
+			name:            "Sukkot I - Diaspora",
+			date:            "2025-10-07", // 15 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"sukkos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Sukkot II - Diaspora",
-			date:           "2025-10-08", // 16 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"sukkos"},
+			name:            "Sukkot II - Diaspora",
+			date:            "2025-10-08", // 16 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"sukkos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Sukkot I - Israel",
-			date:           "2025-10-07", // 15 Tishrei 5786
-			isIsrael:       true,
-			expectedEvents: []string{"sukkos"},
+			name:            "Sukkot I - Israel",
+			date:            "2025-10-07", // 15 Tishrei 5786
+			isIsrael:        true,
+			expectedEvents:  []string{"sukkos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Sukkot II (Chol HaMoed) - Israel",
-			date:           "2025-10-08", // 16 Tishrei 5786
-			isIsrael:       true,
-			expectedEvents: []string{"chol_hamoed_sukkos"},
+			name:            "Sukkot II (Chol HaMoed) - Israel",
+			date:            "2025-10-08", // 16 Tishrei 5786
+			isIsrael:        true,
+			expectedEvents:  []string{"chol_hamoed_sukkos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Chol HaMoed Sukkot Day 3",
-			date:           "2025-10-11", // 19 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"chol_hamoed_sukkos"},
+			name:            "Chol HaMoed Sukkot Day 3",
+			date:            "2025-10-11", // 19 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"chol_hamoed_sukkos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Hoshana Raba",
-			date:           "2025-10-13", // 21 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"hoshanah_rabbah"},
+			name:            "Hoshana Raba",
+			date:            "2025-10-13", // 21 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"hoshanah_rabbah"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Shemini Atzeret - Diaspora",
-			date:           "2025-10-14", // 22 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"shemini_atzeres"},
+			name:            "Shemini Atzeret - Diaspora",
+			date:            "2025-10-14", // 22 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"shemini_atzeres"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Simchat Torah - Diaspora",
-			date:           "2025-10-15", // 23 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"shemini_atzeres"}, // Day 2 in diaspora
+			name:            "Simchat Torah - Diaspora",
+			date:            "2025-10-15", // 23 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"shemini_atzeres"}, // Day 2 in diaspora
 			expectedShabbat: false,
 		},
 		{
-			name:           "Shemini Atzeret/Simchat Torah - Israel",
-			date:           "2025-10-14", // 22 Tishrei 5786
-			isIsrael:       true,
-			expectedEvents: []string{"shemini_atzeres"},
+			name:            "Shemini Atzeret/Simchat Torah - Israel",
+			date:            "2025-10-14", // 22 Tishrei 5786
+			isIsrael:        true,
+			expectedEvents:  []string{"shemini_atzeres"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Chanukah Day 1",
-			date:           "2025-12-15", // 25 Kislev 5786
-			isIsrael:       false,
-			expectedEvents: []string{"chanukah"},
+			name:            "Chanukah Day 1",
+			date:            "2025-12-15", // 25 Kislev 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"chanukah"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Chanukah Day 5",
-			date:           "2025-12-19", // 29 Kislev 5786
-			isIsrael:       false,
-			expectedEvents: []string{"chanukah"},
+			name:            "Chanukah Day 5",
+			date:            "2025-12-19", // 29 Kislev 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"chanukah"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Pesach I - Diaspora",
-			date:           "2025-04-13", // 15 Nisan 5785
-			isIsrael:       false,
-			expectedEvents: []string{"pesach_first"},
+			name:            "Pesach I - Diaspora",
+			date:            "2025-04-13", // 15 Nisan 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"pesach_first"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Pesach II - Diaspora",
-			date:           "2025-04-14", // 16 Nisan 5785
-			isIsrael:       false,
-			expectedEvents: []string{"pesach_first"},
+			name:            "Pesach II - Diaspora",
+			date:            "2025-04-14", // 16 Nisan 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"pesach_first"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Pesach I - Israel",
-			date:           "2025-04-13", // 15 Nisan 5785
-			isIsrael:       true,
-			expectedEvents: []string{"pesach_first"},
+			name:            "Pesach I - Israel",
+			date:            "2025-04-13", // 15 Nisan 5785
+			isIsrael:        true,
+			expectedEvents:  []string{"pesach_first"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Pesach II (Chol HaMoed) - Israel",
-			date:           "2025-04-14", // 16 Nisan 5785
-			isIsrael:       true,
-			expectedEvents: []string{"chol_hamoed_pesach"},
+			name:            "Pesach II (Chol HaMoed) - Israel",
+			date:            "2025-04-14", // 16 Nisan 5785
+			isIsrael:        true,
+			expectedEvents:  []string{"chol_hamoed_pesach"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Chol HaMoed Pesach",
-			date:           "2025-04-16", // 18 Nisan 5785
-			isIsrael:       false,
-			expectedEvents: []string{"chol_hamoed_pesach"},
+			name:            "Chol HaMoed Pesach",
+			date:            "2025-04-16", // 18 Nisan 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"chol_hamoed_pesach"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Pesach VII - Diaspora",
-			date:           "2025-04-19", // 21 Nisan 5785
-			isIsrael:       false,
-			expectedEvents: []string{"pesach_last"},
+			name:            "Pesach VII - Diaspora",
+			date:            "2025-04-19", // 21 Nisan 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"pesach_last"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Pesach VIII - Diaspora",
-			date:           "2025-04-20", // 22 Nisan 5785
-			isIsrael:       false,
-			expectedEvents: []string{"pesach_last"},
+			name:            "Pesach VIII - Diaspora",
+			date:            "2025-04-20", // 22 Nisan 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"pesach_last"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Pesach VII - Israel",
-			date:           "2025-04-19", // 21 Nisan 5785
-			isIsrael:       true,
-			expectedEvents: []string{"pesach_last"},
+			name:            "Pesach VII - Israel",
+			date:            "2025-04-19", // 21 Nisan 5785
+			isIsrael:        true,
+			expectedEvents:  []string{"pesach_last"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Shavuot - Israel",
-			date:           "2025-06-02", // 6 Sivan 5785
-			isIsrael:       true,
-			expectedEvents: []string{"shavuos"},
+			name:            "Shavuot - Israel",
+			date:            "2025-06-02", // 6 Sivan 5785
+			isIsrael:        true,
+			expectedEvents:  []string{"shavuos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Shavuot Day I - Diaspora",
-			date:           "2025-06-02", // 6 Sivan 5785
-			isIsrael:       false,
-			expectedEvents: []string{"shavuos"},
+			name:            "Shavuot Day I - Diaspora",
+			date:            "2025-06-02", // 6 Sivan 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"shavuos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Shavuot Day II - Diaspora",
-			date:           "2025-06-03", // 7 Sivan 5785
-			isIsrael:       false,
-			expectedEvents: []string{"shavuos"},
+			name:            "Shavuot Day II - Diaspora",
+			date:            "2025-06-03", // 7 Sivan 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"shavuos"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Tisha B'Av",
-			date:           "2025-08-03", // 9 Av 5785
-			isIsrael:       false,
-			expectedEvents: []string{"tisha_bav"},
+			name:            "Tisha B'Av",
+			date:            "2025-08-03", // 9 Av 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"tisha_bav"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Tzom Gedaliah",
-			date:           "2025-09-25", // 3 Tishrei 5786
-			isIsrael:       false,
-			expectedEvents: []string{"tzom_gedaliah"},
+			name:            "Tzom Gedaliah",
+			date:            "2025-09-25", // 3 Tishrei 5786
+			isIsrael:        false,
+			expectedEvents:  []string{"tzom_gedaliah"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Ta'anit Esther",
-			date:           "2025-03-13", // 13 Adar 5785
-			isIsrael:       false,
-			expectedEvents: []string{"taanis_esther"},
+			name:            "Ta'anit Esther",
+			date:            "2025-03-13", // 13 Adar 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"taanis_esther"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Purim",
-			date:           "2025-03-14", // 14 Adar 5785
-			isIsrael:       false,
-			expectedEvents: []string{"purim"},
+			name:            "Purim",
+			date:            "2025-03-14", // 14 Adar 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"purim"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Shushan Purim",
-			date:           "2025-03-15", // 15 Adar 5785
-			isIsrael:       false,
-			expectedEvents: []string{"shushan_purim"},
+			name:            "Shushan Purim",
+			date:            "2025-03-15", // 15 Adar 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"shushan_purim"},
 			expectedShabbat: false,
 		},
 		{
-			name:           "Rosh Chodesh",
-			date:           "2025-01-30", // 1 Shevat 5785
-			isIsrael:       false,
-			expectedEvents: []string{"rosh_chodesh"},
+			name:            "Rosh Chodesh",
+			date:            "2025-01-30", // 1 Shevat 5785
+			isIsrael:        false,
+			expectedEvents:  []string{"rosh_chodesh"},
 			expectedShabbat: false,
 		},
 	}
@@ -329,107 +329,107 @@ func TestSpecificDates(t *testing.T) {
 // TestMultiDayEvents validates that multi-day events report correct day numbers
 func TestMultiDayEvents(t *testing.T) {
 	tests := []struct {
-		name         string
-		date         string
-		isIsrael     bool
-		expectedCode string
-		expectedDay  int
+		name          string
+		date          string
+		isIsrael      bool
+		expectedCode  string
+		expectedDay   int
 		expectedTotal int
 	}{
 		{
-			name:         "Rosh Hashana Day 1",
-			date:         "2025-09-23",
-			isIsrael:     false,
-			expectedCode: "rosh_hashanah",
-			expectedDay:  1,
+			name:          "Rosh Hashana Day 1",
+			date:          "2025-09-23",
+			isIsrael:      false,
+			expectedCode:  "rosh_hashanah",
+			expectedDay:   1,
 			expectedTotal: 2,
 		},
 		{
-			name:         "Rosh Hashana Day 2",
-			date:         "2025-09-24",
-			isIsrael:     false,
-			expectedCode: "rosh_hashanah",
-			expectedDay:  2,
+			name:          "Rosh Hashana Day 2",
+			date:          "2025-09-24",
+			isIsrael:      false,
+			expectedCode:  "rosh_hashanah",
+			expectedDay:   2,
 			expectedTotal: 2,
 		},
 		{
-			name:         "Chanukah Day 1",
-			date:         "2025-12-15",
-			isIsrael:     false,
-			expectedCode: "chanukah",
-			expectedDay:  1,
+			name:          "Chanukah Day 1",
+			date:          "2025-12-15",
+			isIsrael:      false,
+			expectedCode:  "chanukah",
+			expectedDay:   1,
 			expectedTotal: 8,
 		},
 		{
-			name:         "Chanukah Day 5",
-			date:         "2025-12-19",
-			isIsrael:     false,
-			expectedCode: "chanukah",
-			expectedDay:  5,
+			name:          "Chanukah Day 5",
+			date:          "2025-12-19",
+			isIsrael:      false,
+			expectedCode:  "chanukah",
+			expectedDay:   5,
 			expectedTotal: 8,
 		},
 		{
-			name:         "Chanukah Day 8",
-			date:         "2025-12-22",
-			isIsrael:     false,
-			expectedCode: "chanukah",
-			expectedDay:  8,
+			name:          "Chanukah Day 8",
+			date:          "2025-12-22",
+			isIsrael:      false,
+			expectedCode:  "chanukah",
+			expectedDay:   8,
 			expectedTotal: 8,
 		},
 		{
-			name:         "Sukkot Day 1 - Diaspora",
-			date:         "2025-10-07",
-			isIsrael:     false,
-			expectedCode: "sukkos",
-			expectedDay:  1,
+			name:          "Sukkot Day 1 - Diaspora",
+			date:          "2025-10-07",
+			isIsrael:      false,
+			expectedCode:  "sukkos",
+			expectedDay:   1,
 			expectedTotal: 2,
 		},
 		{
-			name:         "Sukkot Day 2 - Diaspora",
-			date:         "2025-10-08",
-			isIsrael:     false,
-			expectedCode: "sukkos",
-			expectedDay:  2,
+			name:          "Sukkot Day 2 - Diaspora",
+			date:          "2025-10-08",
+			isIsrael:      false,
+			expectedCode:  "sukkos",
+			expectedDay:   2,
 			expectedTotal: 2,
 		},
 		{
-			name:         "Sukkot Day 1 - Israel",
-			date:         "2025-10-07",
-			isIsrael:     true,
-			expectedCode: "sukkos",
-			expectedDay:  1,
+			name:          "Sukkot Day 1 - Israel",
+			date:          "2025-10-07",
+			isIsrael:      true,
+			expectedCode:  "sukkos",
+			expectedDay:   1,
 			expectedTotal: 1,
 		},
 		{
-			name:         "Pesach I - Diaspora",
-			date:         "2025-04-13",
-			isIsrael:     false,
-			expectedCode: "pesach_first",
-			expectedDay:  1,
+			name:          "Pesach I - Diaspora",
+			date:          "2025-04-13",
+			isIsrael:      false,
+			expectedCode:  "pesach_first",
+			expectedDay:   1,
 			expectedTotal: 2,
 		},
 		{
-			name:         "Pesach II - Diaspora",
-			date:         "2025-04-14",
-			isIsrael:     false,
-			expectedCode: "pesach_first",
-			expectedDay:  2,
+			name:          "Pesach II - Diaspora",
+			date:          "2025-04-14",
+			isIsrael:      false,
+			expectedCode:  "pesach_first",
+			expectedDay:   2,
 			expectedTotal: 2,
 		},
 		{
-			name:         "Pesach VII - Diaspora",
-			date:         "2025-04-19",
-			isIsrael:     false,
-			expectedCode: "pesach_last",
-			expectedDay:  1,
+			name:          "Pesach VII - Diaspora",
+			date:          "2025-04-19",
+			isIsrael:      false,
+			expectedCode:  "pesach_last",
+			expectedDay:   1,
 			expectedTotal: 2,
 		},
 		{
-			name:         "Pesach VIII - Diaspora",
-			date:         "2025-04-20",
-			isIsrael:     false,
-			expectedCode: "pesach_last",
-			expectedDay:  2,
+			name:          "Pesach VIII - Diaspora",
+			date:          "2025-04-20",
+			isIsrael:      false,
+			expectedCode:  "pesach_last",
+			expectedDay:   2,
 			expectedTotal: 2,
 		},
 	}

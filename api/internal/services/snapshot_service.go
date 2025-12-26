@@ -30,12 +30,12 @@ func NewSnapshotService(database *db.DB) *SnapshotService {
 
 // PublisherSnapshot represents a snapshot of publisher zmanim data (zmanim-only, not profile/coverage)
 type PublisherSnapshot struct {
-	FormatType  string         `json:"format_type"`
-	FormatVersion int          `json:"format_version"`
-	ExportedAt  string         `json:"exported_at"`
-	PublisherID *int32         `json:"publisher_id,omitempty"`
-	Description string         `json:"description,omitempty"`
-	Zmanim      []SnapshotZman `json:"zmanim"`
+	FormatType    string         `json:"format_type"`
+	FormatVersion int            `json:"format_version"`
+	ExportedAt    string         `json:"exported_at"`
+	PublisherID   *int32         `json:"publisher_id,omitempty"`
+	Description   string         `json:"description,omitempty"`
+	Zmanim        []SnapshotZman `json:"zmanim"`
 }
 
 // ZmanTag represents a tag attached to a zman
@@ -427,12 +427,12 @@ type ZmanSummary struct {
 
 // SnapshotImportResult represents the result of a snapshot import operation
 type SnapshotImportResult struct {
-	Success             bool          `json:"success"`
-	ZmanimCreated       int           `json:"zmanim_created"`
-	ZmanimUpdated       int           `json:"zmanim_updated"`
-	ZmanimUnchanged     int           `json:"zmanim_unchanged"`
-	ZmanimNotInImport   []ZmanSummary `json:"zmanim_not_in_import,omitempty"`
-	Message             string        `json:"message,omitempty"`
+	Success           bool          `json:"success"`
+	ZmanimCreated     int           `json:"zmanim_created"`
+	ZmanimUpdated     int           `json:"zmanim_updated"`
+	ZmanimUnchanged   int           `json:"zmanim_unchanged"`
+	ZmanimNotInImport []ZmanSummary `json:"zmanim_not_in_import,omitempty"`
+	Message           string        `json:"message,omitempty"`
 }
 
 // ImportSnapshot applies a snapshot from JSON (uploaded by user)
@@ -604,19 +604,19 @@ func (s *SnapshotService) ImportSnapshot(ctx context.Context, publisherID int32,
 	// Record import in audit trail
 	sourcePublisherID := snapshot.PublisherID
 	_, err = s.db.Queries.CreatePublisherImportHistory(ctx, sqlcgen.CreatePublisherImportHistoryParams{
-		PublisherID:          publisherID,
-		ImportedBy:           userID,
-		FormatType:           snapshot.FormatType,
-		FormatVersion:        int32(snapshot.FormatVersion),
-		SourcePublisherID:    sourcePublisherID,
-		ZmanimCreated:        int32(result.ZmanimCreated),
-		ZmanimUpdated:        int32(result.ZmanimUpdated),
-		ZmanimUnchanged:      int32(result.ZmanimUnchanged),
-		ZmanimNotInImport:    int32(len(result.ZmanimNotInImport)),
-		CoverageCreated:      nil,
-		CoverageUpdated:      nil,
-		ProfileUpdated:       nil,
-		ImportSummary:        nil,
+		PublisherID:       publisherID,
+		ImportedBy:        userID,
+		FormatType:        snapshot.FormatType,
+		FormatVersion:     int32(snapshot.FormatVersion),
+		SourcePublisherID: sourcePublisherID,
+		ZmanimCreated:     int32(result.ZmanimCreated),
+		ZmanimUpdated:     int32(result.ZmanimUpdated),
+		ZmanimUnchanged:   int32(result.ZmanimUnchanged),
+		ZmanimNotInImport: int32(len(result.ZmanimNotInImport)),
+		CoverageCreated:   nil,
+		CoverageUpdated:   nil,
+		ProfileUpdated:    nil,
+		ImportSummary:     nil,
 	})
 	if err != nil {
 		// Don't fail the import if audit trail fails, just log it
