@@ -717,12 +717,11 @@ func getFormulaExplanation(aiExplanation *string) string {
 	return ""
 }
 
-// DEPRECATED: filterByNegatedTags is no longer used.
-// All event/tag filtering is now centralized in ZmanimService.ShouldShowZman()
+// NOTE: filterByNegatedTags was removed.
+// All event/tag filtering is centralized in ZmanimService.ShouldShowZman()
 // which is called during CalculateZmanim() with the ActiveEventCodes parameter.
-// This function is kept only for reference and will be removed in a future cleanup.
 
-// GetZmanimByCoordinates calculates zmanim for coordinates (legacy)
+// GetZmanimByCoordinates calculates zmanim for coordinates (backward compatibility)
 //
 //	@Summary		Calculate zmanim by coordinates (legacy)
 //	@Description	Calculates zmanim using raw latitude/longitude coordinates. Prefer the GET /zmanim endpoint with localityId for better accuracy.
@@ -763,7 +762,7 @@ func (h *Handlers) GetZmanimByCoordinates(w http.ResponseWriter, r *http.Request
 		req.Timezone = "UTC"
 	}
 
-	response, err := h.legacyZmanimService.CalculateZmanim(ctx, &req)
+	response, err := h.compatZmanimService.CalculateZmanim(ctx, &req)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to calculate zmanim")
 		return

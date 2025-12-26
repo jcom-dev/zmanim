@@ -194,7 +194,7 @@ func (c *Cache) InvalidateZmanim(ctx context.Context, publisherID string) error 
 func (c *Cache) InvalidatePublisherCache(ctx context.Context, publisherID string) error {
 	patterns := []string{
 		fmt.Sprintf("calc:%s:*", publisherID),   // Unified calculation cache (new format)
-		fmt.Sprintf("zmanim:%s:*", publisherID), // Legacy zmanim cache
+		fmt.Sprintf("zmanim:%s:*", publisherID), // Original zmanim cache format
 		fmt.Sprintf("%s:*", publisherID),        // Filtered zmanim cache (publisherId:date:lat:lon)
 		fmt.Sprintf("week:%s:*", publisherID),   // Week batch cache
 	}

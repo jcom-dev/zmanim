@@ -462,7 +462,7 @@ func (h *Handlers) GetWeekEventInfo(w http.ResponseWriter, r *http.Request) {
 // REGISTRY HANDLERS WITH EVENT FILTERING
 // ============================================
 
-// DEPRECATED: master_zman_events table is empty (tag-driven instead)
+// NOTE: master_zman_events table is empty (tag-driven approach used instead)
 // GetMasterZmanimByEvent returns zmanim filtered by Jewish event
 // GET /api/v1/registry/zmanim/by-event?event_code=shabbos
 /* func (h *Handlers) GetMasterZmanimByEvent(w http.ResponseWriter, r *http.Request) {
@@ -537,7 +537,7 @@ func (h *Handlers) GetWeekEventInfo(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, r, http.StatusOK, zmanim)
 } */
 
-// DEPRECATED: master_zman_events table is empty (tag-driven instead)
+// NOTE: master_zman_events table is empty (tag-driven approach used instead)
 // GetZmanApplicableEvents returns which Jewish events a zman applies to
 // GET /api/v1/registry/zmanim/{zmanKey}/events
 /* func (h *Handlers) GetZmanApplicableEvents(w http.ResponseWriter, r *http.Request) {

@@ -479,7 +479,7 @@ func containsImpl(s, substr string) bool {
 // GetZmanimContext determines which zmanim should be displayed for a date
 // Returns the context info needed to select appropriate zmanim and display names
 type ZmanimContext struct {
-	DisplayContexts  []string `json:"display_contexts"`   // DEPRECATED: Use category tags instead. Kept for backward compatibility.
+	DisplayContexts  []string `json:"display_contexts"`   // Retained for backward compatibility. Prefer category tags for new implementations.
 	ActiveEventCodes []string `json:"active_event_codes"` // Event codes active on this date (includes today, erev, and motzei events)
 }
 

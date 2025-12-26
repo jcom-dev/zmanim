@@ -439,7 +439,7 @@ type SnapshotImportResult struct {
 func (s *SnapshotService) ImportSnapshot(ctx context.Context, publisherID int32, userID string, snapshot *PublisherSnapshot) (*SnapshotImportResult, error) {
 	// Validate format type and version
 	if snapshot.FormatType == "" {
-		// Legacy format (v1) - use Version field
+		// Original format (v1) - use Version field
 		if snapshot.FormatVersion != 1 {
 			return nil, fmt.Errorf("unsupported snapshot version: %d", snapshot.FormatVersion)
 		}

@@ -1,12 +1,12 @@
 // File: algorithm_service.go
-// Purpose: Legacy algorithm management - preview and validation
+// Purpose: Algorithm management - preview and validation (backward compatibility)
 // Pattern: service
-// Status: DEPRECATED - Use ZmanimService for calculations
+// Status: Maintained for backward compatibility - new code should use ZmanimService
 // Dependencies: db, models
 //
 // AlgorithmService provides backward-compatible algorithm operations.
 // New code should use publisher_zmanim + DSL formulas instead of
-// the legacy algorithm configuration approach.
+// the algorithm configuration approach.
 
 package services
 
@@ -27,8 +27,8 @@ var ErrAlgorithmNotFound = errors.New("algorithm not found")
 var ErrInvalidAlgorithm = errors.New("invalid algorithm configuration")
 
 // AlgorithmService handles algorithm-related operations including
-// validation, preview, and legacy algorithm management.
-// DEPRECATED: New implementations should use ZmanimService.
+// validation, preview, and algorithm management.
+// Note: New implementations should use ZmanimService for calculations.
 type AlgorithmService struct {
 	db *db.DB
 }

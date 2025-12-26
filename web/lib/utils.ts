@@ -26,16 +26,15 @@ export function formatTime(time: string): string {
 /**
  * Format time string to 12-hour AM/PM format without seconds
  *
- * DEPRECATED: This function strips seconds without proper rounding.
- * Use the API-provided `time_display` field instead, which contains
- * the properly rounded time ready for display.
+ * Note: This function strips seconds without rounding.
+ * For properly rounded display times, prefer the API-provided
+ * `time_display` field which applies the publisher's rounding mode.
  *
- * Backend centralization: All rounding logic is now in
+ * Backend centralization: All rounding logic is in
  * api/internal/services/unified_zmanim_service.go
  *
  * @param time - Time string in HH:MM:SS or HH:MM format
  * @returns Formatted time like "2:30 PM"
- * @deprecated Use API `time_display` field instead
  */
 export function formatTimeShort(time: string): string {
   if (!time || !time.includes(':')) return '--:--';

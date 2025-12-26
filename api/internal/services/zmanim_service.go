@@ -1110,29 +1110,29 @@ func ApplyRounding(t time.Time, mode string) (string, string) {
 }
 
 // ===========================================================================
-// LEGACY SERVICE (TEMPORARY - to be removed after migration)
+// COMPATIBILITY SERVICE (maintained for backward compatibility)
 // ===========================================================================
 
-// LegacyZmanimService handles zmanim calculation business logic
-// DEPRECATED: Use ZmanimService instead
-// This exists temporarily to avoid breaking builds during migration
-type LegacyZmanimService struct {
+// CompatZmanimService handles zmanim calculation business logic
+// Note: Maintained for backward compatibility - use ZmanimService for new code
+// This exists to avoid breaking builds during migration
+type CompatZmanimService struct {
 	db               *db.DB
 	publisherService *PublisherService
 }
 
-// NewLegacyZmanimService creates a new legacy zmanim service
-// DEPRECATED: Use NewZmanimService instead
-func NewLegacyZmanimService(database *db.DB, publisherService *PublisherService) *LegacyZmanimService {
-	return &LegacyZmanimService{
+// NewCompatZmanimService creates a new compatibility zmanim service
+// Note: Use NewZmanimService for new implementations
+func NewCompatZmanimService(database *db.DB, publisherService *PublisherService) *CompatZmanimService {
+	return &CompatZmanimService{
 		db:               database,
 		publisherService: publisherService,
 	}
 }
 
 // CalculateZmanim calculates zmanim for a given request
-// DEPRECATED: Legacy implementation - use ZmanimService.CalculateZmanim
-func (s *LegacyZmanimService) CalculateZmanim(ctx context.Context, req *models.ZmanimRequest) (*models.ZmanimResponse, error) {
+// Note: Backward compatibility implementation - prefer ZmanimService.CalculateZmanim for new code
+func (s *CompatZmanimService) CalculateZmanim(ctx context.Context, req *models.ZmanimRequest) (*models.ZmanimResponse, error) {
 	// Parse date
 	date, err := time.Parse("2006-01-02", req.Date)
 	if err != nil {
@@ -1154,7 +1154,7 @@ func (s *LegacyZmanimService) CalculateZmanim(ctx context.Context, req *models.Z
 		if err != nil {
 			return nil, fmt.Errorf("failed to get publisher: %w", err)
 		}
-		// Legacy: algorithm lookup disabled
+		// Algorithm lookup disabled in compatibility mode
 		algoModel = nil
 	} else {
 		publisher, algoModel, err = s.publisherService.GetPublisherForLocation(ctx, req.Latitude, req.Longitude)
@@ -1206,7 +1206,7 @@ func (s *LegacyZmanimService) CalculateZmanim(ctx context.Context, req *models.Z
 // getFromCache retrieves cached zmanim calculations
 // DISABLED: calculation_cache table does not exist in current schema
 // Caching is handled by Redis (see calculation_logs.cache_hit field)
-func (s *LegacyZmanimService) getFromCache(ctx context.Context, date time.Time, latitude, longitude float64, publisherID *string) (*models.ZmanimResponse, error) {
+func (s *CompatZmanimService) getFromCache(ctx context.Context, date time.Time, latitude, longitude float64, publisherID *string) (*models.ZmanimResponse, error) {
 	_ = ctx
 	_ = date
 	_ = latitude
@@ -1218,7 +1218,7 @@ func (s *LegacyZmanimService) getFromCache(ctx context.Context, date time.Time, 
 // cacheResult stores calculation results in cache
 // DISABLED: calculation_cache table does not exist in current schema
 // Caching is handled by Redis (see calculation_logs.cache_hit field)
-func (s *LegacyZmanimService) cacheResult(ctx context.Context, date time.Time, latitude, longitude float64, algorithmID string, zmanim map[string]string) error {
+func (s *CompatZmanimService) cacheResult(ctx context.Context, date time.Time, latitude, longitude float64, algorithmID string, zmanim map[string]string) error {
 	_ = ctx
 	_ = date
 	_ = latitude
@@ -1229,7 +1229,7 @@ func (s *LegacyZmanimService) cacheResult(ctx context.Context, date time.Time, l
 }
 
 // calculateWithAlgorithm performs the actual zmanim calculation
-func (s *LegacyZmanimService) calculateWithAlgorithm(ctx context.Context, date time.Time, latitude, longitude, elevation float64, timezone string, alg *algorithm.AlgorithmConfig) (map[string]string, error) {
+func (s *CompatZmanimService) calculateWithAlgorithm(ctx context.Context, date time.Time, latitude, longitude, elevation float64, timezone string, alg *algorithm.AlgorithmConfig) (map[string]string, error) {
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		loc = time.UTC
@@ -1261,7 +1261,7 @@ func (s *LegacyZmanimService) calculateWithAlgorithm(ctx context.Context, date t
 // DISABLED: Schema mismatch - algorithms table doesn't have version or is_active columns
 // Current schema has: configuration (jsonb), status_id (smallint, FK to algorithm_statuses)
 // Alternative: Use existing SQLc query (GetPublisherActiveAlgorithm) or create new one matching actual schema
-func (s *LegacyZmanimService) getAlgorithmForPublisher(ctx context.Context, publisherID string) (*algorithm.AlgorithmConfig, error) {
+func (s *CompatZmanimService) getAlgorithmForPublisher(ctx context.Context, publisherID string) (*algorithm.AlgorithmConfig, error) {
 	_ = ctx
 	_ = publisherID
 	return nil, fmt.Errorf("getAlgorithmForPublisher: not implemented - schema mismatch (version, is_active columns don't exist)")

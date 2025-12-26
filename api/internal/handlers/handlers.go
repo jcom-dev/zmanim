@@ -58,7 +58,7 @@ type Handlers struct {
 	cache                 *cache.Cache
 	publisherService      *services.PublisherService
 	zmanimService  *services.ZmanimService
-	legacyZmanimService   *services.LegacyZmanimService
+	compatZmanimService   *services.CompatZmanimService
 	clerkService          *services.ClerkService
 	emailService          *services.EmailService
 	recaptchaService      *services.RecaptchaService
@@ -78,7 +78,7 @@ type Handlers struct {
 // New creates a new handlers instance
 func New(database *db.DB) *Handlers {
 	publisherService := services.NewPublisherService(database)
-	legacyZmanimService := services.NewLegacyZmanimService(database, publisherService)
+	compatZmanimService := services.NewCompatZmanimService(database, publisherService)
 	clerkService, err := services.NewClerkService()
 	if err != nil {
 		// Log error but continue - Clerk features will be disabled
@@ -94,7 +94,7 @@ func New(database *db.DB) *Handlers {
 	return &Handlers{
 		db:                    database,
 		publisherService:      publisherService,
-		legacyZmanimService:   legacyZmanimService,
+		compatZmanimService:   compatZmanimService,
 		clerkService:          clerkService,
 		emailService:          emailService,
 		recaptchaService:      recaptchaService,
@@ -355,7 +355,7 @@ func (h *Handlers) CalculateZmanim(w http.ResponseWriter, r *http.Request) {
 		req.Timezone = "UTC"
 	}
 
-	response, err := h.legacyZmanimService.CalculateZmanim(ctx, &req)
+	response, err := h.compatZmanimService.CalculateZmanim(ctx, &req)
 	if err != nil {
 		RespondInternalError(w, r, "Failed to calculate zmanim")
 		return

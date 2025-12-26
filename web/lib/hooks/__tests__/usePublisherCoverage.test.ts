@@ -18,6 +18,33 @@ import React from 'react';
 import { usePublisherCoverage } from '../usePublisherCoverage';
 
 // =============================================================================
+// Types
+// =============================================================================
+
+/** Coverage type matching the hook's internal interface */
+interface Coverage {
+  id: string;
+  publisher_id: string;
+  coverage_level_id: number;
+  coverage_level_key: 'continent' | 'country' | 'region' | 'locality';
+  continent_id: number | null;
+  country_id: number | null;
+  region_id: number | null;
+  locality_id: number | null;
+  continent_name: string | null;
+  country_code: string | null;
+  country_name: string | null;
+  region_code: string | null;
+  region_name: string | null;
+  locality_name: string | null;
+  locality_count: number;
+  priority: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================================================
 // Mock Setup
 // =============================================================================
 
@@ -195,7 +222,7 @@ describe('usePublisherCoverage', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     // AND: Add coverage is called
-    let addedCoverage: typeof newCoverage | undefined;
+    let addedCoverage: Coverage | undefined;
     await act(async () => {
       addedCoverage = await result.current.addCoverage.mutateAsync({
         coverage_level: 'country',
@@ -257,7 +284,7 @@ describe('usePublisherCoverage', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     // AND: Toggle is called
-    let toggledCoverage: typeof updatedCoverage | undefined;
+    let toggledCoverage: Coverage | undefined;
     await act(async () => {
       toggledCoverage = await result.current.toggleActive.mutateAsync({
         id: 'cov-1',

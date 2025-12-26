@@ -119,7 +119,7 @@ export interface PreviewLocation {
 }
 
 export interface PreviewResult {
-  result: string; // DEPRECATED: Use time_exact, time_rounded, or time_display instead
+  result: string; // For backward compatibility - prefer time_exact, time_rounded, or time_display
   time_exact?: string; // HH:mm:ss exact time with seconds
   time_rounded?: string; // HH:mm:ss rounded per rounding_mode (with :00)
   time_display?: string; // HH:mm rounded for display (no seconds)
