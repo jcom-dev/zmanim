@@ -9,7 +9,7 @@
     "start": "next start -p 3001",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "test": "NODE_OPTIONS='--max-old-space-size=8192' vitest run --exclude='**/useCategories.test.ts' --exclude='**/useLocality.test.ts' --exclude='**/useLocalitySearch.test.ts'",
+    "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test --config=../tests/playwright.config.ts",

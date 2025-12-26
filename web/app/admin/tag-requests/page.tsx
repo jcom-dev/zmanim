@@ -81,12 +81,12 @@ export default function AdminTagRequestsPage() {
         try {
             setLoading(true);
             // Get all pending zman requests
-            const requestsData = await api.get<{ requests: any[] }>('/admin/zman-requests?status=pending');
+            const requestsData = await api.get<{ requests: Array<{ id: string }> }>('/admin/zman-requests?status=pending');
 
             // For each request, get its tag requests
             const allTagRequests: TagRequestWithZman[] = [];
             for (const req of requestsData?.requests || []) {
-                const tags = await api.get<any[]>(`/admin/zman-requests/${req.id}/tags`);
+                const tags = await api.get<TagRequest[]>(`/admin/zman-requests/${req.id}/tags`);
                 const newTagRequests = (tags || [])
                     .filter((t) => t.is_new_tag_request)
                     .map((t) => ({

@@ -1,5 +1,12 @@
 import { auth } from '@clerk/nextjs/server';
 
+interface SessionMetadata {
+  metadata?: {
+    is_admin?: boolean;
+    publisher_access_list?: number[];
+  };
+}
+
 export default async function DebugAuth() {
   const { userId, sessionClaims, orgRole } = await auth();
 
@@ -23,11 +30,11 @@ export default async function DebugAuth() {
       </div>
 
       <div className="mb-4">
-        <strong>Is Admin:</strong> {(sessionClaims as any)?.metadata?.is_admin ? 'Yes' : 'No'}
+        <strong>Is Admin:</strong> {(sessionClaims as SessionMetadata | null)?.metadata?.is_admin ? 'Yes' : 'No'}
       </div>
 
       <div className="mb-4">
-        <strong>Publisher Access List:</strong> {JSON.stringify((sessionClaims as any)?.metadata?.publisher_access_list || [])}
+        <strong>Publisher Access List:</strong> {JSON.stringify((sessionClaims as SessionMetadata | null)?.metadata?.publisher_access_list || [])}
       </div>
     </div>
   );

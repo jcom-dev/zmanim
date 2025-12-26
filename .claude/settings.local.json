@@ -18,7 +18,8 @@
       "Bash(env:*)",
       "Bash(npm test:*)",
       "Bash(grep:*)",
-      "Bash(npm run test:*)"
+      "Bash(npm run test:*)",
+      "Bash(gh run view:*)"
     ]
   }
 }

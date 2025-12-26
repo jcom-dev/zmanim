@@ -8,7 +8,7 @@ import { useApi } from '@/lib/api-client';
 
 interface SystemConfig {
   [key: string]: {
-    value: Record<string, any>;
+    value: Record<string, unknown>;
     description: string;
     updated_at: string;
   };

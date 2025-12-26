@@ -65,7 +65,12 @@ export default function NewPublisherPage() {
     setError(null);
 
     try {
-      const payload: any = {
+      const payload: {
+        email: string;
+        name: string;
+        website?: string;
+        bio?: string;
+      } = {
         email: formData.email.trim(),
         name: formData.name.trim(),
       };

@@ -35,7 +35,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { ZmanRegistryForm, ZmanFormData, ZmanTag } from '@/components/admin/ZmanRegistryForm';
-import { ColorBadge, getTagTypeColor, getTimeCategoryColor, type ColorBadgeColor } from '@/components/ui/color-badge';
+import { ColorBadge, getTagTypeColor, getTimeCategoryColor } from '@/components/ui/color-badge';
 import { PreviewToolbar } from '@/components/shared/PreviewToolbar';
 import { usePreviewToolbar } from '@/lib/hooks/usePreviewToolbar';
 
@@ -94,7 +94,7 @@ export default function AdminRegistryPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Preview toolbar state
-  const toolbar = usePreviewToolbar({
+  usePreviewToolbar({
     storageKey: 'admin_registry',
   });
 

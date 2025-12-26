@@ -48,7 +48,7 @@ export default function InvitationAcceptPage() {
         setValidation({ valid: false });
         setLoading(false);
       });
-  }, [token]);
+  }, [token, api.public]);
 
   const handleAccept = async (e: React.FormEvent) => {
     e.preventDefault();

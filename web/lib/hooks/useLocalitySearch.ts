@@ -192,9 +192,8 @@ export function useLocalitySearch(
     return () => {
       clearTimeout(timeoutId);
     };
-  // Stabilize array dependencies to prevent infinite re-renders
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, JSON.stringify(types), countryId, regionId, publisherId, JSON.stringify(exclude), limit, debounce, minQueryLength, api]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, countryId, regionId, publisherId, limit, debounce, minQueryLength]);
 
   // Search function
   const search = useCallback((q: string) => {

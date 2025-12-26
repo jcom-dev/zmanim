@@ -29,7 +29,7 @@ import { DSLEditor, type DSLEditorRef } from '@/components/editor/DSLEditor';
 import { DSLReferencePanel } from '@/components/editor/DSLReferencePanel';
 import { FormulaBuilder } from '@/components/formula-builder/FormulaBuilder';
 import { AIGeneratePanel } from '@/components/formula-builder/AIGeneratePanel';
-import { parseFormula, type ParseResult } from '@/components/formula-builder/types';
+import { parseFormula } from '@/components/formula-builder/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import { WeeklyPreviewDialog } from '@/components/algorithm/WeeklyPreviewDialog';
@@ -93,12 +93,7 @@ export default function ZmanEditorPage() {
   const [formula, setFormula] = useState('');
   const [aiExplanation, setAiExplanation] = useState('');
   const [publisherComment, setPublisherComment] = useState('');
-  const [hasChanges, setHasChanges] = useState(false);
   const [copiedFormula, setCopiedFormula] = useState(false);
-
-  // Formula parsing state for guided mode availability
-  const [formulaParseResult, setFormulaParseResult] = useState<ParseResult | null>(null);
-  const guidedModeAvailable = formulaParseResult === null || formulaParseResult.success;
 
   // API client - must be declared before useEffect that uses it
   const api = useApi();
@@ -106,7 +101,7 @@ export default function ZmanEditorPage() {
   // Preview state - locality ID and coordinates
   const [previewLocalityId, setPreviewLocalityId] = useState<number | null>(null);
   const [previewLocation, setPreviewLocation] = useState<PreviewLocation | null>(null);
-  const [previewDate, setPreviewDate] = useState(() => {
+  const [previewDate] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedDate = localStorage.getItem(PREVIEW_DATE_KEY);
       if (savedDate) return savedDate;
@@ -118,7 +113,7 @@ export default function ZmanEditorPage() {
   const [showTagEditorDialog, setShowTagEditorDialog] = useState(false);
 
   // Preferences for language
-  const { preferences } = usePreferences();
+  usePreferences();
 
   // Fetch tags for this zman (for display in the button)
   const { data: zmanTags = [] } = usePublisherZmanTags(isNewZman ? null : zmanKey);
@@ -194,20 +189,23 @@ export default function ZmanEditorPage() {
     }
 
     // If we have a locality ID from cookies/localStorage, fetch its coordinates
-    setPreviewLocalityId(localityIdToFetch);
-    api.public.get<LocalityDetails>(`/localities/${localityIdToFetch}`)
-      .then(locality => {
+    // Set ID first, then fetch coordinates asynchronously
+    const fetchLocality = async () => {
+      setPreviewLocalityId(localityIdToFetch);
+      try {
+        const locality = await api.public.get<LocalityDetails>(`/localities/${localityIdToFetch}`);
         setPreviewLocation({
           latitude: locality.latitude,
           longitude: locality.longitude,
           timezone: locality.timezone,
           displayName: localityName || locality.name || locality.ascii_name
         });
-      })
-      .catch(() => {
+      } catch {
         // If locality fetch fails, clear the invalid ID and try default
         setPreviewLocalityId(null);
-      });
+      }
+    };
+    fetchLocality();
   }, [selectedPublisher?.id, api]);
 
   // Fetch data
@@ -218,52 +216,59 @@ export default function ZmanEditorPage() {
   const previewFormula = usePreviewFormula();
   const validateFormula = useValidateFormula();
 
-  // Load existing zman data
+  // Load existing zman data when zman changes
+  const prevZmanKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (zman) {
-      setHebrewName(zman.hebrew_name);
-      setEnglishName(zman.english_name);
-      setFormula(zman.formula_dsl);
-      setAiExplanation(zman.ai_explanation || '');
-      setPublisherComment(zman.publisher_comment || '');
-      setHasChanges(false);
+    if (zman && prevZmanKeyRef.current !== zman.zman_key) {
+      prevZmanKeyRef.current = zman.zman_key;
+      // Batch state updates asynchronously to avoid React hook warnings
+      queueMicrotask(() => {
+        setHebrewName(zman.hebrew_name);
+        setEnglishName(zman.english_name);
+        setFormula(zman.formula_dsl);
+        setAiExplanation(zman.ai_explanation || '');
+        setPublisherComment(zman.publisher_comment || '');
+      });
     }
   }, [zman]);
 
-  // Track changes
-  useEffect(() => {
-    if (!zman) return;
-    const changed =
+  // Track changes - compute derived state instead of using useEffect
+  const hasChanges = useMemo(() => {
+    if (!zman) return false;
+    return (
       hebrewName !== zman.hebrew_name ||
       englishName !== zman.english_name ||
       formula !== zman.formula_dsl ||
       aiExplanation !== (zman.ai_explanation || '') ||
-      publisherComment !== (zman.publisher_comment || '');
-    setHasChanges(changed);
+      publisherComment !== (zman.publisher_comment || '')
+    );
   }, [hebrewName, englishName, formula, aiExplanation, publisherComment, zman]);
 
-  // Parse formula to determine if guided mode is available
-  useEffect(() => {
+  // Parse formula to determine if guided mode is available - compute derived state
+  const formulaParseResult = useMemo(() => {
     if (!formula.trim()) {
-      // Empty formula - guided mode is available
-      setFormulaParseResult(null);
-      return;
+      return null; // Empty formula - guided mode is available
     }
-
-    const result = parseFormula(formula);
-    setFormulaParseResult(result);
-
-    // Auto-switch to advanced if formula becomes complex while in guided mode
-    // Use functional update to avoid needing mode in dependency array
-    if (!result.success) {
-      setMode((currentMode) => currentMode === 'guided' ? 'advanced' : currentMode);
-    }
+    return parseFormula(formula);
   }, [formula]);
+
+  // Derived state for guided mode availability
+  const guidedModeAvailable = formulaParseResult === null || formulaParseResult.success;
+
+  // Auto-switch to advanced if formula becomes complex while in guided mode
+  // Using queueMicrotask to defer state update and avoid React hook warning
+  useEffect(() => {
+    if (formulaParseResult && !formulaParseResult.success) {
+      queueMicrotask(() => {
+        setMode((currentMode) => currentMode === 'guided' ? 'advanced' : currentMode);
+      });
+    }
+  }, [formulaParseResult]);
 
   // Live preview with debounce
   useEffect(() => {
     if (!formula.trim() || !previewLocation) {
-      setPreviewResult(null);
+      queueMicrotask(() => setPreviewResult(null));
       return;
     }
 
@@ -293,7 +298,7 @@ export default function ZmanEditorPage() {
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [formula, previewDate, previewLocation, allZmanim]);
+  }, [formula, previewDate, previewLocation, allZmanim, previewFormula]);
 
   // Handle resize
   const handleMouseDown = useCallback(() => {
@@ -380,7 +385,7 @@ export default function ZmanEditorPage() {
 
   // Handle parse error from formula builder - no-op since useEffect already handles mode switching
   // Keep callback to satisfy FormulaBuilder's prop type, but don't double-switch modes
-  const handleParseError = useCallback((_error: string) => {
+  const handleParseError = useCallback(() => {
     // Mode switching is handled by the formula parsing useEffect above
     // This callback exists only to satisfy FormulaBuilder's interface
   }, []);

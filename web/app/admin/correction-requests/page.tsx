@@ -11,7 +11,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAdminApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';

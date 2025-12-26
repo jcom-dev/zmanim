@@ -119,7 +119,7 @@ export default function AdminPublishersPage() {
 
     try {
       setPurgeLoading(true);
-      const result = await api.admin.delete<{ message: string; deletion_summary: any }>(
+      const result = await api.admin.delete<{ message: string; deletion_summary: Record<string, unknown> }>(
         `/admin/publishers/${publisherToPurge.id}/permanent`
       );
 

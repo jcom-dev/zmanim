@@ -111,9 +111,10 @@ export function useLocality(options: UseLocalityOptions): UseLocalityResult {
   const [locality, setLocality] = useState<LocalitySearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // Fetch locality by ID
-  const fetchLocality = useCallback(async () => {
+  // Auto-fetch on mount or when id/enabled changes
+  useEffect(() => {
     // Skip if disabled or no ID
     if (!enabled || !id) {
       setLocality(null);
@@ -125,35 +126,35 @@ export function useLocality(options: UseLocalityOptions): UseLocalityResult {
     setIsLoading(true);
     setError(null);
 
-    try {
-      // API returns locality object directly (unwrapped by api-client)
-      const response = await api.public.get<ApiLocalityResponse>(`/localities/${id}`);
+    const fetchLocality = async () => {
+      try {
+        // API returns locality object directly (unwrapped by api-client)
+        const response = await api.public.get<ApiLocalityResponse>(`/localities/${id}`);
 
-      if (response) {
-        const mappedLocality = mapApiLocality(response);
-        setLocality(mappedLocality);
-      } else {
+        if (response) {
+          const mappedLocality = mapApiLocality(response);
+          setLocality(mappedLocality);
+        } else {
+          setLocality(null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch locality:', err);
+        const errorObj = err instanceof Error ? err : new Error('Failed to fetch locality');
+        setError(errorObj);
         setLocality(null);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error('Failed to fetch locality:', err);
-      const errorObj = err instanceof Error ? err : new Error('Failed to fetch locality');
-      setError(errorObj);
-      setLocality(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [api, id, enabled]);
+    };
 
-  // Auto-fetch on mount or when id/enabled changes
-  useEffect(() => {
     fetchLocality();
-  }, [fetchLocality]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, enabled, refetchTrigger]);
 
   // Refetch function (useful for manual refresh)
   const refetch = useCallback(() => {
-    fetchLocality();
-  }, [fetchLocality]);
+    setRefetchTrigger((prev) => prev + 1);
+  }, []);
 
   return {
     locality,
