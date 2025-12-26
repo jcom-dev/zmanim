@@ -18,7 +18,7 @@ import { BASE_URL, TIMEOUTS, STORAGE_STATE } from '../../config';
 const slugCache: Map<string, string> = new Map();
 
 /**
- * Resolve a publisher slug to its actual UUID
+ * Resolve a publisher slug to its actual integer ID
  */
 async function resolvePublisherSlug(slug: string): Promise<string | null> {
   // Check cache first
@@ -45,13 +45,15 @@ async function resolvePublisherSlug(slug: string): Promise<string | null> {
     );
 
     if (result.rows.length > 0) {
-      const id = result.rows[0].id;
+      const id = result.rows[0].id.toString(); // Convert integer to string
       slugCache.set(slug, id);
+      console.log(`Resolved slug "${slug}" to ID: ${id}`);
       return id;
     }
+    console.warn(`No publisher found with slug: ${slug}`);
     return null;
   } catch (error) {
-    console.warn('Failed to resolve slug:', error);
+    console.error('Failed to resolve slug:', error);
     return null;
   } finally {
     await pool.end();
@@ -190,7 +192,7 @@ export async function loginAsAdmin(page: Page): Promise<void> {
  * Also links the Clerk user to the publisher in the database
  *
  * @param page - Playwright page
- * @param publisherIdOrSlug - Publisher ID (UUID) or slug (e2e-shared-*)
+ * @param publisherIdOrSlug - Publisher ID (integer) or slug (e2e-shared-*)
  */
 export async function loginAsPublisher(
   page: Page,
@@ -203,19 +205,24 @@ export async function loginAsPublisher(
   let publisherId = publisherIdOrSlug;
 
   if (publisherIdOrSlug && publisherIdOrSlug.startsWith('e2e-shared-')) {
+    console.log(`Resolving slug: ${publisherIdOrSlug}`);
     const resolvedId = await resolvePublisherSlug(publisherIdOrSlug);
     if (resolvedId) {
-      publisherId = resolvedId;
+      console.log(`Resolved slug ${publisherIdOrSlug} to ID: ${resolvedId}`);
+      publisherId = resolvedId.toString(); // Ensure it's a string
+    } else {
+      console.warn(`Failed to resolve slug: ${publisherIdOrSlug}`);
     }
   }
 
   // Use the publisher from the pool if no specific publisher requested
   if (!publisherId && user.publisherId) {
-    publisherId = user.publisherId;
+    publisherId = user.publisherId.toString();
   }
 
   // Link the Clerk user to the publisher in the database
   if (publisherId) {
+    console.log(`Linking user ${user.id} to publisher ${publisherId}`);
     await linkClerkUserToPublisher(user.id, publisherId);
   }
 
