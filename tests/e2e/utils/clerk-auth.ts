@@ -94,9 +94,15 @@ export async function linkClerkUserToPublisher(
 
   try {
     // Update the publisher's clerk_user_id
+    // Convert publisherId to integer for the database query
+    const publisherIdInt = parseInt(publisherId, 10);
+    if (isNaN(publisherIdInt)) {
+      throw new Error(`Invalid publisher ID: ${publisherId}`);
+    }
+
     await pool.query(
       `UPDATE publishers SET clerk_user_id = $1 WHERE id = $2`,
-      [clerkUserId, publisherId]
+      [clerkUserId, publisherIdInt]
     );
     console.log(`Linked Clerk user ${clerkUserId} to publisher ${publisherId}`);
   } catch (error) {
