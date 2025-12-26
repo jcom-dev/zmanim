@@ -714,7 +714,7 @@ func BenchmarkBulkZmanimValidation(b *testing.B) {
 		w := httptest.NewRecorder()
 
 		func() {
-			defer func() { recover() _ = }()
+			defer func() { _ = recover() }()
 			h.CalculateExternalBulkZmanim(w, req)
 		}()
 	}
