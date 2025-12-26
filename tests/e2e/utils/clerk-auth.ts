@@ -196,9 +196,9 @@ export async function loginAsAdmin(page: Page): Promise<void> {
  */
 export async function loginAsPublisher(
   page: Page,
-  publisherIdOrSlug?: string
+  publisherIdOrSlug?: string | number
 ): Promise<void> {
-  console.log(`[loginAsPublisher] Called with publisherIdOrSlug: ${publisherIdOrSlug}`);
+  console.log(`[loginAsPublisher] Called with publisherIdOrSlug: ${publisherIdOrSlug} (type: ${typeof publisherIdOrSlug})`);
   const userPool = loadUserPool();
   const user = userPool.publisher;
   console.log(`[loginAsPublisher] Publisher user from pool: ${user.id}`);
@@ -207,31 +207,34 @@ export async function loginAsPublisher(
   let publisherId = publisherIdOrSlug;
 
   if (publisherIdOrSlug) {
-    console.log(`[loginAsPublisher] Checking if "${publisherIdOrSlug}" starts with "e2e-shared-"`);
-    if (publisherIdOrSlug.startsWith('e2e-shared-')) {
-      console.log(`[loginAsPublisher] YES - Resolving slug: ${publisherIdOrSlug}`);
-      const resolvedId = await resolvePublisherSlug(publisherIdOrSlug);
+    // Convert to string for consistent handling
+    const publisherStr = String(publisherIdOrSlug);
+    console.log(`[loginAsPublisher] Checking if "${publisherStr}" starts with "e2e-shared-"`);
+    if (publisherStr.startsWith('e2e-shared-')) {
+      console.log(`[loginAsPublisher] YES - Resolving slug: ${publisherStr}`);
+      const resolvedId = await resolvePublisherSlug(publisherStr);
       if (resolvedId) {
-        console.log(`[loginAsPublisher] Resolved slug ${publisherIdOrSlug} to ID: ${resolvedId}`);
-        publisherId = resolvedId.toString(); // Ensure it's a string
+        console.log(`[loginAsPublisher] Resolved slug ${publisherStr} to ID: ${resolvedId}`);
+        publisherId = resolvedId; // Already a string from resolvePublisherSlug
       } else {
-        console.warn(`[loginAsPublisher] Failed to resolve slug: ${publisherIdOrSlug}`);
+        console.warn(`[loginAsPublisher] Failed to resolve slug: ${publisherStr}`);
       }
     } else {
-      console.log(`[loginAsPublisher] NO - Not a slug, using as-is: ${publisherIdOrSlug}`);
+      console.log(`[loginAsPublisher] NO - Not a slug, using as-is: ${publisherStr}`);
+      publisherId = publisherStr;
     }
   }
 
   // Use the publisher from the pool if no specific publisher requested
   if (!publisherId && user.publisherId) {
-    publisherId = user.publisherId.toString();
+    publisherId = String(user.publisherId);
     console.log(`[loginAsPublisher] No publisher specified, using pool publisher: ${publisherId}`);
   }
 
   // Link the Clerk user to the publisher in the database
   if (publisherId) {
     console.log(`[loginAsPublisher] Linking user ${user.id} to publisher ${publisherId}`);
-    await linkClerkUserToPublisher(user.id, publisherId);
+    await linkClerkUserToPublisher(user.id, String(publisherId));
   }
 
   // If not using storage state, fall back to manual sign-in
