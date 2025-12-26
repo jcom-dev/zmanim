@@ -37,13 +37,13 @@ export default function AdminSettingsPage() {
 
       // Populate form fields
       if (configData?.rate_limit_anonymous) {
-        setRateLimitAnonymous(configData.rate_limit_anonymous.value.requests_per_hour);
+        setRateLimitAnonymous(configData.rate_limit_anonymous.value.requests_per_hour as number);
       }
       if (configData?.rate_limit_authenticated) {
-        setRateLimitAuthenticated(configData.rate_limit_authenticated.value.requests_per_hour);
+        setRateLimitAuthenticated(configData.rate_limit_authenticated.value.requests_per_hour as number);
       }
       if (configData?.cache_ttl_hours) {
-        setCacheTTL(configData.cache_ttl_hours.value.hours);
+        setCacheTTL(configData.cache_ttl_hours.value.hours as number);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -130,7 +130,7 @@ export default function AdminSettingsPage() {
                 className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
               <p className="mt-1 text-sm text-muted-foreground">
-                Current: {config?.rate_limit_anonymous?.value.requests_per_hour || 'N/A'}
+                Current: {(config?.rate_limit_anonymous?.value.requests_per_hour as number) || 'N/A'}
               </p>
             </div>
 
@@ -147,7 +147,7 @@ export default function AdminSettingsPage() {
                 className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
               <p className="mt-1 text-sm text-muted-foreground">
-                Current: {config?.rate_limit_authenticated?.value.requests_per_hour || 'N/A'}
+                Current: {(config?.rate_limit_authenticated?.value.requests_per_hour as number) || 'N/A'}
               </p>
             </div>
           </CardContent>
@@ -174,7 +174,7 @@ export default function AdminSettingsPage() {
                 className="w-full px-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
               <p className="mt-1 text-sm text-muted-foreground">
-                Current: {config?.cache_ttl_hours?.value.hours || 'N/A'} hours
+                Current: {(config?.cache_ttl_hours?.value.hours as number) || 'N/A'} hours
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 How long to cache zmanim calculations. Recommended: 24 hours.

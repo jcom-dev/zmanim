@@ -81,7 +81,14 @@ export default function AdminTagRequestsPage() {
         try {
             setLoading(true);
             // Get all pending zman requests
-            const requestsData = await api.get<{ requests: Array<{ id: string }> }>('/admin/zman-requests?status=pending');
+            const requestsData = await api.get<{ requests: Array<{
+                id: string;
+                requested_key: string;
+                requested_hebrew_name: string;
+                requested_english_name: string;
+                publisher_name?: string;
+                created_at: string;
+            }> }>('/admin/zman-requests?status=pending');
 
             // For each request, get its tag requests
             const allTagRequests: TagRequestWithZman[] = [];

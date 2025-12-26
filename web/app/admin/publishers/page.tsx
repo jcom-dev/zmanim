@@ -123,7 +123,7 @@ export default function AdminPublishersPage() {
         `/admin/publishers/${publisherToPurge.id}/permanent`
       );
 
-      const totalDeleted = result.deletion_summary?.total_records_deleted || 0;
+      const totalDeleted = (result.deletion_summary?.total_records_deleted as number) || 0;
       const publisherName = publisherToPurge.name;
 
       // Close purge dialog and reset
