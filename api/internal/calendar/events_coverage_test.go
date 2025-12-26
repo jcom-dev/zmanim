@@ -1,3 +1,5 @@
+//go:build integration
+
 package calendar
 
 import (
@@ -262,7 +264,8 @@ func TestSpecificDates(t *testing.T) {
 		},
 	}
 
-	service := &CalendarService{}
+	mockDB := NewMockDBAdapter()
+	service := NewCalendarServiceWithDB(mockDB)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -431,7 +434,8 @@ func TestMultiDayEvents(t *testing.T) {
 		},
 	}
 
-	service := &CalendarService{}
+	mockDB := NewMockDBAdapter()
+	service := NewCalendarServiceWithDB(mockDB)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -518,7 +522,8 @@ func TestErevEvents(t *testing.T) {
 		},
 	}
 
-	service := &CalendarService{}
+	mockDB := NewMockDBAdapter()
+	service := NewCalendarServiceWithDB(mockDB)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -602,7 +607,8 @@ func TestFastDays(t *testing.T) {
 		},
 	}
 
-	service := &CalendarService{}
+	mockDB := NewMockDBAdapter()
+	service := NewCalendarServiceWithDB(mockDB)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -697,7 +703,8 @@ func TestIsraelDiasporaDifferences(t *testing.T) {
 		},
 	}
 
-	service := &CalendarService{}
+	mockDB := NewMockDBAdapter()
+	service := NewCalendarServiceWithDB(mockDB)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
