@@ -89,7 +89,7 @@ type CalculateParams struct {
 	IncludeDisabled    bool
 	IncludeUnpublished bool
 	IncludeBeta        bool
-	IncludeInactive    bool     // If true, disable show_in_preview filtering (Algorithm Editor mode)
+	IncludeInactive    bool // If true, disable show_in_preview filtering (Algorithm Editor mode)
 	// Active event codes for tag-driven filtering and is_active_today computation
 	// ALWAYS provide actual event codes (even with IncludeInactive=true) for is_active_today computation
 	ActiveEventCodes []string
@@ -141,9 +141,9 @@ type CalculationResult struct {
 type CalculatedZman struct {
 	ID            int64     `json:"id"`
 	Key           string    `json:"zman_key"`
-	Time          time.Time `json:"-"` // Not serialized (use TimeExact/TimeRounded for JSON)
-	TimeExact     string    `json:"time"`          // HH:MM:SS with actual seconds
-	TimeRounded   string    `json:"time_rounded"`  // HH:MM rounded (no seconds)
+	Time          time.Time `json:"-"`            // Not serialized (use TimeExact/TimeRounded for JSON)
+	TimeExact     string    `json:"time"`         // HH:MM:SS with actual seconds
+	TimeRounded   string    `json:"time_rounded"` // HH:MM rounded (no seconds)
 	Timestamp     int64     `json:"timestamp"`
 	RoundingMode  string    `json:"rounding_mode"`
 	IsActiveToday bool      `json:"is_active_today"` // Whether this zman is active for the current day's events
@@ -438,8 +438,8 @@ func (s *ZmanimService) CalculateZmanim(ctx context.Context, params CalculatePar
 			ID:            int64(config.ID),
 			Key:           zmanKey,
 			Time:          calculatedTime,
-			TimeExact:     exactTime,    // HH:MM:SS with actual seconds
-			TimeRounded:   displayTime,  // HH:MM rounded
+			TimeExact:     exactTime,   // HH:MM:SS with actual seconds
+			TimeRounded:   displayTime, // HH:MM rounded
 			Timestamp:     calculatedTime.Unix(),
 			RoundingMode:  roundingMode,
 			IsActiveToday: isActiveToday,

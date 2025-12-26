@@ -91,28 +91,28 @@ type CoverageArea struct {
 
 // ZmanData contains zman data for export
 type ZmanData struct {
-	ID                     int32     `json:"id"`
-	ZmanKey                string    `json:"zman_key"`
-	HebrewName             string    `json:"hebrew_name"`
-	EnglishName            string    `json:"english_name"`
-	Transliteration        *string   `json:"transliteration,omitempty"`
-	Description            *string   `json:"description,omitempty"`
-	FormulaDSL             string    `json:"formula_dsl"`
-	AIExplanation          *string   `json:"ai_explanation,omitempty"`
-	PublisherComment       *string   `json:"publisher_comment,omitempty"`
-	IsEnabled              bool      `json:"is_enabled"`
-	IsVisible              bool      `json:"is_visible"`
-	IsPublished            bool      `json:"is_published"`
-	IsBeta                 bool      `json:"is_beta"`
-	IsCustom               bool      `json:"is_custom"`
-	RoundingMode           string    `json:"rounding_mode"`
-	DisplayStatus          string    `json:"display_status"`
-	MasterZmanID           *int32    `json:"master_zman_id,omitempty"`
-	LinkedPublisherZmanID  *int32    `json:"linked_publisher_zman_id,omitempty"`
-	Tags                   []ZmanTag `json:"tags,omitempty"`
-	CurrentVersion         *int32    `json:"current_version,omitempty"`
-	CreatedAt              time.Time `json:"created_at"`
-	UpdatedAt              time.Time `json:"updated_at"`
+	ID                    int32     `json:"id"`
+	ZmanKey               string    `json:"zman_key"`
+	HebrewName            string    `json:"hebrew_name"`
+	EnglishName           string    `json:"english_name"`
+	Transliteration       *string   `json:"transliteration,omitempty"`
+	Description           *string   `json:"description,omitempty"`
+	FormulaDSL            string    `json:"formula_dsl"`
+	AIExplanation         *string   `json:"ai_explanation,omitempty"`
+	PublisherComment      *string   `json:"publisher_comment,omitempty"`
+	IsEnabled             bool      `json:"is_enabled"`
+	IsVisible             bool      `json:"is_visible"`
+	IsPublished           bool      `json:"is_published"`
+	IsBeta                bool      `json:"is_beta"`
+	IsCustom              bool      `json:"is_custom"`
+	RoundingMode          string    `json:"rounding_mode"`
+	DisplayStatus         string    `json:"display_status"`
+	MasterZmanID          *int32    `json:"master_zman_id,omitempty"`
+	LinkedPublisherZmanID *int32    `json:"linked_publisher_zman_id,omitempty"`
+	Tags                  []ZmanTag `json:"tags,omitempty"`
+	CurrentVersion        *int32    `json:"current_version,omitempty"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 // BuildCompleteExport creates a complete publisher export
@@ -212,28 +212,28 @@ func (s *CompleteExportService) BuildCompleteExport(ctx context.Context, publish
 		}
 
 		export.Zmanim[i] = ZmanData{
-			ID:                     z.ID,
-			ZmanKey:                z.ZmanKey,
-			HebrewName:             z.HebrewName,
-			EnglishName:            z.EnglishName,
-			Transliteration:        z.Transliteration,
-			Description:            z.Description,
-			FormulaDSL:             z.FormulaDsl,
-			AIExplanation:          z.AiExplanation,
-			PublisherComment:       z.PublisherComment,
-			IsEnabled:              z.IsEnabled,
-			IsVisible:              z.IsVisible,
-			IsPublished:            z.IsPublished,
-			IsBeta:                 z.IsBeta,
-			IsCustom:               z.IsCustom,
-			RoundingMode:           z.RoundingMode,
-			DisplayStatus:          string(z.DisplayStatus),
-			MasterZmanID:           z.MasterZmanID,
-			LinkedPublisherZmanID:  z.LinkedPublisherZmanID,
-			Tags:                   zmanTags,
-			CurrentVersion:         z.CurrentVersion,
-			CreatedAt:              z.CreatedAt.Time,
-			UpdatedAt:              z.UpdatedAt.Time,
+			ID:                    z.ID,
+			ZmanKey:               z.ZmanKey,
+			HebrewName:            z.HebrewName,
+			EnglishName:           z.EnglishName,
+			Transliteration:       z.Transliteration,
+			Description:           z.Description,
+			FormulaDSL:            z.FormulaDsl,
+			AIExplanation:         z.AiExplanation,
+			PublisherComment:      z.PublisherComment,
+			IsEnabled:             z.IsEnabled,
+			IsVisible:             z.IsVisible,
+			IsPublished:           z.IsPublished,
+			IsBeta:                z.IsBeta,
+			IsCustom:              z.IsCustom,
+			RoundingMode:          z.RoundingMode,
+			DisplayStatus:         string(z.DisplayStatus),
+			MasterZmanID:          z.MasterZmanID,
+			LinkedPublisherZmanID: z.LinkedPublisherZmanID,
+			Tags:                  zmanTags,
+			CurrentVersion:        z.CurrentVersion,
+			CreatedAt:             z.CreatedAt.Time,
+			UpdatedAt:             z.UpdatedAt.Time,
 		}
 	}
 
@@ -365,14 +365,14 @@ func (s *CompleteExportService) importCompleteBackup(ctx context.Context, publis
 			}
 
 			_, err = s.db.Queries.InsertPublisherCoverageFromImport(ctx, sqlcgen.InsertPublisherCoverageFromImportParams{
-				PublisherID:      publisherID,
-				CoverageLevelID:  levelID,
-				ContinentID:      c.ContinentID,
-				CountryID:        c.CountryID,
-				RegionID:         c.RegionID,
-				LocalityID:       c.LocalityID,
-				Priority:         c.Priority,
-				IsActive:         c.IsActive,
+				PublisherID:     publisherID,
+				CoverageLevelID: levelID,
+				ContinentID:     c.ContinentID,
+				CountryID:       c.CountryID,
+				RegionID:        c.RegionID,
+				LocalityID:      c.LocalityID,
+				Priority:        c.Priority,
+				IsActive:        c.IsActive,
 			})
 			if err != nil {
 				slog.Warn("failed to insert coverage", "error", err)
@@ -606,11 +606,17 @@ func (s *CompleteExportService) createPublisherFromBackup(ctx context.Context, d
 
 	// Create the publisher
 	publisherRow, err := s.db.Queries.CreatePublisherFromImport(ctx, sqlcgen.CreatePublisherFromImportParams{
-		Name:         backup.Publisher.Name,
-		ContactEmail: backup.Publisher.Email,
-		Website:      backup.Publisher.Website,
-		Description:  &backup.Publisher.Description,
-		Bio:          &backup.Publisher.Bio,
+		Name:            backup.Publisher.Name,
+		ContactEmail:    backup.Publisher.Email,
+		Website:         backup.Publisher.Website,
+		Description:     &backup.Publisher.Description,
+		Bio:             &backup.Publisher.Bio,
+		LogoUrl:         backup.Publisher.LogoURL,
+		LogoData:        backup.Publisher.LogoData,
+		Latitude:        backup.Publisher.Latitude,
+		Longitude:       backup.Publisher.Longitude,
+		Timezone:        backup.Publisher.Timezone,
+		IgnoreElevation: backup.Publisher.IgnoreElevation,
 	})
 	if err != nil {
 		// Check for duplicate email constraint violation
@@ -628,6 +634,34 @@ func (s *CompleteExportService) createPublisherFromBackup(ctx context.Context, d
 		PublisherID:      publisherRow.ID,
 		PublisherName:    publisherRow.Name,
 		PublisherCreated: true,
+	}
+
+	// Import coverage areas
+	if len(backup.Coverage) > 0 {
+		for _, c := range backup.Coverage {
+			// Get coverage level ID
+			levelID, err := s.db.Queries.GetCoverageLevelIdByKey(ctx, c.CoverageLevelKey)
+			if err != nil {
+				slog.Warn("failed to get coverage level ID", "key", c.CoverageLevelKey, "error", err)
+				continue
+			}
+
+			_, err = s.db.Queries.InsertPublisherCoverageFromImport(ctx, sqlcgen.InsertPublisherCoverageFromImportParams{
+				PublisherID:     publisherRow.ID,
+				CoverageLevelID: levelID,
+				ContinentID:     c.ContinentID,
+				CountryID:       c.CountryID,
+				RegionID:        c.RegionID,
+				LocalityID:      c.LocalityID,
+				Priority:        c.Priority,
+				IsActive:        c.IsActive,
+			})
+			if err != nil {
+				slog.Warn("failed to insert coverage", "error", err)
+				continue
+			}
+			result.CoverageCreated++
+		}
 	}
 
 	// Import zmanim into the new publisher
@@ -687,8 +721,8 @@ func (s *CompleteExportService) createPublisherFromBackup(ctx context.Context, d
 		}
 	}
 
-	result.Message = fmt.Sprintf("Successfully created publisher '%s' (ID: %d) with %d zmanim",
-		result.PublisherName, result.PublisherID, result.ZmanimCreated)
+	result.Message = fmt.Sprintf("Successfully created publisher '%s' (ID: %d) with %d zmanim and %d coverage areas",
+		result.PublisherName, result.PublisherID, result.ZmanimCreated, result.CoverageCreated)
 
 	return result, nil
 }

@@ -83,17 +83,17 @@ type PDFZmanTag struct {
 
 // ZmanReportRow contains data for a single zman in the report
 type ZmanReportRow struct {
-	Name            string
-	HebrewName      string
-	CalculatedTime  time.Time
-	DSLFormula      string
-	Explanation     string
-	RoundedTime     string
-	RoundingMode    string
-	HasError        bool
-	ErrorMessage    string
-	TimeCategory    string
-	Tags            []PDFZmanTag
+	Name           string
+	HebrewName     string
+	CalculatedTime time.Time
+	DSLFormula     string
+	Explanation    string
+	RoundedTime    string
+	RoundingMode   string
+	HasError       bool
+	ErrorMessage   string
+	TimeCategory   string
+	Tags           []PDFZmanTag
 }
 
 // GenerateZmanimReport generates a PDF report for the given parameters
@@ -342,7 +342,7 @@ func (s *PDFReportService) buildPDF(data *ZmanimReportData, includeGlossary bool
 	// Create an allocator context with options for headless Chrome/Chromium
 	allocatorOpts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.DisableGPU,
-		chromedp.NoSandbox, // Required for running in containers
+		chromedp.NoSandbox,                           // Required for running in containers
 		chromedp.Flag("disable-dev-shm-usage", true), // Avoid /dev/shm issues in containers
 	)
 
@@ -459,24 +459,24 @@ func (s *PDFReportService) prepareTemplateData(data *ZmanimReportData, includeGl
 		}
 
 		row := map[string]interface{}{
-			"Name":                      zman.Name,
-			"HebrewName":                zman.HebrewName,
-			"DSLFormula":                zman.DSLFormula,
-			"FormulaSyntaxHighlighted":  HighlightDSLFormula(zman.DSLFormula),
-			"Explanation":               zman.Explanation,
-			"RoundedTime":               zman.RoundedTime,
-			"RoundingMode":              zman.RoundingMode,
-			"RoundingIcon":              getRoundingIcon(zman.RoundingMode),
-			"RoundingLabel":             getRoundingLabel(zman.RoundingMode),
-			"CalculatedTime":            zman.CalculatedTime.Format("15:04:05"),
-			"HasError":                  zman.HasError,
-			"ErrorMessage":              zman.ErrorMessage,
-			"TimeCategory":              zman.TimeCategory,
-			"CategoryDisplay":           formatCategoryDisplay(zman.TimeCategory),
-			"CategoryIcon":              getCategoryIcon(zman.TimeCategory),
-			"Tags":                      regularTags,
-			"NegatedTags":               negatedTags,
-			"HasTags":                   len(regularTags) > 0 || len(negatedTags) > 0,
+			"Name":                     zman.Name,
+			"HebrewName":               zman.HebrewName,
+			"DSLFormula":               zman.DSLFormula,
+			"FormulaSyntaxHighlighted": HighlightDSLFormula(zman.DSLFormula),
+			"Explanation":              zman.Explanation,
+			"RoundedTime":              zman.RoundedTime,
+			"RoundingMode":             zman.RoundingMode,
+			"RoundingIcon":             getRoundingIcon(zman.RoundingMode),
+			"RoundingLabel":            getRoundingLabel(zman.RoundingMode),
+			"CalculatedTime":           zman.CalculatedTime.Format("15:04:05"),
+			"HasError":                 zman.HasError,
+			"ErrorMessage":             zman.ErrorMessage,
+			"TimeCategory":             zman.TimeCategory,
+			"CategoryDisplay":          formatCategoryDisplay(zman.TimeCategory),
+			"CategoryIcon":             getCategoryIcon(zman.TimeCategory),
+			"Tags":                     regularTags,
+			"NegatedTags":              negatedTags,
+			"HasTags":                  len(regularTags) > 0 || len(negatedTags) > 0,
 		}
 		zmanimRows = append(zmanimRows, row)
 	}
@@ -566,15 +566,15 @@ func (s *PDFReportService) prepareTemplateData(data *ZmanimReportData, includeGl
 			"Full":       data.Date.Format("Monday, January 2, 2006"),
 			"Hebrew":     "", // Hebrew date formatting tracked in backlog
 		},
-		"GeneratedAt":   time.Now().Format("Jan 2, 2006 at 3:04 PM MST"),
-		"MapImageData":  mapImageBase64,
-		"SunTimes":      mergeSunTimes(sunriseTimes, sunsetTimes),
-		"Zmanim":        zmanimRows,
-		"Bases":         bases,
-		"Primitives":    primitives,
-		"Functions":     functions,
-		"HasGlossary":   includeGlossary && (len(bases) > 0 || len(primitives) > 0 || len(functions) > 0),
-		"TotalPages":    totalPages,
+		"GeneratedAt":  time.Now().Format("Jan 2, 2006 at 3:04 PM MST"),
+		"MapImageData": mapImageBase64,
+		"SunTimes":     mergeSunTimes(sunriseTimes, sunsetTimes),
+		"Zmanim":       zmanimRows,
+		"Bases":        bases,
+		"Primitives":   primitives,
+		"Functions":    functions,
+		"HasGlossary":  includeGlossary && (len(bases) > 0 || len(primitives) > 0 || len(functions) > 0),
+		"TotalPages":   totalPages,
 	}
 }
 
@@ -814,11 +814,11 @@ type WeeklyCalendarParams struct {
 
 // WeeklyCalendarData contains all data needed to generate a weekly calendar PDF
 type WeeklyCalendarData struct {
-	Publisher    PublisherInfo
-	Location     LocationInfo
-	WeekRange    string
-	Days         []DayData
-	GeneratedAt  string
+	Publisher   PublisherInfo
+	Location    LocationInfo
+	WeekRange   string
+	Days        []DayData
+	GeneratedAt string
 }
 
 // PublisherInfo contains publisher information for the calendar
@@ -837,17 +837,17 @@ type LocationInfo struct {
 
 // DayData contains data for a single day in the weekly calendar
 type DayData struct {
-	Date           time.Time
-	DayOfWeek      string
-	HebrewDayName  string
-	HebrewDateNum  string
-	GregorianDay   int
-	IsShabbat      bool
-	IsFriday       bool
-	CSSClass       string
-	ZmanimColumns  [][]ZmanItem
-	EventZmanim    []ZmanItem // Event zmanim (candle lighting, havdalah, fast times) displayed at bottom
-	SpecialTimes   []SpecialTime
+	Date          time.Time
+	DayOfWeek     string
+	HebrewDayName string
+	HebrewDateNum string
+	GregorianDay  int
+	IsShabbat     bool
+	IsFriday      bool
+	CSSClass      string
+	ZmanimColumns [][]ZmanItem
+	EventZmanim   []ZmanItem // Event zmanim (candle lighting, havdalah, fast times) displayed at bottom
+	SpecialTimes  []SpecialTime
 }
 
 // ZmanItem represents a single zman time entry
@@ -971,11 +971,11 @@ func (s *PDFReportService) calculateDayZmanim(
 	transliterationStyle string,
 ) (DayData, error) {
 	dayData := DayData{
-		Date:          date,
-		DayOfWeek:     date.Format("Monday"),
-		GregorianDay:  date.Day(),
-		IsShabbat:     date.Weekday() == time.Saturday,
-		IsFriday:      date.Weekday() == time.Friday,
+		Date:         date,
+		DayOfWeek:    date.Format("Monday"),
+		GregorianDay: date.Day(),
+		IsShabbat:    date.Weekday() == time.Saturday,
+		IsFriday:     date.Weekday() == time.Friday,
 	}
 
 	// Set CSS class for each day of the week (for colorful styling)
