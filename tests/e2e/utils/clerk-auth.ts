@@ -198,36 +198,45 @@ export async function loginAsPublisher(
   page: Page,
   publisherIdOrSlug?: string
 ): Promise<void> {
+  console.log(`[loginAsPublisher] Called with publisherIdOrSlug: ${publisherIdOrSlug}`);
   const userPool = loadUserPool();
   const user = userPool.publisher;
+  console.log(`[loginAsPublisher] Publisher user from pool: ${user.id}`);
 
   // Resolve slug to actual ID if needed
   let publisherId = publisherIdOrSlug;
 
-  if (publisherIdOrSlug && publisherIdOrSlug.startsWith('e2e-shared-')) {
-    console.log(`Resolving slug: ${publisherIdOrSlug}`);
-    const resolvedId = await resolvePublisherSlug(publisherIdOrSlug);
-    if (resolvedId) {
-      console.log(`Resolved slug ${publisherIdOrSlug} to ID: ${resolvedId}`);
-      publisherId = resolvedId.toString(); // Ensure it's a string
+  if (publisherIdOrSlug) {
+    console.log(`[loginAsPublisher] Checking if "${publisherIdOrSlug}" starts with "e2e-shared-"`);
+    if (publisherIdOrSlug.startsWith('e2e-shared-')) {
+      console.log(`[loginAsPublisher] YES - Resolving slug: ${publisherIdOrSlug}`);
+      const resolvedId = await resolvePublisherSlug(publisherIdOrSlug);
+      if (resolvedId) {
+        console.log(`[loginAsPublisher] Resolved slug ${publisherIdOrSlug} to ID: ${resolvedId}`);
+        publisherId = resolvedId.toString(); // Ensure it's a string
+      } else {
+        console.warn(`[loginAsPublisher] Failed to resolve slug: ${publisherIdOrSlug}`);
+      }
     } else {
-      console.warn(`Failed to resolve slug: ${publisherIdOrSlug}`);
+      console.log(`[loginAsPublisher] NO - Not a slug, using as-is: ${publisherIdOrSlug}`);
     }
   }
 
   // Use the publisher from the pool if no specific publisher requested
   if (!publisherId && user.publisherId) {
     publisherId = user.publisherId.toString();
+    console.log(`[loginAsPublisher] No publisher specified, using pool publisher: ${publisherId}`);
   }
 
   // Link the Clerk user to the publisher in the database
   if (publisherId) {
-    console.log(`Linking user ${user.id} to publisher ${publisherId}`);
+    console.log(`[loginAsPublisher] Linking user ${user.id} to publisher ${publisherId}`);
     await linkClerkUserToPublisher(user.id, publisherId);
   }
 
   // If not using storage state, fall back to manual sign-in
   await performClerkSignIn(page, user.email);
+  console.log(`[loginAsPublisher] Complete`);
 }
 
 /**
