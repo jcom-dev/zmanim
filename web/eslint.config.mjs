@@ -19,6 +19,9 @@ const eslintConfig = [
       "@next/next/no-img-element": "warn",
       // Disable unescaped entities for JSX (common pattern with apostrophes)
       "react/no-unescaped-entities": "warn",
+      // React Compiler - downgrade memoization preservation warnings to warnings
+      // These are false positives where the compiler can't verify valid memoization
+      "react-hooks/preserve-manual-memoization": "warn",
     },
   },
 ];

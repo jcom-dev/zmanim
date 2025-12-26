@@ -64,11 +64,11 @@ type Locality struct {
 	Longitude        float64 `json:"longitude"`
 	Timezone         string  `json:"timezone"`
 	Population       *int    `json:"population,omitempty"`
-	Elevation        *int    `json:"elevation,omitempty"`        // Elevation in meters above sea level
-	Continent        *string `json:"continent,omitempty"`        // Continent code (AF, AN, AS, EU, NA, OC, SA)
-	LocalityType     *string `json:"locality_type,omitempty"`    // Locality type code (city, town, village, etc.)
+	Elevation        *int    `json:"elevation,omitempty"`          // Elevation in meters above sea level
+	Continent        *string `json:"continent,omitempty"`          // Continent code (AF, AN, AS, EU, NA, OC, SA)
+	LocalityType     *string `json:"locality_type,omitempty"`      // Locality type code (city, town, village, etc.)
 	LocalityTypeName *string `json:"locality_type_name,omitempty"` // Human-readable locality type name
-	DisplayHierarchy *string `json:"display_hierarchy,omitempty"` // Full hierarchy path (e.g., "Brooklyn, NYC, NY, USA, North America")
+	DisplayHierarchy *string `json:"display_hierarchy,omitempty"`  // Full hierarchy path (e.g., "Brooklyn, NYC, NY, USA, North America")
 	// Computed display field
 	DisplayName string `json:"display_name"`
 }

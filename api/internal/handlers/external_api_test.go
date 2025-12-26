@@ -145,7 +145,7 @@ func TestBulkDateRangeCalculation(t *testing.T) {
 		}
 
 		var response map[string]interface{}
-		json.NewDecoder(w.Body).Decode(&response)
+		_ = json.NewDecoder(w.Body).Decode(&response)
 		if errorObj, ok := response["error"].(map[string]interface{}); ok {
 			if msg, ok := errorObj["message"].(string); ok {
 				if !strings.Contains(msg, "365 days") {
@@ -252,7 +252,7 @@ func TestGetExternalPublisherZmanim_ValidIDFormat(t *testing.T) {
 			// If we get here without panic and status is 400, check it's not ID format error
 			if w.Code == http.StatusBadRequest {
 				var response APIResponse
-				json.NewDecoder(w.Body).Decode(&response)
+				_ = json.NewDecoder(w.Body).Decode(&response)
 				if response.Error != nil && strings.Contains(response.Error.Message, "Invalid publisher ID format") {
 					t.Errorf("ID %q should be valid format", tt.id)
 				}
@@ -557,7 +557,7 @@ func TestBulkZmanimRequest_DateRangeExactly365Days(t *testing.T) {
 	// If we get a 400 error, check it's not about 365 days
 	if w.Code == http.StatusBadRequest {
 		var response APIResponse
-		json.NewDecoder(w.Body).Decode(&response)
+		_ = json.NewDecoder(w.Body).Decode(&response)
 		if response.Error != nil && strings.Contains(response.Error.Message, "365 days") {
 			t.Error("365 days should be allowed (it's the max, not exceeded)")
 		}
@@ -714,7 +714,7 @@ func BenchmarkBulkZmanimValidation(b *testing.B) {
 		w := httptest.NewRecorder()
 
 		func() {
-			defer func() { recover() }()
+			defer func() { recover() _ = }()
 			h.CalculateExternalBulkZmanim(w, req)
 		}()
 	}

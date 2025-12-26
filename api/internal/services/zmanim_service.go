@@ -462,15 +462,13 @@ func (s *ZmanimService) CalculateFormula(ctx context.Context, params FormulaPara
 	dslCtx := dsl.NewExecutionContext(params.Date, params.Latitude, params.Longitude, params.Elevation, params.Timezone)
 
 	// Pre-populate references if provided
-	if params.References != nil {
-		for key, formula := range params.References {
-			// Parse and execute reference formula
-			refTime, err := dsl.ExecuteFormula(formula, dslCtx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to execute reference @%s: %w", key, err)
-			}
-			dslCtx.ZmanimCache[key] = refTime
+	for key, formula := range params.References {
+		// Parse and execute reference formula
+		refTime, err := dsl.ExecuteFormula(formula, dslCtx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute reference @%s: %w", key, err)
 		}
+		dslCtx.ZmanimCache[key] = refTime
 	}
 
 	// Execute the formula with breakdown

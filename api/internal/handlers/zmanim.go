@@ -144,7 +144,7 @@ func (z *ZmanWithFormula) GetCalculatedTime() *string {
 func formatZmanName(key string) string {
 	// Simple formatter: replace underscores with spaces and title case
 	words := []string{}
-	for _, word := range []rune(key) {
+	for _, word := range key {
 		if word == '_' {
 			words = append(words, " ")
 		} else if len(words) == 0 || words[len(words)-1] == " " {

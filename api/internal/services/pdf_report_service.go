@@ -231,7 +231,7 @@ func (s *PDFReportService) fetchReportData(ctx context.Context, params ZmanimRep
 		if pz.Tags != nil {
 			var tags []PDFZmanTag
 			if tagBytes, err := json.Marshal(pz.Tags); err == nil {
-				json.Unmarshal(tagBytes, &tags)
+				_ = json.Unmarshal(tagBytes, &tags)
 				row.Tags = tags
 			}
 		}

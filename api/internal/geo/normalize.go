@@ -37,18 +37,18 @@ func ToASCII(s string) string {
 
 // Pre-compiled regexes for name normalization
 var (
-	stPrefixRe             = regexp.MustCompile(`^st\.?\s+`)
-	stWordRe               = regexp.MustCompile(`\bst\.?\s+`)
-	mtPrefixRe             = regexp.MustCompile(`^mt\.?\s+`)
-	mtWordRe               = regexp.MustCompile(`\bmt\.?\s+`)
-	localitySuffixCityRe   = regexp.MustCompile(`\s+city$`)
-	localitySuffixTownRe   = regexp.MustCompile(`\s+town$`)
-	uponSuffixRe           = regexp.MustCompile(`\s+upon\s+\w+$`)
-	underSuffixRe          = regexp.MustCompile(`\s+under\s+\w+$`)
-	onSuffixRe             = regexp.MustCompile(`\s+on\s+\w+$`)
-	deLosSuffixRe          = regexp.MustCompile(`\s+de\s+los\s+\w+$`)
-	deLaSuffixRe           = regexp.MustCompile(`\s+de\s+la\s+\w+$`)
-	delSuffixRe            = regexp.MustCompile(`\s+del\s+\w+$`)
+	stPrefixRe           = regexp.MustCompile(`^st\.?\s+`)
+	stWordRe             = regexp.MustCompile(`\bst\.?\s+`)
+	mtPrefixRe           = regexp.MustCompile(`^mt\.?\s+`)
+	mtWordRe             = regexp.MustCompile(`\bmt\.?\s+`)
+	localitySuffixCityRe = regexp.MustCompile(`\s+city$`)
+	localitySuffixTownRe = regexp.MustCompile(`\s+town$`)
+	uponSuffixRe         = regexp.MustCompile(`\s+upon\s+\w+$`)
+	underSuffixRe        = regexp.MustCompile(`\s+under\s+\w+$`)
+	onSuffixRe           = regexp.MustCompile(`\s+on\s+\w+$`)
+	deLosSuffixRe        = regexp.MustCompile(`\s+de\s+los\s+\w+$`)
+	deLaSuffixRe         = regexp.MustCompile(`\s+de\s+la\s+\w+$`)
+	delSuffixRe          = regexp.MustCompile(`\s+del\s+\w+$`)
 )
 
 // NormalizeLocalityName normalizes a locality name for fuzzy matching by:

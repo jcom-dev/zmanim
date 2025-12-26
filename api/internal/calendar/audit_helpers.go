@@ -22,14 +22,14 @@ type AuditEvent struct {
 
 // MatchResult represents the outcome of matching a HebCal event to a tag
 type MatchResult struct {
-	Title        string
-	Category     string
-	Date         string
-	Location     string
-	MatchedTag   string // Empty if no match
-	MatchType    string // 'exact', 'group', 'category', or empty
-	IsIsrael     bool
-	HebrewYear   int
+	Title      string
+	Category   string
+	Date       string
+	Location   string
+	MatchedTag string // Empty if no match
+	MatchType  string // 'exact', 'group', 'category', or empty
+	IsIsrael   bool
+	HebrewYear int
 }
 
 // AuditLocation represents a geographic location for audit testing
@@ -78,7 +78,7 @@ type CSVEventWriter struct {
 func NewCSVEventWriter(w io.Writer) *CSVEventWriter {
 	writer := csv.NewWriter(w)
 	// Write header
-	writer.Write([]string{
+	_ = writer.Write([]string{
 		"Title",
 		"Category",
 		"Date",
@@ -121,7 +121,7 @@ type CSVMatchResultWriter struct {
 func NewCSVMatchResultWriter(w io.Writer) *CSVMatchResultWriter {
 	writer := csv.NewWriter(w)
 	// Write header
-	writer.Write([]string{
+	_ = writer.Write([]string{
 		"Title",
 		"Category",
 		"Date",
@@ -270,12 +270,12 @@ type CategoryCoverageSummary struct {
 
 // MultiDayEventResult tracks coverage for multi-day events like Pesach, Chanukah
 type MultiDayEventResult struct {
-	EventGroup      string
-	DaysExpected    int
-	DaysFound       int
-	AllMatched      bool
-	MatchType       string
-	Notes           string
+	EventGroup   string
+	DaysExpected int
+	DaysFound    int
+	AllMatched   bool
+	MatchType    string
+	Notes        string
 }
 
 // NewCoverageSummary creates a new coverage summary
