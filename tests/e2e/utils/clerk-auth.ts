@@ -39,10 +39,35 @@ async function resolvePublisherSlug(slug: string): Promise<string | null> {
     ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
   });
   try {
-    const result = await pool.query(
+    // First try exact slug match
+    let result = await pool.query(
       'SELECT id FROM publishers WHERE slug = $1',
       [slug]
     );
+
+    // If no match, try case-insensitive slug match
+    if (result.rows.length === 0) {
+      result = await pool.query(
+        'SELECT id FROM publishers WHERE LOWER(slug) = LOWER($1)',
+        [slug]
+      );
+    }
+
+    // If still no match, try by name (convert slug to name format)
+    // e.g., "e2e-shared-verified-1" -> "E2E Shared Verified 1"
+    if (result.rows.length === 0 && slug.startsWith('e2e-')) {
+      const nameParts = slug.split('-').map(part =>
+        part.charAt(0).toUpperCase() + part.slice(1)
+      );
+      const name = nameParts.join(' ');
+      result = await pool.query(
+        'SELECT id FROM publishers WHERE name = $1',
+        [name]
+      );
+      if (result.rows.length > 0) {
+        console.log(`Resolved slug "${slug}" to ID via name match: ${name}`);
+      }
+    }
 
     if (result.rows.length > 0) {
       const id = result.rows[0].id.toString(); // Convert integer to string
