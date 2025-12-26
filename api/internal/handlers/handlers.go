@@ -57,7 +57,7 @@ type Handlers struct {
 	db                    *db.DB
 	cache                 *cache.Cache
 	publisherService      *services.PublisherService
-	zmanimService  *services.ZmanimService
+	zmanimService         *services.ZmanimService
 	compatZmanimService   *services.CompatZmanimService
 	clerkService          *services.ClerkService
 	emailService          *services.EmailService
@@ -1196,6 +1196,23 @@ func (h *Handlers) GetPublisherDashboardSummary(w http.ResponseWriter, r *http.R
 		algorithmSummary["status"] = algorithmData.StatusKey
 		algorithmSummary["name"] = algorithmData.Name
 		algorithmSummary["updated_at"] = algorithmData.UpdatedAt
+	} else {
+		// Fallback: Check if publisher has zmanim even without an algorithm record
+		zmanimData, zmanimErr := h.db.Queries.GetPublisherZmanimSummary(ctx, pubID)
+		if zmanimErr == nil && zmanimData.TotalZmanim > 0 {
+			// Publisher has zmanim configured directly
+			if zmanimData.PublishedZmanim > 0 {
+				algorithmSummary["status"] = "published"
+			} else {
+				algorithmSummary["status"] = "draft"
+			}
+			algorithmSummary["name"] = fmt.Sprintf("%d zmanim configured", zmanimData.TotalZmanim)
+			if zmanimData.LastUpdated != nil {
+				if lastUpdatedStr, ok := zmanimData.LastUpdated.(string); ok {
+					algorithmSummary["updated_at"] = lastUpdatedStr
+				}
+			}
+		}
 	}
 
 	// Get coverage summary

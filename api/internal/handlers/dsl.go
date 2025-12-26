@@ -238,11 +238,11 @@ func (h *Handlers) PreviewDSLFormula(w http.ResponseWriter, r *http.Request) {
 // DSLPreviewWeekRequest represents a request for weekly preview
 type DSLPreviewWeekRequest struct {
 	Formula              string            `json:"formula"`
-	StartDate            string            `json:"start_date"`                      // ISO 8601 date (YYYY-MM-DD)
-	LocationID           string            `json:"location_id,omitempty"`           // Optional: locality/location ID
-	Latitude             float64           `json:"latitude,omitempty"`              // Direct coordinates
+	StartDate            string            `json:"start_date"`            // ISO 8601 date (YYYY-MM-DD)
+	LocationID           string            `json:"location_id,omitempty"` // Optional: locality/location ID
+	Latitude             float64           `json:"latitude,omitempty"`    // Direct coordinates
 	Longitude            float64           `json:"longitude,omitempty"`
-	Timezone             string            `json:"timezone,omitempty"`              // e.g., "America/New_York"
+	Timezone             string            `json:"timezone,omitempty"` // e.g., "America/New_York"
 	Elevation            float64           `json:"elevation,omitempty"`
 	References           map[string]string `json:"references,omitempty"`            // Resolved references: key -> formula
 	TransliterationStyle string            `json:"transliteration_style,omitempty"` // ashkenazi or sephardi

@@ -19,16 +19,16 @@ func TestMisheyakirComparison(t *testing.T) {
 		mbdMisheyakir string // From Manchester Beis Din calendar
 		mbdSunrise    string
 	}{
-		{"2025-09-27", "5:55", "7:04"},  // 27 Elul - Shabbos
-		{"2025-10-04", "6:08", "7:17"},  // 12 Tishrei
-		{"2025-10-11", "6:21", "7:29"},  // 19 Tishrei
-		{"2025-11-08", "6:16", "7:21"},  // 17 Marcheshvan
-		{"2025-12-20", "7:22", "8:16"},  // 29 Kislev - Chanukah
-		{"2025-12-27", "7:25", "8:18"},  // 7 Teves
-		{"2026-01-24", "7:03", "7:56"},  // 5 Shevat
-		{"2026-02-21", "6:04", "7:02"},  // 4 Adar
-		{"2026-03-28", "6:24", "7:37"},  // 9 Nissan - after clock change
-		{"2026-06-06", "3:51", "5:27"},  // 21 Sivan - summer
+		{"2025-09-27", "5:55", "7:04"}, // 27 Elul - Shabbos
+		{"2025-10-04", "6:08", "7:17"}, // 12 Tishrei
+		{"2025-10-11", "6:21", "7:29"}, // 19 Tishrei
+		{"2025-11-08", "6:16", "7:21"}, // 17 Marcheshvan
+		{"2025-12-20", "7:22", "8:16"}, // 29 Kislev - Chanukah
+		{"2025-12-27", "7:25", "8:18"}, // 7 Teves
+		{"2026-01-24", "7:03", "7:56"}, // 5 Shevat
+		{"2026-02-21", "6:04", "7:02"}, // 4 Adar
+		{"2026-03-28", "6:24", "7:37"}, // 9 Nissan - after clock change
+		{"2026-06-06", "3:51", "5:27"}, // 21 Sivan - summer
 	}
 
 	fmt.Println("Misheyakir Comparison vs MBD Published Times")
