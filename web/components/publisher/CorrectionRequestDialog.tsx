@@ -290,8 +290,9 @@ export function CorrectionRequestDialog({
       setProposedElevation('');
       setReason('');
       setEvidenceUrls(['']);
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit correction request');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit correction request';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

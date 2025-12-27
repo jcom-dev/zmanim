@@ -53,7 +53,7 @@ export function usePrimitivesPreview() {
           // Clear old invalid Jerusalem ID from localStorage
           localStorage.removeItem(savedKey);
         }
-      } catch (e) {
+      } catch {
         // Ignore parse errors, use default
       }
     }

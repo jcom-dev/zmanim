@@ -27,6 +27,7 @@ import {
 import { TagSelectorWithNegation } from './TagSelectorWithNegation';
 import { TagSelector, type TagSelectorTag } from './TagSelector';
 import { TagChip } from './TagChip';
+import { Tag, TagType } from './constants';
 import { cn } from '@/lib/utils';
 
 export interface TagAssignment {
@@ -248,23 +249,27 @@ export function TagEditorDialog({
 
   // Preview chips
   const previewTags = useMemo(() => {
-    const tags: any[] = [];
+    const tags: Array<Tag & { is_negated: boolean; is_modified: boolean }> = [];
 
     selectedTagIds.forEach((selectedId) => {
       const availableTag = allAvailableTags.find((t) => t.id === selectedId);
 
       if (availableTag) {
         const currentTag = currentTags.find((ct) => ct.id === selectedId);
+        // Map backend tag_type to UI TagType
+        const tagType: TagType = availableTag.tag_type === 'jewish_day' ? 'event' :
+                                   availableTag.tag_type === 'behavior' ? 'category' :
+                                   availableTag.tag_type === 'calculation' ? 'category' :
+                                   availableTag.tag_type as TagType;
         tags.push({
           id: availableTag.id,
           tag_key: availableTag.tag_key,
-          name: availableTag.display_name_english,
           display_name_hebrew: availableTag.display_name_hebrew || '',
           display_name_english: availableTag.display_name_english,
           display_name_english_ashkenazi:
             availableTag.display_name_english_ashkenazi || availableTag.display_name_english,
           display_name_english_sephardi: availableTag.display_name_english_sephardi,
-          tag_type: availableTag.tag_type as any,
+          tag_type: tagType,
           sort_order: availableTag.sort_order || 0,
           is_negated: negatedTagIds.includes(selectedId),
           is_modified: currentTag?.is_modified === true,

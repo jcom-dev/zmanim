@@ -260,6 +260,7 @@ export function usePublisherMutation<TData, TVariables>(
           return api.delete<TData>(endpoint, { body });
       }
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     onSuccess: (data, variables, context) => {
       // Invalidate specified keys (with publisher ID appended)
       invalidateKeys.forEach((key) => {
@@ -332,6 +333,7 @@ export function useDynamicMutation<TData, TVariables>(
           return api.delete<TData>(endpoint, { body });
       }
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     onSuccess: (data, variables, context) => {
       invalidateKeys.forEach((key) => {
         queryClient.invalidateQueries({
@@ -384,6 +386,7 @@ export function useDeleteMutation<TData = void>(
       const endpoint = `${baseEndpoint}/${id}`;
       return api.delete<TData>(endpoint);
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     onSuccess: (data, variables, context) => {
       invalidateKeys.forEach((key) => {
         queryClient.invalidateQueries({

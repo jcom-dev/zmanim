@@ -6,7 +6,7 @@ import { User, MapPin, Code, BarChart3, AlertTriangle, Clock, Loader2, Plus, Che
 import { usePublisherContext } from '@/providers/PublisherContext';
 import { useApi } from '@/lib/api-client';
 import { StatusTooltip } from '@/components/shared/InfoTooltip';
-import { STATUS_TOOLTIPS, ALGORITHM_TOOLTIPS, ADMIN_TOOLTIPS } from '@/lib/tooltip-content';
+import { STATUS_TOOLTIPS, ADMIN_TOOLTIPS } from '@/lib/tooltip-content';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DashboardSummary {
@@ -16,7 +16,7 @@ interface DashboardSummary {
     status: string;
   };
   algorithm: {
-    status: 'none' | 'draft' | 'published';
+    status: 'none' | 'draft' | 'published' | 'active' | 'archived';
     name: string | null;
     updated_at: string | null;
   };
@@ -212,6 +212,7 @@ export default function PublisherDashboardPage() {
     if (!summary) return null;
     switch (summary.algorithm.status) {
       case 'published':
+      case 'active':
         return (
           <StatusTooltip status="published" tooltip={STATUS_TOOLTIPS.published}>
             <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">

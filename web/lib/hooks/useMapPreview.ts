@@ -166,11 +166,12 @@ export function useMapPreview(
         mapRef.current = null;
         setMap(null);
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to initialize map:', err);
       }
-      setError(err.message || 'Map initialization failed');
+      const errorMessage = err instanceof Error ? err.message : 'Map initialization failed';
+      setError(errorMessage);
       setLoading(false);
     }
   }, [containerId, initialCenter, initialZoom, style]);

@@ -9,11 +9,11 @@ Status: Draft
 
 ## Overview
 
-Epic 1 delivers the complete Shtetl Zmanim MVP - a multi-publisher platform enabling halachic authorities to publish customized Jewish prayer times with full algorithm control and transparency. This epic transforms the existing brownfield POC into a production-ready application covering all 42 functional requirements across 11 stories.
+Epic 1 delivers the complete Shtetl Zmanim MVP - a multi-publisher platform enabling halachic authorities to publish customized Jewish Zmanim with full algorithm control and transparency. This epic transforms the existing brownfield POC into a production-ready application covering all 42 functional requirements across 11 stories.
 
 The platform serves two primary user types:
 - **Publishers (Halachic Authorities):** Configure calculation algorithms, define geographic coverage, and publish zmanim
-- **End Users (Community Members):** Find local publishers, view accurate prayer times, and understand the halachic basis for each calculation through the Formula Reveal feature
+- **End Users (Community Members):** Find local publishers, view accurate Zmanim, and understand the halachic basis for each calculation through the Formula Reveal feature
 
 ---
 

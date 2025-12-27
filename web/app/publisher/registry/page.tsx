@@ -486,7 +486,7 @@ export default function RegistryPage() {
   });
 
   // Reset page when filters change
-  const handleFilterChange = useCallback((setter: (value: any) => void, value: any) => {
+  const handleFilterChange = useCallback(<T,>(setter: (value: T) => void, value: T) => {
     setter(value);
     setPage(1);
   }, []);
@@ -523,9 +523,10 @@ export default function RegistryPage() {
       if (zman) {
         router.push(`/publisher/algorithm?focus=${zman.zman_key}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to import zman:', err);
-      toast.error(err?.message || 'Failed to import zman');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to import zman';
+      toast.error(errorMessage);
     } finally {
       setImportingId(null);
     }

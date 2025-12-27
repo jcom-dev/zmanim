@@ -6,7 +6,7 @@ Status: review
 
 As an **end user**,
 I want **to see how each zmanim time is calculated**,
-so that **I understand the halachic basis for my prayer times**.
+so that **I understand the halachic basis for my Zmanim**.
 
 ## Acceptance Criteria
 

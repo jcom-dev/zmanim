@@ -201,9 +201,10 @@ export function useAlgorithmPageData(): AlgorithmPageData {
         );
 
         return response;
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If locality not found, clear invalid locality from state, cookies, and localStorage
-        if (error?.message?.includes('locality not found') || error?.message?.includes('no rows in result set')) {
+        const errorMessage = error instanceof Error ? error.message : '';
+        if (errorMessage.includes('locality not found') || errorMessage.includes('no rows in result set')) {
           console.warn('Invalid locality_id detected, clearing saved locality');
           setSelectedLocalityId(null);
           setSelectedLocalityDisplayName(null);

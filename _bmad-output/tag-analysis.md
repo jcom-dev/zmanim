@@ -14,7 +14,7 @@ Unique tags used: **19**
 | 3 | category_mincha | Mincha Times | 32 | 13.4% |
 | 4 | shita_geonim | Geonim | 23 | 9.7% |
 | 5 | category_shema | Shema Times | 20 | 8.4% |
-| 6 | category_tefila | Prayer Times | 15 | 6.3% |
+| 6 | category_tefila | Zmanim | 15 | 6.3% |
 | 7 | shita_rt | Rabbeinu Tam | 13 | 5.5% |
 | 8 | shita_baal_hatanya | Baal HaTanya | 7 | 2.9% |
 | 9 | shita_ateret_torah | Ateret Torah | 6 | 2.5% |
@@ -36,7 +36,7 @@ Unique tags used: **19**
 These tags identify which Rabbinic authority's calculation method is used:
 
 - **shita_mga** (58) - Magen Avraham - Earlier/stringent times
-- **shita_gra** (44) - Vilna Gaon - Later/lenient times  
+- **shita_gra** (44) - Vilna Gaon - Later/lenient times
 - **shita_geonim** (23) - Geonim calculation
 - **shita_rt** (13) - Rabbeinu Tam - Later nightfall times
 - **shita_baal_hatanya** (7) - Chassidic authority
@@ -50,9 +50,9 @@ These tags identify which Rabbinic authority's calculation method is used:
 
 These tags group zmanim by their halachic purpose:
 
-- **category_mincha** (32) - Mincha prayer times
+- **category_mincha** (32) - Mincha Zmanim
 - **category_shema** (20) - Shema reading deadlines
-- **category_tefila** (15) - General prayer times
+- **category_tefila** (15) - General Zmanim
 - **category_kiddush_levana** (4) - Moon blessing window
 - **category_havdalah** (2) - Shabbat/Yom Tov end
 - **category_candle_lighting** (1) - Pre-Shabbat/Yom Tov
@@ -113,7 +113,7 @@ Consider adding these tags where appropriate:
 
 Ensure all variant calculations (e.g., alos_72, alos_90, alos_96) carry their appropriate shita tag:
 - 72-minute variants → shita_mga
-- 90-minute variants → shita_mga  
+- 90-minute variants → shita_mga
 - Degree-based variants → check source
 
 ### 3. Event Tag Expansion

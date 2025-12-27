@@ -321,7 +321,7 @@ The time when there's enough light for outdoor activities without artificial lig
 
 ### 2.9 Primitive: `nautical_dawn`
 **Plain English?** NO - score 3/10
-**Grandma Test:** "Nautical means related to ships/sailing" - confusing why it's in a prayer times calculator
+**Grandma Test:** "Nautical means related to ships/sailing" - confusing why it's in a Zmanim calculator
 
 **What It Actually Means:**
 Dawn as defined for marine navigation (horizon visible at sea). Sun is 12 degrees below horizon. Used in some zmanim calculations as intermediate twilight level.

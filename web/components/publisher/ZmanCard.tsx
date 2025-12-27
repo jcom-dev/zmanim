@@ -29,28 +29,22 @@ import {
 import {
   Pencil,
   Trash2,
-  Globe,
-  CircleDashed,
   History,
   RotateCcw,
   Loader2,
   Eye,
   EyeOff,
   Link2,
-  Copy,
   Library,
   AlertTriangle,
   FlaskConical,
-  Edit2,
   Code2,
   X,
-  Tags,
   Power,
   Info,
   MessageSquare,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog,
   AlertDialogAction,

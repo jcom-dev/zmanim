@@ -174,6 +174,7 @@ describe('usePublisherCalculationSettings', () => {
 
   it('[P2] should not fetch when publisher not selected', () => {
     // GIVEN: No publisher selected
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockPublisherContext.selectedPublisher = null as any;
 
     // WHEN: Hook is called

@@ -33,11 +33,11 @@ export function useUserRoles(): UserRoles {
     };
   }
 
-  const metadata = user.publicMetadata || {};
+  const metadata = user.publicMetadata as { is_admin?: boolean; publisher_access_list?: string[] } || {};
 
-  const isAdmin = (metadata as any).is_admin === true;
+  const isAdmin = metadata.is_admin === true;
   const publisherAccessList: string[] =
-    (metadata as any).publisher_access_list || [];
+    metadata.publisher_access_list || [];
   const hasPublisherAccess = publisherAccessList.length > 0;
 
   return {

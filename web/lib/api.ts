@@ -35,7 +35,7 @@ export interface Algorithm {
   name: string;
   description: string;
   version: string;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;

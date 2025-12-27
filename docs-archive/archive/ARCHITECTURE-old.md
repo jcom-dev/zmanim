@@ -21,7 +21,7 @@
 
 ## Executive Summary
 
-Shtetl Zmanim is a multi-publisher platform for calculating Jewish prayer times (zmanim) based on various halachic (Jewish legal) calculation methods. The system enables religious authorities and organizations to publish their own calculation algorithms and geographic coverage, while users can discover and consume zmanim data for their locations.
+Shtetl Zmanim is a multi-publisher platform for calculating Jewish Zmanim (zmanim) based on various halachic (Jewish legal) calculation methods. The system enables religious authorities and organizations to publish their own calculation algorithms and geographic coverage, while users can discover and consume zmanim data for their locations.
 
 ### Key Features
 - **Multi-Publisher Architecture**: Religious authorities maintain independent calculation methods

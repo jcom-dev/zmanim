@@ -27,7 +27,7 @@ The tag system serves multiple critical functions:
 
 1. **Event Matching**: Automatically maps events from the HebCal API to internal tags
 2. **Zmanim Filtering**: Controls which zmanim appear on specific days based on active events
-3. **Categorization**: Organizes zmanim by purpose (prayer times, fast times, etc.)
+3. **Categorization**: Organizes zmanim by purpose (Zmanim, fast times, etc.)
 4. **Halachic Opinions**: Associates zmanim with specific rabbinic authorities (shitos)
 5. **Multilingual Support**: Provides Hebrew, Ashkenazi, and Sephardi name variants
 
@@ -417,7 +417,7 @@ Organizational tags for grouping zmanim by purpose.
 | Tag Key | Hebrew | English | Description | Hidden |
 |---------|--------|---------|-------------|--------|
 | `category_shema` | קריאת שמע | Shema Times | Times related to Shema recitation | Yes |
-| `category_tefila` | תפילה | Prayer Times | Times related to prayer services | Yes |
+| `category_tefila` | תפילה | Zmanim | Times related to prayer services | Yes |
 | `category_mincha` | מנחה | Mincha Times | Times related to afternoon prayer | Yes |
 | `category_candle_lighting` | הדלקת נרות | Candle Lighting | Candle lighting times | Yes |
 | `category_havdalah` | הבדלה | Havdalah | End of Shabbos/Yom Tov times | Yes |

@@ -5,9 +5,7 @@ import { usePublisherContext } from '@/providers/PublisherContext';
 import { useApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { ArrowLeft, Mountain, Languages, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Languages, Info, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 

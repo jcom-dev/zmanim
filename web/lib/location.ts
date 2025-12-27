@@ -1,4 +1,3 @@
-import { DEFAULT_LOCATION } from './constants';
 
 export interface LocationData {
   latitude: number;

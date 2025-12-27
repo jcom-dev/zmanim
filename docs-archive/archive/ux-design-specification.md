@@ -7,7 +7,7 @@ _Generated using BMad Method - Create UX Design Workflow v1.0_
 
 ## Executive Summary
 
-**Vision:** Democratize zmanim publishing with halachic transparency - any qualified authority can publish their calculations, and end users gain unprecedented insight into how their prayer times are determined.
+**Vision:** Democratize zmanim publishing with halachic transparency - any qualified authority can publish their calculations, and end users gain unprecedented insight into how their Zmanim are determined.
 
 **Target Users:**
 - **Publishers (Halachic Authorities):** Should feel empowered and in control, yet confident and guided through algorithm configuration

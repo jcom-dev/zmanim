@@ -6,7 +6,7 @@
 
 ## Welcome
 
-This guide teaches you how to write formulas that calculate Jewish prayer times (zmanim). Whether you're a rabbi defining times for your community, a programmer building a zmanim app, or simply curious about how these calculations work, this guide will give you a complete understanding.
+This guide teaches you how to write formulas that calculate Jewish Zmanim (zmanim). Whether you're a rabbi defining times for your community, a programmer building a zmanim app, or simply curious about how these calculations work, this guide will give you a complete understanding.
 
 No programming experience is required. We'll start from the very basics and build up to advanced formulas step by step.
 
@@ -1012,7 +1012,7 @@ misheyakir: solar(11.5, before_sunrise)
 netz: visible_sunrise
 // Visible sunrise accounting for atmospheric refraction
 
-// === Morning Prayer Times ===
+// === Morning Zmanim ===
 sof_zman_shema: proportional_hours(3, gra)
 // Latest time for reciting the Shema
 // 3 proportional hours into the day
@@ -1025,7 +1025,7 @@ sof_zman_tefilla: proportional_hours(4, gra)
 chatzos: solar_noon
 // Halachic midday - sun at its highest point
 
-// === Afternoon Prayer Times ===
+// === Afternoon Zmanim ===
 mincha_gedola: solar_noon + 30min
 // Earliest time for Mincha
 // Half a proportional hour after midday

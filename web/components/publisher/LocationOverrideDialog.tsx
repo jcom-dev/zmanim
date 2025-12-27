@@ -29,7 +29,6 @@ import { LocalitySearchResult, PublisherLocationOverride, LocationOverrideCreate
 import { LocationMapView } from '@/components/shared/LocationMapView';
 import { Database, Building2, Globe, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { LocationSelection } from '@/types/geography';
 
 
 type LocationSource = 'default' | 'publisher' | 'public';
@@ -291,8 +290,9 @@ export function LocationOverrideDialog({
         onSuccess();
         onOpenChange(false);
       },
-      onError: (err: any) => {
-        setError(err.message || 'Failed to save location override');
+      onError: (err: unknown) => {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to save location override';
+        setError(errorMessage);
       },
     });
   };
@@ -313,8 +313,9 @@ export function LocationOverrideDialog({
         onSuccess();
         onOpenChange(false);
       },
-      onError: (err: any) => {
-        setError(err.message || 'Failed to delete location override');
+      onError: (err: unknown) => {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to delete location override';
+        setError(errorMessage);
       },
     });
   };

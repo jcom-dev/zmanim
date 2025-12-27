@@ -224,10 +224,11 @@ async function globalSetup(config: FullConfig) {
   // Create shared user pool
   console.log('\nCreating shared user pool...');
   try {
-    // Get the first verified shared publisher for the publisher user
-    const verifiedPublisher = await getSharedPublisherAsync('verified-1');
-    await createUserPool(verifiedPublisher.id);
-    console.log('Shared user pool created successfully');
+    // Get a publisher with algorithm for the publisher user
+    // Most dashboard tests need a publisher with data
+    const publisherWithAlgorithm = await getSharedPublisherAsync('with-algorithm-1');
+    await createUserPool(publisherWithAlgorithm.id);
+    console.log(`Shared user pool created successfully (linked to publisher ${publisherWithAlgorithm.id})`);
   } catch (error: any) {
     console.error('Error creating user pool:', error?.message);
     throw error;

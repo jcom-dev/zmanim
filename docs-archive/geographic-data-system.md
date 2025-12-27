@@ -462,7 +462,7 @@ When location overrides are created, updated, or deleted:
 
 ## Why Accuracy Matters
 
-Zmanim (Jewish prayer times) are calculated based on solar position relative to a specific location. Even small errors in geographic data can affect calculations:
+Zmanim (Jewish Zmanim) are calculated based on solar position relative to a specific location. Even small errors in geographic data can affect calculations:
 
 | Error Type | Magnitude | Zmanim Impact |
 |------------|-----------|---------------|

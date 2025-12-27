@@ -6,7 +6,7 @@ Status: done
 
 As a user,
 I want zmanim calculations to reflect the latest publisher settings,
-So that I don't receive outdated prayer times after publishers make changes.
+So that I don't receive outdated Zmanim after publishers make changes.
 
 ## Acceptance Criteria
 

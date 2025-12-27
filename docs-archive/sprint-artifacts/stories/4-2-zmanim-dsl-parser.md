@@ -12,7 +12,7 @@
 
 As a **developer**,
 I want **a Go-based DSL parser that lexes, parses, validates, and executes zmanim formulas**,
-So that **the backend can calculate accurate prayer times from DSL expressions**.
+So that **the backend can calculate accurate Zmanim from DSL expressions**.
 
 ---
 

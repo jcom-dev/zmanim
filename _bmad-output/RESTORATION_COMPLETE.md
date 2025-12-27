@@ -90,7 +90,7 @@ These 7 publisher zmanim remain without tags **by design** - they have no matchi
 
 1. **shita_mga** - 58 (24.4%) - Magen Avraham methodology
 2. **shita_gra** - 44 (18.5%) - Vilna Gaon methodology
-3. **category_mincha** - 32 (13.4%) - Mincha prayer times
+3. **category_mincha** - 32 (13.4%) - Mincha Zmanim
 4. **shita_geonim** - 23 (9.7%) - Geonim calculation
 5. **category_shema** - 20 (8.4%) - Shema reading times
 

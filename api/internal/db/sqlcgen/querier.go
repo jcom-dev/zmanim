@@ -156,6 +156,10 @@ type Querier interface {
 	CopyPublisherZmanFromExample(ctx context.Context, arg CopyPublisherZmanFromExampleParams) (CopyPublisherZmanFromExampleRow, error)
 	// Returns count for pagination
 	CountAdminAuditLog(ctx context.Context, arg CountAdminAuditLogParams) (int64, error)
+	// Returns count for extended admin audit logs
+	CountAdminAuditLogsExtended(ctx context.Context, arg CountAdminAuditLogsExtendedParams) (int64, error)
+	// Returns count for pagination of all audit logs
+	CountAllAuditLog(ctx context.Context, arg CountAllAuditLogParams) (int64, error)
 	// Count total master zmanim matching filters (for pagination)
 	CountMasterZmanimForRegistry(ctx context.Context, arg CountMasterZmanimForRegistryParams) (int64, error)
 	CountPendingInvitationsForEmail(ctx context.Context, arg CountPendingInvitationsForEmailParams) (int64, error)
@@ -333,6 +337,8 @@ type Querier interface {
 	GetActionsByRequest(ctx context.Context, requestID string) ([]Action, error)
 	// Returns admin activity log with filtering and pagination
 	GetAdminAuditLog(ctx context.Context, arg GetAdminAuditLogParams) ([]GetAdminAuditLogRow, error)
+	// Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
+	GetAdminAuditLogsExtended(ctx context.Context, arg GetAdminAuditLogsExtendedParams) ([]GetAdminAuditLogsExtendedRow, error)
 	// Returns all system-wide admin elevation overrides
 	GetAdminElevationOverrides(ctx context.Context) ([]GetAdminElevationOverridesRow, error)
 	// ============================================
@@ -424,6 +430,18 @@ type Querier interface {
 	GetAstronomicalPrimitivesByCategory(ctx context.Context, key string) ([]GetAstronomicalPrimitivesByCategoryRow, error)
 	// Returns primitives with category for grouping in UI
 	GetAstronomicalPrimitivesGrouped(ctx context.Context) ([]GetAstronomicalPrimitivesGroupedRow, error)
+	// Returns a single audit log entry by ID
+	GetAuditLogByID(ctx context.Context, id string) (GetAuditLogByIDRow, error)
+	// Returns audit statistics for the last 24 hours
+	GetAuditStats24h(ctx context.Context) (int64, error)
+	// Returns audit statistics for the last 7 days
+	GetAuditStats7d(ctx context.Context) (int64, error)
+	// Returns event counts grouped by action type
+	GetAuditStatsByAction(ctx context.Context) ([]GetAuditStatsByActionRow, error)
+	// Returns event counts grouped by category (concept)
+	GetAuditStatsByCategory(ctx context.Context) ([]GetAuditStatsByCategoryRow, error)
+	// Returns event counts grouped by status
+	GetAuditStatsByStatus(ctx context.Context) ([]GetAuditStatsByStatusRow, error)
 	GetBlockedEmails(ctx context.Context) ([]BlockedEmail, error)
 	// Geo Boundaries SQL Queries
 	// NOTE: Boundary tables (geo_country_boundaries, geo_region_boundaries) were removed
@@ -858,6 +876,8 @@ type Querier interface {
 	// Get all publisher IDs that have a zman referencing this master registry entry
 	// Used for cache invalidation when master zman formula changes
 	GetPublishersUsingMasterZman(ctx context.Context, masterZmanID *int32) ([]int32, error)
+	// Returns recent events with error or failed status (simulating critical severity)
+	GetRecentCriticalEvents(ctx context.Context, limit int32) ([]GetRecentCriticalEventsRow, error)
 	// Returns region boundary as GeoJSON geometry string
 	// Returns empty string if no boundary exists
 	GetRegionBoundaryGeoJSON(ctx context.Context, id int32) (GetRegionBoundaryGeoJSONRow, error)
@@ -927,12 +947,16 @@ type Querier interface {
 	GetTimeCategoryByKey(ctx context.Context, key string) (TimeCategory, error)
 	// Lookup time category ID from key for import
 	GetTimeCategoryIDByKey(ctx context.Context, key string) (int32, error)
+	// Returns top actors by event count
+	GetTopActors(ctx context.Context, limit int32) ([]GetTopActorsRow, error)
 	// ============================================================================
 	// Location Picker
 	// ============================================================================
 	// Get top localities ordered by population for location picker
 	// Coordinates resolved with priority: admin > default (system-wide only)
 	GetTopLocalitiesAsLocations(ctx context.Context, limit int32) ([]GetTopLocalitiesAsLocationsRow, error)
+	// Returns top publishers by event count
+	GetTopPublishers(ctx context.Context, limit int32) ([]GetTopPublishersRow, error)
 	// File: zmanim_unified.sql
 	// Purpose: Unified publisher zmanim queries - consolidates GetPublisherZmanim and FetchPublisherZmanim
 	// Pattern: query-consolidation

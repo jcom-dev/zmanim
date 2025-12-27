@@ -52,9 +52,9 @@ The restoration used **intelligent pattern matching** based on:
 
 | Category | Zmanim Count | Purpose |
 |----------|--------------|---------|
-| category_mincha | 27 | Mincha prayer times (gedola, ketana, plag) |
+| category_mincha | 27 | Mincha Zmanim (gedola, ketana, plag) |
 | category_shema | 16 | Latest Shema times |
-| category_tefila | 13 | Prayer times |
+| category_tefila | 13 | Zmanim |
 | category_chametz | 10 | Passover chametz deadlines |
 | category_candle_lighting | 7 | Shabbos/Yom Tov candle lighting |
 | category_havdalah | 5 | Shabbos/Yom Tov conclusion |

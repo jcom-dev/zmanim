@@ -125,7 +125,7 @@ export const ALGORITHM_TOOLTIPS = {
   events_tab:
     'Special occasion zmanim like Shabbos candle lighting, Havdalah, and holiday-specific times.',
   core_zman:
-    'Essential zmanim that are shown by default. These are the fundamental prayer times.',
+    'Essential zmanim that are shown by default. These are the fundamental Zmanim.',
   optional_zman:
     'Secondary zmanim that provide additional information but are not essential.',
 } as const;
@@ -156,7 +156,7 @@ export const FORM_TOOLTIPS = {
   time_category:
     'Classification of when this zman occurs during the day: morning, midday, evening, night, or variable.',
   tag_type:
-    'Event: special occasions. Timing: daily prayer times. Behavior: calculation method descriptors.',
+    'Event: special occasions. Timing: daily Zmanim. Behavior: calculation method descriptors.',
   is_core:
     'Core zmanim are essential and shown by default. Toggle off for secondary/optional zmanim.',
   is_hidden:

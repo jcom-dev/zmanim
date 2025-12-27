@@ -15,7 +15,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import { toast } from 'sonner';
 import { X, Copy, Check, Users, ChevronRight, Link as LinkIcon, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import {
   MasterDocumentationContent,
   type MasterZmanDocumentation,

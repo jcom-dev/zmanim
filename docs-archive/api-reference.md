@@ -145,7 +145,7 @@ Get predefined geographic locations (cities).
 
 ### POST /api/v1/zmanim
 
-Calculate prayer times for a specific location and date.
+Calculate Zmanim for a specific location and date.
 
 **Request Body**
 

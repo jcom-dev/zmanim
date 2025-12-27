@@ -991,7 +991,7 @@ WHERE schemaname = 'public'
 - **SHEMA**: Latest time for Shema
 - **TEFILLA**: Latest time for Shacharis
 - **CHATZOS**: Midday/midnight
-- **MINCHA**: Afternoon prayer times
+- **MINCHA**: Afternoon Zmanim
 - **TZAIS**: Nightfall times
 - **OTHER**: Special zmanim (fast start/end, candle lighting, etc.)
 

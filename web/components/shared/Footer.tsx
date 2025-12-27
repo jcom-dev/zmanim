@@ -10,7 +10,7 @@ export function Footer({ showDisclaimer = false, showBecomePublisher = false }: 
     <footer className="mt-auto border-t border-border bg-card/50">
       <div className="container mx-auto px-4 py-8 text-center space-y-2">
         <p className="text-sm text-muted-foreground">
-          Shtetl Zmanim - Multi-Publisher Prayer Times Platform
+          Shtetl Zmanim - Multi-Publisher Zmanim Platform
         </p>
 
         {showDisclaimer && (

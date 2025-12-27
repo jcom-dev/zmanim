@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-The KosherJava Zmanim library is the most comprehensive Java implementation for calculating Jewish prayer times (zmanim). It contains:
+The KosherJava Zmanim library is the most comprehensive Java implementation for calculating Jewish Zmanim (zmanim). It contains:
 
 - **180+ distinct zman calculation methods** across 3 main classes
 - **30+ degree-based constants** for various halachic opinions

@@ -73,14 +73,6 @@ export default function PublisherRegistrationPage() {
   const nameCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const emailCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
-
-  // Initialize reCAPTCHA ready state
-  useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).grecaptcha) {
-      setRecaptchaReady(true);
-    }
-  }, []);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -95,7 +87,7 @@ export default function PublisherRegistrationPage() {
     if (!RECAPTCHA_SITE_KEY) return '';
 
     try {
-      const grecaptcha = (window as any).grecaptcha;
+      const grecaptcha = (window as Window & { grecaptcha?: { ready: (cb: () => void) => void; execute: (siteKey: string, options: { action: string }) => Promise<string> } }).grecaptcha;
       if (!grecaptcha) return '';
 
       return await new Promise((resolve) => {
@@ -582,7 +574,6 @@ export default function PublisherRegistrationPage() {
       {RECAPTCHA_SITE_KEY && (
         <Script
           src={`https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`}
-          onLoad={() => setRecaptchaReady(true)}
         />
       )}
     </div>

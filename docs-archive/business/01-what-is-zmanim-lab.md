@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Shtetl Zmanim** is a **Halachic Zmanim Publishing Platform** - a multi-publisher platform that empowers Jewish halachic authorities (rabbis, batei din, Orthodox communities) to publish customized prayer times (zmanim) with complete control over calculation algorithms and geographic coverage.
+**Shtetl Zmanim** is a **Halachic Zmanim Publishing Platform** - a multi-publisher platform that empowers Jewish halachic authorities (rabbis, batei din, Orthodox communities) to publish customized Zmanim (zmanim) with complete control over calculation algorithms and geographic coverage.
 
 Think of it as "WordPress for Zmanim" - where any qualified halachic authority can become a publisher and define their own calculation methods without needing to code.
 
@@ -12,7 +12,7 @@ Think of it as "WordPress for Zmanim" - where any qualified halachic authority c
 
 ### What Are Zmanim?
 
-**Zmanim** (Hebrew: זמנים, "times") are halachically significant times of day that determine when Jews can perform mitzvot (religious commandments), especially prayer times. Examples include:
+**Zmanim** (Hebrew: זמנים, "times") are halachically significant times of day that determine when Jews can perform mitzvot (religious commandments), especially Zmanim. Examples include:
 
 - **Alos Hashachar** (dawn) - earliest time for morning prayers
 - **Sof Zman Shma** (latest Shema time) - deadline for reciting morning Shema
@@ -56,7 +56,7 @@ Shtetl Zmanim solves this through **two-sided transparency**:
 
 ### The Core Mission
 
-**Democratize zmanim publishing** - Any qualified halachic authority should be able to publish their calculation methods without needing technical expertise, while end users gain transparency into exactly how their prayer times are calculated.
+**Democratize zmanim publishing** - Any qualified halachic authority should be able to publish their calculation methods without needing technical expertise, while end users gain transparency into exactly how their Zmanim are calculated.
 
 ### Problems It Solves
 
@@ -135,7 +135,7 @@ Shtetl Zmanim solves this through **two-sided transparency**:
 
 **Who:**
 - Observant Jews worldwide
-- People seeking accurate prayer times
+- People seeking accurate Zmanim
 - Those who want to follow a specific authority
 - Jews traveling who need local customs
 
@@ -366,7 +366,7 @@ Shtetl Zmanim aims to become the **trusted, global source for halachically accur
 
 **Shtetl Zmanim is...**
 
-✅ A **platform** (not an app) for publishing Jewish prayer times
+✅ A **platform** (not an app) for publishing Jewish Zmanim
 ✅ **Multi-publisher** (user chooses their authority)
 ✅ **Transparent** (formula reveal for every calculation)
 ✅ **Publisher-friendly** (visual editor, AI assistance, no coding required)

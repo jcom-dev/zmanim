@@ -210,7 +210,7 @@ export const HALACHIC_GLOSSARY: Record<string, HalachicTerm> = {
     transliteration: 'Shaos Zmanios',
     brief: 'Proportional/halachic hours - dividing daylight into 12 equal parts.',
     detailed:
-      'Unlike fixed 60-minute hours, halachic hours vary by season. In summer, each hour is longer; in winter, shorter. Used for calculating prayer times and other halachos.',
+      'Unlike fixed 60-minute hours, halachic hours vary by season. In summer, each hour is longer; in winter, shorter. Used for calculating Zmanim and other halachos.',
     category: 'concept',
   },
 
@@ -219,7 +219,7 @@ export const HALACHIC_GLOSSARY: Record<string, HalachicTerm> = {
     transliteration: 'Zman',
     brief: 'A specific halachic time for prayers or observances.',
     detailed:
-      'Plural: Zmanim. These are the calculated times that govern Jewish religious practice, including prayer times, candle lighting, and the start/end of Shabbos.',
+      'Plural: Zmanim. These are the calculated times that govern Jewish religious practice, including Zmanim, candle lighting, and the start/end of Shabbos.',
     category: 'concept',
   },
 } as const;

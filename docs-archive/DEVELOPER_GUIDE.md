@@ -2,7 +2,7 @@
 
 ## Welcome! 🎉
 
-This guide will help you get started with developing Shtetl Zmanim, a multi-publisher platform for calculating Jewish prayer times (zmanim). Whether you're working on the Go backend, Next.js frontend, or both, this guide has you covered.
+This guide will help you get started with developing Shtetl Zmanim, a multi-publisher platform for calculating Jewish Zmanim (zmanim). Whether you're working on the Go backend, Next.js frontend, or both, this guide has you covered.
 
 ## Table of Contents
 

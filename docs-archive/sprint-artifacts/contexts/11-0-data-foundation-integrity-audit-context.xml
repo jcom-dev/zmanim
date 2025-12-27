@@ -70,7 +70,7 @@
   <architecture-context>
     <system-overview>
       <description>
-        Shtetl Zmanim is a multi-publisher platform for Jewish prayer times. The master_zmanim_registry
+        Shtetl Zmanim is a multi-publisher platform for Jewish Zmanim. The master_zmanim_registry
         contains canonical zman definitions that publishers can import and customize. Publisher zmanim
         link to master registry entries via master_zman_id field.
       </description>
@@ -423,7 +423,7 @@ END $$;
         <category key="SHEMA">Latest time for Shema</category>
         <category key="TEFILLA">Latest time for Shacharis</category>
         <category key="CHATZOS">Midday/midnight</category>
-        <category key="MINCHA">Afternoon prayer times</category>
+        <category key="MINCHA">Afternoon Zmanim</category>
         <category key="TZAIS">Nightfall times</category>
         <category key="OTHER">Special zmanim (fast start/end, candle lighting, etc.)</category>
       </category-classifications>

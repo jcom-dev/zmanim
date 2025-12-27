@@ -7,9 +7,9 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { usePublisherContext } from '@/providers/PublisherContext';
-import { MapPin, Globe, Globe2, Building2, Plus, Trash2, Loader2, Mountain, Map, EyeOff, Settings, ChevronRight, ChevronDown, Users } from 'lucide-react';
+import { MapPin, Globe, Globe2, Building2, Plus, Trash2, Loader2, Mountain, Map, EyeOff, ChevronRight, ChevronDown, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -34,10 +34,9 @@ import { useApi } from '@/lib/api-client';
 import { getCoverageBadgeClasses } from '@/lib/wcag-colors';
 import { InfoTooltip, StatusTooltip } from '@/components/shared/InfoTooltip';
 import { COVERAGE_TOOLTIPS, STATUS_TOOLTIPS } from '@/lib/tooltip-content';
-import type { PublisherLocationOverride, LocationOverridesListResponse, LocalitySelection, LocationSelection } from '@/types/geography';
+import type { LocalitySelection, LocationSelection } from '@/types/geography';
 import type { LocalitySearchResult } from '@/types/geography';
 import { LocalityPicker } from '@/components/shared/LocalityPicker';
-import { CoveragePreviewMap } from '@/components/shared/CoveragePreviewMap';
 import { LocationMapView } from '@/components/shared/LocationMapView';
 import { CorrectionRequestDialog } from '@/components/publisher/CorrectionRequestDialog';
 import { usePublisherCoverage } from '@/lib/hooks/usePublisherCoverage';
@@ -389,7 +388,6 @@ export default function PublisherCoveragePage() {
   // Correction request state (Story 6.5)
   const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false);
   const [selectedLocalityForCorrection, setSelectedLocalityForCorrection] = useState<LocalitySearchResult | null>(null);
-  const [loadingLocalityDetails, setLoadingLocalityDetails] = useState(false);
 
   const handleOpenAddDialog = () => {
     setAddDialogOpen(true);
@@ -422,7 +420,13 @@ export default function PublisherCoveragePage() {
 
     for (const item of selections) {
       const coverageLevel = getCoverageLevel(item.type);
-      const body: Record<string, unknown> = { coverage_level: coverageLevel };
+      const body: {
+        coverage_level: 'continent' | 'country' | 'region' | 'locality';
+        continent_code?: string;
+        country_id?: number;
+        region_id?: number;
+        locality_id?: number;
+      } = { coverage_level: coverageLevel as 'continent' | 'country' | 'region' | 'locality' };
 
       if (coverageLevel === 'continent') {
         // Continent uses code, not ID
@@ -435,7 +439,7 @@ export default function PublisherCoveragePage() {
         body.locality_id = parseInt(item.id, 10);
       }
 
-      await addCoverage.mutateAsync(body as any);
+      await addCoverage.mutateAsync(body);
     }
 
     handleCloseAddDialog();
@@ -505,7 +509,6 @@ export default function PublisherCoveragePage() {
   const handleViewOnMap = async (item: Coverage) => {
     // If it's a locality, fetch full details with coordinates
     if (item.coverage_level_key === 'locality' && item.locality_id) {
-      setLoadingLocalityDetails(true);
       try {
         const localityData = await api.get<LocalitySearchResult>(`/localities/${item.locality_id}`);
         setSelectedCoverageForMap({
@@ -515,8 +518,6 @@ export default function PublisherCoveragePage() {
         });
       } catch (err) {
         console.error('Failed to fetch locality details:', err);
-      } finally {
-        setLoadingLocalityDetails(false);
       }
     } else {
       // For regions and countries, just set the coverage item
@@ -533,15 +534,12 @@ export default function PublisherCoveragePage() {
       return;
     }
 
-    setLoadingLocalityDetails(true);
     try {
       const localityData = await api.get<LocalitySearchResult>(`/localities/${selectedCoverageForMap.locality_id}`);
       setSelectedLocalityForCorrection(localityData);
       setCorrectionDialogOpen(true);
     } catch (err) {
       console.error('Failed to fetch locality details:', err);
-    } finally {
-      setLoadingLocalityDetails(false);
     }
   };
 

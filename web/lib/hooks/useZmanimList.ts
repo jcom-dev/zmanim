@@ -920,7 +920,6 @@ export function useZmanVersionHistory(zmanKey: string | null) {
 export function useRollbackZmanVersion(zmanKey: string) {
   const api = useApi();
   const queryClient = useQueryClient();
-  const { selectedPublisher } = usePublisherContext();
 
   return useMutation({
     mutationFn: async (params: { version_number: number }) => {

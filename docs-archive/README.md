@@ -1,6 +1,6 @@
 # Shtetl Zmanim Documentation
 
-**Halachic Zmanim Publishing Platform** - A multi-publisher platform for rabbinic authorities to publish customized Jewish prayer times with complete algorithm control and transparency.
+**Halachic Zmanim Publishing Platform** - A multi-publisher platform for rabbinic authorities to publish customized Jewish Zmanim with complete algorithm control and transparency.
 
 ---
 

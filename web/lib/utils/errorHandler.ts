@@ -56,7 +56,7 @@ export function handleApiError(error: unknown, userMessage?: string): void {
     message = userMessage || error.message;
   } else if (typeof error === 'object' && error !== null) {
     // Generic object with possible message property
-    const errorObj = error as any;
+    const errorObj = error as { message?: string; error?: { message?: string } };
     if (errorObj.message) {
       message = userMessage || errorObj.message;
     } else if (errorObj.error?.message) {

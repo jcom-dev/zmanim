@@ -34,7 +34,7 @@ import {
 import { usePublisherMutation, usePublisherQuery, useTagTypes } from '@/lib/hooks';
 import { useApi } from '@/lib/api-client';
 import { useTagDisplayName } from '@/lib/hooks/usePublisherSettings';
-import { Loader2, Plus, FileText, X, Tag, AlertTriangle, CheckCircle2, Ban } from 'lucide-react';
+import { Loader2, Plus, FileText, X, Tag, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';

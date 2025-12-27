@@ -150,7 +150,7 @@ fixed_local_chatzos
 | Zman Type | Category Tag | Additional Notes |
 |-----------|--------------|------------------|
 | Shema times | `category_shema` | sof_zman_shma_* |
-| Prayer times | `category_tefila` | sof_zman_tfila_* |
+| Zmanim | `category_tefila` | sof_zman_tfila_* |
 | Mincha times | `category_mincha` | mincha_*, plag_* |
 | Candle lighting | `category_candle_lighting` | Also add `day_before` timing tag |
 | Havdalah | `category_havdalah` | havdalah*, shabbos_ends* |

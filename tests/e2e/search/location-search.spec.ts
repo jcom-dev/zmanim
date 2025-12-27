@@ -24,8 +24,8 @@ async function searchLocations(request: any, query: string) {
   const response = await request.get(publicApiUrl(`localities/search?q=${encodeURIComponent(query)}`));
   expect(response.ok()).toBeTruthy();
   const json = await response.json();
-  // API wraps results in { data: { results: [...] } }
-  return json.data.results;
+  // API wraps results in { data: [...] }
+  return json.data;
 }
 
 test.describe('Location Search - Single Word (Population Ranking)', () => {
@@ -116,8 +116,7 @@ test.describe('Location Search - Multi-Word (Context Parsing)', () => {
 
     const json = await response.json();
     expect(json.data).toBeDefined();
-    expect(json.data.results).toBeDefined();
-    expect(Array.isArray(json.data.results)).toBeTruthy();
+    expect(Array.isArray(json.data)).toBeTruthy();
   });
 
   test('different contexts return different results', async ({ request }) => {
@@ -300,8 +299,8 @@ test.describe('Location Search - Edge Cases', () => {
 
     // Should either return 400 or empty array
     if (response.ok()) {
-      const results = await response.json();
-      expect(Array.isArray(results)).toBeTruthy();
+      const json = await response.json();
+      expect(Array.isArray(json.data)).toBeTruthy();
     } else {
       expect(response.status()).toBe(400);
     }

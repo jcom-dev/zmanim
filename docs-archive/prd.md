@@ -8,9 +8,9 @@
 
 ## Executive Summary
 
-Shtetl Zmanim is a multi-publisher platform that empowers halachic (Jewish legal) authorities to publish customized prayer times (zmanim) with complete control over calculation algorithms and geographic coverage. The platform transforms a proof-of-concept into a fully functional, tested application that serves both publishers (rabbinic authorities) and end users (community members seeking accurate zmanim).
+Shtetl Zmanim is a multi-publisher platform that empowers halachic (Jewish legal) authorities to publish customized Zmanim (zmanim) with complete control over calculation algorithms and geographic coverage. The platform transforms a proof-of-concept into a fully functional, tested application that serves both publishers (rabbinic authorities) and end users (community members seeking accurate zmanim).
 
-The core mission is democratizing zmanim publishing: any qualified halachic authority should be able to publish their calculation methods without needing technical expertise, while end users gain transparency into exactly how their prayer times are calculated.
+The core mission is democratizing zmanim publishing: any qualified halachic authority should be able to publish their calculation methods without needing technical expertise, while end users gain transparency into exactly how their Zmanim are calculated.
 
 ### What Makes This Special
 
@@ -391,7 +391,7 @@ Login → Dashboard → Edit Algorithm → Select Zman → Choose Method → Set
 
 ### Product Value Summary
 
-Shtetl Zmanim democratizes halachic time publishing by giving any qualified authority the tools to share their zmanim calculations, while giving end users unprecedented transparency into how their prayer times are determined. It's the bridge between halachic expertise and modern technology.
+Shtetl Zmanim democratizes halachic time publishing by giving any qualified authority the tools to share their zmanim calculations, while giving end users unprecedented transparency into how their Zmanim are determined. It's the bridge between halachic expertise and modern technology.
 
 ---
 

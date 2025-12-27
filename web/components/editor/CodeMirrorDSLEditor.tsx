@@ -9,9 +9,9 @@
 
 'use client';
 
-import { useRef, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef, useState } from 'react';
+import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef, useState } from 'react';
 import { EditorView, keymap, placeholder, ViewUpdate, Decoration, DecorationSet } from '@codemirror/view';
-import { EditorState, StateField, StateEffect, Compartment } from '@codemirror/state';
+import { EditorState, StateField, StateEffect } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { autocompletion, completionKeymap, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
@@ -370,22 +370,6 @@ const editorTheme = EditorView.theme({
     fontStyle: 'italic',
   },
 }, { dark: true });
-
-// Light theme variant
-const editorThemeLight = EditorView.theme({
-  '.cm-content': {
-    backgroundColor: 'hsl(var(--background))',
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-  },
-  '.cm-selectionBackground': {
-    backgroundColor: 'rgba(59, 130, 246, 0.15) !important',
-  },
-  '.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'rgba(59, 130, 246, 0.25) !important',
-  },
-});
 
 export const CodeMirrorDSLEditor = forwardRef<CodeMirrorDSLEditorRef, CodeMirrorDSLEditorProps>(
   function CodeMirrorDSLEditor(

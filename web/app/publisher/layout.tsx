@@ -42,7 +42,7 @@ function PublisherLayoutContent({ children }: { children: ReactNode }) {
     { href: '/publisher/corrections', label: 'Corrections' },
     { href: '/publisher/team', label: 'Team' },
     { href: '/publisher/analytics', label: 'Analytics' },
-    { href: '/publisher/activity', label: 'Activity' },
+    { href: '/publisher/audit', label: 'Audit Log' },
   ];
 
   return (

@@ -23,8 +23,8 @@ interface UserRoles {
 
 // Helper to extract roles from session claims
 // Clerk session token must be customized to include: {"metadata": "{{user.public_metadata}}"}
-function getRolesFromClaims(sessionClaims: any): UserRoles {
-  const metadata = sessionClaims?.metadata || {};
+function getRolesFromClaims(sessionClaims: Record<string, unknown>): UserRoles {
+  const metadata = (sessionClaims?.metadata || {}) as { is_admin?: boolean; publisher_access_list?: string[] };
 
   const isAdmin = metadata.is_admin === true;
   const publisherAccessList: string[] = metadata.publisher_access_list || [];

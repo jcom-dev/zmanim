@@ -84,7 +84,7 @@ ma)
 
 #### 3.2 Everyday vs. Event Zmanim
 - **Tab interface** - Switch between "Everyday" and "Events"
-- **Everyday tab** - Daily prayer times (Alos, Sunrise, Shma, Chatzos, Mincha, Sunset, Tzeis, Midnight)
+- **Everyday tab** - Daily Zmanim (Alos, Sunrise, Shma, Chatzos, Mincha, Sunset, Tzeis, Midnight)
 - **Events tab** - Shabbat/holiday-specific (Candle Lighting, Havdalah, Fast Start/End)
 - **Automatic event detection** - Shows candle lighting on Friday, Havdalah on Saturday night
 - **Hebrew calendar awareness** - Handles all 44 Jewish events (Rosh Hashanah, Yom Kippur, Chanukah, Purim, Pesach, Shavuot, Sukkot, Tisha B'Av, fasts, etc.)

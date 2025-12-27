@@ -30,7 +30,6 @@ interface DSLReferencePanelProps {
 
 interface CategoryProps {
   title: string;
-  count: number;
   items: ReferenceItem[];
   currentFormula: string;
   onInsert: (text: string) => void;
@@ -40,7 +39,6 @@ interface CategoryProps {
 
 function Category({
   title,
-  count,
   items,
   currentFormula,
   onInsert,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // AdminListAllUsers returns all users with admin status or publisher access
@@ -222,6 +223,23 @@ func (h *Handlers) AdminAddUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminUserAdd,
+		ResourceType: "user",
+		ResourceID:   userID,
+		ResourceName: req.Name,
+		ChangesAfter: map[string]interface{}{
+			"user_id":       userID,
+			"email":         req.Email,
+			"is_new_user":   isNewUser,
+			"is_admin":      req.IsAdmin,
+			"publisher_ids": req.PublisherIDs,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"status":        "success",
 		"message":       "User roles updated successfully",
@@ -270,6 +288,22 @@ func (h *Handlers) AdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("user deleted", "user_id", userID, "email", email)
+
+	// Log admin audit event - user deletion is critical
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminUserRemove,
+		ResourceType: "user",
+		ResourceID:   userID,
+		ChangesBefore: map[string]interface{}{
+			"user_id": userID,
+			"email":   email,
+		},
+		ChangesAfter: map[string]interface{}{
+			"deleted": true,
+		},
+		Severity: services.SeverityCritical,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"status":  "success",
@@ -331,6 +365,19 @@ func (h *Handlers) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("user updated", "user_id", userID, "email", email, "name", req.Name)
+
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminPublisherUpdate,
+		ResourceType: "user",
+		ResourceID:   userID,
+		ResourceName: req.Name,
+		ChangesAfter: map[string]interface{}{
+			"name": req.Name,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"status":  "success",
@@ -402,6 +449,22 @@ func (h *Handlers) AdminSetAdminRole(w http.ResponseWriter, r *http.Request) {
 
 		slog.Info("admin role granted", "user_id", userID, "email", email)
 
+		// Log admin audit event - granting admin role is a warning-level event
+		_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+			ActionType:   services.ActionAdminSetRole,
+			ResourceType: "user",
+			ResourceID:   userID,
+			ResourceName: userName,
+			ChangesBefore: map[string]interface{}{
+				"is_admin": false,
+			},
+			ChangesAfter: map[string]interface{}{
+				"is_admin": true,
+			},
+			Severity: services.SeverityWarning,
+			Status:   "success",
+		})
+
 		RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 			"status":   "success",
 			"message":  "Admin role granted",
@@ -416,6 +479,23 @@ func (h *Handlers) AdminSetAdminRole(w http.ResponseWriter, r *http.Request) {
 			RespondInternalError(w, r, "Failed to remove admin role")
 			return
 		}
+
+		// Log admin audit event - removing admin role
+		_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+			ActionType:   services.ActionAdminSetRole,
+			ResourceType: "user",
+			ResourceID:   userID,
+			ResourceName: userName,
+			ChangesBefore: map[string]interface{}{
+				"is_admin": true,
+			},
+			ChangesAfter: map[string]interface{}{
+				"is_admin":     false,
+				"user_deleted": deleted,
+			},
+			Severity: services.SeverityWarning,
+			Status:   "success",
+		})
 
 		if deleted {
 			slog.Info("user deleted after removing last role (admin)", "user_id", userID, "email", email)
@@ -497,6 +577,20 @@ func (h *Handlers) AdminResetUserPassword(w http.ResponseWriter, r *http.Request
 	}
 
 	slog.Info("password reset requested", "user_id", userID, "email", email)
+
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminPasswordReset,
+		ResourceType: "user",
+		ResourceID:   userID,
+		ResourceName: userName,
+		ChangesAfter: map[string]interface{}{
+			"password_reset_requested": true,
+			"email":                    email,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"status":  "success",
@@ -597,6 +691,23 @@ func (h *Handlers) AdminAddPublisherToUser(w http.ResponseWriter, r *http.Reques
 		"publisher_id", req.PublisherID,
 		"email", email)
 
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminGrantAccess,
+		ResourceType:      "user",
+		ResourceID:        userID,
+		ResourceName:      userName,
+		TargetPublisherID: req.PublisherID,
+		ChangesAfter: map[string]interface{}{
+			"user_id":        userID,
+			"publisher_id":   req.PublisherID,
+			"publisher_name": publisherName,
+			"granted":        true,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"status":       "success",
 		"message":      "Publisher access granted",
@@ -646,6 +757,26 @@ func (h *Handlers) AdminRemovePublisherFromUser(w http.ResponseWriter, r *http.R
 		RespondInternalError(w, r, "Failed to remove publisher access")
 		return
 	}
+
+	// Log admin audit event - revoking access is critical
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminRevokeAccess,
+		ResourceType:      "user",
+		ResourceID:        userID,
+		TargetPublisherID: publisherID,
+		ChangesBefore: map[string]interface{}{
+			"user_id":      userID,
+			"email":        email,
+			"publisher_id": publisherID,
+			"had_access":   true,
+		},
+		ChangesAfter: map[string]interface{}{
+			"had_access":   false,
+			"user_deleted": deleted,
+		},
+		Severity: services.SeverityCritical,
+		Status:   "success",
+	})
 
 	if deleted {
 		slog.Info("user deleted after removing last publisher",

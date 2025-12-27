@@ -112,6 +112,24 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Step 5b: Log alias create/update
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryAlias,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "publisher_zman_alias",
+		ResourceID:    int32ToString(alias.ID),
+		ResourceName:  zmanKey,
+		ChangesAfter: map[string]interface{}{
+			"alias_hebrew":          req.AliasHebrew,
+			"alias_english":         req.AliasEnglish,
+			"alias_transliteration": req.AliasTransliteration,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key": zmanKey,
+		},
+	})
+
 	// Step 6: Respond
 	response := AliasResponse{
 		ID:                   int32ToString(alias.ID),
@@ -222,6 +240,19 @@ func (h *Handlers) DeleteAlias(w http.ResponseWriter, r *http.Request) {
 		RespondInternalError(w, r, "Failed to delete alias")
 		return
 	}
+
+	// Step 5b: Log alias deletion
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryAlias,
+		EventAction:   AuditActionDelete,
+		ResourceType:  "publisher_zman_alias",
+		ResourceID:    zmanKey, // Use zman_key as ID since alias was deleted
+		ResourceName:  zmanKey,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key": zmanKey,
+		},
+	})
 
 	// Step 6: Respond with 204 No Content
 	w.WriteHeader(http.StatusNoContent)

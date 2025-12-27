@@ -334,10 +334,10 @@ export function PreferencesProvider({
       }
     };
 
-    window.addEventListener('preferences-cookie-change' as any, handleCookieChange as any);
+    window.addEventListener('preferences-cookie-change', handleCookieChange as EventListener);
 
     return () => {
-      window.removeEventListener('preferences-cookie-change' as any, handleCookieChange as any);
+      window.removeEventListener('preferences-cookie-change', handleCookieChange as EventListener);
     };
   }, []);
 

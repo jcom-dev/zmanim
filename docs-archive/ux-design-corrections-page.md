@@ -28,9 +28,9 @@ This design eliminates the global coverage limitation while creating an intuitiv
 
 ### 1.1 Product Overview
 
-**Shtetl Zmanim** is a multi-publisher platform for Jewish prayer times where:
+**Shtetl Zmanim** is a multi-publisher platform for Jewish Zmanim where:
 - Publishers define calculation formulas using a DSL (Domain Specific Language)
-- Users get accurate zmanim (prayer times) for their specific location
+- Users get accurate zmanim (Zmanim) for their specific location
 - Location data (coordinates, elevation) comes from a global geo_localities database with ~4M localities
 - Accuracy of location data is critical - even small coordinate errors can affect prayer time calculations
 

@@ -1,13 +1,14 @@
 # SQLc Query Registry
 
 ## Overview
-20 SQL query files defining type-safe database operations. All handlers MUST use SQLc-generated code (100% compliance).
+21 SQL query files defining type-safe database operations. All handlers MUST use SQLc-generated code (100% compliance).
 
 ## Query Files
 
 | File | Tables | Used By | Query Count | Purpose |
 |------|--------|---------|-------------|---------|
 | admin.sql | publishers, publisher_statuses, users | admin.go | ~10 | Admin dashboard statistics and publisher management |
+| audit.sql | audit.events, audit.access_log, audit.export_jobs | audit_logs.go | ~25 | Audit trail logging, querying, and compliance |
 | ai.sql | ai_index, ai_content_sources | ai.go | ~8 | AI formula suggestion index management |
 | algorithms.sql | publisher_zmanim, algorithm_statuses | publisher_zmanim.go, ai_formula.go, algorithm_collaboration.go | ~15 | Algorithm/formula CRUD operations |
 | aliases.sql | publisher_aliases | publisher_aliases.go | ~6 | Publisher name alias management |
@@ -82,6 +83,7 @@ WHERE p.id = $1;
 
 | Handler | Primary Queries | Secondary Queries |
 |---------|----------------|-------------------|
+| audit_logs.go | audit.sql | publishers.sql |
 | publisher_zmanim.go | zmanim.sql | algorithms.sql, lookups.sql |
 | coverage.go | coverage.sql | geo_boundaries.sql, cities.sql |
 | admin.go | admin.sql | publishers.sql, user.sql |
@@ -98,6 +100,7 @@ WHERE p.id = $1;
 - ✅ cities, geo_city_boundaries, geo_country_boundaries
 - ✅ users, publisher_snapshots
 - ✅ ai_index, jewish_events
+- ✅ audit.events, audit.access_log, audit.export_jobs, audit.retention_policies
 
 ### Lookup Tables (covered)
 - ✅ All 21 lookup tables via lookups.sql
@@ -208,9 +211,65 @@ cd api && go test ./internal/db/... -v
 
 ## Recent Changes
 
+- 2025-12-26: Added audit.sql for comprehensive audit trail system
 - 2025-12-07: Added geo_boundaries.sql for elevation data
 - 2025-12-07: Enhanced cities.sql with multi-language support
 - 2025-12-02: Migrated all raw SQL to SQLc files
+
+## Audit Trail Queries (audit.sql)
+
+The audit.sql file provides comprehensive audit trail functionality:
+
+### Event Recording
+| Query | Purpose |
+|-------|---------|
+| RecordAuditEvent | Insert new audit event with auto-computed hash chain |
+
+### Event Retrieval
+| Query | Purpose |
+|-------|---------|
+| GetAuditEventByID | Single event detail view |
+| GetAuditEvents | List with filters + cursor pagination |
+| GetAuditEventsByResource | Resource history (all changes to one entity) |
+| GetAuditEventsByActor | User activity history |
+| GetAuditEventsForPublisher | Publisher-scoped events (tenant isolation) |
+
+### Statistics
+| Query | Purpose |
+|-------|---------|
+| CountAuditEvents | Total count for pagination |
+| CountAuditEventsForPublisher | Publisher-specific count |
+| GetAuditEventStats | Dashboard aggregations |
+| GetAuditEventStatsByCategory | Category breakdown |
+
+### Export & Compliance
+| Query | Purpose |
+|-------|---------|
+| ExportAuditEvents | Bulk export for CSV/JSON |
+| VerifyHashChain | Tamper detection validation |
+| GetHashChainBreaks | Find broken chain links |
+| GetRetentionPolicies | Retention rules |
+
+### Meta-Auditing
+| Query | Purpose |
+|-------|---------|
+| LogAuditAccess | Record audit data access |
+| GetAuditAccessLog | Meta-audit reporting |
+
+### Export Jobs
+| Query | Purpose |
+|-------|---------|
+| CreateExportJob | Queue new export |
+| GetExportJob | Check job status |
+| UpdateExportJobCompleted | Mark job done |
+
+### Cursor Pagination Pattern
+```sql
+-- Cursor format: (occurred_at, id)
+WHERE (occurred_at, id) < (cursor_timestamp, cursor_id)
+ORDER BY occurred_at DESC, id DESC
+LIMIT limit_val + 1  -- Fetch extra to detect hasMore
+```
 
 ## Documentation
 

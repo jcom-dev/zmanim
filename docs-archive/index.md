@@ -1,7 +1,7 @@
 # Shtetl Zmanim Documentation
 
 > **Last Updated:** 2025-12-21
-> **Project:** Multi-publisher platform for Jewish prayer times
+> **Project:** Multi-publisher platform for Jewish Zmanim
 > **Stack:** Go 1.24+ / Next.js 16 / PostgreSQL+PostGIS / Clerk / Redis
 
 ---
@@ -120,7 +120,7 @@ Swagger UI:  http://localhost:8080/swagger/index.html
 ## Key Concepts
 
 ### Publisher
-An organization that publishes zmanim (prayer times) for their community. Publishers define calculation formulas and coverage areas.
+An organization that publishes zmanim (Zmanim) for their community. Publishers define calculation formulas and coverage areas.
 
 ### Zman (pl. Zmanim)
 A single prayer time with:

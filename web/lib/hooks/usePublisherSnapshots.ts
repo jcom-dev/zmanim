@@ -11,10 +11,8 @@ import {
   usePublisherQuery,
   usePublisherMutation,
   useDeleteMutation,
-  useDynamicMutation,
 } from './useApiQuery';
 import { useApi } from '@/lib/api-client';
-import { usePublisherContext } from '@/providers/PublisherContext';
 import { toast } from 'sonner';
 
 // =============================================================================
@@ -140,7 +138,6 @@ export const useImportSnapshot = () =>
 export function useRestoreSnapshot() {
   const api = useApi();
   const queryClient = useQueryClient();
-  const { selectedPublisher } = usePublisherContext();
 
   return useMutation({
     mutationFn: async (snapshotId: string) => {

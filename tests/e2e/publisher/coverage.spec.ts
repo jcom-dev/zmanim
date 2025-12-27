@@ -4,7 +4,7 @@
  * Optimized for parallel execution using shared fixtures.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import {
   loginAsPublisher,
   getSharedPublisher,
@@ -14,12 +14,31 @@ import {
 // All tests run in parallel
 test.describe.configure({ mode: 'parallel' });
 
+/**
+ * Wait for coverage page to finish loading
+ */
+async function waitForCoverageLoad(page: Page) {
+  // Wait for page to be in load or domcontentloaded state
+  await page.waitForLoadState('domcontentloaded');
+
+  // Wait for loading state to clear - coverage shows "Loading coverage..." while fetching
+  await page.waitForFunction(
+    () => !document.body.textContent?.includes('Loading coverage'),
+    { timeout: 15000 }
+  ).catch(() => {
+    // If already loaded or text not found, continue
+  });
+
+  // Wait for Coverage heading to appear (indicates page is ready)
+  await expect(page.getByRole('heading', { name: /Coverage/i }).first()).toBeVisible({ timeout: 10000 });
+}
+
 test.describe('Coverage - Page Access', () => {
   test('can access coverage page', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
     expect(page.url()).toContain('/publisher/coverage');
   });
@@ -28,34 +47,34 @@ test.describe('Coverage - Page Access', () => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
-    await expect(page.getByRole('heading', { name: 'Coverage Areas' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Coverage Areas' }).first()).toBeVisible();
   });
 
   test('shows description', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
-    await expect(page.getByText(/define where users can find/i)).toBeVisible();
+    await expect(page.getByText(/define where users can find/i).first()).toBeVisible();
   });
 
   test('has Add Coverage button', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
-    await expect(page.getByRole('button', { name: /add coverage/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /add coverage/i }).first()).toBeVisible();
   });
 
   test('navigable from dashboard', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/dashboard`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click the Coverage card link (contains the h2 heading)
     await page.getByRole('link', { name: /Coverage/i }).click();
@@ -69,7 +88,7 @@ test.describe('Coverage - Empty State', () => {
     const publisher = getSharedPublisher('verified-2');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
     // Check for either empty state or existing coverage
     const content = await page.textContent('body');
@@ -82,27 +101,27 @@ test.describe('Coverage - Add Dialog', () => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
     await page.getByRole('button', { name: /add coverage/i }).first().click();
-    await expect(page.getByText('Add Coverage Area')).toBeVisible();
+    await expect(page.getByRole('dialog').getByText('Add Coverage Area')).toBeVisible();
   });
 
   test('dialog shows description', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
     await page.getByRole('button', { name: /add coverage/i }).first().click();
-    await expect(page.getByText(/select a country, region, or city/i)).toBeVisible();
+    await expect(page.getByText(/search and select geographic areas/i)).toBeVisible();
   });
 
   test('dialog shows countries', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
     await page.getByRole('button', { name: /add coverage/i }).first().click();
 
@@ -114,15 +133,15 @@ test.describe('Coverage - Add Dialog', () => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
     await page.getByRole('button', { name: /add coverage/i }).first().click();
-    await expect(page.getByText('Add Coverage Area')).toBeVisible();
+    await expect(page.getByRole('dialog').getByText('Add Coverage Area')).toBeVisible();
 
     await page.keyboard.press('Escape');
 
     // Wait for dialog to close
-    await expect(page.getByText('Add Coverage Area')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('dialog').getByText('Add Coverage Area')).not.toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -131,7 +150,7 @@ test.describe('Coverage - With Data', () => {
     const publisher = getSharedPublisher('with-coverage');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/coverage`);
-    await page.waitForLoadState('networkidle');
+    await waitForCoverageLoad(page);
 
     const content = await page.textContent('body');
     if (!content?.includes('No Coverage Areas')) {

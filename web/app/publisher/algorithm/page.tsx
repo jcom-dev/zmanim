@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
 import { usePublisherContext } from '@/providers/PublisherContext';
-import { useApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -69,7 +67,6 @@ export default function AlgorithmEditorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { selectedPublisher } = usePublisherContext();
-  const api = useApi();
   const { preferences } = usePreferences();
 
   // Focus parameter from URL (used when redirecting from registry import)
@@ -154,7 +151,7 @@ export default function AlgorithmEditorPage() {
     const formatted: Record<string, string> = {};
     for (const z of zmanim) {
       // Check if zman has calculated time (when params are provided)
-      const zmanWithTime = z as any;
+      const zmanWithTime = z as PublisherZman & { time?: string; time_rounded?: string; error?: string };
       const error = zmanWithTime.error;
       if (error) continue;
 
@@ -309,9 +306,9 @@ export default function AlgorithmEditorPage() {
   const currentViewOptionalCount = currentViewZmanim.filter(z => z.display_status === 'optional').length;
   const currentViewHiddenCount = currentViewZmanim.filter(z => z.display_status === 'hidden').length;
 
-  // Auto-launch wizard when there are 0 zmanim (new publisher or after restart)
-  // Only show wizard if we have a locality selected and still have no zmanim
-  const shouldShowWizard = forceShowWizard || (localityId && zmanim.length === 0);
+  // Auto-launch wizard when there are 0 zmanim AND no coverage (new publisher or after restart)
+  // The wizard helps set up both coverage and zmanim
+  const shouldShowWizard = forceShowWizard || (zmanim.length === 0 && !hasCoverage);
 
   if (!isLoading && shouldShowWizard) {
     return (
@@ -351,7 +348,7 @@ export default function AlgorithmEditorPage() {
       onSuccess: () => {
         setForceShowWizard(true);
       },
-      onError: (err: any) => {
+      onError: (err: unknown) => {
         console.error('Failed to restart wizard:', err);
       },
     });

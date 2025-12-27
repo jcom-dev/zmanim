@@ -870,7 +870,7 @@ saveOverride.mutate(payload, {
 
 **As a** user,
 **I want** zmanim calculations to reflect the latest publisher settings,
-**So that** I don't receive outdated prayer times after publishers make changes.
+**So that** I don't receive outdated Zmanim after publishers make changes.
 
 **Context:** The Redis cache stores calculated zmanim times (24hr TTL) but several handlers that modify calculation inputs don't invalidate the cache. This means changes to coverage, location overrides, and tags can take up to 24 hours to take effect.
 

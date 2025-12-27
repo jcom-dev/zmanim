@@ -149,7 +149,7 @@ Created `scripts/validate-hidden-tags.sh` with 8 comprehensive tests:
 - `category_candle_lighting` - Candle lighting times
 - `category_shema` - Shema reading times
 - `category_havdalah` - Havdalah times
-- `category_tefila` - Prayer times
+- `category_tefila` - Zmanim
 - `category_fast_start` - Fast beginning times
 - `category_mincha` - Mincha times
 - `category_chametz` - Chametz-related times

@@ -42,10 +42,6 @@ interface AddCoverageRequest {
   locality_id?: number;
 }
 
-interface UpdateCoverageRequest {
-  is_active: boolean;
-}
-
 /**
  * Hook for publisher coverage management
  *

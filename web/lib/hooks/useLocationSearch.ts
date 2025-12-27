@@ -18,13 +18,13 @@ export interface UseLocationSearchOptions {
   /** Debounce delay in milliseconds (default: 300ms) */
   debounceMs?: number;
   /** Additional query parameters for filtering results */
-  filters?: Record<string, any>;
+  filters?: Record<string, string | number | boolean>;
 }
 
 /**
  * Return value from useLocationSearch hook
  */
-export interface UseLocationSearchReturn<T = any> {
+export interface UseLocationSearchReturn<T = Record<string, unknown>> {
   /** Current search query string */
   query: string;
   /** Function to update the search query */
@@ -86,7 +86,7 @@ export interface UseLocationSearchReturn<T = any> {
  * }
  * ```
  */
-export function useLocationSearch<T = any>(
+export function useLocationSearch<T = Record<string, unknown>>(
   options: UseLocationSearchOptions = {}
 ): UseLocationSearchReturn<T> {
   const { endpoint = '/localities/search', debounceMs = 300, filters = {} } = options;
@@ -135,7 +135,7 @@ export function useLocationSearch<T = any>(
         });
 
         // Make API request
-        const data = await api.public.get<any>(`${endpoint}?${params}`, {
+        const data = await api.public.get<T[] | { localities?: T[]; results?: T[]; data?: T[] }>(`${endpoint}?${params}`, {
           signal: controller.signal,
         });
 
@@ -153,10 +153,11 @@ export function useLocationSearch<T = any>(
         }
 
         setResults(searchResults);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Don't set error if request was aborted (user changed query)
-        if (err.name !== 'AbortError' && !controller.signal.aborted) {
-          const errorMessage = err.message || 'Search failed';
+        const isAbortError = err instanceof Error && err.name === 'AbortError';
+        if (!isAbortError && !controller.signal.aborted) {
+          const errorMessage = err instanceof Error ? err.message : 'Search failed';
           setError(errorMessage);
           setResults([]);
         }

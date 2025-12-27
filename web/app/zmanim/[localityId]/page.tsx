@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
-import { MapPin, Building, ChevronRight, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { MapPin, ChevronRight, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useApi } from '@/lib/api-client';
 import { ModeToggle } from '@/components/mode-toggle';

@@ -81,7 +81,7 @@ test.describe('Home Page', () => {
     await expect(footer).toBeVisible();
 
     // Check footer text
-    const footerText = page.getByText(/Multi-Publisher Prayer Times Platform/i);
+    const footerText = page.getByText(/Multi-Publisher Zmanim Platform/i);
     await expect(footerText).toBeVisible();
   });
 });

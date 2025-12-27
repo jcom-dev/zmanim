@@ -187,7 +187,7 @@ export default function PublisherProfilePage() {
           // Clear success message after 3 seconds
           setTimeout(() => setSuccess(false), 3000);
         },
-        onError: (err: any) => {
+        onError: (err: Error) => {
           console.error('Failed to update profile:', err);
           setError(err instanceof Error ? err.message : 'Failed to update profile');
           setSaving(false);

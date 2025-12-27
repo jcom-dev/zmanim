@@ -137,12 +137,12 @@ export function usePreviewToolbar(options: UsePreviewToolbarOptions): PreviewToo
       }
     };
 
-    window.addEventListener('preview-toolbar-cookie-change' as any, handleCookieChange as any);
+    window.addEventListener('preview-toolbar-cookie-change' as keyof WindowEventMap, handleCookieChange as EventListener);
 
     return () => {
       window.removeEventListener(
-        'preview-toolbar-cookie-change' as any,
-        handleCookieChange as any
+        'preview-toolbar-cookie-change' as keyof WindowEventMap,
+        handleCookieChange as EventListener
       );
     };
   }, [cookieNames.localityId, cookieNames.localityName, cookieNames.date]);

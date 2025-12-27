@@ -441,6 +441,26 @@ func (h *Handlers) AdminUpdateLocality(w http.ResponseWriter, r *http.Request) {
 		"locality_id", localityID,
 		"admin_id", adminUserID)
 
+	// Log admin audit event
+	changesAfter := map[string]interface{}{}
+	if req.Latitude != nil {
+		changesAfter["latitude"] = *req.Latitude
+	}
+	if req.Longitude != nil {
+		changesAfter["longitude"] = *req.Longitude
+	}
+	if req.Elevation != nil {
+		changesAfter["elevation"] = *req.Elevation
+	}
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminLocalityUpdate,
+		ResourceType: "locality",
+		ResourceID:   localityIDStr,
+		ChangesAfter: changesAfter,
+		Severity:     services.SeverityInfo,
+		Status:       "success",
+	})
+
 	// 6. Respond
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"status":  "updated",

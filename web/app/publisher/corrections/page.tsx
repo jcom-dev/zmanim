@@ -14,7 +14,7 @@ import { useApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, FileText, CheckCircle2, XCircle, Clock, Settings, Trash2, Eye, Map, ArrowLeft, Edit, Database, Globe, Building2, Search } from 'lucide-react';
+import { Loader2, FileText, CheckCircle2, XCircle, Clock, Settings, Trash2, Eye, ArrowLeft, Edit, Database, Globe, Building2, Search } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
@@ -39,7 +39,7 @@ import { LocalityPicker } from '@/components/shared/LocalityPicker';
 import { LocationMapView } from '@/components/shared/LocationMapView';
 import { LocationOverrideDialog } from '@/components/publisher/LocationOverrideDialog';
 import { CorrectionRequestDialog } from '@/components/publisher/CorrectionRequestDialog';
-import type { LocalitySelection, LocalitySearchResult, PublisherLocationOverride } from '@/types/geography';
+import type { LocalitySelection, LocalitySearchResult } from '@/types/geography';
 
 interface CorrectionRequest {
   id: number;
@@ -423,20 +423,6 @@ export default function PublisherCorrectionsPage() {
     return <Badge variant="outline" className={config.className}>{type}</Badge>;
   };
 
-  const getProposedChanges = (request: CorrectionRequest): string[] => {
-    const changes: string[] = [];
-    if (request.proposed_latitude !== null) {
-      changes.push(`Latitude: ${request.proposed_latitude}`);
-    }
-    if (request.proposed_longitude !== null) {
-      changes.push(`Longitude: ${request.proposed_longitude}`);
-    }
-    if (request.proposed_elevation !== null) {
-      changes.push(`Elevation: ${request.proposed_elevation}m`);
-    }
-    return changes;
-  };
-
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -810,7 +796,7 @@ export default function PublisherCorrectionsPage() {
               </div>
               <h3 className="text-base sm:text-lg font-semibold mb-2">No Location Overrides</h3>
               <p className="text-sm sm:text-base text-muted-foreground mb-4 max-w-2xl mx-auto">
-                Override coordinates or elevation for specific locations that only affect your publisher's zmanim calculations. The public database remains unchanged.
+                Override coordinates or elevation for specific locations that only affect your publisher&apos;s zmanim calculations. The public database remains unchanged.
               </p>
               <div className="bg-primary/10 border-l-4 border-primary rounded p-4 text-left max-w-2xl mx-auto">
                 <p className="text-sm text-muted-foreground">
@@ -916,7 +902,7 @@ export default function PublisherCorrectionsPage() {
               </p>
               <div className="bg-primary/10 border-l-4 border-primary rounded p-4 text-left max-w-2xl mx-auto mb-4">
                 <p className="text-sm text-muted-foreground">
-                  <strong className="text-foreground">When to use:</strong> Use this when you've verified the coordinates or elevation are factually incorrect.
+                  <strong className="text-foreground">When to use:</strong> Use this when you&apos;ve verified the coordinates or elevation are factually incorrect.
                 </p>
               </div>
               <div className="flex items-center justify-center gap-4 text-sm">

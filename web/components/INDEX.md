@@ -20,6 +20,7 @@
 | admin/ | 5 | Admin dashboard | Admin |
 | preview/ | 3 | Zmanim previews | Publisher |
 | home/ | 2 | Landing page | Public |
+| audit/ | 6 | Audit log components | Publisher |
 
 ---
 
@@ -205,6 +206,23 @@ Reusable across all user roles.
 | Component | Purpose |
 |-----------|---------|
 | **RoleNavigation.tsx** | Role-based navigation (Public/Publisher/Admin) |
+
+---
+
+### Audit Log Components (`/audit/`)
+
+Timeline-based audit log visualization for tracking publisher activity.
+
+| Component | APIs Used | Purpose |
+|-----------|-----------|---------|
+| **AuditEventCard.tsx** | (props) | Single event card with timeline indicator, actor, and description |
+| **AuditEventList.tsx** | (props) | Timeline view grouping events by date |
+| **AuditFilters.tsx** | (props) | Filter controls: resource type, action, date range |
+| **AuditEventDetailModal.tsx** | (props) | Full event details with diff view |
+| **AuditDiff.tsx** | (props) | Before/after comparison for changes |
+| **ExportButton.tsx** | POST /publisher/audit-logs/export | Export logs as CSV or JSON |
+
+**Page:** `/publisher/audit` - Publisher audit log page with filtering and pagination
 
 ---
 
@@ -439,6 +457,14 @@ import type { Publisher } from '@/types';              // 5. Types
 
 ## Recent Changes (2025-12)
 
+- **2025-12-26:** Added Audit Log components and publisher audit page
+  - Created `/components/audit/` with 6 components for audit log visualization
+  - Timeline-based event display with date grouping and relative timestamps
+  - Filters for resource type, action type, and date range with presets
+  - Event detail modal with before/after diff visualization
+  - Export functionality for CSV and JSON formats
+  - Added `/publisher/audit` page accessible from navigation
+  - Added TypeScript types in `/lib/types/audit.ts`
 - **2025-12-24:** Added WeeklyCalendarSelectionDialog for weekly calendar PDF export
   - Dialog allows selection of which zman types to include (published always included, draft/optional/hidden optional)
   - Integrated into WeekPreview component with "Print Calendar" button

@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -17,7 +15,6 @@ import {
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import {
   ChevronDown,
-  ChevronUp,
   Check,
   MapPin,
   Search,
@@ -33,7 +30,6 @@ import {
   useMasterZmanimGrouped,
   useEventZmanimGrouped,
   MasterZman,
-  GroupedMasterZmanim,
 } from '@/lib/hooks/useZmanimList';
 import { useTimeCategories } from '@/lib/hooks/useCategories';
 import { getIcon } from '@/lib/icons';

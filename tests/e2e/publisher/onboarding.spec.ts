@@ -24,25 +24,6 @@ async function waitForWelcome(page: Page) {
   );
 }
 
-// Helper to wait for template step
-async function waitForTemplateStep(page: Page) {
-  await page.waitForFunction(
-    () => document.body.textContent?.toLowerCase().includes('starting point') ||
-          document.body.textContent?.toLowerCase().includes('choose your'),
-    { timeout: 30000 }
-  );
-}
-
-// Helper to navigate to template step
-async function goToTemplateStep(page: Page, publisherId: string) {
-  await loginAsPublisher(page, publisherId);
-  await page.goto(`${BASE_URL}/publisher/algorithm`);
-  await page.waitForLoadState('networkidle');
-  await waitForWelcome(page);
-  await page.getByRole('button', { name: /get started/i }).click();
-  await waitForTemplateStep(page);
-}
-
 test.describe('Onboarding - Welcome Step', () => {
   test('displays welcome message', async ({ page }) => {
     const publisher = getEmptyPublisher(1);
@@ -55,25 +36,25 @@ test.describe('Onboarding - Welcome Step', () => {
   });
 
   test('shows Hebrew text', async ({ page }) => {
-    const publisher = getEmptyPublisher(1);
+    const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
     await waitForWelcome(page);
 
-    await expect(page.getByText('ברוכים הבאים')).toBeVisible();
+    await expect(page.getByText('ברוכים הבאים לזמנים לאב')).toBeVisible();
   });
 
   test('shows feature cards', async ({ page }) => {
-    const publisher = getEmptyPublisher(1);
+    const publisher = getEmptyPublisher(3);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
     await waitForWelcome(page);
 
-    await expect(page.getByText('Choose Template')).toBeVisible();
-    await expect(page.getByText('Customize')).toBeVisible();
-    await expect(page.getByText('Set Coverage')).toBeVisible();
+    // Check for feature card titles - wait for both to be visible
+    await expect(page.locator('text=Select & Customize').first()).toBeVisible();
+    await expect(page.locator('text=Set Coverage').first()).toBeVisible();
   });
 
   test('shows time estimate', async ({ page }) => {
@@ -87,7 +68,7 @@ test.describe('Onboarding - Welcome Step', () => {
   });
 
   test('has Get Started button', async ({ page }) => {
-    const publisher = getEmptyPublisher(1);
+    const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
@@ -97,16 +78,16 @@ test.describe('Onboarding - Welcome Step', () => {
   });
 
   test('has Skip button', async ({ page }) => {
-    const publisher = getEmptyPublisher(1);
+    const publisher = getEmptyPublisher(3);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
     await waitForWelcome(page);
 
-    await expect(page.getByRole('button', { name: /skip/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /skip wizard/i })).toBeVisible();
   });
 
-  test('Get Started advances to template step', async ({ page }) => {
+  test('Get Started advances to customize step', async ({ page }) => {
     const publisher = getEmptyPublisher(1);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
@@ -114,84 +95,23 @@ test.describe('Onboarding - Welcome Step', () => {
     await waitForWelcome(page);
 
     await page.getByRole('button', { name: /get started/i }).click();
-    await waitForTemplateStep(page);
 
-    await expect(page.getByText(/Choose Your Starting Point|Choose Template/)).toBeVisible();
-  });
-});
-
-test.describe('Onboarding - Template Selection', () => {
-  test('shows Standard Defaults option', async ({ page }) => {
-    const publisher = getEmptyPublisher(2);
-    await goToTemplateStep(page, publisher.id);
-
-    await expect(page.getByText('Standard Defaults')).toBeVisible();
-    await expect(page.getByText('ברירות מחדל סטנדרטיות')).toBeVisible();
-  });
-
-  test('shows Copy from Publisher option', async ({ page }) => {
-    const publisher = getEmptyPublisher(2);
-    await goToTemplateStep(page, publisher.id);
-
-    await expect(page.getByText('Copy from Publisher')).toBeVisible();
-    await expect(page.getByText('העתק ממפרסם')).toBeVisible();
-  });
-
-  test('Continue disabled without selection', async ({ page }) => {
-    const publisher = getEmptyPublisher(2);
-    await goToTemplateStep(page, publisher.id);
-
-    await expect(page.getByRole('button', { name: /continue/i })).toBeDisabled();
-  });
-
-  test('can select Standard Defaults template', async ({ page }) => {
-    const publisher = getEmptyPublisher(2);
-    await goToTemplateStep(page, publisher.id);
-
-    await page.getByText('Standard Defaults').click();
-    await expect(page.getByRole('button', { name: /continue/i })).toBeEnabled();
-  });
-
-  test('Back returns to welcome', async ({ page }) => {
-    const publisher = getEmptyPublisher(2);
-    await goToTemplateStep(page, publisher.id);
-
-    await page.getByRole('button', { name: /back/i }).click();
-    await waitForWelcome(page);
-
-    await expect(page.getByText('Welcome to Shtetl Zmanim')).toBeVisible();
-  });
-
-  test('Continue advances to customize', async ({ page }) => {
-    const publisher = getEmptyPublisher(2);
-    await goToTemplateStep(page, publisher.id);
-
-    await page.getByText('Standard Defaults').click();
-    await page.getByRole('button', { name: /continue/i }).click();
-
+    // Wait for customize zmanim step
     await page.waitForFunction(
-      () => document.body.textContent?.toLowerCase().includes('customize') ||
-            document.body.textContent?.toLowerCase().includes('zman'),
+      () => document.body.textContent?.toLowerCase().includes('customize'),
       { timeout: 30000 }
     );
 
-    const content = await page.textContent('body');
-    expect(content?.toLowerCase()).toMatch(/customize|zmanim/);
-  });
-
-  test('Standard Defaults shows zmanim list', async ({ page }) => {
-    const publisher = getEmptyPublisher(2);
-    await goToTemplateStep(page, publisher.id);
-
-    // Verify Standard Defaults shows included zmanim
-    await expect(page.getByText('Alos HaShachar')).toBeVisible();
-    await expect(page.getByText('Sunrise')).toBeVisible();
+    await expect(page.getByText(/customize zmanim/i)).toBeVisible();
   });
 });
 
+// Template Selection step removed in UI redesign - wizard now goes:
+// Welcome → Customize Zmanim → Set Coverage → Review & Publish
+
 test.describe('Onboarding - Navigation', () => {
   test('can navigate forward through steps', async ({ page }) => {
-    const publisher = getEmptyPublisher(3);
+    const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
@@ -200,15 +120,9 @@ test.describe('Onboarding - Navigation', () => {
     await waitForWelcome(page);
     await page.getByRole('button', { name: /get started/i }).click();
 
-    // Step 1: Template
-    await waitForTemplateStep(page);
-    await page.getByText('Standard Defaults').click();
-    await page.getByRole('button', { name: /continue/i }).click();
-
-    // Step 2: Customize
+    // Step 1: Customize Zmanim
     await page.waitForFunction(
-      () => document.body.textContent?.toLowerCase().includes('customize') ||
-            document.body.textContent?.toLowerCase().includes('zman'),
+      () => document.body.textContent?.toLowerCase().includes('customize'),
       { timeout: 30000 }
     );
 
@@ -223,7 +137,12 @@ test.describe('Onboarding - Navigation', () => {
 
     await waitForWelcome(page);
     await page.getByRole('button', { name: /get started/i }).click();
-    await waitForTemplateStep(page);
+
+    // Wait for customize step
+    await page.waitForFunction(
+      () => document.body.textContent?.toLowerCase().includes('customize'),
+      { timeout: 30000 }
+    );
 
     await page.getByRole('button', { name: /back/i }).click();
     await waitForWelcome(page);
@@ -242,19 +161,20 @@ test.describe('Onboarding - Progress Indicator', () => {
 
     const content = await page.textContent('body');
     expect(content?.includes('Welcome')).toBeTruthy();
-    expect(content?.includes('Template') || content?.includes('Choose')).toBeTruthy();
+    // New wizard steps: Welcome, Customize Zmanim, Set Coverage, Review & Publish
+    expect(content?.includes('Customize Zmanim') || content?.includes('Customize')).toBeTruthy();
   });
 });
 
 test.describe('Onboarding - Skip Flow', () => {
   test('skip exits onboarding', async ({ page }) => {
-    const publisher = getEmptyPublisher(3);
+    const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
     await waitForWelcome(page);
 
-    await page.getByRole('button', { name: /skip/i }).click();
+    await page.getByRole('button', { name: /skip wizard/i }).click();
     await page.waitForTimeout(2000);
 
     // Should exit onboarding (may show import dialog or editor)
@@ -262,25 +182,5 @@ test.describe('Onboarding - Skip Flow', () => {
   });
 });
 
-test.describe('Onboarding - State Persistence', () => {
-  test('persists after refresh', async ({ page }) => {
-    const publisher = getEmptyPublisher(1);
-    await loginAsPublisher(page, publisher.id);
-    await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
-
-    await waitForWelcome(page);
-    await page.getByRole('button', { name: /get started/i }).click();
-    await waitForTemplateStep(page);
-
-    await page.getByText('Standard Defaults').click();
-    await page.waitForTimeout(1000);
-
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-
-    // State should be persisted
-    expect(await page.textContent('body')).toBeTruthy();
-  });
-});
+// State Persistence test removed - wizard is in-memory only (no persistence)
+// as documented in OnboardingWizard.tsx

@@ -8,7 +8,7 @@
 
 ## Overview
 
-Single epic delivering complete Shtetl Zmanim MVP - a multi-publisher platform for halachic authorities to publish customized prayer times with algorithm transparency.
+Single epic delivering complete Shtetl Zmanim MVP - a multi-publisher platform for halachic authorities to publish customized Zmanim with algorithm transparency.
 
 **Architecture Decisions Applied:**
 - City-based coverage (simplified from polygons) with country/region/city hierarchy
@@ -56,7 +56,7 @@ Single epic delivering complete Shtetl Zmanim MVP - a multi-publisher platform f
 
 **Goal:** Deliver a complete, production-ready multi-publisher zmanim platform where halachic authorities can configure their calculation algorithms and end users can view zmanim with full formula transparency.
 
-**User Value:** A rabbi can configure their preferred zmanim calculations, define their geographic coverage, and within minutes their community members can look up accurate prayer times and understand exactly how each time is calculated.
+**User Value:** A rabbi can configure their preferred zmanim calculations, define their geographic coverage, and within minutes their community members can look up accurate Zmanim and understand exactly how each time is calculated.
 
 ---
 
@@ -374,7 +374,7 @@ Single epic delivering complete Shtetl Zmanim MVP - a multi-publisher platform f
 
 **As the** system,
 **I want** to calculate accurate zmanim times,
-**So that** users receive correct prayer times based on publisher algorithms.
+**So that** users receive correct Zmanim based on publisher algorithms.
 
 **Acceptance Criteria:**
 
@@ -620,7 +620,7 @@ Single epic delivering complete Shtetl Zmanim MVP - a multi-publisher platform f
 
 **As an** end user,
 **I want** to see how each zmanim time is calculated,
-**So that** I understand the halachic basis for my prayer times.
+**So that** I understand the halachic basis for my Zmanim.
 
 **Acceptance Criteria:**
 

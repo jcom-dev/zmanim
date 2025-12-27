@@ -19,7 +19,8 @@
       "Bash(npm test:*)",
       "Bash(grep:*)",
       "Bash(npm run test:*)",
-      "Bash(gh run view:*)"
+      "Bash(gh run view:*)",
+      "Bash(npm run lint:*)"
     ]
   }
 }

@@ -12,7 +12,7 @@
   <story>
     <asA>developer</asA>
     <iWant>a Go-based DSL parser that lexes, parses, validates, and executes zmanim formulas</iWant>
-    <soThat>the backend can calculate accurate prayer times from DSL expressions</soThat>
+    <soThat>the backend can calculate accurate Zmanim from DSL expressions</soThat>
     <tasks>
       <task id="1" title="Create Package Structure" ac="4.2.1-4.2.4">
         <subtask>1.1 Create api/internal/dsl/ package directory</subtask>

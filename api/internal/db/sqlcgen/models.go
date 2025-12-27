@@ -7,6 +7,8 @@ package sqlcgen
 import (
 	"database/sql/driver"
 	"fmt"
+	"net/netip"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -142,28 +144,6 @@ type AiContentSource struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
-type AiIndex struct {
-	ID            int32              `json:"id"`
-	SourceID      int16              `json:"source_id"`
-	TotalChunks   int32              `json:"total_chunks"`
-	LastIndexedAt pgtype.Timestamptz `json:"last_indexed_at"`
-	StatusID      int16              `json:"status_id"`
-	ErrorMessage  *string            `json:"error_message"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-}
-
-type AiIndexStatus struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
-	Color              *string            `json:"color"`
-	SortOrder          int16              `json:"sort_order"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
 type Algorithm struct {
 	ID                int32              `json:"id"`
 	PublisherID       int32              `json:"publisher_id"`
@@ -239,6 +219,565 @@ type AstronomicalPrimitive struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Meta-audit table: tracks who accesses the audit log, when, and what they queried.
+// Required for SOC 2 compliance and security monitoring.
+type AuditAccessLog struct {
+	ID              int64              `json:"id"`
+	AccessorUserID  *int32             `json:"accessor_user_id"`
+	AccessorClerkID *string            `json:"accessor_clerk_id"`
+	AccessorRole    *string            `json:"accessor_role"`
+	AccessedAt      time.Time          `json:"accessed_at"`
+	QueryType       string             `json:"query_type"`
+	DateRangeStart  pgtype.Timestamptz `json:"date_range_start"`
+	DateRangeEnd    pgtype.Timestamptz `json:"date_range_end"`
+	Filters         []byte             `json:"filters"`
+	AccessMethod    *string            `json:"access_method"`
+	IpAddress       *netip.Addr        `json:"ip_address"`
+	UserAgent       *string            `json:"user_agent"`
+	RecordsReturned *int32             `json:"records_returned"`
+	RecordsExported *int32             `json:"records_exported"`
+	Justification   *string            `json:"justification"`
+	RequestID       pgtype.UUID        `json:"request_id"`
+}
+
+// Comprehensive audit trail for all system events. Partitioned by month for performance and retention management.
+// Uses ULID for time-ordered event IDs. Hash chain provides tamper detection.
+type AuditEvent struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AuditEvents202512 struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AuditEvents202601 struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AuditEvents202602 struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AuditEvents202603 struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AuditEvents202604 struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AuditEvents202605 struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AuditEventsDefault struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+// Tracks audit log export jobs. Supports async export for large datasets.
+// Exports expire after a configurable period for security.
+type AuditExportJob struct {
+	ID            string             `json:"id"`
+	UserID        string             `json:"user_id"`
+	PublisherID   *int32             `json:"publisher_id"`
+	Format        string             `json:"format"`
+	Filters       []byte             `json:"filters"`
+	Status        string             `json:"status"`
+	FilePath      *string            `json:"file_path"`
+	FileSizeBytes *int64             `json:"file_size_bytes"`
+	EntryCount    *int32             `json:"entry_count"`
+	ErrorMessage  *string            `json:"error_message"`
+	RequestedAt   time.Time          `json:"requested_at"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+}
+
+// Failed/error events in the last 24 hours for alerting and monitoring.
+type AuditFailedEvent struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+// Performance-optimized view for recent audit events (last 7 days). Used for dashboards.
+type AuditRecentEvent struct {
+	ID                 string             `json:"id"`
+	SequenceNum        *int64             `json:"sequence_num"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        string             `json:"event_action"`
+	EventType          string             `json:"event_type"`
+	EventSeverity      string             `json:"event_severity"`
+	OccurredAt         time.Time          `json:"occurred_at"`
+	ActorUserID        *string            `json:"actor_user_id"`
+	ActorClerkID       *string            `json:"actor_clerk_id"`
+	ActorName          *string            `json:"actor_name"`
+	ActorEmail         *string            `json:"actor_email"`
+	ActorIpAddress     *netip.Addr        `json:"actor_ip_address"`
+	ActorUserAgent     *string            `json:"actor_user_agent"`
+	ActorIsSystem      bool               `json:"actor_is_system"`
+	ImpersonatorUserID *string            `json:"impersonator_user_id"`
+	ImpersonatorName   *string            `json:"impersonator_name"`
+	ApiKeyID           *string            `json:"api_key_id"`
+	ApiKeyName         *string            `json:"api_key_name"`
+	PublisherID        *int32             `json:"publisher_id"`
+	PublisherSlug      *string            `json:"publisher_slug"`
+	ResourceType       *string            `json:"resource_type"`
+	ResourceID         *string            `json:"resource_id"`
+	ResourceName       *string            `json:"resource_name"`
+	ParentResourceType *string            `json:"parent_resource_type"`
+	ParentResourceID   *string            `json:"parent_resource_id"`
+	OperationType      string             `json:"operation_type"`
+	ChangesBefore      []byte             `json:"changes_before"`
+	ChangesAfter       []byte             `json:"changes_after"`
+	ChangesDiff        []byte             `json:"changes_diff"`
+	RequestID          string             `json:"request_id"`
+	TraceID            *string            `json:"trace_id"`
+	SessionID          *string            `json:"session_id"`
+	TransactionID      *string            `json:"transaction_id"`
+	ParentEventID      *string            `json:"parent_event_id"`
+	Status             string             `json:"status"`
+	ErrorCode          *string            `json:"error_code"`
+	ErrorMessage       *string            `json:"error_message"`
+	DurationMs         *int32             `json:"duration_ms"`
+	GeoCountryCode     *string            `json:"geo_country_code"`
+	GeoCity            *string            `json:"geo_city"`
+	Metadata           []byte             `json:"metadata"`
+	Tags               []string           `json:"tags"`
+	EventHash          *string            `json:"event_hash"`
+	PreviousEventHash  *string            `json:"previous_event_hash"`
+	SchemaVersion      int16              `json:"schema_version"`
+	RetentionTier      string             `json:"retention_tier"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+}
+
+// Defines retention policies per event type. Hot = active queries, Warm = occasional access, Cold = archive.
+// permanent_retention=true means never delete (required for some compliance scenarios).
+type AuditRetentionPolicy struct {
+	ID                 int32              `json:"id"`
+	EventCategory      string             `json:"event_category"`
+	EventAction        *string            `json:"event_action"`
+	RetentionDaysHot   int32              `json:"retention_days_hot"`
+	RetentionDaysWarm  int32              `json:"retention_days_warm"`
+	RetentionDaysCold  int32              `json:"retention_days_cold"`
+	PermanentRetention bool               `json:"permanent_retention"`
+	ComplianceReason   *string            `json:"compliance_reason"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Permanently blocked email addresses. Submissions silently ignored.
 type BlockedEmail struct {
 	ID    int32  `json:"id"`
@@ -279,15 +818,6 @@ type CalculationStatsDaily struct {
 	SourceExternal      int32 `json:"source_external"`
 }
 
-type CalculationType struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
 // Audit trail for all correction request actions (approve, reject, revert)
 type CorrectionRequestHistory struct {
 	ID                  int32              `json:"id"`
@@ -316,15 +846,6 @@ type CoverageLevel struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
-type DataType struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
 type DisplayGroup struct {
 	ID                 int32              `json:"id"`
 	Key                string             `json:"key"`
@@ -335,15 +856,6 @@ type DisplayGroup struct {
 	Color              *string            `json:"color"`
 	SortOrder          int32              `json:"sort_order"`
 	TimeCategories     []string           `json:"time_categories"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
-type EdgeType struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	Description        *string            `json:"description"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -367,14 +879,6 @@ type ExplanationCache struct {
 	SourceID    int16              `json:"source_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
-}
-
-type ExplanationSource struct {
-	ID                 int16              `json:"id"`
-	Key                string             `json:"key"`
-	DisplayNameHebrew  string             `json:"display_name_hebrew"`
-	DisplayNameEnglish string             `json:"display_name_english"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type GeoContinent struct {
@@ -640,12 +1144,6 @@ type LocationCorrectionRequest struct {
 	RevertedBy *string `json:"reverted_by"`
 	// Reason for reverting the correction
 	RevertReason *string `json:"revert_reason"`
-}
-
-type MasterZmanEvent struct {
-	ID            int32  `json:"id"`
-	MasterZmanID  *int32 `json:"master_zman_id"`
-	JewishEventID *int32 `json:"jewish_event_id"`
 }
 
 type MasterZmanTag struct {
@@ -919,18 +1417,6 @@ type PublisherZmanAlias struct {
 	Context              *string            `json:"context"`
 	IsPrimary            bool               `json:"is_primary"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-}
-
-type PublisherZmanEvent struct {
-	ID                  int32              `json:"id"`
-	PublisherZmanID     int32              `json:"publisher_zman_id"`
-	JewishEventID       int32              `json:"jewish_event_id"`
-	OverrideFormulaDsl  *string            `json:"override_formula_dsl"`
-	OverrideHebrewName  *string            `json:"override_hebrew_name"`
-	OverrideEnglishName *string            `json:"override_english_name"`
-	IsEnabled           bool               `json:"is_enabled"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublisherZmanTag struct {

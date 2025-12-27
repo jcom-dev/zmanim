@@ -12,7 +12,6 @@ import {
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import { toast } from 'sonner';
 import { Copy, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 // Types - exported for reuse
 export interface RelatedZmanInfo {
@@ -89,7 +88,6 @@ export function MasterDocumentationContent({
   showFormula = true,
   showCopyButton = true,
   className,
-  localityId,
 }: MasterDocumentationContentProps) {
   const [copiedState, setCopiedState] = useState(false);
 
@@ -107,7 +105,7 @@ export function MasterDocumentationContent({
   }, [masterZman.default_formula_dsl]);
 
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={className ? `space-y-6 ${className}` : 'space-y-6'}>
       {/* Category and Shita badges */}
       <div className="flex gap-2 flex-wrap">
         {masterZman.category && (

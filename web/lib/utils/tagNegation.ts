@@ -13,6 +13,8 @@ import { ZmanTag } from '@/lib/hooks/useZmanimList';
  */
 export const NEGATABLE_TAG_TYPES = ['event'] as const;
 
+export type NegatableTagType = typeof NEGATABLE_TAG_TYPES[number];
+
 /**
  * Display states for tag selector
  */
@@ -25,7 +27,7 @@ export type TagDisplayState = 'unselected' | 'positive' | 'negated';
  * @returns true if tag type is event
  */
 export function canNegateTag(tag: { tag_type: string }): boolean {
-  return NEGATABLE_TAG_TYPES.includes(tag.tag_type as any);
+  return NEGATABLE_TAG_TYPES.includes(tag.tag_type as NegatableTagType);
 }
 
 /**

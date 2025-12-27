@@ -174,7 +174,7 @@ func (s *ClaudeService) GenerateFormula(ctx context.Context, request string, rag
 ### System Prompt
 
 ```go
-const systemPromptTemplate = `You are an expert in Jewish prayer times (zmanim) and the Zmanim DSL language.
+const systemPromptTemplate = `You are an expert in Jewish Zmanim (zmanim) and the Zmanim DSL language.
 
 Your task is to generate valid DSL formulas based on natural language descriptions.
 

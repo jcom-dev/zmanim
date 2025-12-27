@@ -58,6 +58,20 @@ function mapStatus(status: string): string {
 }
 
 /**
+ * Map algorithm status strings to status_id
+ * Database: algorithm_statuses (1=draft, 2=active, 3=archived)
+ */
+function mapAlgorithmStatus(status: string): number {
+  const statusMap: Record<string, number> = {
+    draft: 1,
+    active: 2,
+    published: 2, // 'published' maps to 'active' in DB
+    archived: 3,
+  };
+  return statusMap[status] || 2; // Default to active
+}
+
+/**
  * Create a test publisher entity in the database
  */
 export async function createTestPublisherEntity(
@@ -186,23 +200,28 @@ export async function createTestAlgorithm(
   const testAlgorithm = {
     publisher_id: publisherId,
     name: overrides.name || `${TEST_PREFIX}Algorithm`,
-    status: overrides.status || 'published',
+    status_id: mapAlgorithmStatus(overrides.status || 'published'),
     config: overrides.config || defaultConfig,
   };
 
   const client = await getPool().connect();
   try {
-    // Schema: id, publisher_id, name, description, configuration, status, is_public, forked_from, attribution_text, fork_count
+    // Schema: id, publisher_id, name, description, configuration, status_id, is_public, forked_from, attribution_text, fork_count
     const result = await client.query(
-      `INSERT INTO algorithms (publisher_id, name, description, configuration, status)
+      `INSERT INTO algorithms (publisher_id, name, description, configuration, status_id)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, publisher_id, name, status, configuration as config`,
+       RETURNING
+         id,
+         publisher_id,
+         name,
+         (SELECT key FROM algorithm_statuses WHERE id = $5) as status,
+         configuration as config`,
       [
         testAlgorithm.publisher_id,
         testAlgorithm.name,
         'Test algorithm for E2E testing',
         JSON.stringify(testAlgorithm.config),
-        testAlgorithm.status,
+        testAlgorithm.status_id,
       ]
     );
 
@@ -248,8 +267,7 @@ export async function createTestCoverage(
 
   const testCoverage = {
     publisher_id: publisherId,
-    city_id: cityId,
-    level: overrides.level || 'city',
+    locality_id: cityId, // Changed from city_id to locality_id
     priority: overrides.priority ?? 5,
     is_active: overrides.is_active ?? true,
   };
@@ -257,13 +275,12 @@ export async function createTestCoverage(
   const client = await getPool().connect();
   try {
     const result = await client.query(
-      `INSERT INTO publisher_coverage (publisher_id, city_id, coverage_level, priority, is_active)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, publisher_id, city_id, coverage_level as level, priority, is_active`,
+      `INSERT INTO publisher_coverage (publisher_id, locality_id, coverage_level_id, priority, is_active)
+       VALUES ($1, $2, (SELECT id FROM coverage_levels WHERE key = 'locality'), $3, $4)
+       RETURNING id, publisher_id, locality_id as city_id, 'locality' as level, priority, is_active`,
       [
         testCoverage.publisher_id,
-        testCoverage.city_id,
-        testCoverage.level,
+        testCoverage.locality_id,
         testCoverage.priority,
         testCoverage.is_active,
       ]
@@ -296,21 +313,20 @@ export async function getTestCity(
   const client = await getPool().connect();
   try {
     let result;
-    // Cities now use country_id FK to geo_countries table
+    // Use geo_localities table (cities table was replaced)
+    // Simple query - just get locality ID and name
     if (name) {
       result = await client.query(
-        `SELECT c.id, c.name, gc.name as country
-         FROM cities c
-         JOIN geo_countries gc ON c.country_id = gc.id
-         WHERE c.name ILIKE $1
+        `SELECT id, name, 'N/A' as country
+         FROM geo_localities
+         WHERE name ILIKE $1
          LIMIT 1`,
         [`%${name}%`]
       );
     } else {
       result = await client.query(
-        `SELECT c.id, c.name, gc.name as country
-         FROM cities c
-         JOIN geo_countries gc ON c.country_id = gc.id
+        `SELECT id, name, 'N/A' as country
+         FROM geo_localities
          LIMIT 1`
       );
     }

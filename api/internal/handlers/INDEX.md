@@ -363,6 +363,7 @@ Algorithm version history tracking.
 | [response.go](response.go) | Response helpers: RespondJSON, RespondError, RespondValidationError, RespondNotFound, RespondUnauthorized, RespondForbidden, RespondInternalError, RespondBadRequest |
 | [types.go](types.go) | ~100 OpenAPI-annotated request/response types |
 | [utils.go](utils.go) | Utility functions: string/int conversions, URL parsing |
+| [audit_helpers.go](audit_helpers.go) | Audit logging helpers for mutation handlers (LogAuditEvent, AuditEventParams) |
 
 ---
 
@@ -447,6 +448,8 @@ Handlers
 
 ## Recent Changes (2025-12)
 
+- **2025-12-26:** Added `audit_helpers.go` with `LogAuditEvent()` helper for all mutation handlers
+- **2025-12-26:** Integrated audit logging into publisher mutation handlers (zmanim, coverage, aliases, algorithm, tags)
 - **2025-12-20:** Removed `zmanim_sort.go` - sorting unified in `UnifiedZmanimService.SortZmanim()`
 - **2025-12-20:** Consolidated zmanim services - all handlers now use `UnifiedZmanimService`
 - **2025-12-20:** Simplified publisher zmanim API - removed redundant endpoints

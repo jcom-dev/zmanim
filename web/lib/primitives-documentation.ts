@@ -139,32 +139,6 @@ const NOAA_ALGORITHM_BASE: Omit<AlgorithmDetails, 'description' | 'steps'> = {
   elevationAdjustment: 'adjustment = arccos(R / (R + h)) where R = Earth radius, h = elevation in meters. This accounts for the extended horizon visible from elevated positions.',
 };
 
-const SEASONAL_ALGORITHM: AlgorithmDetails = {
-  name: 'Seasonal Proportional Method (ROY/Zemaneh-Yosef)',
-  source: 'Based on equinox offset scaling',
-  description: 'Calculates twilight times by determining the offset at the equinox and scaling proportionally to current day length. Used by Rabbi Ovadia Yosef and Zemaneh-Yosef methodology.',
-  steps: [
-    { step: 1, description: 'Calculate equinox date (March 20 of current year)' },
-    { step: 2, description: 'Calculate sunrise/sunset and angle times for equinox', formula: 'equinox_dawn, equinox_dusk = SunTimeAtAngle(equinox_date, angle)' },
-    { step: 3, description: 'Calculate equinox offsets', formula: 'dawn_offset = sunrise - dawn; dusk_offset = dusk - sunset' },
-    { step: 4, description: 'Get current day length ratio', formula: 'ratio = current_day_length / equinox_day_length' },
-    { step: 5, description: 'Scale offsets', formula: 'scaled_dawn_offset = equinox_dawn_offset × ratio' },
-    { step: 6, description: 'Apply to current sunrise/sunset', formula: 'dawn = sunrise - scaled_dawn_offset' },
-  ],
-  mathFormulas: [
-    {
-      name: 'Day Length Ratio',
-      plain: 'r = (sunset_today - sunrise_today) / (sunset_equinox - sunrise_equinox)',
-      description: 'Ratio of current day length to equinox day length (~12 hours)',
-    },
-    {
-      name: 'Scaled Offset',
-      plain: 'offset_scaled = offset_equinox × r',
-      description: 'Twilight offset proportionally scaled to current day length',
-    },
-  ],
-};
-
 // =============================================================================
 // PRIMITIVE DOCUMENTATION
 // =============================================================================

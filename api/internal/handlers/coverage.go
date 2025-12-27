@@ -467,6 +467,31 @@ func (h *Handlers) UpdatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 		coverage = updateCoverageActiveRowToModel(row)
 	}
 
+	// Log coverage update activity
+	metadata := map[string]interface{}{
+		"coverage_id":    coverageID,
+		"coverage_level": existingCoverage.CoverageLevelKey,
+	}
+	if req.Priority != nil {
+		metadata["new_priority"] = *req.Priority
+		metadata["old_priority"] = existingCoverage.Priority
+	}
+	if req.IsActive != nil {
+		metadata["new_is_active"] = *req.IsActive
+		metadata["old_is_active"] = existingCoverage.IsActive
+	}
+
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory:      AuditCategoryCoverage,
+		EventAction:        AuditActionUpdate,
+		ResourceType:       "coverage",
+		ResourceID:         coverageID,
+		ChangesBefore:      existingCoverage,
+		ChangesAfter:       coverage,
+		Status:             AuditStatusSuccess,
+		AdditionalMetadata: metadata,
+	})
+
 	if h.cache != nil {
 		if err := h.cache.InvalidatePublisherCache(ctx, pc.PublisherID); err != nil {
 			slog.Warn("failed to invalidate cache after coverage update",
@@ -990,6 +1015,13 @@ func (h *Handlers) UpdateGlobalCoverage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// 2b. Get current is_global state before update for audit
+	previousIsGlobal, err := h.db.Queries.GetPublisherIsGlobal(ctx, publisherIDInt)
+	if err != nil {
+		slog.Error("failed to get current is_global", "error", err, "publisher_id", pc.PublisherID)
+		previousIsGlobal = false
+	}
+
 	// 3. Update is_global flag using SQLc query
 	_, err = h.db.Queries.UpdatePublisherIsGlobal(ctx, sqlcgen.UpdatePublisherIsGlobalParams{
 		ID:       publisherIDInt,
@@ -1007,6 +1039,21 @@ func (h *Handlers) UpdateGlobalCoverage(w http.ResponseWriter, r *http.Request) 
 		slog.Error("failed to get coverage count", "error", err, "publisher_id", pc.PublisherID)
 		coverageCount = 0
 	}
+
+	// 4b. Log global coverage update
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategorySettings,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "publisher_settings",
+		ResourceID:    pc.PublisherID,
+		ResourceName:  "global_coverage",
+		ChangesBefore: map[string]interface{}{"is_global": previousIsGlobal},
+		ChangesAfter:  map[string]interface{}{"is_global": req.IsGlobal},
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"coverage_count_preserved": coverageCount,
+		},
+	})
 
 	// 5. Invalidate cache if available
 	if h.cache != nil {

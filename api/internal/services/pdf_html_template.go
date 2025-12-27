@@ -50,7 +50,7 @@ func PDFHTMLTemplate() string {
             /* Category Colors */
             --cat-alos: #4F46E5;      /* Indigo - Dawn */
             --cat-shema: #3B82F6;     /* Blue - Morning prayers */
-            --cat-tefilla: #06B6D4;   /* Cyan - Prayer times */
+            --cat-tefilla: #06B6D4;   /* Cyan - Zmanim */
             --cat-chatzos: #F59E0B;   /* Amber - Midday */
             --cat-mincha: #F97316;    /* Orange - Afternoon */
             --cat-tzais: #8B5CF6;     /* Purple - Nightfall */

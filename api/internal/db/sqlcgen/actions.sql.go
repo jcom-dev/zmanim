@@ -71,6 +71,78 @@ func (q *Queries) CountAdminAuditLog(ctx context.Context, arg CountAdminAuditLog
 	return column_1, err
 }
 
+const countAdminAuditLogsExtended = `-- name: CountAdminAuditLogsExtended :one
+SELECT COUNT(*)::bigint
+FROM public.actions a
+WHERE
+    ($1::text IS NULL OR a.action_type = $1)
+    AND ($2::text IS NULL OR a.concept = $2)
+    AND ($3::integer IS NULL OR a.publisher_id = $3)
+    AND ($4::text IS NULL OR a.user_id = $4)
+    AND ($5::text IS NULL OR a.status = $5)
+    AND ($6::timestamptz IS NULL OR a.started_at >= $6)
+    AND ($7::timestamptz IS NULL OR a.started_at <= $7)
+`
+
+type CountAdminAuditLogsExtendedParams struct {
+	ActionTypeFilter  *string            `json:"action_type_filter"`
+	CategoryFilter    *string            `json:"category_filter"`
+	PublisherIDFilter *int32             `json:"publisher_id_filter"`
+	UserIDFilter      *string            `json:"user_id_filter"`
+	StatusFilter      *string            `json:"status_filter"`
+	StartDate         pgtype.Timestamptz `json:"start_date"`
+	EndDate           pgtype.Timestamptz `json:"end_date"`
+}
+
+// Returns count for extended admin audit logs
+func (q *Queries) CountAdminAuditLogsExtended(ctx context.Context, arg CountAdminAuditLogsExtendedParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAdminAuditLogsExtended,
+		arg.ActionTypeFilter,
+		arg.CategoryFilter,
+		arg.PublisherIDFilter,
+		arg.UserIDFilter,
+		arg.StatusFilter,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countAllAuditLog = `-- name: CountAllAuditLog :one
+SELECT COUNT(*)::bigint
+FROM public.actions
+WHERE
+    ($1::text IS NULL OR action_type = $1)
+    AND ($2::integer IS NULL OR publisher_id = $2)
+    AND ($3::text IS NULL OR user_id = $3)
+    AND ($4::timestamptz IS NULL OR started_at >= $4)
+    AND ($5::timestamptz IS NULL OR started_at <= $5)
+`
+
+type CountAllAuditLogParams struct {
+	ActionTypeFilter  *string            `json:"action_type_filter"`
+	PublisherIDFilter *int32             `json:"publisher_id_filter"`
+	UserIDFilter      *string            `json:"user_id_filter"`
+	StartDate         pgtype.Timestamptz `json:"start_date"`
+	EndDate           pgtype.Timestamptz `json:"end_date"`
+}
+
+// Returns count for pagination of all audit logs
+func (q *Queries) CountAllAuditLog(ctx context.Context, arg CountAllAuditLogParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAllAuditLog,
+		arg.ActionTypeFilter,
+		arg.PublisherIDFilter,
+		arg.UserIDFilter,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getActionChain = `-- name: GetActionChain :many
 WITH RECURSIVE action_chain AS (
     -- Base case: starting action
@@ -319,6 +391,120 @@ func (q *Queries) GetAdminAuditLog(ctx context.Context, arg GetAdminAuditLogPara
 	return items, nil
 }
 
+const getAdminAuditLogsExtended = `-- name: GetAdminAuditLogsExtended :many
+SELECT
+    a.id,
+    a.action_type,
+    a.concept,
+    a.user_id,
+    a.publisher_id,
+    a.request_id,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.result,
+    a.status,
+    a.error_message,
+    a.started_at,
+    a.completed_at,
+    a.duration_ms,
+    a.metadata,
+    COALESCE(p.name, '') as publisher_name
+FROM public.actions a
+LEFT JOIN public.publishers p ON a.publisher_id = p.id
+WHERE
+    ($1::text IS NULL OR a.action_type = $1)
+    AND ($2::text IS NULL OR a.concept = $2)
+    AND ($3::integer IS NULL OR a.publisher_id = $3)
+    AND ($4::text IS NULL OR a.user_id = $4)
+    AND ($5::text IS NULL OR a.status = $5)
+    AND ($6::timestamptz IS NULL OR a.started_at >= $6)
+    AND ($7::timestamptz IS NULL OR a.started_at <= $7)
+ORDER BY a.started_at DESC
+LIMIT $9 OFFSET $8
+`
+
+type GetAdminAuditLogsExtendedParams struct {
+	ActionTypeFilter  *string            `json:"action_type_filter"`
+	CategoryFilter    *string            `json:"category_filter"`
+	PublisherIDFilter *int32             `json:"publisher_id_filter"`
+	UserIDFilter      *string            `json:"user_id_filter"`
+	StatusFilter      *string            `json:"status_filter"`
+	StartDate         pgtype.Timestamptz `json:"start_date"`
+	EndDate           pgtype.Timestamptz `json:"end_date"`
+	OffsetVal         int32              `json:"offset_val"`
+	LimitVal          int32              `json:"limit_val"`
+}
+
+type GetAdminAuditLogsExtendedRow struct {
+	ID            string             `json:"id"`
+	ActionType    string             `json:"action_type"`
+	Concept       string             `json:"concept"`
+	UserID        *string            `json:"user_id"`
+	PublisherID   *int32             `json:"publisher_id"`
+	RequestID     string             `json:"request_id"`
+	EntityType    *string            `json:"entity_type"`
+	EntityID      *string            `json:"entity_id"`
+	Payload       []byte             `json:"payload"`
+	Result        []byte             `json:"result"`
+	Status        *string            `json:"status"`
+	ErrorMessage  *string            `json:"error_message"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	DurationMs    *int32             `json:"duration_ms"`
+	Metadata      []byte             `json:"metadata"`
+	PublisherName string             `json:"publisher_name"`
+}
+
+// Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
+func (q *Queries) GetAdminAuditLogsExtended(ctx context.Context, arg GetAdminAuditLogsExtendedParams) ([]GetAdminAuditLogsExtendedRow, error) {
+	rows, err := q.db.Query(ctx, getAdminAuditLogsExtended,
+		arg.ActionTypeFilter,
+		arg.CategoryFilter,
+		arg.PublisherIDFilter,
+		arg.UserIDFilter,
+		arg.StatusFilter,
+		arg.StartDate,
+		arg.EndDate,
+		arg.OffsetVal,
+		arg.LimitVal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAdminAuditLogsExtendedRow{}
+	for rows.Next() {
+		var i GetAdminAuditLogsExtendedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ActionType,
+			&i.Concept,
+			&i.UserID,
+			&i.PublisherID,
+			&i.RequestID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.Payload,
+			&i.Result,
+			&i.Status,
+			&i.ErrorMessage,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.DurationMs,
+			&i.Metadata,
+			&i.PublisherName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllAuditLog = `-- name: GetAllAuditLog :many
 SELECT
     id,
@@ -395,6 +581,220 @@ func (q *Queries) GetAllAuditLog(ctx context.Context, arg GetAllAuditLogParams) 
 			&i.StartedAt,
 			&i.Metadata,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAuditLogByID = `-- name: GetAuditLogByID :one
+SELECT
+    a.id,
+    a.action_type,
+    a.concept,
+    a.user_id,
+    a.publisher_id,
+    a.request_id,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.result,
+    a.status,
+    a.error_message,
+    a.started_at,
+    a.completed_at,
+    a.duration_ms,
+    a.metadata,
+    a.parent_action_id,
+    COALESCE(p.name, '') as publisher_name
+FROM public.actions a
+LEFT JOIN public.publishers p ON a.publisher_id = p.id
+WHERE a.id = $1
+`
+
+type GetAuditLogByIDRow struct {
+	ID             string             `json:"id"`
+	ActionType     string             `json:"action_type"`
+	Concept        string             `json:"concept"`
+	UserID         *string            `json:"user_id"`
+	PublisherID    *int32             `json:"publisher_id"`
+	RequestID      string             `json:"request_id"`
+	EntityType     *string            `json:"entity_type"`
+	EntityID       *string            `json:"entity_id"`
+	Payload        []byte             `json:"payload"`
+	Result         []byte             `json:"result"`
+	Status         *string            `json:"status"`
+	ErrorMessage   *string            `json:"error_message"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	DurationMs     *int32             `json:"duration_ms"`
+	Metadata       []byte             `json:"metadata"`
+	ParentActionID pgtype.UUID        `json:"parent_action_id"`
+	PublisherName  string             `json:"publisher_name"`
+}
+
+// Returns a single audit log entry by ID
+func (q *Queries) GetAuditLogByID(ctx context.Context, id string) (GetAuditLogByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAuditLogByID, id)
+	var i GetAuditLogByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ActionType,
+		&i.Concept,
+		&i.UserID,
+		&i.PublisherID,
+		&i.RequestID,
+		&i.EntityType,
+		&i.EntityID,
+		&i.Payload,
+		&i.Result,
+		&i.Status,
+		&i.ErrorMessage,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.DurationMs,
+		&i.Metadata,
+		&i.ParentActionID,
+		&i.PublisherName,
+	)
+	return i, err
+}
+
+const getAuditStats24h = `-- name: GetAuditStats24h :one
+SELECT COUNT(*)::bigint as total_events
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '24 hours'
+`
+
+// Returns audit statistics for the last 24 hours
+func (q *Queries) GetAuditStats24h(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, getAuditStats24h)
+	var total_events int64
+	err := row.Scan(&total_events)
+	return total_events, err
+}
+
+const getAuditStats7d = `-- name: GetAuditStats7d :one
+SELECT COUNT(*)::bigint as total_events
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days'
+`
+
+// Returns audit statistics for the last 7 days
+func (q *Queries) GetAuditStats7d(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, getAuditStats7d)
+	var total_events int64
+	err := row.Scan(&total_events)
+	return total_events, err
+}
+
+const getAuditStatsByAction = `-- name: GetAuditStatsByAction :many
+SELECT
+    CASE
+        WHEN action_type LIKE '%_create' OR action_type LIKE 'create_%' THEN 'create'
+        WHEN action_type LIKE '%_update' OR action_type LIKE 'update_%' THEN 'update'
+        WHEN action_type LIKE '%_delete' OR action_type LIKE 'delete_%' THEN 'delete'
+        ELSE 'other'
+    END as action,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days'
+GROUP BY action
+ORDER BY event_count DESC
+`
+
+type GetAuditStatsByActionRow struct {
+	Action     string `json:"action"`
+	EventCount int64  `json:"event_count"`
+}
+
+// Returns event counts grouped by action type
+func (q *Queries) GetAuditStatsByAction(ctx context.Context) ([]GetAuditStatsByActionRow, error) {
+	rows, err := q.db.Query(ctx, getAuditStatsByAction)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAuditStatsByActionRow{}
+	for rows.Next() {
+		var i GetAuditStatsByActionRow
+		if err := rows.Scan(&i.Action, &i.EventCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAuditStatsByCategory = `-- name: GetAuditStatsByCategory :many
+SELECT
+    COALESCE(concept, 'unknown') as category,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days'
+GROUP BY concept
+ORDER BY event_count DESC
+`
+
+type GetAuditStatsByCategoryRow struct {
+	Category   string `json:"category"`
+	EventCount int64  `json:"event_count"`
+}
+
+// Returns event counts grouped by category (concept)
+func (q *Queries) GetAuditStatsByCategory(ctx context.Context) ([]GetAuditStatsByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, getAuditStatsByCategory)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAuditStatsByCategoryRow{}
+	for rows.Next() {
+		var i GetAuditStatsByCategoryRow
+		if err := rows.Scan(&i.Category, &i.EventCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAuditStatsByStatus = `-- name: GetAuditStatsByStatus :many
+SELECT
+    COALESCE(status, 'unknown') as status,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days'
+GROUP BY status
+ORDER BY event_count DESC
+`
+
+type GetAuditStatsByStatusRow struct {
+	Status     string `json:"status"`
+	EventCount int64  `json:"event_count"`
+}
+
+// Returns event counts grouped by status
+func (q *Queries) GetAuditStatsByStatus(ctx context.Context) ([]GetAuditStatsByStatusRow, error) {
+	rows, err := q.db.Query(ctx, getAuditStatsByStatus)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAuditStatsByStatusRow{}
+	for rows.Next() {
+		var i GetAuditStatsByStatusRow
+		if err := rows.Scan(&i.Status, &i.EventCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -636,6 +1036,159 @@ func (q *Queries) GetPublisherActivities(ctx context.Context, arg GetPublisherAc
 			&i.DurationMs,
 			&i.Metadata,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRecentCriticalEvents = `-- name: GetRecentCriticalEvents :many
+SELECT
+    a.id,
+    a.action_type,
+    a.concept,
+    a.user_id,
+    a.publisher_id,
+    a.entity_type,
+    a.entity_id,
+    a.status,
+    a.error_message,
+    a.started_at,
+    a.metadata,
+    COALESCE(p.name, '') as publisher_name
+FROM public.actions a
+LEFT JOIN public.publishers p ON a.publisher_id = p.id
+WHERE
+    a.status IN ('failed', 'error')
+    AND a.started_at >= NOW() - INTERVAL '7 days'
+ORDER BY a.started_at DESC
+LIMIT $1
+`
+
+type GetRecentCriticalEventsRow struct {
+	ID            string             `json:"id"`
+	ActionType    string             `json:"action_type"`
+	Concept       string             `json:"concept"`
+	UserID        *string            `json:"user_id"`
+	PublisherID   *int32             `json:"publisher_id"`
+	EntityType    *string            `json:"entity_type"`
+	EntityID      *string            `json:"entity_id"`
+	Status        *string            `json:"status"`
+	ErrorMessage  *string            `json:"error_message"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	Metadata      []byte             `json:"metadata"`
+	PublisherName string             `json:"publisher_name"`
+}
+
+// Returns recent events with error or failed status (simulating critical severity)
+func (q *Queries) GetRecentCriticalEvents(ctx context.Context, limit int32) ([]GetRecentCriticalEventsRow, error) {
+	rows, err := q.db.Query(ctx, getRecentCriticalEvents, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetRecentCriticalEventsRow{}
+	for rows.Next() {
+		var i GetRecentCriticalEventsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ActionType,
+			&i.Concept,
+			&i.UserID,
+			&i.PublisherID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.Status,
+			&i.ErrorMessage,
+			&i.StartedAt,
+			&i.Metadata,
+			&i.PublisherName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTopActors = `-- name: GetTopActors :many
+SELECT
+    user_id,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE
+    user_id IS NOT NULL
+    AND started_at >= NOW() - INTERVAL '7 days'
+GROUP BY user_id
+ORDER BY event_count DESC
+LIMIT $1
+`
+
+type GetTopActorsRow struct {
+	UserID     *string `json:"user_id"`
+	EventCount int64   `json:"event_count"`
+}
+
+// Returns top actors by event count
+func (q *Queries) GetTopActors(ctx context.Context, limit int32) ([]GetTopActorsRow, error) {
+	rows, err := q.db.Query(ctx, getTopActors, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTopActorsRow{}
+	for rows.Next() {
+		var i GetTopActorsRow
+		if err := rows.Scan(&i.UserID, &i.EventCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTopPublishers = `-- name: GetTopPublishers :many
+SELECT
+    a.publisher_id,
+    p.name as publisher_name,
+    COUNT(*)::bigint as event_count
+FROM public.actions a
+INNER JOIN public.publishers p ON a.publisher_id = p.id
+WHERE
+    a.publisher_id IS NOT NULL
+    AND a.started_at >= NOW() - INTERVAL '7 days'
+GROUP BY a.publisher_id, p.name
+ORDER BY event_count DESC
+LIMIT $1
+`
+
+type GetTopPublishersRow struct {
+	PublisherID   *int32 `json:"publisher_id"`
+	PublisherName string `json:"publisher_name"`
+	EventCount    int64  `json:"event_count"`
+}
+
+// Returns top publishers by event count
+func (q *Queries) GetTopPublishers(ctx context.Context, limit int32) ([]GetTopPublishersRow, error) {
+	rows, err := q.db.Query(ctx, getTopPublishers, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTopPublishersRow{}
+	for rows.Next() {
+		var i GetTopPublishersRow
+		if err := rows.Scan(&i.PublisherID, &i.PublisherName, &i.EventCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -14,7 +14,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useUserRoles, useHasPublisherAccess, type UserRoles } from '../useUserRoles';
+import { useUserRoles, useHasPublisherAccess } from '../useUserRoles';
 
 // =============================================================================
 // Mock Setup

@@ -18,7 +18,6 @@ export function AlgorithmPageExample() {
     setLocality,
     date,
     setDate,
-    language,
     setLanguage,
     hasLocation,
     isHebrew,
@@ -62,14 +61,13 @@ export function AlgorithmPageExample() {
  * When publisher has global coverage, isGlobal is true
  */
 export function GlobalPublisherExample() {
-  const { isGlobal, hasLocation } = usePreviewToolbar({
+  const { hasLocation } = usePreviewToolbar({
     storageKey: 'publisher_registry',
     isGlobalPublisher: true, // Coverage restriction disabled
   });
 
   return (
     <div>
-      <p>Publisher Type: {isGlobal ? 'Global' : 'Regional'}</p>
       {!hasLocation && <p>Select any locality worldwide to preview</p>}
     </div>
   );
@@ -170,7 +168,7 @@ export function CookieNamingExample() {
   //   - zmanim_preview_algorithm_locality_name
   //   - zmanim_preview_algorithm_date
 
-  const algorithm = usePreviewToolbar({ storageKey: 'algorithm' });
+  usePreviewToolbar({ storageKey: 'algorithm' });
 
   // storageKey: 'publisher_registry'
   // Creates cookies:
@@ -178,7 +176,7 @@ export function CookieNamingExample() {
   //   - zmanim_preview_publisher_registry_locality_name
   //   - zmanim_preview_publisher_registry_date
 
-  const registry = usePreviewToolbar({ storageKey: 'publisher_registry' });
+  usePreviewToolbar({ storageKey: 'publisher_registry' });
 
   // Language is ALWAYS from global cookie: zmanim_language
   // (managed by PreferencesContext, not per-page)
@@ -189,24 +187,31 @@ export function CookieNamingExample() {
 /**
  * Dummy components for examples
  */
-function LocalityPicker(props: any) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LocalityPicker(_props: { selectedId?: number | null; onSelect: (id: number, name: string) => void; restrictToCoverage: boolean }) {
   return null;
 }
-function DatePicker(props: any) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function DatePicker(_props: { value: string; onChange: (date: string) => void }) {
   return null;
 }
-function EmptyState(props: any) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function EmptyState(_props: { message: string }) {
   return null;
 }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function LoadingSpinner() {
   return null;
 }
-function PreviewResults(props: any) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function PreviewResults(_props: { data: unknown }) {
   return null;
 }
-function useQuery(options: any) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function useQuery(_options: { queryKey: unknown[]; queryFn: () => Promise<unknown>; enabled: boolean }) {
   return { data: null, isLoading: false };
 }
-function fetchPreviewData(localityId: number, date: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function fetchPreviewData(_localityId: number, _date: string) {
   return Promise.resolve(null);
 }

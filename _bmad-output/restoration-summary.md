@@ -128,7 +128,7 @@ Based on the restoration, the following tag types were applied:
 
 2. **Category Tags** (Functional grouping)
    - `category_shema` - Shema reading times
-   - `category_tefila` - Prayer times
+   - `category_tefila` - Zmanim
    - `category_mincha` - Mincha times
    - `category_candle_lighting` - Shabbat/Yom Tov candle lighting
    - `category_fast_start` / `category_fast_end` - Fast day timing

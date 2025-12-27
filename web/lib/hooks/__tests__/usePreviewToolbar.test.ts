@@ -3,7 +3,7 @@
  * @purpose Unit tests for usePreviewToolbar hook
  */
 
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePreviewToolbar } from '../usePreviewToolbar';
 

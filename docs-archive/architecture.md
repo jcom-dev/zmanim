@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-Shtetl Zmanim is a multi-publisher platform enabling halachic authorities to publish customized Jewish prayer times with full algorithm control and transparency.
+Shtetl Zmanim is a multi-publisher platform enabling halachic authorities to publish customized Jewish Zmanim with full algorithm control and transparency.
 
 **Key Architectural Characteristics:**
 - Multi-tenant SaaS with publisher isolation

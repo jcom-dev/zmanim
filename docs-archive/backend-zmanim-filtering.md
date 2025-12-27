@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the implementation of centralized backend filtering for zmanim (Jewish prayer times). Previously, filtering logic was scattered across frontend and backend. Now all filtering is done server-side with a single source of truth.
+This document describes the implementation of centralized backend filtering for zmanim (Jewish Zmanim). Previously, filtering logic was scattered across frontend and backend. Now all filtering is done server-side with a single source of truth.
 
 ## Problem Statement
 

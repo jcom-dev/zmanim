@@ -50,6 +50,21 @@ const (
 	ActionAdminCorrectionReject         = "admin_correction_reject"
 	ActionAdminPublisherExport          = "admin_publisher_export"
 	ActionAdminPublisherImport          = "admin_publisher_import"
+	ActionAdminCacheFlush               = "admin_cache_flush"
+	ActionAdminLocalityUpdate           = "admin_locality_update"
+	ActionAdminGrantAccess              = "admin_grant_access"
+	ActionAdminRevokeAccess             = "admin_revoke_access"
+	ActionAdminSetRole                  = "admin_set_role"
+	ActionAdminPasswordReset            = "admin_password_reset"
+	ActionAdminImpersonate              = "admin_impersonate"
+	ActionAdminSystemConfig             = "admin_system_config"
+)
+
+// Event severity constants for critical admin events
+const (
+	SeverityInfo     = "info"
+	SeverityWarning  = "warning"
+	SeverityCritical = "critical"
 )
 
 // Concept constants (for action reification pattern)
@@ -276,6 +291,184 @@ func ExtractActionContext(r *http.Request) *ActionContext {
 		UserAgent:  r.UserAgent(),
 		ActorEmail: r.Header.Get("X-User-Email"),
 	}
+}
+
+// AdminAuditParams contains parameters for admin audit logging
+type AdminAuditParams struct {
+	ActionType         string                 // e.g., admin_publisher_create
+	ResourceType       string                 // e.g., publisher, user
+	ResourceID         string                 // ID of the affected resource
+	ResourceName       string                 // Optional: human-readable name
+	TargetPublisherID  string                 // Publisher being acted on (if applicable)
+	ImpersonatorUserID string                 // Admin user ID when impersonating
+	ChangesBefore      map[string]interface{} // State before change
+	ChangesAfter       map[string]interface{} // State after change
+	Severity           string                 // info, warning, critical
+	Reason             string                 // Optional reason for the action
+	Status             string                 // success, failure
+	ErrorMessage       string                 // Error message if failed
+}
+
+// LogAdminAction logs an admin action with enhanced audit context
+// This method captures admin-specific context including impersonation
+func (s *ActivityService) LogAdminAction(
+	ctx context.Context,
+	r *http.Request,
+	params AdminAuditParams,
+) error {
+	userID, actorName := s.resolveActor(ctx)
+
+	// Handle impersonation context
+	if params.ImpersonatorUserID != "" {
+		actorName = fmt.Sprintf("Admin (via %s)", params.ImpersonatorUserID)
+	}
+
+	requestID := middleware.GetRequestID(ctx)
+	if requestID == "" {
+		requestID = uuid.New().String()
+	}
+
+	// Build enhanced metadata
+	metadata := map[string]interface{}{
+		"actor_name": actorName,
+		"actor_id":   userID,
+		"is_admin":   true,
+	}
+
+	// Add request context
+	if r != nil {
+		metadata["ip_address"] = r.RemoteAddr
+		metadata["user_agent"] = r.UserAgent()
+		if email := r.Header.Get("X-User-Email"); email != "" {
+			metadata["actor_email"] = email
+		}
+	}
+
+	// Add impersonation context
+	if params.ImpersonatorUserID != "" {
+		metadata["impersonator_user_id"] = params.ImpersonatorUserID
+		metadata["is_impersonation"] = true
+	}
+
+	// Add severity
+	severity := params.Severity
+	if severity == "" {
+		severity = SeverityInfo
+	}
+	metadata["severity"] = severity
+
+	// Add optional fields
+	if params.ResourceName != "" {
+		metadata["resource_name"] = params.ResourceName
+	}
+	if params.Reason != "" {
+		metadata["reason"] = params.Reason
+	}
+	if params.Status != "" {
+		metadata["status"] = params.Status
+	}
+	if params.ErrorMessage != "" {
+		metadata["error_message"] = params.ErrorMessage
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		metadataJSON = []byte("{}")
+	}
+
+	// Build payload with diff
+	var payloadJSON []byte
+	if params.ChangesBefore != nil || params.ChangesAfter != nil {
+		diff := ActionDiff{
+			Old: params.ChangesBefore,
+			New: params.ChangesAfter,
+		}
+		payloadJSON, err = json.Marshal(diff)
+		if err != nil {
+			payloadJSON = []byte("{}")
+		}
+	} else {
+		payloadJSON = []byte("{}")
+	}
+
+	// Convert target publisher ID
+	var publisherID *int32
+	if params.TargetPublisherID != "" {
+		if pid, err := stringToInt32(params.TargetPublisherID); err == nil {
+			publisherID = &pid
+		}
+	}
+
+	_, err = s.db.Queries.RecordAction(ctx, sqlcgen.RecordActionParams{
+		ActionType:     params.ActionType,
+		Concept:        ConceptAdmin,
+		UserID:         &userID,
+		PublisherID:    publisherID,
+		RequestID:      requestID,
+		EntityType:     &params.ResourceType,
+		EntityID:       &params.ResourceID,
+		Payload:        payloadJSON,
+		ParentActionID: pgtype.UUID{Valid: false},
+		Metadata:       metadataJSON,
+	})
+
+	if err != nil {
+		// Log error but don't fail the request
+		slog.Error("failed to record admin audit event",
+			"error", err,
+			"action_type", params.ActionType,
+			"resource_type", params.ResourceType,
+			"resource_id", params.ResourceID,
+		)
+		return err
+	}
+
+	// Log at appropriate level based on severity
+	logFields := []any{
+		"action_type", params.ActionType,
+		"resource_type", params.ResourceType,
+		"resource_id", params.ResourceID,
+		"actor", actorName,
+	}
+
+	switch severity {
+	case SeverityCritical:
+		slog.Warn("CRITICAL admin action logged", logFields...)
+	case SeverityWarning:
+		slog.Warn("admin action logged", logFields...)
+	default:
+		slog.Info("admin action logged", logFields...)
+	}
+
+	return nil
+}
+
+// IsCriticalAdminAction returns true if the action type is considered critical
+func IsCriticalAdminAction(actionType string) bool {
+	criticalActions := map[string]bool{
+		ActionAdminPublisherDelete:          true,
+		ActionAdminPublisherPermanentDelete: true,
+		ActionAdminRevokeAccess:             true,
+		ActionAdminUserRemove:               true,
+		ActionAdminSystemConfig:             true,
+	}
+	return criticalActions[actionType]
+}
+
+// GetSeverityForAction returns the appropriate severity for an action type
+func GetSeverityForAction(actionType string) string {
+	if IsCriticalAdminAction(actionType) {
+		return SeverityCritical
+	}
+	// Warning level for suspensions and access changes
+	warningActions := map[string]bool{
+		ActionAdminPublisherSuspend: true,
+		ActionAdminSetRole:          true,
+	}
+	if warningActions[actionType] {
+		return SeverityWarning
+	}
+	return SeverityInfo
 }
 
 // Helper function to convert string to int32 (copied from handlers for independence)

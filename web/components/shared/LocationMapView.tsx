@@ -233,7 +233,7 @@ export function LocationMapView({
       let maxLng = -Infinity;
       let maxLat = -Infinity;
 
-      const processCoordinates = (coords: any) => {
+      const processCoordinates = (coords: unknown): void => {
         if (Array.isArray(coords) && coords.length === 2 && typeof coords[0] === 'number') {
           // Single coordinate pair [lng, lat]
           minLng = Math.min(minLng, coords[0]);

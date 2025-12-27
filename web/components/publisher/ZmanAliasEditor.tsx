@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useApi } from '@/lib/api-client';
 import { usePublisherMutation, usePublisherQuery } from '@/lib/hooks';
 import { Pencil, Trash2, Loader2, Plus, AlertTriangle } from 'lucide-react';
 import {

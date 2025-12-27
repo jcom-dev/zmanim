@@ -308,7 +308,7 @@ export default function Home() {
               Multi-Publisher Zmanim Platform
             </p>
             <p className="text-muted-foreground mt-2">
-              Select your location to view prayer times from local authorities
+              Select your location to view Zmanim from local authorities
             </p>
 
             {/* Welcome Back - Saved Location Prompt */}

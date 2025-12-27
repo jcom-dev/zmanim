@@ -229,3 +229,183 @@ WHERE
     AND (sqlc.narg('end_date')::timestamptz IS NULL OR started_at <= sqlc.narg('end_date'))
 ORDER BY started_at DESC
 LIMIT sqlc.arg('limit_val') OFFSET sqlc.arg('offset_val');
+
+-- name: CountAllAuditLog :one
+-- Returns count for pagination of all audit logs
+SELECT COUNT(*)::bigint
+FROM public.actions
+WHERE
+    (sqlc.narg('action_type_filter')::text IS NULL OR action_type = sqlc.narg('action_type_filter'))
+    AND (sqlc.narg('publisher_id_filter')::integer IS NULL OR publisher_id = sqlc.narg('publisher_id_filter'))
+    AND (sqlc.narg('user_id_filter')::text IS NULL OR user_id = sqlc.narg('user_id_filter'))
+    AND (sqlc.narg('start_date')::timestamptz IS NULL OR started_at >= sqlc.narg('start_date'))
+    AND (sqlc.narg('end_date')::timestamptz IS NULL OR started_at <= sqlc.narg('end_date'));
+
+-- name: GetAdminAuditLogsExtended :many
+-- Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
+SELECT
+    a.id,
+    a.action_type,
+    a.concept,
+    a.user_id,
+    a.publisher_id,
+    a.request_id,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.result,
+    a.status,
+    a.error_message,
+    a.started_at,
+    a.completed_at,
+    a.duration_ms,
+    a.metadata,
+    COALESCE(p.name, '') as publisher_name
+FROM public.actions a
+LEFT JOIN public.publishers p ON a.publisher_id = p.id
+WHERE
+    (sqlc.narg('action_type_filter')::text IS NULL OR a.action_type = sqlc.narg('action_type_filter'))
+    AND (sqlc.narg('category_filter')::text IS NULL OR a.concept = sqlc.narg('category_filter'))
+    AND (sqlc.narg('publisher_id_filter')::integer IS NULL OR a.publisher_id = sqlc.narg('publisher_id_filter'))
+    AND (sqlc.narg('user_id_filter')::text IS NULL OR a.user_id = sqlc.narg('user_id_filter'))
+    AND (sqlc.narg('status_filter')::text IS NULL OR a.status = sqlc.narg('status_filter'))
+    AND (sqlc.narg('start_date')::timestamptz IS NULL OR a.started_at >= sqlc.narg('start_date'))
+    AND (sqlc.narg('end_date')::timestamptz IS NULL OR a.started_at <= sqlc.narg('end_date'))
+ORDER BY a.started_at DESC
+LIMIT sqlc.arg('limit_val') OFFSET sqlc.arg('offset_val');
+
+-- name: CountAdminAuditLogsExtended :one
+-- Returns count for extended admin audit logs
+SELECT COUNT(*)::bigint
+FROM public.actions a
+WHERE
+    (sqlc.narg('action_type_filter')::text IS NULL OR a.action_type = sqlc.narg('action_type_filter'))
+    AND (sqlc.narg('category_filter')::text IS NULL OR a.concept = sqlc.narg('category_filter'))
+    AND (sqlc.narg('publisher_id_filter')::integer IS NULL OR a.publisher_id = sqlc.narg('publisher_id_filter'))
+    AND (sqlc.narg('user_id_filter')::text IS NULL OR a.user_id = sqlc.narg('user_id_filter'))
+    AND (sqlc.narg('status_filter')::text IS NULL OR a.status = sqlc.narg('status_filter'))
+    AND (sqlc.narg('start_date')::timestamptz IS NULL OR a.started_at >= sqlc.narg('start_date'))
+    AND (sqlc.narg('end_date')::timestamptz IS NULL OR a.started_at <= sqlc.narg('end_date'));
+
+-- name: GetAuditLogByID :one
+-- Returns a single audit log entry by ID
+SELECT
+    a.id,
+    a.action_type,
+    a.concept,
+    a.user_id,
+    a.publisher_id,
+    a.request_id,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.result,
+    a.status,
+    a.error_message,
+    a.started_at,
+    a.completed_at,
+    a.duration_ms,
+    a.metadata,
+    a.parent_action_id,
+    COALESCE(p.name, '') as publisher_name
+FROM public.actions a
+LEFT JOIN public.publishers p ON a.publisher_id = p.id
+WHERE a.id = $1;
+
+-- name: GetAuditStats24h :one
+-- Returns audit statistics for the last 24 hours
+SELECT COUNT(*)::bigint as total_events
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '24 hours';
+
+-- name: GetAuditStats7d :one
+-- Returns audit statistics for the last 7 days
+SELECT COUNT(*)::bigint as total_events
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days';
+
+-- name: GetAuditStatsByCategory :many
+-- Returns event counts grouped by category (concept)
+SELECT
+    COALESCE(concept, 'unknown') as category,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days'
+GROUP BY concept
+ORDER BY event_count DESC;
+
+-- name: GetAuditStatsByAction :many
+-- Returns event counts grouped by action type
+SELECT
+    CASE
+        WHEN action_type LIKE '%_create' OR action_type LIKE 'create_%' THEN 'create'
+        WHEN action_type LIKE '%_update' OR action_type LIKE 'update_%' THEN 'update'
+        WHEN action_type LIKE '%_delete' OR action_type LIKE 'delete_%' THEN 'delete'
+        ELSE 'other'
+    END as action,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days'
+GROUP BY action
+ORDER BY event_count DESC;
+
+-- name: GetAuditStatsByStatus :many
+-- Returns event counts grouped by status
+SELECT
+    COALESCE(status, 'unknown') as status,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE started_at >= NOW() - INTERVAL '7 days'
+GROUP BY status
+ORDER BY event_count DESC;
+
+-- name: GetTopActors :many
+-- Returns top actors by event count
+SELECT
+    user_id,
+    COUNT(*)::bigint as event_count
+FROM public.actions
+WHERE
+    user_id IS NOT NULL
+    AND started_at >= NOW() - INTERVAL '7 days'
+GROUP BY user_id
+ORDER BY event_count DESC
+LIMIT $1;
+
+-- name: GetTopPublishers :many
+-- Returns top publishers by event count
+SELECT
+    a.publisher_id,
+    p.name as publisher_name,
+    COUNT(*)::bigint as event_count
+FROM public.actions a
+INNER JOIN public.publishers p ON a.publisher_id = p.id
+WHERE
+    a.publisher_id IS NOT NULL
+    AND a.started_at >= NOW() - INTERVAL '7 days'
+GROUP BY a.publisher_id, p.name
+ORDER BY event_count DESC
+LIMIT $1;
+
+-- name: GetRecentCriticalEvents :many
+-- Returns recent events with error or failed status (simulating critical severity)
+SELECT
+    a.id,
+    a.action_type,
+    a.concept,
+    a.user_id,
+    a.publisher_id,
+    a.entity_type,
+    a.entity_id,
+    a.status,
+    a.error_message,
+    a.started_at,
+    a.metadata,
+    COALESCE(p.name, '') as publisher_name
+FROM public.actions a
+LEFT JOIN public.publishers p ON a.publisher_id = p.id
+WHERE
+    a.status IN ('failed', 'error')
+    AND a.started_at >= NOW() - INTERVAL '7 days'
+ORDER BY a.started_at DESC
+LIMIT $1;

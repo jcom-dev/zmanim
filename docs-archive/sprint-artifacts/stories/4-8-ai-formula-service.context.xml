@@ -123,7 +123,7 @@
   </examplePrompts>
 
   <systemPromptStructure>
-    <section name="Role">Expert in Jewish prayer times and Zmanim DSL</section>
+    <section name="Role">Expert in Jewish Zmanim and Zmanim DSL</section>
     <section name="DSL Reference">Injected from documentation</section>
     <section name="RAG Context">Injected from semantic search</section>
     <section name="Instructions">Generate valid formula, handle ambiguity, return structured response</section>

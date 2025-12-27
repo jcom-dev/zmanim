@@ -272,10 +272,12 @@ export async function loginAsPublisher(
   if (publisherId) {
     console.log(`[loginAsPublisher] Linking user ${user.id} to publisher ${publisherId}`);
     await linkClerkUserToPublisher(user.id, String(publisherId));
+    console.log(`[loginAsPublisher] Publisher link complete`);
   }
 
-  // If not using storage state, fall back to manual sign-in
+  // Sign in (if not already signed in from storage state)
   await performClerkSignIn(page, user.email);
+
   console.log(`[loginAsPublisher] Complete`);
 }
 

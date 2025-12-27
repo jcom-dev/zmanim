@@ -36,7 +36,7 @@ export interface CoverageIndicatorProps {
  * Hidden when:
  * - isGlobal = true (global publishers don't need coverage indicator)
  */
-export function CoverageIndicator({ publisherId, isGlobal, className }: CoverageIndicatorProps) {
+export function CoverageIndicator({ isGlobal, className }: CoverageIndicatorProps) {
   const router = useRouter();
   const { coverage, isLoading } = usePublisherCoverage();
 

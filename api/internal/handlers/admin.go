@@ -228,6 +228,24 @@ func (h *Handlers) AdminCreatePublisher(w http.ResponseWriter, r *http.Request) 
 
 	slog.Info("publisher created", "id", row.ID, "name", row.Name, "status", "active")
 
+	// Log admin audit event
+	publisherIDStr := fmt.Sprintf("%d", row.ID)
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherCreate,
+		ResourceType:      "publisher",
+		ResourceID:        publisherIDStr,
+		ResourceName:      row.Name,
+		TargetPublisherID: publisherIDStr,
+		ChangesAfter: map[string]interface{}{
+			"id":     row.ID,
+			"name":   row.Name,
+			"slug":   row.Slug,
+			"status": "active",
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	// Get publisher email for invite
 	publisherEmail := row.ContactEmail
 
@@ -414,6 +432,24 @@ func (h *Handlers) AdminAddUserToPublisher(w http.ResponseWriter, r *http.Reques
 			"publisher_id", publisherID)
 	}
 
+	// Log admin audit event - granting access
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminGrantAccess,
+		ResourceType:      "user",
+		ResourceID:        userID,
+		ResourceName:      userName,
+		TargetPublisherID: publisherID,
+		ChangesAfter: map[string]interface{}{
+			"user_id":        userID,
+			"user_email":     req.Email,
+			"publisher_id":   publisherID,
+			"publisher_name": publisherName,
+			"is_new_user":    isNewUser,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	// Send email notification
 	if h.emailService != nil {
 		go func() {
@@ -497,6 +533,28 @@ func (h *Handlers) AdminRemoveUserFromPublisher(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Log admin audit event - revoking access (critical event)
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminRevokeAccess,
+		ResourceType:      "user",
+		ResourceID:        userID,
+		TargetPublisherID: publisherID,
+		ChangesBefore: map[string]interface{}{
+			"user_id":      userID,
+			"user_email":   email,
+			"publisher_id": publisherID,
+			"had_access":   true,
+		},
+		ChangesAfter: map[string]interface{}{
+			"user_id":      userID,
+			"publisher_id": publisherID,
+			"had_access":   false,
+			"user_deleted": userDeleted,
+		},
+		Severity: services.SeverityCritical,
+		Status:   "success",
+	})
+
 	if userDeleted {
 		slog.Info("user deleted after removing last publisher access",
 			"user_id", userID,
@@ -577,6 +635,23 @@ func (h *Handlers) AdminVerifyPublisher(w http.ResponseWriter, r *http.Request) 
 	}
 
 	slog.Info("publisher verified", "id", id)
+
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherVerify,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      publisherName,
+		TargetPublisherID: id,
+		ChangesBefore: map[string]interface{}{
+			"status": "pending",
+		},
+		ChangesAfter: map[string]interface{}{
+			"status": "active",
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	// Send approval email and invite user (non-blocking)
 	if publisherEmail != "" {
@@ -697,6 +772,25 @@ func (h *Handlers) AdminSuspendPublisher(w http.ResponseWriter, r *http.Request)
 
 	slog.Info("publisher suspended", "id", id, "reason", req.Reason)
 
+	// Log admin audit event - suspension is a warning-level event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherSuspend,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      row.Name,
+		TargetPublisherID: id,
+		ChangesBefore: map[string]interface{}{
+			"status": "active",
+		},
+		ChangesAfter: map[string]interface{}{
+			"status": "suspended",
+			"reason": req.Reason,
+		},
+		Severity: services.SeverityWarning,
+		Reason:   req.Reason,
+		Status:   "success",
+	})
+
 	publisher := map[string]interface{}{
 		"id":         row.ID,
 		"name":       row.Name,
@@ -742,6 +836,23 @@ func (h *Handlers) AdminReactivatePublisher(w http.ResponseWriter, r *http.Reque
 	}
 
 	slog.Info("publisher reactivated", "id", id)
+
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherReactivate,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      row.Name,
+		TargetPublisherID: id,
+		ChangesBefore: map[string]interface{}{
+			"status": "suspended",
+		},
+		ChangesAfter: map[string]interface{}{
+			"status": "active",
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"id":         row.ID,
@@ -828,6 +939,32 @@ func (h *Handlers) AdminUpdatePublisher(w http.ResponseWriter, r *http.Request) 
 	}
 
 	slog.Info("publisher updated", "id", id)
+
+	// Log admin audit event with changes
+	changesAfter := map[string]interface{}{}
+	if req.Name != nil {
+		changesAfter["name"] = *req.Name
+	}
+	if req.Email != nil {
+		changesAfter["email"] = *req.Email
+	}
+	if req.Website != nil {
+		changesAfter["website"] = *req.Website
+	}
+	if req.Bio != nil {
+		changesAfter["bio"] = *req.Bio
+	}
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherUpdate,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      row.Name,
+		TargetPublisherID: id,
+		ChangesAfter:      changesAfter,
+		Severity:          services.SeverityInfo,
+		Status:            "success",
+	})
+
 	RespondJSON(w, r, http.StatusOK, publisher)
 }
 
@@ -884,6 +1021,27 @@ func (h *Handlers) AdminDeletePublisher(w http.ResponseWriter, r *http.Request) 
 	}
 
 	slog.Info("publisher soft-deleted", "id", id, "name", publisherInfo.Name, "deleted_by", adminUserID)
+
+	// Log admin audit event - deletion is critical
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherDelete,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      publisherInfo.Name,
+		TargetPublisherID: id,
+		ChangesBefore: map[string]interface{}{
+			"id":     id,
+			"name":   publisherInfo.Name,
+			"status": "active",
+		},
+		ChangesAfter: map[string]interface{}{
+			"status":     "deleted",
+			"deleted_at": deletedAt,
+			"deleted_by": adminUserID,
+		},
+		Severity: services.SeverityCritical,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"message":    "Publisher deleted successfully",
@@ -942,6 +1100,25 @@ func (h *Handlers) AdminRestorePublisher(w http.ResponseWriter, r *http.Request)
 
 	adminUserID := middleware.GetUserID(ctx)
 	slog.Info("publisher restored", "id", id, "name", row.Name, "restored_by", adminUserID)
+
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherRestore,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      row.Name,
+		TargetPublisherID: id,
+		ChangesBefore: map[string]interface{}{
+			"status":     "deleted",
+			"deleted_at": publisherInfo.DeletedAt.Time,
+		},
+		ChangesAfter: map[string]interface{}{
+			"status":      "active",
+			"restored_by": adminUserID,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"message":    "Publisher restored successfully",
@@ -1214,6 +1391,18 @@ func (h *Handlers) AdminFlushZmanimCache(w http.ResponseWriter, r *http.Request)
 	}
 
 	slog.Info("zmanim cache flushed by admin")
+
+	// Log admin audit event
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminCacheFlush,
+		ResourceType: "cache",
+		ResourceID:   "zmanim",
+		ChangesAfter: map[string]interface{}{
+			"flushed": true,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"message": "Zmanim cache flushed successfully",

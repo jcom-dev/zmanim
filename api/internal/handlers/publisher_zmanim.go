@@ -1477,6 +1477,23 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	z := createPublisherZmanRowToPublisherZman(sqlcZman)
 
+	// Log zman creation
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   AuditActionCreate,
+		ResourceType:  "publisher_zman",
+		ResourceID:    int32ToString(sqlcZman.ID),
+		ResourceName:  req.ZmanKey,
+		ChangesAfter:  req,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key":     req.ZmanKey,
+			"hebrew_name":  req.HebrewName,
+			"english_name": req.EnglishName,
+			"is_custom":    true,
+		},
+	})
+
 	RespondJSON(w, r, http.StatusCreated, z)
 }
 
@@ -1608,6 +1625,20 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	z := updatePublisherZmanRowToPublisherZman(sqlcZman)
 
+	// Log zman update
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "publisher_zman",
+		ResourceID:    int32ToString(sqlcZman.ID),
+		ResourceName:  zmanKey,
+		ChangesAfter:  req,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key": zmanKey,
+		},
+	})
+
 	RespondJSON(w, r, http.StatusOK, z)
 }
 
@@ -1653,6 +1684,19 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("failed to invalidate cache after deleting zman", "error", err, "publisher_id", publisherID)
 		}
 	}
+
+	// Log zman deletion
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   AuditActionDelete,
+		ResourceType:  "publisher_zman",
+		ResourceID:    zmanKey,
+		ResourceName:  zmanKey,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key": zmanKey,
+		},
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -1756,6 +1800,25 @@ func (h *Handlers) ImportZmanim(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("failed to invalidate cache after import", "error", err, "publisher_id", publisherID)
 		}
 	}
+
+	// 5b. Log import operation
+	importedKeys := make([]string, len(importedZmanim))
+	for i, z := range importedZmanim {
+		importedKeys[i] = z.ZmanKey
+	}
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   AuditActionImport,
+		ResourceType:  "publisher_zman",
+		ResourceID:    publisherIDStr,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"source":        req.Source,
+			"source_id":     req.PublisherID,
+			"imported_keys": importedKeys,
+			"count":         len(importedZmanim),
+		},
+	})
 
 	// 6. Respond with imported zmanim
 	response := ImportZmanimResponse{
@@ -2173,6 +2236,26 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Log zman copy/link operation
+	actionType := AuditActionCopy
+	if req.Mode == "link" {
+		actionType = AuditActionLink
+	}
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   actionType,
+		ResourceType:  "publisher_zman",
+		ResourceID:    int32ToString(result.ID),
+		ResourceName:  sourceZman.ZmanKey,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"mode":                       req.Mode,
+			"source_publisher_zman_id":   req.SourcePublisherZmanID,
+			"source_publisher_id":        sourceZman.PublisherID,
+			"zman_key":                   sourceZman.ZmanKey,
+		},
+	})
+
 	// Convert IDs to strings for response
 	var linkedIDStr *string
 	if linkedID != nil {
@@ -2342,6 +2425,25 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Log tag update
+	tagIDs := make([]int32, len(req.Tags))
+	for i, tag := range req.Tags {
+		tagIDs[i] = tag.TagID
+	}
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTag,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "publisher_zman_tags",
+		ResourceID:    int32ToString(zmanID),
+		ResourceName:  zmanKey,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key":  zmanKey,
+			"tag_ids":   tagIDs,
+			"tag_count": len(req.Tags),
+		},
+	})
+
 	RespondJSON(w, r, http.StatusOK, tags)
 }
 
@@ -2407,6 +2509,19 @@ func (h *Handlers) RevertPublisherZmanTags(w http.ResponseWriter, r *http.Reques
 			)
 		}
 	}
+
+	// Log tag revert
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTag,
+		EventAction:   AuditActionRevert,
+		ResourceType:  "publisher_zman_tags",
+		ResourceID:    int32ToString(zmanID),
+		ResourceName:  zmanKey,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key": zmanKey,
+		},
+	})
 
 	// 6. Respond
 	response := map[string]interface{}{

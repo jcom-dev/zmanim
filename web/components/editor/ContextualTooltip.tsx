@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import type { DSLContext, TooltipData, TooltipOption } from '@/lib/dsl-context-helper';
+import type { DSLContext, TooltipOption } from '@/lib/dsl-context-helper';
 import { getTooltipData } from '@/lib/dsl-context-helper';
 
 interface ContextualTooltipProps {
@@ -40,7 +40,6 @@ export function ContextualTooltip({
 
     const tooltip = tooltipRef.current;
     const rect = tooltip.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
     let top = position.y - rect.height - 8; // Above cursor by default

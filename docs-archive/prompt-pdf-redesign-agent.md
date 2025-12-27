@@ -67,7 +67,7 @@ Replace the Maroto-based PDF generation in `api/internal/services/pdf_report_ser
 |----------|-----|-------|
 | Alos | `#4F46E5` | Dawn times |
 | Shema | `#3B82F6` | Morning prayers |
-| Tefilla | `#06B6D4` | Prayer times |
+| Tefilla | `#06B6D4` | Zmanim |
 | Chatzos | `#F59E0B` | Midday |
 | Mincha | `#F97316` | Afternoon |
 | Tzais | `#8B5CF6` | Nightfall |

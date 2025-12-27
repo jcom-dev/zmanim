@@ -490,6 +490,11 @@ func main() {
 			r.Put("/correction-requests/{id}", h.UpdateCorrectionRequest)
 			r.Delete("/correction-requests/{id}", h.DeleteCorrectionRequest)
 			r.Get("/correction-requests/check-duplicates", h.CheckCorrectionDuplicates)
+
+			// Audit logs (Phase 3 Audit Trail System)
+			r.Get("/audit-logs", h.GetPublisherAuditLogs)
+			r.Get("/audit-logs/{id}", h.GetPublisherAuditLog)
+			r.Post("/audit-logs/export", h.ExportPublisherAuditLogs)
 		})
 
 		// User routes (authenticated)
@@ -502,8 +507,14 @@ func main() {
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(authMiddleware.RequireRole("admin"))
 
-			// Audit log
+			// Audit log (legacy)
 			r.Get("/audit-log", h.AdminGetAuditLog)
+
+			// Audit logs (Phase 3 Audit Trail System)
+			r.Get("/audit-logs", h.GetAdminAuditLogs)
+			r.Get("/audit-logs/stats", h.GetAdminAuditStats)
+			r.Get("/audit-logs/{id}", h.GetAdminAuditLogByID)
+			r.Post("/audit-logs/export", h.ExportAdminAuditLogs)
 
 			// Publisher management
 			r.Get("/publishers", h.AdminListPublishers)

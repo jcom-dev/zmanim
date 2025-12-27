@@ -202,7 +202,7 @@ export default function Home() {
               Multi-Publisher Zmanim Platform
             </p>
             <p className="text-slate-500 mt-2">
-              Select your location to view prayer times from local authorities
+              Select your location to view Zmanim from local authorities
             </p>
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function Home() {
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │              Multi-Publisher Zmanim Platform                │
-│     Select your location to view prayer times...            │
+│     Select your location to view Zmanim...            │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

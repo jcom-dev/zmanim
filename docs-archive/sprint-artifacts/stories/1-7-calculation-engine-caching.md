@@ -6,7 +6,7 @@ Status: done
 
 As the **system**,
 I want **to calculate accurate zmanim times**,
-so that **users receive correct prayer times based on publisher algorithms**.
+so that **users receive correct Zmanim based on publisher algorithms**.
 
 ## Acceptance Criteria
 

@@ -156,6 +156,7 @@ describe('usePublisherQuery', () => {
 
   it('[P1] should not fetch when publisher is null', () => {
     // GIVEN: No selected publisher
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockPublisherContext.selectedPublisher = null as any;
 
     // WHEN: Using the hook

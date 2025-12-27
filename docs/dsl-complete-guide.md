@@ -1012,7 +1012,7 @@ misheyakir: solar(11.5, before_sunrise)
 netz: visible_sunrise
 // Visible sunrise accounting for atmospheric refraction
 
-// === Morning Prayer Times ===
+// === Morning Zmanim ===
 sof_zman_shema: proportional_hours(3, gra)
 // Latest time for reciting the Shema
 // 3 proportional hours into the day
@@ -1025,7 +1025,7 @@ sof_zman_tefilla: proportional_hours(4, gra)
 chatzos: solar_noon
 // Halachic midday - sun at its highest point
 
-// === Afternoon Prayer Times ===
+// === Afternoon Zmanim ===
 mincha_gedola: solar_noon + 30min
 // Earliest time for Mincha
 // Half a proportional hour after midday
