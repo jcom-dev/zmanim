@@ -14,81 +14,102 @@ import { Pool } from 'pg';
 import { loadUserPool } from './shared-users';
 import { BASE_URL, TIMEOUTS, STORAGE_STATE } from '../../config';
 
-// Cache for slug -> ID resolution
+// Cache for slug -> ID resolution (populated from file written by global-setup)
 const slugCache: Map<string, string> = new Map();
+
+// Track which user-publisher links have been verified this session
+const verifiedLinks: Set<string> = new Set();
+
+// Shared connection pool (lazy initialized)
+let sharedPool: Pool | null = null;
+
+/**
+ * Get or create a shared database connection pool
+ * This avoids creating/destroying pools on every call
+ */
+function getSharedPool(): Pool | null {
+  if (sharedPool) return sharedPool;
+
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return null;
+
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  sharedPool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+    max: 3, // Limit connections for parallel workers
+    idleTimeoutMillis: 30000,
+  });
+
+  return sharedPool;
+}
+
+/**
+ * Load pre-resolved slugs from file (written by global-setup)
+ * This eliminates DB calls during tests
+ */
+function loadSlugCacheFromFile(): void {
+  if (slugCache.size > 0) return; // Already loaded
+
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const cacheFile = path.resolve(__dirname, '../../test-results/.slug-cache.json');
+
+    if (fs.existsSync(cacheFile)) {
+      const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+      for (const [slug, id] of Object.entries(data)) {
+        slugCache.set(slug, id as string);
+      }
+      // Only log once when cache is loaded
+      if (slugCache.size > 0) {
+        console.log(`[slugCache] Loaded ${slugCache.size} pre-resolved slugs from cache file`);
+      }
+    }
+  } catch {
+    // Cache file not available, will fall back to DB lookup
+  }
+}
 
 /**
  * Resolve a publisher slug to its actual integer ID
+ * OPTIMIZED: Uses file-based cache first, then falls back to DB
  */
 async function resolvePublisherSlug(slug: string): Promise<string | null> {
-  // Check cache first
+  // Try file-based cache first (populated by global-setup)
+  loadSlugCacheFromFile();
+
   if (slugCache.has(slug)) {
     return slugCache.get(slug) || null;
   }
 
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
+  // Fallback to DB lookup (only for dynamically created publishers)
+  const pool = getSharedPool();
+  if (!pool) {
     console.warn('DATABASE_URL not set - cannot resolve slug');
     return null;
   }
 
-  // Enable SSL for cloud databases (Xata, etc.) - required in CI
-  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
-  const pool = new Pool({
-    connectionString: databaseUrl,
-    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
-  });
   try {
-    // First try exact slug match
-    console.log(`[resolvePublisherSlug] Looking for slug: "${slug}"`);
-    let result = await pool.query(
-      'SELECT id, slug FROM publishers WHERE slug = $1',
+    const result = await pool.query(
+      'SELECT id FROM publishers WHERE slug = $1',
       [slug]
     );
-    console.log(`[resolvePublisherSlug] Exact match found: ${result.rows.length} rows`);
-
-    // If no match, try case-insensitive slug match
-    if (result.rows.length === 0) {
-      result = await pool.query(
-        'SELECT id, slug FROM publishers WHERE LOWER(slug) = LOWER($1)',
-        [slug]
-      );
-      console.log(`[resolvePublisherSlug] Case-insensitive match found: ${result.rows.length} rows`);
-    }
-
-    // If still no match, try by name (convert slug to name format)
-    // e.g., "e2e-shared-verified-1" -> "E2E Shared Verified 1"
-    if (result.rows.length === 0 && slug.startsWith('e2e-')) {
-      const nameParts = slug.split('-').map(part =>
-        part.charAt(0).toUpperCase() + part.slice(1)
-      );
-      const name = nameParts.join(' ');
-      console.log(`[resolvePublisherSlug] Trying name match: "${name}"`);
-      result = await pool.query(
-        'SELECT id, name FROM publishers WHERE name = $1',
-        [name]
-      );
-      console.log(`[resolvePublisherSlug] Name match found: ${result.rows.length} rows`);
-      if (result.rows.length > 0) {
-        console.log(`Resolved slug "${slug}" to ID via name match: ${name} (row: ${JSON.stringify(result.rows[0])})`);
-      }
-    }
 
     if (result.rows.length > 0) {
-      const id = result.rows[0].id.toString(); // Convert integer to string
+      const id = result.rows[0].id.toString();
       slugCache.set(slug, id);
-      console.log(`Resolved slug "${slug}" to ID: ${id}`);
+      console.log(`[resolvePublisherSlug] Resolved "${slug}" to ID: ${id}`);
       return id;
     }
-    console.warn(`No publisher found with slug: ${slug}`);
-    // DO NOT cache NULL - publisher might be created later
+
+    console.warn(`[resolvePublisherSlug] No publisher found with slug: ${slug}`);
     return null;
   } catch (error) {
     console.error('Failed to resolve slug:', error);
     return null;
-  } finally {
-    await pool.end();
   }
+  // Note: Don't close the shared pool here
 }
 
 /**
@@ -104,44 +125,55 @@ const getClerkClient = () => {
 
 /**
  * Link a Clerk user to a publisher in the database
- * Updates the publisher's clerk_user_id field
+ * OPTIMIZED: Uses shared pool and skips if link already verified this session
  */
 export async function linkClerkUserToPublisher(
   clerkUserId: string,
   publisherId: string
 ): Promise<void> {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
+  // Skip if we've already verified this link in this worker session
+  const linkKey = `${clerkUserId}:${publisherId}`;
+  if (verifiedLinks.has(linkKey)) {
+    return; // Already linked, skip DB call
+  }
+
+  const pool = getSharedPool();
+  if (!pool) {
     console.warn('DATABASE_URL not set - cannot link user to publisher');
     return;
   }
 
-  // Enable SSL for cloud databases (Xata, etc.) - required in CI
-  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
-  const pool = new Pool({
-    connectionString: databaseUrl,
-    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
-  });
-
   try {
-    // Update the publisher's clerk_user_id
-    // Convert publisherId to integer for the database query
     const publisherIdInt = parseInt(publisherId, 10);
     if (isNaN(publisherIdInt)) {
       throw new Error(`Invalid publisher ID: ${publisherId}`);
     }
 
+    // Check if already linked (avoid unnecessary UPDATE)
+    const existing = await pool.query(
+      `SELECT clerk_user_id FROM publishers WHERE id = $1`,
+      [publisherIdInt]
+    );
+
+    if (existing.rows.length > 0 && existing.rows[0].clerk_user_id === clerkUserId) {
+      // Already linked correctly, just mark as verified
+      verifiedLinks.add(linkKey);
+      return;
+    }
+
+    // Need to update
     await pool.query(
       `UPDATE publishers SET clerk_user_id = $1 WHERE id = $2`,
       [clerkUserId, publisherIdInt]
     );
+
+    verifiedLinks.add(linkKey);
     console.log(`Linked Clerk user ${clerkUserId} to publisher ${publisherId}`);
   } catch (error) {
     console.error('Failed to link user to publisher:', error);
     throw error;
-  } finally {
-    await pool.end();
   }
+  // Note: Don't close the shared pool here
 }
 
 /**
@@ -235,29 +267,20 @@ export async function loginAsPublisher(
   page: Page,
   publisherIdOrSlug?: string | number
 ): Promise<void> {
-  console.log(`[loginAsPublisher] Called with publisherIdOrSlug: ${publisherIdOrSlug} (type: ${typeof publisherIdOrSlug})`);
   const userPool = loadUserPool();
   const user = userPool.publisher;
-  console.log(`[loginAsPublisher] Publisher user from pool: ${user.id}`);
 
   // Resolve slug to actual ID if needed
   let publisherId = publisherIdOrSlug;
 
   if (publisherIdOrSlug) {
-    // Convert to string for consistent handling
     const publisherStr = String(publisherIdOrSlug);
-    console.log(`[loginAsPublisher] Checking if "${publisherStr}" starts with "e2e-shared-"`);
-    if (publisherStr.startsWith('e2e-shared-')) {
-      console.log(`[loginAsPublisher] YES - Resolving slug: ${publisherStr}`);
+    if (publisherStr.startsWith('e2e-shared-') || publisherStr.startsWith('e2e-')) {
       const resolvedId = await resolvePublisherSlug(publisherStr);
       if (resolvedId) {
-        console.log(`[loginAsPublisher] Resolved slug ${publisherStr} to ID: ${resolvedId}`);
-        publisherId = resolvedId; // Already a string from resolvePublisherSlug
-      } else {
-        console.warn(`[loginAsPublisher] Failed to resolve slug: ${publisherStr}`);
+        publisherId = resolvedId;
       }
     } else {
-      console.log(`[loginAsPublisher] NO - Not a slug, using as-is: ${publisherStr}`);
       publisherId = publisherStr;
     }
   }
@@ -265,20 +288,15 @@ export async function loginAsPublisher(
   // Use the publisher from the pool if no specific publisher requested
   if (!publisherId && user.publisherId) {
     publisherId = String(user.publisherId);
-    console.log(`[loginAsPublisher] No publisher specified, using pool publisher: ${publisherId}`);
   }
 
   // Link the Clerk user to the publisher in the database
   if (publisherId) {
-    console.log(`[loginAsPublisher] Linking user ${user.id} to publisher ${publisherId}`);
     await linkClerkUserToPublisher(user.id, String(publisherId));
-    console.log(`[loginAsPublisher] Publisher link complete`);
   }
 
   // Sign in (if not already signed in from storage state)
   await performClerkSignIn(page, user.email);
-
-  console.log(`[loginAsPublisher] Complete`);
 }
 
 /**

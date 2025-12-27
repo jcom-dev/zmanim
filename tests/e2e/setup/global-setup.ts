@@ -12,8 +12,9 @@ import { FullConfig } from '@playwright/test';
 import { clerkSetup } from '@clerk/testing/playwright';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import * as fs from 'fs';
 import { Pool } from 'pg';
-import { initializeSharedPublishers, getSharedPublisherAsync } from '../utils/shared-fixtures';
+import { initializeSharedPublishers, getSharedPublisherAsync, getAllSharedPublishers } from '../utils/shared-fixtures';
 import { createUserPool } from '../utils/shared-users';
 
 // Load environment variables from multiple locations
@@ -136,6 +137,76 @@ async function seedTestPublishers(): Promise<void> {
   }
 }
 
+/**
+ * Pre-link the shared publisher Clerk user to all shared publishers
+ * This eliminates per-test database UPDATE calls
+ */
+async function preLinkPublisherUser(): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return;
+
+  // Load user pool to get the publisher user ID
+  const { loadUserPool } = await import('../utils/shared-users');
+  const userPool = loadUserPool();
+  const publisherClerkId = userPool.publisher.id;
+
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
+
+  try {
+    // Update ALL e2e-shared-* publishers to use the same Clerk user
+    const result = await pool.query(
+      `UPDATE publishers SET clerk_user_id = $1 WHERE slug LIKE 'e2e-shared-%' RETURNING id, slug`,
+      [publisherClerkId]
+    );
+    console.log(`Pre-linked ${result.rowCount} shared publishers to Clerk user ${publisherClerkId}`);
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Write slug -> ID cache file for test workers
+ * This eliminates database lookups during parallel test execution
+ */
+async function writeSlugCacheFile(): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return;
+
+  const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: requiresSSL ? { rejectUnauthorized: false } : undefined,
+  });
+
+  try {
+    // Get all e2e-shared-* publishers
+    const result = await pool.query(
+      `SELECT id, slug FROM publishers WHERE slug LIKE 'e2e-shared-%' OR slug LIKE 'e2e-test-%'`
+    );
+
+    const cache: Record<string, string> = {};
+    for (const row of result.rows) {
+      cache[row.slug] = row.id.toString();
+    }
+
+    // Write to test-results directory
+    const cacheDir = path.resolve(__dirname, '../../test-results');
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const cacheFile = path.join(cacheDir, '.slug-cache.json');
+    fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+    console.log(`Wrote slug cache with ${Object.keys(cache).length} entries to ${cacheFile}`);
+  } finally {
+    await pool.end();
+  }
+}
+
 // Store test publisher IDs for use in tests
 async function getTestPublisherIds(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -221,6 +292,9 @@ async function globalSetup(config: FullConfig) {
   console.log('\nInitializing shared test fixtures...');
   await initializeSharedPublishers();
 
+  // Write slug cache file for test workers to use (avoids DB lookups during tests)
+  await writeSlugCacheFile();
+
   // Create shared user pool
   console.log('\nCreating shared user pool...');
   try {
@@ -229,6 +303,10 @@ async function globalSetup(config: FullConfig) {
     const publisherWithAlgorithm = await getSharedPublisherAsync('with-algorithm-1');
     await createUserPool(publisherWithAlgorithm.id);
     console.log(`Shared user pool created successfully (linked to publisher ${publisherWithAlgorithm.id})`);
+
+    // Pre-link the publisher user to all shared publishers
+    // This eliminates per-test database updates
+    await preLinkPublisherUser();
   } catch (error: any) {
     console.error('Error creating user pool:', error?.message);
     throw error;
