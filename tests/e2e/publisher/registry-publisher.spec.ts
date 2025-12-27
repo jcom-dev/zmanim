@@ -279,8 +279,8 @@ test.describe('Publisher Examples - Coverage-Restricted Location Selection', () 
     await locationInput.click();
     await locationInput.fill('Jerusalem');
 
-    // Wait for autocomplete results
-    await page.waitForTimeout(500); // Brief wait for autocomplete
+    // Wait for autocomplete results to appear
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
 
     // Select Jerusalem from results
     await page.getByText('Jerusalem', { exact: false }).first().click();
@@ -311,7 +311,7 @@ test.describe('Publisher Examples - Coverage-Restricted Location Selection', () 
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     // Wait for preview times to calculate
@@ -376,7 +376,7 @@ test.describe('Publisher Examples - Publisher Zman Card Display', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -411,7 +411,7 @@ test.describe('Publisher Examples - Publisher Zman Card Display', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -442,7 +442,7 @@ test.describe('Publisher Examples - Publisher Zman Card Display', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -509,7 +509,7 @@ test.describe('Publisher Examples - Documentation Modal', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -544,7 +544,7 @@ test.describe('Publisher Examples - Documentation Modal', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -580,7 +580,7 @@ test.describe('Publisher Examples - Documentation Modal', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -617,7 +617,7 @@ test.describe('Publisher Examples - Documentation Modal', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -687,7 +687,7 @@ test.describe('Publisher Examples - Link Flow', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -726,7 +726,7 @@ test.describe('Publisher Examples - Link Flow', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -799,7 +799,7 @@ test.describe('Publisher Examples - Copy Flow', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -838,7 +838,7 @@ test.describe('Publisher Examples - Copy Flow', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -934,7 +934,7 @@ test.describe('Publisher Examples - Search & Filter', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -972,7 +972,7 @@ test.describe('Publisher Examples - Search & Filter', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');
@@ -1016,7 +1016,7 @@ test.describe('Publisher Examples - Search & Filter', () => {
     const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
     await locationInput.click();
     await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('text=Jerusalem', { state: 'visible' });
     await page.getByText('Jerusalem', { exact: false }).first().click();
 
     await page.waitForLoadState('networkidle');

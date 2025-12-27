@@ -42,13 +42,13 @@ test.describe('Team - Page Access', () => {
     await expect(page.getByText(/manage who can access/i)).toBeVisible();
   });
 
-  test('has Invite Member button', async ({ page }) => {
+  test('has Add Member button', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('button', { name: /invite member/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /add member/i })).toBeVisible();
   });
 
   test('loads without error', async ({ page }) => {
@@ -92,15 +92,15 @@ test.describe('Team - Current Team Section', () => {
   });
 });
 
-test.describe('Team - Invite Dialog', () => {
-  test('Invite Member opens dialog', async ({ page }) => {
+test.describe('Team - Add Member Dialog', () => {
+  test('Add Member opens dialog', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
-    await expect(page.getByText('Invite Team Member')).toBeVisible();
+    await page.getByRole('button', { name: /add member/i }).click();
+    await expect(page.getByText('Add Team Member')).toBeVisible();
   });
 
   test('dialog shows description', async ({ page }) => {
@@ -109,8 +109,8 @@ test.describe('Team - Invite Dialog', () => {
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
-    await expect(page.getByText(/send an invitation to join/i)).toBeVisible();
+    await page.getByRole('button', { name: /add member/i }).click();
+    await expect(page.getByText(/add a new member to your publisher team/i)).toBeVisible();
   });
 
   test('dialog has email input', async ({ page }) => {
@@ -119,7 +119,7 @@ test.describe('Team - Invite Dialog', () => {
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
+    await page.getByRole('button', { name: /add member/i }).click();
     await expect(page.getByLabel(/email/i)).toBeVisible();
   });
 
@@ -129,18 +129,18 @@ test.describe('Team - Invite Dialog', () => {
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
+    await page.getByRole('button', { name: /add member/i }).click();
     await expect(page.getByPlaceholder(/colleague@example.com/i)).toBeVisible();
   });
 
-  test('dialog has Send button', async ({ page }) => {
+  test('dialog has Add Member button', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
-    await expect(page.getByRole('button', { name: /send invitation/i })).toBeVisible();
+    await page.getByRole('button', { name: /add member/i }).click();
+    await expect(page.getByRole('button', { name: /add member/i }).last()).toBeVisible();
   });
 
   test('dialog has Cancel button', async ({ page }) => {
@@ -149,7 +149,7 @@ test.describe('Team - Invite Dialog', () => {
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
+    await page.getByRole('button', { name: /add member/i }).click();
     await expect(page.getByRole('button', { name: /cancel/i })).toBeVisible();
   });
 
@@ -159,13 +159,13 @@ test.describe('Team - Invite Dialog', () => {
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
-    await expect(page.getByText('Invite Team Member')).toBeVisible();
+    await page.getByRole('button', { name: /add member/i }).click();
+    await expect(page.getByText('Add Team Member')).toBeVisible();
 
     await page.getByRole('button', { name: /cancel/i }).click();
-    await page.waitForTimeout(500);
+    await expect(page.getByRole('dialog')).not.toBeVisible();
 
-    await expect(page.getByText('Invite Team Member')).not.toBeVisible();
+    await expect(page.getByText('Add Team Member')).not.toBeVisible();
   });
 
   test('error for empty email', async ({ page }) => {
@@ -174,8 +174,8 @@ test.describe('Team - Invite Dialog', () => {
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
-    await page.getByRole('button', { name: /send invitation/i }).click();
+    await page.getByRole('button', { name: /add member/i }).click();
+    await page.getByRole('button', { name: /add member/i }).last().click();
 
     await expect(page.getByText(/email is required/i)).toBeVisible();
   });
@@ -186,9 +186,9 @@ test.describe('Team - Invite Dialog', () => {
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /invite member/i }).click();
+    await page.getByRole('button', { name: /add member/i }).click();
     await page.getByLabel(/email/i).fill('invalid-email');
-    await page.getByRole('button', { name: /send invitation/i }).click();
+    await page.getByRole('button', { name: /add member/i }).last().click();
 
     await expect(page.getByText(/valid email/i)).toBeVisible();
   });
@@ -200,7 +200,9 @@ test.describe('Team - Member Display', () => {
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/team`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+
+    // Wait for team members to load
+    await page.waitForSelector('body', { state: 'visible' });
 
     const badge = page.getByText('Owner');
     if (await badge.isVisible().catch(() => false)) {

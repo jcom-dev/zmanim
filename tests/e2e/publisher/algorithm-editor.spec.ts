@@ -93,9 +93,9 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await page.getByRole('tab', { name: /enabled/i }).click();
-      await page.waitForTimeout(500);
-      await expect(page.getByRole('tab', { name: /enabled/i })).toHaveAttribute('data-state', 'active');
+      const enabledTab = page.getByRole('tab', { name: /enabled/i });
+      await enabledTab.click();
+      await expect(enabledTab).toHaveAttribute('data-state', 'active');
     }
   });
 
@@ -106,9 +106,9 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await page.getByRole('tab', { name: /custom/i }).click();
-      await page.waitForTimeout(500);
-      await expect(page.getByRole('tab', { name: /custom/i })).toHaveAttribute('data-state', 'active');
+      const customTab = page.getByRole('tab', { name: /custom/i });
+      await customTab.click();
+      await expect(customTab).toHaveAttribute('data-state', 'active');
     }
   });
 });
