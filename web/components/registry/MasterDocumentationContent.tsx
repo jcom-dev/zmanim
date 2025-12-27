@@ -12,6 +12,7 @@ import {
 import { HighlightedFormula } from '@/components/shared/HighlightedFormula';
 import { toast } from 'sonner';
 import { Copy, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Types - exported for reuse
 export interface RelatedZmanInfo {

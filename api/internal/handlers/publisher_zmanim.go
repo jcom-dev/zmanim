@@ -2249,10 +2249,10 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 		ResourceName:  sourceZman.ZmanKey,
 		Status:        AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
-			"mode":                       req.Mode,
-			"source_publisher_zman_id":   req.SourcePublisherZmanID,
-			"source_publisher_id":        sourceZman.PublisherID,
-			"zman_key":                   sourceZman.ZmanKey,
+			"mode":                     req.Mode,
+			"source_publisher_zman_id": req.SourcePublisherZmanID,
+			"source_publisher_id":      sourceZman.PublisherID,
+			"zman_key":                 sourceZman.ZmanKey,
 		},
 	})
 

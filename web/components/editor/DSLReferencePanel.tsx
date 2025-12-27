@@ -205,7 +205,6 @@ export function DSLReferencePanel({
         {/* Primitives */}
         <Category
           title="Primitives"
-          count={DSL_PRIMITIVES.length}
           items={DSL_PRIMITIVES}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -215,7 +214,6 @@ export function DSLReferencePanel({
         {/* Functions */}
         <Category
           title="Functions"
-          count={DSL_FUNCTIONS.length}
           items={DSL_FUNCTIONS}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -225,7 +223,6 @@ export function DSLReferencePanel({
         {/* Day Boundary Systems */}
         <Category
           title="Day Boundaries"
-          count={DSL_PROPORTIONAL_BASES.length}
           items={DSL_PROPORTIONAL_BASES}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -235,7 +232,6 @@ export function DSLReferencePanel({
         {/* Solar Directions */}
         <Category
           title="Solar Directions"
-          count={DSL_DIRECTIONS.length}
           items={DSL_DIRECTIONS}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -245,7 +241,6 @@ export function DSLReferencePanel({
         {/* Operators */}
         <Category
           title="Operators"
-          count={DSL_OPERATORS.length}
           items={DSL_OPERATORS}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -255,7 +250,6 @@ export function DSLReferencePanel({
         {/* Conditionals */}
         <Category
           title="Conditionals"
-          count={DSL_CONDITIONALS.length}
           items={DSL_CONDITIONALS}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -265,7 +259,6 @@ export function DSLReferencePanel({
         {/* Condition Variables */}
         <Category
           title="Condition Variables"
-          count={DSL_CONDITION_VARIABLES.length}
           items={DSL_CONDITION_VARIABLES}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -275,7 +268,6 @@ export function DSLReferencePanel({
         {/* Date Literals */}
         <Category
           title="Date Literals"
-          count={DSL_DATE_LITERALS.length}
           items={DSL_DATE_LITERALS}
           currentFormula={currentFormula}
           onInsert={onInsert}
@@ -286,7 +278,6 @@ export function DSLReferencePanel({
         {zmanimReferences.length > 0 && (
           <Category
             title="Your Zmanim"
-            count={zmanimReferences.length}
             items={zmanimReferences}
             currentFormula={currentFormula}
             onInsert={onInsert}

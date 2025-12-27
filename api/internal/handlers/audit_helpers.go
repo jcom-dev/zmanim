@@ -165,17 +165,17 @@ func (h *Handlers) LogAuditEventFailure(ctx context.Context, r *http.Request, pc
 
 // AuditCategory constants for consistent event categorization
 const (
-	AuditCategoryPublisher  = "publisher"
-	AuditCategoryZman       = "zman"
-	AuditCategoryCoverage   = "coverage"
-	AuditCategoryAlgorithm  = "algorithm"
-	AuditCategoryTeam       = "team"
-	AuditCategoryAlias      = "alias"
-	AuditCategoryTag        = "tag"
-	AuditCategoryUser       = "user"
-	AuditCategoryAPIKey     = "api_key"
-	AuditCategoryExport     = "export"
-	AuditCategorySettings   = "settings"
+	AuditCategoryPublisher = "publisher"
+	AuditCategoryZman      = "zman"
+	AuditCategoryCoverage  = "coverage"
+	AuditCategoryAlgorithm = "algorithm"
+	AuditCategoryTeam      = "team"
+	AuditCategoryAlias     = "alias"
+	AuditCategoryTag       = "tag"
+	AuditCategoryUser      = "user"
+	AuditCategoryAPIKey    = "api_key"
+	AuditCategoryExport    = "export"
+	AuditCategorySettings  = "settings"
 )
 
 // AuditAction constants for consistent action naming

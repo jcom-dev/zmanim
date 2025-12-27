@@ -28,24 +28,24 @@ import (
 
 // AuditLogResponse represents a single audit log entry
 type AuditLogResponse struct {
-	ID              string                 `json:"id"`
-	ActionType      string                 `json:"action_type"`
-	Category        string                 `json:"category"`
-	UserID          *string                `json:"user_id,omitempty"`
-	PublisherID     *int32                 `json:"publisher_id,omitempty"`
-	PublisherName   string                 `json:"publisher_name,omitempty"`
-	EntityType      *string                `json:"entity_type,omitempty"`
-	EntityID        *string                `json:"entity_id,omitempty"`
-	Status          *string                `json:"status,omitempty"`
-	ErrorMessage    *string                `json:"error_message,omitempty"`
-	StartedAt       time.Time              `json:"started_at"`
-	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
-	DurationMs      *int32                 `json:"duration_ms,omitempty"`
-	Changes         map[string]interface{} `json:"changes,omitempty"`
-	Metadata        map[string]interface{} `json:"metadata,omitempty"`
-	Description     string                 `json:"description"`
-	ParentActionID  string                 `json:"parent_action_id,omitempty"`
-	RequestID       string                 `json:"request_id,omitempty"`
+	ID             string                 `json:"id"`
+	ActionType     string                 `json:"action_type"`
+	Category       string                 `json:"category"`
+	UserID         *string                `json:"user_id,omitempty"`
+	PublisherID    *int32                 `json:"publisher_id,omitempty"`
+	PublisherName  string                 `json:"publisher_name,omitempty"`
+	EntityType     *string                `json:"entity_type,omitempty"`
+	EntityID       *string                `json:"entity_id,omitempty"`
+	Status         *string                `json:"status,omitempty"`
+	ErrorMessage   *string                `json:"error_message,omitempty"`
+	StartedAt      time.Time              `json:"started_at"`
+	CompletedAt    *time.Time             `json:"completed_at,omitempty"`
+	DurationMs     *int32                 `json:"duration_ms,omitempty"`
+	Changes        map[string]interface{} `json:"changes,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	Description    string                 `json:"description"`
+	ParentActionID string                 `json:"parent_action_id,omitempty"`
+	RequestID      string                 `json:"request_id,omitempty"`
 }
 
 // AuditStatsResponse represents aggregated audit statistics for dashboard
@@ -76,7 +76,7 @@ type PublisherStats struct {
 
 // AuditExportRequest represents export request body
 type AuditExportRequest struct {
-	Format      string  `json:"format"`       // csv or json
+	Format      string  `json:"format"` // csv or json
 	ActionType  *string `json:"action_type,omitempty"`
 	Category    *string `json:"category,omitempty"`
 	PublisherID *int32  `json:"publisher_id,omitempty"`
