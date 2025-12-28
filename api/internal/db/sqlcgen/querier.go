@@ -154,12 +154,8 @@ type Querier interface {
 	CopyPublicAlgorithm(ctx context.Context, arg CopyPublicAlgorithmParams) (int32, error)
 	// Create a copied publisher zman (independent copy from another publisher)
 	CopyPublisherZmanFromExample(ctx context.Context, arg CopyPublisherZmanFromExampleParams) (CopyPublisherZmanFromExampleRow, error)
-	// Returns count for pagination
-	CountAdminAuditLog(ctx context.Context, arg CountAdminAuditLogParams) (int64, error)
 	// Returns count for extended admin audit logs
-	CountAdminAuditLogsExtended(ctx context.Context, arg CountAdminAuditLogsExtendedParams) (int64, error)
-	// Returns count for pagination of all audit logs
-	CountAllAuditLog(ctx context.Context, arg CountAllAuditLogParams) (int64, error)
+	CountAuditLogs(ctx context.Context, arg CountAuditLogsParams) (int64, error)
 	// Count total master zmanim matching filters (for pagination)
 	CountMasterZmanimForRegistry(ctx context.Context, arg CountMasterZmanimForRegistryParams) (int64, error)
 	CountPendingInvitationsForEmail(ctx context.Context, arg CountPendingInvitationsForEmailParams) (int64, error)
@@ -335,10 +331,6 @@ type Querier interface {
 	GetActionChain(ctx context.Context, id string) ([]GetActionChainRow, error)
 	// Retrieves all actions for a given request ID (for debugging/audit)
 	GetActionsByRequest(ctx context.Context, requestID string) ([]Action, error)
-	// Returns admin activity log with filtering and pagination
-	GetAdminAuditLog(ctx context.Context, arg GetAdminAuditLogParams) ([]GetAdminAuditLogRow, error)
-	// Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
-	GetAdminAuditLogsExtended(ctx context.Context, arg GetAdminAuditLogsExtendedParams) ([]GetAdminAuditLogsExtendedRow, error)
 	// Returns all system-wide admin elevation overrides
 	GetAdminElevationOverrides(ctx context.Context) ([]GetAdminElevationOverridesRow, error)
 	// ============================================
@@ -357,8 +349,6 @@ type Querier interface {
 	// ASTRONOMICAL PRIMITIVES QUERIES
 	// ============================================
 	GetAllAstronomicalPrimitives(ctx context.Context) ([]GetAllAstronomicalPrimitivesRow, error)
-	// Returns all activity log (not just admin) with filtering
-	GetAllAuditLog(ctx context.Context, arg GetAllAuditLogParams) ([]GetAllAuditLogRow, error)
 	// Current coordinates/elevation resolved with priority: admin > default (for display)
 	// Uses LATERAL joins to avoid materializing the full resolved_coords view for 4M+ localities
 	GetAllCorrectionRequests(ctx context.Context, status *string) ([]GetAllCorrectionRequestsRow, error)
@@ -432,6 +422,8 @@ type Querier interface {
 	GetAstronomicalPrimitivesGrouped(ctx context.Context) ([]GetAstronomicalPrimitivesGroupedRow, error)
 	// Returns a single audit log entry by ID
 	GetAuditLogByID(ctx context.Context, id string) (GetAuditLogByIDRow, error)
+	// Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
+	GetAuditLogs(ctx context.Context, arg GetAuditLogsParams) ([]GetAuditLogsRow, error)
 	// Returns audit statistics for the last 24 hours
 	GetAuditStats24h(ctx context.Context) (int64, error)
 	// Returns audit statistics for the last 7 days
@@ -547,8 +539,6 @@ type Querier interface {
 	GetDistinctShitas(ctx context.Context) ([]*string, error)
 	// Retrieves all actions for a specific entity (e.g., all actions on publisher_zman #123)
 	GetEntityActionHistory(ctx context.Context, arg GetEntityActionHistoryParams) ([]GetEntityActionHistoryRow, error)
-	// Returns full audit trail for a specific entity
-	GetEntityAuditTrail(ctx context.Context, arg GetEntityAuditTrailParams) ([]GetEntityAuditTrailRow, error)
 	// ============================================
 	// ADDITIONAL MASTER REGISTRY QUERIES
 	// ============================================

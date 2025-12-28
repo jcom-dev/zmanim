@@ -88,7 +88,7 @@ func New(database *db.DB) *Handlers {
 	recaptchaService := services.NewRecaptchaService()
 	snapshotService := services.NewSnapshotService(database)
 	completeExportService := services.NewCompleteExportService(database)
-	activityService := services.NewActivityService(database)
+	activityService := services.NewActivityService(database, clerkService)
 	publisherResolver := NewPublisherResolver(database)
 
 	return &Handlers{

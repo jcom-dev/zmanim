@@ -26,26 +26,47 @@ import (
 // Response Types for Admin Audit API
 // =============================================================================
 
-// AuditLogResponse represents a single audit log entry
-type AuditLogResponse struct {
-	ID             string                 `json:"id"`
-	ActionType     string                 `json:"action_type"`
-	Category       string                 `json:"category"`
-	UserID         *string                `json:"user_id,omitempty"`
-	PublisherID    *int32                 `json:"publisher_id,omitempty"`
-	PublisherName  string                 `json:"publisher_name,omitempty"`
-	EntityType     *string                `json:"entity_type,omitempty"`
-	EntityID       *string                `json:"entity_id,omitempty"`
-	Status         *string                `json:"status,omitempty"`
-	ErrorMessage   *string                `json:"error_message,omitempty"`
-	StartedAt      time.Time              `json:"started_at"`
-	CompletedAt    *time.Time             `json:"completed_at,omitempty"`
-	DurationMs     *int32                 `json:"duration_ms,omitempty"`
-	Changes        map[string]interface{} `json:"changes,omitempty"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
-	Description    string                 `json:"description"`
-	ParentActionID string                 `json:"parent_action_id,omitempty"`
-	RequestID      string                 `json:"request_id,omitempty"`
+// AuditChanges represents before/after state changes
+type AuditChanges struct {
+	Before map[string]interface{} `json:"before,omitempty"`
+	After  map[string]interface{} `json:"after,omitempty"`
+	Diff   map[string]interface{} `json:"diff,omitempty"`
+}
+
+// AdminAuditLogEntry represents a single audit log entry for admin view
+// Matches the frontend AuditEvent interface
+type AdminAuditLogEntry struct {
+	ID            string         `json:"id"`
+	EventType     string         `json:"event_type"`      // format: "category.action"
+	EventCategory string         `json:"event_category"`
+	EventAction   string         `json:"event_action"`
+	EventSeverity string         `json:"event_severity,omitempty"` // debug, info, warning, error, critical
+	OccurredAt    time.Time      `json:"occurred_at"`
+	Actor         AuditActor     `json:"actor"`
+	PublisherID   *int32         `json:"publisher_id,omitempty"`
+	PublisherSlug *string        `json:"publisher_slug,omitempty"`
+	Resource      AuditResource  `json:"resource"`
+	OperationType string         `json:"operation_type"` // CREATE, UPDATE, DELETE, etc.
+	Changes       *AuditChanges  `json:"changes,omitempty"`
+	Status        string         `json:"status"`
+	ErrorMessage  string         `json:"error_message,omitempty"`
+	DurationMs    *int32         `json:"duration_ms,omitempty"`
+	RequestID     string         `json:"request_id"`
+	Metadata      json.RawMessage `json:"metadata,omitempty"`
+}
+
+// AuditEventsResponse represents paginated audit events
+type AuditEventsResponse struct {
+	Events     []AdminAuditLogEntry `json:"events"`
+	Pagination PaginationInfo       `json:"pagination"`
+}
+
+// PaginationInfo represents pagination metadata
+type PaginationInfo struct {
+	Total      int64   `json:"total"`
+	PageSize   int     `json:"page_size"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+	PrevCursor *string `json:"prev_cursor,omitempty"`
 }
 
 // AuditStatsResponse represents aggregated audit statistics for dashboard
@@ -53,11 +74,11 @@ type AuditStatsResponse struct {
 	TotalEvents24h       int64              `json:"total_events_24h"`
 	TotalEvents7d        int64              `json:"total_events_7d"`
 	EventsByCategory     map[string]int64   `json:"events_by_category"`
-	EventsByAction       map[string]int64   `json:"events_by_action"`
-	EventsByStatus       map[string]int64   `json:"events_by_status"`
-	TopActors            []ActorStats       `json:"top_actors"`
-	TopPublishers        []PublisherStats   `json:"top_publishers"`
-	RecentCriticalEvents []AuditLogResponse `json:"recent_critical_events"`
+	EventsByAction       map[string]int64      `json:"events_by_action"`
+	EventsByStatus       map[string]int64      `json:"events_by_status"`
+	TopActors            []ActorStats          `json:"top_actors"`
+	TopPublishers        []PublisherStats      `json:"top_publishers"`
+	RecentCriticalEvents []AdminAuditLogEntry  `json:"recent_critical_events"`
 }
 
 // ActorStats represents statistics for an actor (user)
@@ -158,16 +179,16 @@ func (h *Handlers) GetAdminAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query audit logs with extended filters
-	rows, err := h.db.Queries.GetAdminAuditLogsExtended(ctx, sqlcgen.GetAdminAuditLogsExtendedParams{
-		ActionTypeFilter:  nilIfEmpty(actionType),
-		CategoryFilter:    nilIfEmpty(category),
+	rows, err := h.db.Queries.GetAuditLogs(ctx, sqlcgen.GetAuditLogsParams{
+		EventAction:       nilIfEmpty(actionType),
+		EventCategory:     nilIfEmpty(category),
 		PublisherIDFilter: publisherID,
-		UserIDFilter:      nilIfEmpty(actorID),
+		ActorID:           nilIfEmpty(actorID),
 		StatusFilter:      nilIfEmpty(status),
-		StartDate:         startDate,
-		EndDate:           endDate,
-		LimitVal:          int32(pageSize),
-		OffsetVal:         int32(offset),
+		FromDate:          startDate,
+		ToDate:            endDate,
+		LimitCount:        int32(pageSize),
+		OffsetCount:       int32(offset),
 	})
 	if err != nil {
 		slog.Error("failed to get admin audit logs", "error", err)
@@ -176,14 +197,14 @@ func (h *Handlers) GetAdminAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get total count
-	total, err := h.db.Queries.CountAdminAuditLogsExtended(ctx, sqlcgen.CountAdminAuditLogsExtendedParams{
-		ActionTypeFilter:  nilIfEmpty(actionType),
-		CategoryFilter:    nilIfEmpty(category),
+	total, err := h.db.Queries.CountAuditLogs(ctx, sqlcgen.CountAuditLogsParams{
+		EventAction:       nilIfEmpty(actionType),
+		EventCategory:     nilIfEmpty(category),
 		PublisherIDFilter: publisherID,
-		UserIDFilter:      nilIfEmpty(actorID),
+		ActorID:           nilIfEmpty(actorID),
 		StatusFilter:      nilIfEmpty(status),
-		StartDate:         startDate,
-		EndDate:           endDate,
+		FromDate:          startDate,
+		ToDate:            endDate,
 	})
 	if err != nil {
 		slog.Warn("failed to count audit logs", "error", err)
@@ -191,17 +212,18 @@ func (h *Handlers) GetAdminAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Format response
-	entries := make([]AuditLogResponse, 0, len(rows))
+	events := make([]AdminAuditLogEntry, 0, len(rows))
 	for _, row := range rows {
-		entry := formatAuditLogEntry(row)
-		entries = append(entries, entry)
+		event := formatAdminAuditLogEntry(row)
+		events = append(events, event)
 	}
 
-	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"entries":   entries,
-		"total":     total,
-		"page":      page,
-		"page_size": pageSize,
+	RespondJSON(w, r, http.StatusOK, AuditEventsResponse{
+		Events: events,
+		Pagination: PaginationInfo{
+			Total:    total,
+			PageSize: pageSize,
+		},
 	})
 }
 
@@ -315,30 +337,47 @@ func (h *Handlers) GetAdminAuditStats(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get critical events", "error", err)
 		criticalRows = nil
 	}
-	recentCritical := make([]AuditLogResponse, 0, len(criticalRows))
+	recentCritical := make([]AdminAuditLogEntry, 0, len(criticalRows))
 	for _, row := range criticalRows {
-		entry := AuditLogResponse{
-			ID:            row.ID,
-			ActionType:    row.ActionType,
-			Category:      row.Concept,
-			UserID:        row.UserID,
-			PublisherID:   row.PublisherID,
-			PublisherName: row.PublisherName,
-			EntityType:    row.EntityType,
-			EntityID:      row.EntityID,
-			Status:        row.Status,
-			ErrorMessage:  row.ErrorMessage,
-			Description:   formatAuditActionDescription(row.ActionType, row.EntityType),
-		}
-		if row.StartedAt.Valid {
-			entry.StartedAt = row.StartedAt.Time
-		}
-		// Parse metadata
+		// Extract actor details
+		actorName := ""
+		ipAddress := ""
 		if row.Metadata != nil {
-			var metadata map[string]interface{}
-			if json.Unmarshal(row.Metadata, &metadata) == nil {
-				entry.Metadata = metadata
+			var meta map[string]interface{}
+			if json.Unmarshal(row.Metadata, &meta) == nil {
+				if name, ok := meta["actor_name"].(string); ok {
+					actorName = name
+				}
+				if ip, ok := meta["ip_address"].(string); ok {
+					ipAddress = ip
+				}
 			}
+		}
+
+		entry := AdminAuditLogEntry{
+			ID:            row.ID,
+			EventType:     row.Concept + "." + row.ActionType,
+			EventCategory: row.Concept,
+			EventAction:   row.ActionType,
+			EventSeverity: "info", // Default severity
+			OccurredAt:    row.StartedAt.Time,
+			Actor: AuditActor{
+				UserID:    stringFromStringPtr(row.UserID),
+				Name:      actorName,
+				IPAddress: ipAddress,
+				IsSystem:  actorName == "System",
+			},
+			PublisherID: row.PublisherID,
+			Resource: AuditResource{
+				Type: stringFromStringPtr(row.EntityType),
+				ID:   stringFromStringPtr(row.EntityID),
+				Name: row.PublisherName,
+			},
+			OperationType: getOperationType(row.ActionType),
+			Status:        stringFromStringPtr(row.Status),
+			ErrorMessage:  stringFromStringPtr(row.ErrorMessage),
+			RequestID:     "",
+			Metadata:      row.Metadata,
 		}
 		recentCritical = append(recentCritical, entry)
 	}
@@ -398,54 +437,48 @@ func (h *Handlers) GetAdminAuditLogByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Format response
-	entry := AuditLogResponse{
-		ID:            row.ID,
-		ActionType:    row.ActionType,
-		Category:      row.Concept,
-		UserID:        row.UserID,
-		PublisherID:   row.PublisherID,
-		PublisherName: row.PublisherName,
-		EntityType:    row.EntityType,
-		EntityID:      row.EntityID,
-		Status:        row.Status,
-		ErrorMessage:  row.ErrorMessage,
-		Description:   formatAuditActionDescription(row.ActionType, row.EntityType),
-		RequestID:     row.RequestID,
-	}
-
-	if row.StartedAt.Valid {
-		entry.StartedAt = row.StartedAt.Time
-	}
-	if row.CompletedAt.Valid {
-		entry.CompletedAt = &row.CompletedAt.Time
-	}
-	// DurationMs is *int32, not pgtype.Int32
-	entry.DurationMs = row.DurationMs
-
-	// ParentActionID is pgtype.UUID - convert to string if valid
-	if row.ParentActionID.Valid {
-		uuidBytes := row.ParentActionID.Bytes
-		entry.ParentActionID = fmt.Sprintf("%x-%x-%x-%x-%x",
-			uuidBytes[0:4], uuidBytes[4:6], uuidBytes[6:8], uuidBytes[8:10], uuidBytes[10:16])
-	}
-
-	// Parse payload for changes
-	if row.Payload != nil {
-		var changes map[string]interface{}
-		if json.Unmarshal(row.Payload, &changes) == nil {
-			entry.Changes = changes
-		}
-	}
-
-	// Parse metadata
+	// Extract actor details
+	actorName := ""
+	ipAddress := ""
 	if row.Metadata != nil {
-		var metadata map[string]interface{}
-		if json.Unmarshal(row.Metadata, &metadata) == nil {
-			entry.Metadata = metadata
+		var meta map[string]interface{}
+		if json.Unmarshal(row.Metadata, &meta) == nil {
+			if name, ok := meta["actor_name"].(string); ok {
+				actorName = name
+			}
+			if ip, ok := meta["ip_address"].(string); ok {
+				ipAddress = ip
+			}
 		}
 	}
 
+	// Format response
+	entry := AdminAuditLogEntry{
+		ID:            row.ID,
+		EventType:     row.Concept + "." + row.ActionType,
+		EventCategory: row.Concept,
+		EventAction:   row.ActionType,
+		EventSeverity: "info", // Default severity
+		OccurredAt:    row.StartedAt.Time,
+		Actor: AuditActor{
+			UserID:    stringFromStringPtr(row.UserID),
+			Name:      actorName,
+			IPAddress: ipAddress,
+			IsSystem:  actorName == "System",
+		},
+		PublisherID: row.PublisherID,
+		Resource: AuditResource{
+			Type: stringFromStringPtr(row.EntityType),
+			ID:   stringFromStringPtr(row.EntityID),
+			Name: row.PublisherName,
+		},
+		OperationType: getOperationType(row.ActionType),
+		Status:        stringFromStringPtr(row.Status),
+		ErrorMessage:  stringFromStringPtr(row.ErrorMessage),
+		DurationMs:    row.DurationMs,
+		RequestID:     row.RequestID,
+		Metadata:      row.Metadata,
+	}
 	RespondJSON(w, r, http.StatusOK, entry)
 }
 
@@ -506,16 +539,16 @@ func (h *Handlers) ExportAdminAuditLogs(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Query audit logs
-	rows, err := h.db.Queries.GetAdminAuditLogsExtended(ctx, sqlcgen.GetAdminAuditLogsExtendedParams{
-		ActionTypeFilter:  req.ActionType,
-		CategoryFilter:    req.Category,
+	rows, err := h.db.Queries.GetAuditLogs(ctx, sqlcgen.GetAuditLogsParams{
+		EventAction:       req.ActionType,
+		EventCategory:     req.Category,
 		PublisherIDFilter: req.PublisherID,
-		UserIDFilter:      req.ActorID,
+		ActorID:           req.ActorID,
 		StatusFilter:      req.Status,
-		StartDate:         startDate,
-		EndDate:           endDate,
-		LimitVal:          int32(req.Limit),
-		OffsetVal:         0,
+		FromDate:          startDate,
+		ToDate:            endDate,
+		LimitCount:        int32(req.Limit),
+		OffsetCount:       0,
 	})
 	if err != nil {
 		slog.Error("failed to get audit logs for export", "error", err)
@@ -524,9 +557,9 @@ func (h *Handlers) ExportAdminAuditLogs(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Format entries
-	entries := make([]AuditLogResponse, 0, len(rows))
+	entries := make([]AdminAuditLogEntry, 0, len(rows))
 	for _, row := range rows {
-		entry := formatAuditLogEntry(row)
+		entry := formatAdminAuditLogEntry(row)
 		entries = append(entries, entry)
 	}
 
@@ -542,8 +575,8 @@ func (h *Handlers) ExportAdminAuditLogs(w http.ResponseWriter, r *http.Request) 
 		writer := csv.NewWriter(w)
 		// Write header
 		header := []string{
-			"ID", "Action Type", "Category", "User ID", "Publisher ID",
-			"Publisher Name", "Entity Type", "Entity ID", "Status",
+			"ID", "Event Action", "Event Category", "Actor ID", "Publisher ID",
+			"Publisher Name", "Resource Type", "Resource ID", "Status",
 			"Started At", "Duration (ms)", "Description",
 		}
 		if err := writer.Write(header); err != nil {
@@ -555,17 +588,17 @@ func (h *Handlers) ExportAdminAuditLogs(w http.ResponseWriter, r *http.Request) 
 		for _, entry := range entries {
 			row := []string{
 				entry.ID,
-				entry.ActionType,
-				entry.Category,
-				ptrToString(entry.UserID),
+				entry.EventAction,
+				entry.EventCategory,
+				entry.Actor.UserID,
 				formatInt32Ptr(entry.PublisherID),
-				entry.PublisherName,
-				ptrToString(entry.EntityType),
-				ptrToString(entry.EntityID),
-				ptrToString(entry.Status),
-				entry.StartedAt.Format(time.RFC3339),
+				entry.Resource.Name,
+				entry.Resource.Type,
+				entry.Resource.ID,
+				entry.Status,
+				entry.OccurredAt.Format(time.RFC3339),
 				formatInt32Ptr(entry.DurationMs),
-				entry.Description,
+				entry.EventType,
 			}
 			if err := writer.Write(row); err != nil {
 				slog.Error("failed to write CSV row", "error", err)
@@ -597,45 +630,73 @@ func (h *Handlers) ExportAdminAuditLogs(w http.ResponseWriter, r *http.Request) 
 // =============================================================================
 
 // formatAuditLogEntry converts database row to response format
-func formatAuditLogEntry(row sqlcgen.GetAdminAuditLogsExtendedRow) AuditLogResponse {
-	entry := AuditLogResponse{
-		ID:            row.ID,
-		ActionType:    row.ActionType,
-		Category:      row.Concept,
-		UserID:        row.UserID,
-		PublisherID:   row.PublisherID,
-		PublisherName: row.PublisherName,
-		EntityType:    row.EntityType,
-		EntityID:      row.EntityID,
-		Status:        row.Status,
-		ErrorMessage:  row.ErrorMessage,
-		Description:   formatAuditActionDescription(row.ActionType, row.EntityType),
-		RequestID:     row.RequestID,
-	}
-
-	if row.StartedAt.Valid {
-		entry.StartedAt = row.StartedAt.Time
-	}
-	if row.CompletedAt.Valid {
-		entry.CompletedAt = &row.CompletedAt.Time
-	}
-	// DurationMs is *int32, not wrapped type
-	entry.DurationMs = row.DurationMs
-
-	// Parse payload for changes
-	if row.Payload != nil {
-		var changes map[string]interface{}
-		if json.Unmarshal(row.Payload, &changes) == nil {
-			entry.Changes = changes
-		}
-	}
-
-	// Parse metadata
+func formatAdminAuditLogEntry(row sqlcgen.GetAuditLogsRow) AdminAuditLogEntry {
+	// Extract actor details from metadata
+	actorName := ""
+	actorEmail := ""
+	ipAddress := ""
 	if row.Metadata != nil {
-		var metadata map[string]interface{}
-		if json.Unmarshal(row.Metadata, &metadata) == nil {
-			entry.Metadata = metadata
+		var meta map[string]interface{}
+		if err := json.Unmarshal(row.Metadata, &meta); err == nil {
+			if name, ok := meta["actor_name"].(string); ok {
+				actorName = name
+			}
+			if email, ok := meta["actor_email"].(string); ok {
+				actorEmail = email
+			}
+			if ip, ok := meta["ip_address"].(string); ok {
+				ipAddress = ip
+			}
 		}
+	}
+
+	// Parse changes from payload
+	var changesBefore, changesAfter map[string]interface{}
+	if row.Payload != nil {
+		json.Unmarshal(row.Payload, &changesBefore)
+	}
+	// Note: GetAuditLogsRow doesn't have a result field, so changesAfter remains nil
+
+	// Build changes object if we have before/after
+	var changes *AuditChanges
+	if changesBefore != nil || changesAfter != nil {
+		changes = &AuditChanges{
+			Before: changesBefore,
+			After:  changesAfter,
+		}
+	}
+
+	// Determine operation type and severity
+	operationType := getOperationType(row.EventAction)
+	severity := "info" // Default severity
+
+	entry := AdminAuditLogEntry{
+		ID:            row.ID,
+		EventType:     row.EventCategory + "." + row.EventAction,
+		EventCategory: row.EventCategory,
+		EventAction:   row.EventAction,
+		EventSeverity: severity,
+		OccurredAt:    row.StartedAt.Time,
+		Actor: AuditActor{
+			UserID:    stringFromStringPtr(row.ActorID),
+			Name:      actorName,
+			Email:     actorEmail,
+			IPAddress: ipAddress,
+			IsSystem:  actorName == "System",
+		},
+		PublisherID: row.PublisherID,
+		Resource: AuditResource{
+			Type: stringFromStringPtr(row.ResourceType),
+			ID:   stringFromStringPtr(row.ResourceID),
+			Name: row.PublisherName, // Publisher name as resource name for now
+		},
+		OperationType: operationType,
+		Status:        stringFromStringPtr(row.Status),
+		ErrorMessage:  stringFromStringPtr(row.ErrorMessage),
+		DurationMs:    row.DurationMs,
+		RequestID:     row.RequestID,
+		Changes:       changes,
+		Metadata:      row.Metadata,
 	}
 
 	return entry

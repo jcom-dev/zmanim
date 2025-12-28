@@ -7,6 +7,7 @@ import {
   DATE_RANGE_PRESETS,
   RESOURCE_TYPE_LABELS,
   EVENT_ACTION_LABELS,
+  EVENT_CATEGORY_LABELS,
 } from '@/lib/types/audit';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +60,7 @@ function formatDateRange(from?: string, to?: string): string {
  * Check if any filters are active
  */
 function hasActiveFilters(filters: AuditFiltersType): boolean {
-  return !!(filters.resource_type || filters.event_type || filters.from || filters.to);
+  return !!(filters.resource_type || filters.event_action || filters.event_category || filters.from || filters.to);
 }
 
 /**
@@ -75,11 +76,17 @@ function getActiveFilterBadges(filters: AuditFiltersType): { key: string; label:
     });
   }
 
-  if (filters.event_type) {
-    const action = filters.event_type.split('.')[1];
+  if (filters.event_action) {
     badges.push({
-      key: 'event_type',
-      label: EVENT_ACTION_LABELS[action] || filters.event_type,
+      key: 'event_action',
+      label: EVENT_ACTION_LABELS[filters.event_action] || filters.event_action,
+    });
+  }
+
+  if (filters.event_category) {
+    badges.push({
+      key: 'event_category',
+      label: EVENT_CATEGORY_LABELS[filters.event_category] || filters.event_category,
     });
   }
 
@@ -109,7 +116,14 @@ export function AuditFilters({ filters, onChange }: AuditFiltersProps) {
   const handleEventActionChange = (value: string) => {
     onChange({
       ...filters,
-      event_type: value === 'all' ? undefined : value,
+      event_action: value === 'all' ? undefined : value,
+    });
+  };
+
+  const handleEventCategoryChange = (value: string) => {
+    onChange({
+      ...filters,
+      event_category: value === 'all' ? undefined : value,
     });
   };
 
@@ -135,8 +149,10 @@ export function AuditFilters({ filters, onChange }: AuditFiltersProps) {
     const newFilters = { ...filters };
     if (key === 'resource_type') {
       newFilters.resource_type = undefined;
-    } else if (key === 'event_type') {
-      newFilters.event_type = undefined;
+    } else if (key === 'event_action') {
+      newFilters.event_action = undefined;
+    } else if (key === 'event_category') {
+      newFilters.event_category = undefined;
     } else if (key === 'date_range') {
       newFilters.from = undefined;
       newFilters.to = undefined;
@@ -160,6 +176,24 @@ export function AuditFilters({ filters, onChange }: AuditFiltersProps) {
           <span>Filters:</span>
         </div>
 
+        {/* Event Category dropdown */}
+        <Select
+          value={filters.event_category || 'all'}
+          onValueChange={handleEventCategoryChange}
+        >
+          <SelectTrigger className="w-[140px]" aria-label="Filter by category">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {Object.entries(EVENT_CATEGORY_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Resource Type dropdown */}
         <Select
           value={filters.resource_type || 'all'}
@@ -180,7 +214,7 @@ export function AuditFilters({ filters, onChange }: AuditFiltersProps) {
 
         {/* Event Action dropdown */}
         <Select
-          value={filters.event_type || 'all'}
+          value={filters.event_action || 'all'}
           onValueChange={handleEventActionChange}
         >
           <SelectTrigger className="w-[140px]" aria-label="Filter by action">

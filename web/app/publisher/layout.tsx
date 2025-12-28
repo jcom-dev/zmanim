@@ -173,7 +173,11 @@ function PublisherLayoutContent({ children }: { children: ReactNode }) {
         )}
 
         {/* Main Content - Fills remaining space */}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </div>
+        </main>
 
         {/* Blocking Publisher Selection Modal */}
         <PublisherSelectionModal

@@ -29,7 +29,6 @@ interface AdminAuditFiltersProps {
 
 // Event categories and their actions
 const EVENT_CATEGORIES = [
-  { value: '', label: 'All Categories' },
   { value: 'auth', label: 'Authentication' },
   { value: 'publisher', label: 'Publisher' },
   { value: 'zman', label: 'Zman' },
@@ -43,7 +42,6 @@ const EVENT_CATEGORIES = [
 
 // Resource types
 const RESOURCE_TYPES = [
-  { value: '', label: 'All Resources' },
   { value: 'publisher', label: 'Publisher' },
   { value: 'publisher_zman', label: 'Zman' },
   { value: 'coverage', label: 'Coverage' },
@@ -54,8 +52,7 @@ const RESOURCE_TYPES = [
 ];
 
 // Severity levels
-const SEVERITY_LEVELS: { value: EventSeverity | ''; label: string }[] = [
-  { value: '', label: 'All Severities' },
+const SEVERITY_LEVELS: { value: EventSeverity; label: string }[] = [
   { value: 'info', label: 'Info' },
   { value: 'warning', label: 'Warning' },
   { value: 'error', label: 'Error' },
@@ -64,7 +61,6 @@ const SEVERITY_LEVELS: { value: EventSeverity | ''; label: string }[] = [
 
 // Status options
 const STATUS_OPTIONS = [
-  { value: '', label: 'All Statuses' },
   { value: 'success', label: 'Success' },
   { value: 'failure', label: 'Failure' },
   { value: 'error', label: 'Error' },
@@ -90,23 +86,23 @@ export function AdminAuditFilters({
   }, [filters, onChange]);
 
   const handleCategoryChange = (value: string) => {
-    onChange({ ...filters, event_category: value || undefined });
+    onChange({ ...filters, event_category: value && value !== 'all' ? value : undefined });
   };
 
   const handleResourceTypeChange = (value: string) => {
-    onChange({ ...filters, resource_type: value || undefined });
+    onChange({ ...filters, resource_type: value && value !== 'all' ? value : undefined });
   };
 
   const handleSeverityChange = (value: string) => {
-    onChange({ ...filters, severity: (value as EventSeverity) || undefined });
+    onChange({ ...filters, severity: value && value !== 'all' ? (value as EventSeverity) : undefined });
   };
 
   const handleStatusChange = (value: string) => {
-    onChange({ ...filters, status: value as AdminAuditFiltersType['status'] || undefined });
+    onChange({ ...filters, status: value && value !== 'all' ? value as AdminAuditFiltersType['status'] : undefined });
   };
 
   const handlePublisherChange = (value: string) => {
-    onChange({ ...filters, publisher_id: value ? parseInt(value, 10) : undefined });
+    onChange({ ...filters, publisher_id: value && value !== 'all' ? parseInt(value, 10) : undefined });
   };
 
   const handleDatePreset = (preset: typeof DATE_RANGE_PRESETS[number]) => {
@@ -208,7 +204,7 @@ export function AdminAuditFilters({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Publisher Filter (Admin Only) */}
         <Select
-          value={filters.publisher_id?.toString() || ''}
+          value={filters.publisher_id?.toString() || 'all'}
           onValueChange={handlePublisherChange}
           disabled={isLoading}
         >
@@ -216,7 +212,7 @@ export function AdminAuditFilters({
             <SelectValue placeholder="All Publishers" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Publishers</SelectItem>
+            <SelectItem value="all">All Publishers</SelectItem>
             {publishers.map((publisher) => (
               <SelectItem key={publisher.id} value={publisher.id.toString()}>
                 {publisher.name}
@@ -227,7 +223,7 @@ export function AdminAuditFilters({
 
         {/* Category Filter */}
         <Select
-          value={filters.event_category || ''}
+          value={filters.event_category || 'all'}
           onValueChange={handleCategoryChange}
           disabled={isLoading}
         >
@@ -235,6 +231,7 @@ export function AdminAuditFilters({
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
             {EVENT_CATEGORIES.map((cat) => (
               <SelectItem key={cat.value} value={cat.value}>
                 {cat.label}
@@ -245,7 +242,7 @@ export function AdminAuditFilters({
 
         {/* Resource Type Filter */}
         <Select
-          value={filters.resource_type || ''}
+          value={filters.resource_type || 'all'}
           onValueChange={handleResourceTypeChange}
           disabled={isLoading}
         >
@@ -253,6 +250,7 @@ export function AdminAuditFilters({
             <SelectValue placeholder="All Resources" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Resources</SelectItem>
             {RESOURCE_TYPES.map((rt) => (
               <SelectItem key={rt.value} value={rt.value}>
                 {rt.label}
@@ -263,7 +261,7 @@ export function AdminAuditFilters({
 
         {/* Severity Filter */}
         <Select
-          value={filters.severity || ''}
+          value={filters.severity || 'all'}
           onValueChange={handleSeverityChange}
           disabled={isLoading}
         >
@@ -271,6 +269,7 @@ export function AdminAuditFilters({
             <SelectValue placeholder="All Severities" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Severities</SelectItem>
             {SEVERITY_LEVELS.map((sev) => (
               <SelectItem key={sev.value} value={sev.value}>
                 {sev.label}
@@ -281,7 +280,7 @@ export function AdminAuditFilters({
 
         {/* Status Filter */}
         <Select
-          value={filters.status || ''}
+          value={filters.status || 'all'}
           onValueChange={handleStatusChange}
           disabled={isLoading}
         >
@@ -289,6 +288,7 @@ export function AdminAuditFilters({
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
             {STATUS_OPTIONS.map((status) => (
               <SelectItem key={status.value} value={status.value}>
                 {status.label}

@@ -26,6 +26,23 @@ import (
 // Response Types for Publisher Audit API
 // =============================================================================
 
+// AuditActor represents the actor who performed an action
+type AuditActor struct {
+	UserID    string  `json:"user_id,omitempty"`
+	ClerkID   string  `json:"clerk_id,omitempty"`
+	Name      string  `json:"name,omitempty"`
+	Email     string  `json:"email,omitempty"`
+	IPAddress string  `json:"ip_address,omitempty"`
+	IsSystem  bool    `json:"is_system"`
+}
+
+// AuditResource represents the affected resource
+type AuditResource struct {
+	Type string `json:"type,omitempty"`
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
 // PublisherAuditLogEntry represents a single audit log entry for publishers
 //
 //	@Description	Publisher audit log entry details
@@ -40,17 +57,11 @@ type PublisherAuditLogEntry struct {
 	EventAction string `json:"event_action" example:"update"`
 	// When the event occurred
 	OccurredAt time.Time `json:"occurred_at"`
-	// Actor username/email (masked for PII)
-	ActorUsername string `json:"actor_username,omitempty" example:"user_2abc123xyz"`
-	// Actor display name
-	ActorName string `json:"actor_name,omitempty" example:"Rabbi Cohen"`
-	// Resource type affected
-	ResourceType string `json:"resource_type,omitempty" example:"publisher_zman"`
-	// Resource ID affected
-	ResourceID string `json:"resource_id,omitempty" example:"123"`
-	// Resource name for display
-	ResourceName string `json:"resource_name,omitempty" example:"Shema - Magen Avraham"`
-	// Event status (success, failure, error)
+	// Actor who performed the action
+	Actor AuditActor `json:"actor"`
+	// Resource affected
+	Resource AuditResource `json:"resource"`
+	// Event status (success, failure, error, completed, pending)
 	Status string `json:"status" example:"completed"`
 	// Error message if failed
 	ErrorMessage string `json:"error_message,omitempty"`
@@ -60,8 +71,8 @@ type PublisherAuditLogEntry struct {
 	ChangesBefore json.RawMessage `json:"changes_before,omitempty"`
 	// Changes after (for creates/updates)
 	ChangesAfter json.RawMessage `json:"changes_after,omitempty"`
-	// Changes diff (computed)
-	ChangesDiff json.RawMessage `json:"changes_diff,omitempty"`
+	// Operation type (CREATE, UPDATE, DELETE, etc.)
+	OperationType string `json:"operation_type" example:"CREATE"`
 	// Request ID for correlation
 	RequestID string `json:"request_id,omitempty"`
 	// Additional metadata
@@ -168,7 +179,7 @@ func (h *Handlers) GetPublisherAuditLogs(w http.ResponseWriter, r *http.Request)
 		cursorID = &id
 	}
 
-	// 5. Query audit events using existing GetAllAuditLog
+	// 5. Query audit events using GetAuditLogs
 	// Convert filter times to pgtype.Timestamptz
 	var fromDate pgtype.Timestamptz
 	if filters.From != nil {
@@ -179,19 +190,19 @@ func (h *Handlers) GetPublisherAuditLogs(w http.ResponseWriter, r *http.Request)
 		toDate = pgtype.Timestamptz{Time: *filters.To, Valid: true}
 	}
 
-	// Build query params for GetAllAuditLog which supports filtering
+	// Build query params for GetAuditLogs which supports filtering
 	var actionTypeFilter *string
 	if filters.EventAction != nil {
 		actionTypeFilter = filters.EventAction
 	}
 
-	rows, err := h.db.Queries.GetAllAuditLog(ctx, sqlcgen.GetAllAuditLogParams{
-		ActionTypeFilter:  actionTypeFilter,
+	rows, err := h.db.Queries.GetAuditLogs(ctx, sqlcgen.GetAuditLogsParams{
+		EventAction:       actionTypeFilter,
 		PublisherIDFilter: filters.PublisherID,
-		StartDate:         fromDate,
-		EndDate:           toDate,
-		LimitVal:          int32(limit + 1), // Fetch one extra to determine if more pages exist
-		OffsetVal:         0,                // We use cursor-based, so offset is 0
+		FromDate:          fromDate,
+		ToDate:            toDate,
+		LimitCount:        int32(limit + 1), // Fetch one extra to determine if more pages exist
+		OffsetCount:       0,                // We use cursor-based, so offset is 0
 	})
 	if err != nil {
 		slog.Error("failed to get publisher audit logs", "error", err, "publisher_id", pc.PublisherID)
@@ -200,7 +211,7 @@ func (h *Handlers) GetPublisherAuditLogs(w http.ResponseWriter, r *http.Request)
 	}
 
 	// 6. Filter by cursor if provided (since we can't do cursor in SQL with current query)
-	var filteredRows []sqlcgen.GetAllAuditLogRow
+	var filteredRows []sqlcgen.GetAuditLogsRow
 	for _, row := range rows {
 		// Apply cursor filter
 		if cursorTimestamp != nil && cursorID != nil {
@@ -210,11 +221,11 @@ func (h *Handlers) GetPublisherAuditLogs(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		// Apply resource type filter
-		if filters.ResourceType != nil && row.EntityType != nil && *row.EntityType != *filters.ResourceType {
+		if filters.ResourceType != nil && row.ResourceType != nil && *row.ResourceType != *filters.ResourceType {
 			continue
 		}
 		// Apply resource ID filter
-		if filters.ResourceID != nil && row.EntityID != nil && *row.EntityID != *filters.ResourceID {
+		if filters.ResourceID != nil && row.ResourceID != nil && *row.ResourceID != *filters.ResourceID {
 			continue
 		}
 		filteredRows = append(filteredRows, row)
@@ -431,13 +442,13 @@ func (h *Handlers) ExportPublisherAuditLogs(w http.ResponseWriter, r *http.Reque
 
 	// 5. Query all events (with reasonable limit for export)
 	const maxExportRows = 10000
-	rows, err := h.db.Queries.GetAllAuditLog(ctx, sqlcgen.GetAllAuditLogParams{
-		ActionTypeFilter:  actionTypeFilter,
+	rows, err := h.db.Queries.GetAuditLogs(ctx, sqlcgen.GetAuditLogsParams{
+		EventAction:       actionTypeFilter,
 		PublisherIDFilter: &publisherIDInt,
-		StartDate:         fromDate,
-		EndDate:           toDate,
-		LimitVal:          maxExportRows,
-		OffsetVal:         0,
+		FromDate:          fromDate,
+		ToDate:            toDate,
+		LimitCount:        maxExportRows,
+		OffsetCount:       0,
 	})
 	if err != nil {
 		slog.Error("failed to export audit logs", "error", err, "publisher_id", pc.PublisherID)
@@ -446,10 +457,10 @@ func (h *Handlers) ExportPublisherAuditLogs(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Apply additional filters
-	var filteredRows []sqlcgen.GetAllAuditLogRow
+	var filteredRows []sqlcgen.GetAuditLogsRow
 	for _, row := range rows {
-		if req.Filters != nil && req.Filters.ResourceType != nil && row.EntityType != nil {
-			if *row.EntityType != *req.Filters.ResourceType {
+		if req.Filters != nil && req.Filters.ResourceType != nil && row.ResourceType != nil {
+			if *row.ResourceType != *req.Filters.ResourceType {
 				continue
 			}
 		}
@@ -477,13 +488,13 @@ func (h *Handlers) ExportPublisherAuditLogs(w http.ResponseWriter, r *http.Reque
 		for _, row := range filteredRows {
 			record := []string{
 				row.ID,
-				row.ActionType,
+				row.EventAction,
 				row.StartedAt.Time.Format(time.RFC3339),
-				stringFromStringPtr(row.UserID),
-				stringFromStringPtr(row.EntityType),
-				stringFromStringPtr(row.EntityID),
+				stringFromStringPtr(row.ActorID),
+				stringFromStringPtr(row.ResourceType),
+				stringFromStringPtr(row.ResourceID),
 				stringFromStringPtr(row.Status),
-				"", // No error_message in this query result
+				stringFromStringPtr(row.ErrorMessage), // Now available in GetAuditLogsRow
 			}
 			if err := csvWriter.Write(record); err != nil {
 				slog.Error("failed to write CSV row", "error", err)
@@ -578,29 +589,43 @@ func decodePubAuditCursor(cursor string) (time.Time, string, error) {
 }
 
 // formatPublisherAuditLogRow converts a database row to an API response
-func formatPublisherAuditLogRow(row sqlcgen.GetAllAuditLogRow) PublisherAuditLogEntry {
-	// Extract actor name from metadata
+func formatPublisherAuditLogRow(row sqlcgen.GetAuditLogsRow) PublisherAuditLogEntry {
+	// Extract actor details from metadata
 	actorName := ""
+	ipAddress := ""
 	if row.Metadata != nil {
 		var meta map[string]interface{}
 		if err := json.Unmarshal(row.Metadata, &meta); err == nil {
 			if name, ok := meta["actor_name"].(string); ok {
 				actorName = name
 			}
+			if ip, ok := meta["ip_address"].(string); ok {
+				ipAddress = ip
+			}
 		}
 	}
 
+	// Determine operation type from action
+	operationType := getOperationType(row.EventAction)
+
 	return PublisherAuditLogEntry{
 		ID:            row.ID,
-		EventType:     row.Concept + "." + row.ActionType,
-		EventCategory: row.Concept,
-		EventAction:   row.ActionType,
+		EventType:     row.EventCategory + "." + row.EventAction,
+		EventCategory: row.EventCategory,
+		EventAction:   row.EventAction,
 		OccurredAt:    row.StartedAt.Time,
-		ActorUsername: stringFromStringPtr(row.UserID),
-		ActorName:     actorName,
-		ResourceType:  stringFromStringPtr(row.EntityType),
-		ResourceID:    stringFromStringPtr(row.EntityID),
+		Actor: AuditActor{
+			UserID:    stringFromStringPtr(row.ActorID),
+			Name:      actorName,
+			IPAddress: ipAddress,
+			IsSystem:  actorName == "System",
+		},
+		Resource: AuditResource{
+			Type: stringFromStringPtr(row.ResourceType),
+			ID:   stringFromStringPtr(row.ResourceID),
+		},
 		Status:        stringFromStringPtr(row.Status),
+		OperationType: operationType,
 		ChangesAfter:  row.Payload,
 		Metadata:      row.Metadata,
 	}
@@ -608,13 +633,21 @@ func formatPublisherAuditLogRow(row sqlcgen.GetAllAuditLogRow) PublisherAuditLog
 
 // formatPublisherActionRow converts Action to API response
 func formatPublisherActionRow(row sqlcgen.Action) PublisherAuditLogEntry {
-	// Extract actor name from metadata
+	// Extract actor details from metadata
 	actorName := ""
+	actorEmail := ""
+	ipAddress := ""
 	if row.Metadata != nil {
 		var meta map[string]interface{}
 		if err := json.Unmarshal(row.Metadata, &meta); err == nil {
 			if name, ok := meta["actor_name"].(string); ok {
 				actorName = name
+			}
+			if email, ok := meta["actor_email"].(string); ok {
+				actorEmail = email
+			}
+			if ip, ok := meta["ip_address"].(string); ok {
+				ipAddress = ip
 			}
 		}
 	}
@@ -624,19 +657,30 @@ func formatPublisherActionRow(row sqlcgen.Action) PublisherAuditLogEntry {
 		durationMs = row.DurationMs
 	}
 
+	// Determine operation type from action
+	operationType := getOperationType(row.ActionType)
+
 	return PublisherAuditLogEntry{
 		ID:            row.ID,
 		EventType:     row.Concept + "." + row.ActionType,
 		EventCategory: row.Concept,
 		EventAction:   row.ActionType,
 		OccurredAt:    row.StartedAt.Time,
-		ActorUsername: stringFromStringPtr(row.UserID),
-		ActorName:     actorName,
-		ResourceType:  stringFromStringPtr(row.EntityType),
-		ResourceID:    stringFromStringPtr(row.EntityID),
+		Actor: AuditActor{
+			UserID:    stringFromStringPtr(row.UserID),
+			Name:      actorName,
+			Email:     actorEmail,
+			IPAddress: ipAddress,
+			IsSystem:  actorName == "System",
+		},
+		Resource: AuditResource{
+			Type: stringFromStringPtr(row.EntityType),
+			ID:   stringFromStringPtr(row.EntityID),
+		},
 		Status:        stringFromStringPtr(row.Status),
 		ErrorMessage:  stringFromStringPtr(row.ErrorMessage),
 		DurationMs:    durationMs,
+		OperationType: operationType,
 		ChangesAfter:  row.Result,
 		ChangesBefore: row.Payload,
 		RequestID:     row.RequestID,
@@ -646,13 +690,21 @@ func formatPublisherActionRow(row sqlcgen.Action) PublisherAuditLogEntry {
 
 // formatPublisherActivityRow converts GetPublisherActivitiesRow to API response
 func formatPublisherActivityRow(row sqlcgen.GetPublisherActivitiesRow) PublisherAuditLogEntry {
-	// Extract actor name from metadata
+	// Extract actor details from metadata
 	actorName := ""
+	actorEmail := ""
+	ipAddress := ""
 	if row.Metadata != nil {
 		var meta map[string]interface{}
 		if err := json.Unmarshal(row.Metadata, &meta); err == nil {
 			if name, ok := meta["actor_name"].(string); ok {
 				actorName = name
+			}
+			if email, ok := meta["actor_email"].(string); ok {
+				actorEmail = email
+			}
+			if ip, ok := meta["ip_address"].(string); ok {
+				ipAddress = ip
 			}
 		}
 	}
@@ -662,22 +714,51 @@ func formatPublisherActivityRow(row sqlcgen.GetPublisherActivitiesRow) Publisher
 		durationMs = row.DurationMs
 	}
 
+	// Determine operation type from action
+	operationType := getOperationType(row.ActionType)
+
 	return PublisherAuditLogEntry{
 		ID:            row.ID,
 		EventType:     row.Concept + "." + row.ActionType,
 		EventCategory: row.Concept,
 		EventAction:   row.ActionType,
 		OccurredAt:    row.StartedAt.Time,
-		ActorUsername: stringFromStringPtr(row.UserID),
-		ActorName:     actorName,
-		ResourceType:  stringFromStringPtr(row.EntityType),
-		ResourceID:    stringFromStringPtr(row.EntityID),
+		Actor: AuditActor{
+			UserID:    stringFromStringPtr(row.UserID),
+			Name:      actorName,
+			Email:     actorEmail,
+			IPAddress: ipAddress,
+			IsSystem:  actorName == "System",
+		},
+		Resource: AuditResource{
+			Type: stringFromStringPtr(row.EntityType),
+			ID:   stringFromStringPtr(row.EntityID),
+		},
 		Status:        stringFromStringPtr(row.Status),
 		ErrorMessage:  stringFromStringPtr(row.ErrorMessage),
 		DurationMs:    durationMs,
+		OperationType: operationType,
 		ChangesAfter:  row.Result,
 		ChangesBefore: row.Payload,
 		RequestID:     row.RequestID,
 		Metadata:      row.Metadata,
 	}
+}
+
+// getOperationType maps action type to operation type
+func getOperationType(actionType string) string {
+	// Map action types to CRUD operations
+	if strings.Contains(actionType, "create") || strings.Contains(actionType, "_add") {
+		return "CREATE"
+	}
+	if strings.Contains(actionType, "update") {
+		return "UPDATE"
+	}
+	if strings.Contains(actionType, "delete") || strings.Contains(actionType, "remove") {
+		return "DELETE"
+	}
+	if strings.Contains(actionType, "publish") {
+		return "EXECUTE"
+	}
+	return "READ"
 }

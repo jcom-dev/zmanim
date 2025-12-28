@@ -14,7 +14,8 @@ import {
   ExportButton,
 } from '@/components/audit';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollText, RefreshCw, Loader2 } from 'lucide-react';
 
 export default function PublisherAuditPage() {
   const api = useApi();
@@ -54,8 +55,11 @@ export default function PublisherAuditPage() {
         if (filters.resource_type) {
           params.set('resource_type', filters.resource_type);
         }
-        if (filters.event_type) {
-          params.set('event_type', filters.event_type);
+        if (filters.event_category) {
+          params.set('event_category', filters.event_category);
+        }
+        if (filters.event_action) {
+          params.set('event_action', filters.event_action);
         }
         if (filters.from) {
           params.set('from', filters.from);
@@ -150,68 +154,80 @@ export default function PublisherAuditPage() {
   }
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Activity Log</h1>
-            <p className="text-muted-foreground mt-1">
-              Track changes made to your publisher account
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={loading}
-              aria-label="Refresh activity log"
-            >
-              <RefreshCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
-            </Button>
-            <ExportButton filters={filters} disabled={loading || events.length === 0} />
-          </div>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <ScrollText className="w-7 h-7" />
+            Activity Log
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Track changes made to your publisher account
+          </p>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6">
-          <AuditFilters filters={filters} onChange={handleFiltersChange} />
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Refresh</TooltipContent>
+          </Tooltip>
+
+          <ExportButton
+            filters={filters}
+            disabled={loading || events.length === 0}
+          />
         </div>
-
-        {/* Events List */}
-        <AuditEventList
-          events={events}
-          loading={loading}
-          onSelectEvent={setSelectedEvent}
-        />
-
-        {/* Load More Button */}
-        {hasMore && !loading && (
-          <div className="mt-6 text-center">
-            <Button
-              variant="outline"
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-            >
-              {loadingMore ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Load More'
-              )}
-            </Button>
-          </div>
-        )}
-
-        {/* Event Detail Modal */}
-        <AuditEventDetailModal
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-        />
       </div>
+
+      {/* Filters */}
+      <AuditFilters filters={filters} onChange={handleFiltersChange} />
+
+      {/* Events List */}
+      <AuditEventList
+        events={events}
+        loading={loading && events.length === 0}
+        onSelectEvent={setSelectedEvent}
+      />
+
+      {/* Load More */}
+      {hasMore && !loading && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Load More'
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Event Detail Modal */}
+      <AuditEventDetailModal
+        event={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+      />
     </div>
   );
 }

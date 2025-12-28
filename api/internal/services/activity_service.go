@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -91,13 +92,15 @@ type ActionContext struct {
 
 // ActivityService handles logging of user actions for audit trail
 type ActivityService struct {
-	db *db.DB
+	db           *db.DB
+	clerkService *ClerkService
 }
 
 // NewActivityService creates a new ActivityService instance
-func NewActivityService(database *db.DB) *ActivityService {
+func NewActivityService(database *db.DB, clerkService *ClerkService) *ActivityService {
 	return &ActivityService{
-		db: database,
+		db:           database,
+		clerkService: clerkService,
 	}
 }
 
@@ -129,11 +132,15 @@ func (s *ActivityService) LogAction(
 		requestID = uuid.New().String()
 	}
 
-	// Add actor name to metadata
+	// Add actor name and email to metadata
 	if metadata == nil {
 		metadata = make(map[string]interface{})
 	}
 	metadata["actor_name"] = actorName
+	// If actor name looks like an email, also store it separately
+	if strings.Contains(actorName, "@") {
+		metadata["actor_email"] = actorName
+	}
 
 	// Marshal metadata to JSON
 	metadataJSON, err := json.Marshal(metadata)
@@ -146,7 +153,7 @@ func (s *ActivityService) LogAction(
 	payloadJSON := []byte("{}")
 
 	// Record the action
-	_, err = s.db.Queries.RecordAction(ctx, sqlcgen.RecordActionParams{
+	actionID, err := s.db.Queries.RecordAction(ctx, sqlcgen.RecordActionParams{
 		ActionType:     actionType,
 		Concept:        concept,
 		UserID:         &userID,
@@ -167,6 +174,26 @@ func (s *ActivityService) LogAction(
 			"entity_id", entityID,
 		)
 		return err
+	}
+
+	// Immediately complete the action (these are synchronous operations)
+	status := "completed"
+	resultJSON, _ := json.Marshal(map[string]interface{}{
+		"entity_type": entityType,
+		"entity_id":   entityID,
+	})
+
+	if err := s.db.Queries.CompleteAction(ctx, sqlcgen.CompleteActionParams{
+		ID:           actionID,
+		Status:       &status,
+		Result:       resultJSON,
+		ErrorMessage: nil,
+	}); err != nil {
+		slog.Error("failed to complete action",
+			"error", err,
+			"action_id", actionID,
+		)
+		// Don't return error - the action was recorded
 	}
 
 	slog.Info("action logged",
@@ -192,8 +219,26 @@ func (s *ActivityService) resolveActor(ctx context.Context) (actorID, actorName 
 		return "system", "System"
 	}
 
-	// Try to get user name from Clerk or database
-	// For now, return user ID as name (can be enhanced with user lookup)
+	// Try to get email from JWT context first
+	email := middleware.GetUserEmail(ctx)
+	if email != "" {
+		return userID, email
+	}
+
+	// Fallback: Try to fetch from Clerk API if we have clerk service
+	// Note: This adds a small overhead, but ensures we always get email if available
+	if s.clerkService != nil {
+		if user, err := s.clerkService.GetUser(ctx, userID); err == nil {
+			if user.EmailAddresses != nil && len(user.EmailAddresses) > 0 {
+				email = user.EmailAddresses[0].EmailAddress
+				if email != "" {
+					return userID, email
+				}
+			}
+		}
+	}
+
+	// Final fallback to user ID if email not available
 	return userID, userID
 }
 
@@ -226,6 +271,10 @@ func (s *ActivityService) LogActionWithDiff(
 	metadata := map[string]interface{}{
 		"actor_name": actorName,
 	}
+	// If actor name looks like an email, also store it separately
+	if strings.Contains(actorName, "@") {
+		metadata["actor_email"] = actorName
+	}
 	if actx != nil {
 		if actx.IPAddress != "" {
 			metadata["ip_address"] = actx.IPAddress
@@ -254,7 +303,7 @@ func (s *ActivityService) LogActionWithDiff(
 		payloadJSON = []byte("{}")
 	}
 
-	_, err = s.db.Queries.RecordAction(ctx, sqlcgen.RecordActionParams{
+	actionID, err := s.db.Queries.RecordAction(ctx, sqlcgen.RecordActionParams{
 		ActionType:     actionType,
 		Concept:        concept,
 		UserID:         &userID,
@@ -273,6 +322,31 @@ func (s *ActivityService) LogActionWithDiff(
 			"action_type", actionType,
 		)
 		return err
+	}
+
+	// Immediately complete the action (these are synchronous operations)
+	status := "completed"
+	var resultJSON []byte
+	if diff != nil && diff.New != nil {
+		resultJSON, _ = json.Marshal(diff.New)
+	} else {
+		resultJSON, _ = json.Marshal(map[string]interface{}{
+			"entity_type": entityType,
+			"entity_id":   entityID,
+		})
+	}
+
+	if err := s.db.Queries.CompleteAction(ctx, sqlcgen.CompleteActionParams{
+		ID:           actionID,
+		Status:       &status,
+		Result:       resultJSON,
+		ErrorMessage: nil,
+	}); err != nil {
+		slog.Error("failed to complete action",
+			"error", err,
+			"action_id", actionID,
+		)
+		// Don't return error - the action was recorded
 	}
 
 	slog.Info("action logged with diff",
@@ -399,7 +473,7 @@ func (s *ActivityService) LogAdminAction(
 		}
 	}
 
-	_, err = s.db.Queries.RecordAction(ctx, sqlcgen.RecordActionParams{
+	actionID, err := s.db.Queries.RecordAction(ctx, sqlcgen.RecordActionParams{
 		ActionType:     params.ActionType,
 		Concept:        ConceptAdmin,
 		UserID:         &userID,
@@ -421,6 +495,39 @@ func (s *ActivityService) LogAdminAction(
 			"resource_id", params.ResourceID,
 		)
 		return err
+	}
+
+	// Immediately complete the action
+	status := params.Status
+	if status == "" {
+		status = "completed"
+	}
+	var resultJSON []byte
+	if params.ChangesAfter != nil {
+		resultJSON, _ = json.Marshal(params.ChangesAfter)
+	} else {
+		resultJSON, _ = json.Marshal(map[string]interface{}{
+			"resource_type": params.ResourceType,
+			"resource_id":   params.ResourceID,
+		})
+	}
+
+	var errorMessage *string
+	if params.ErrorMessage != "" {
+		errorMessage = &params.ErrorMessage
+	}
+
+	if err := s.db.Queries.CompleteAction(ctx, sqlcgen.CompleteActionParams{
+		ID:           actionID,
+		Status:       &status,
+		Result:       resultJSON,
+		ErrorMessage: errorMessage,
+	}); err != nil {
+		slog.Error("failed to complete admin action",
+			"error", err,
+			"action_id", actionID,
+		)
+		// Don't return error - the action was recorded
 	}
 
 	// Log at appropriate level based on severity

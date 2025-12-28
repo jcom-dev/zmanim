@@ -149,109 +149,17 @@ WHERE publisher_id = $1
 ORDER BY started_at DESC
 LIMIT $2 OFFSET $3;
 
--- name: GetAdminAuditLog :many
--- Returns admin activity log with filtering and pagination
-SELECT
-    id,
-    action_type,
-    concept,
-    user_id,
-    publisher_id,
-    request_id,
-    entity_type,
-    entity_id,
-    payload,
-    result,
-    status,
-    error_message,
-    started_at,
-    completed_at,
-    duration_ms,
-    metadata
-FROM public.actions
-WHERE
-    action_type LIKE 'admin_%'
-    AND (sqlc.narg('action_type_filter')::text IS NULL OR action_type = sqlc.narg('action_type_filter'))
-    AND (sqlc.narg('user_id_filter')::text IS NULL OR user_id = sqlc.narg('user_id_filter'))
-    AND (sqlc.narg('start_date')::timestamptz IS NULL OR started_at >= sqlc.narg('start_date'))
-    AND (sqlc.narg('end_date')::timestamptz IS NULL OR started_at <= sqlc.narg('end_date'))
-ORDER BY started_at DESC
-LIMIT sqlc.arg('limit_val') OFFSET sqlc.arg('offset_val');
-
--- name: CountAdminAuditLog :one
--- Returns count for pagination
-SELECT COUNT(*)::bigint
-FROM public.actions
-WHERE
-    action_type LIKE 'admin_%'
-    AND (sqlc.narg('action_type_filter')::text IS NULL OR action_type = sqlc.narg('action_type_filter'))
-    AND (sqlc.narg('user_id_filter')::text IS NULL OR user_id = sqlc.narg('user_id_filter'))
-    AND (sqlc.narg('start_date')::timestamptz IS NULL OR started_at >= sqlc.narg('start_date'))
-    AND (sqlc.narg('end_date')::timestamptz IS NULL OR started_at <= sqlc.narg('end_date'));
-
--- name: GetEntityAuditTrail :many
--- Returns full audit trail for a specific entity
-SELECT
-    id,
-    action_type,
-    concept,
-    user_id,
-    publisher_id,
-    payload,
-    result,
-    status,
-    started_at,
-    metadata
-FROM public.actions
-WHERE entity_type = $1 AND entity_id = $2
-ORDER BY started_at DESC
-LIMIT $3 OFFSET $4;
-
--- name: GetAllAuditLog :many
--- Returns all activity log (not just admin) with filtering
-SELECT
-    id,
-    action_type,
-    concept,
-    user_id,
-    publisher_id,
-    entity_type,
-    entity_id,
-    payload,
-    status,
-    started_at,
-    metadata
-FROM public.actions
-WHERE
-    (sqlc.narg('action_type_filter')::text IS NULL OR action_type = sqlc.narg('action_type_filter'))
-    AND (sqlc.narg('publisher_id_filter')::integer IS NULL OR publisher_id = sqlc.narg('publisher_id_filter'))
-    AND (sqlc.narg('start_date')::timestamptz IS NULL OR started_at >= sqlc.narg('start_date'))
-    AND (sqlc.narg('end_date')::timestamptz IS NULL OR started_at <= sqlc.narg('end_date'))
-ORDER BY started_at DESC
-LIMIT sqlc.arg('limit_val') OFFSET sqlc.arg('offset_val');
-
--- name: CountAllAuditLog :one
--- Returns count for pagination of all audit logs
-SELECT COUNT(*)::bigint
-FROM public.actions
-WHERE
-    (sqlc.narg('action_type_filter')::text IS NULL OR action_type = sqlc.narg('action_type_filter'))
-    AND (sqlc.narg('publisher_id_filter')::integer IS NULL OR publisher_id = sqlc.narg('publisher_id_filter'))
-    AND (sqlc.narg('user_id_filter')::text IS NULL OR user_id = sqlc.narg('user_id_filter'))
-    AND (sqlc.narg('start_date')::timestamptz IS NULL OR started_at >= sqlc.narg('start_date'))
-    AND (sqlc.narg('end_date')::timestamptz IS NULL OR started_at <= sqlc.narg('end_date'));
-
--- name: GetAdminAuditLogsExtended :many
+-- name: GetAuditLogs :many
 -- Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
 SELECT
     a.id,
-    a.action_type,
-    a.concept,
-    a.user_id,
+    a.action_type AS event_action,
+    a.concept AS event_category,
+    a.user_id AS actor_id,
     a.publisher_id,
     a.request_id,
-    a.entity_type,
-    a.entity_id,
+    a.entity_type AS resource_type,
+    a.entity_id AS resource_id,
     a.payload,
     a.result,
     a.status,
@@ -264,28 +172,28 @@ SELECT
 FROM public.actions a
 LEFT JOIN public.publishers p ON a.publisher_id = p.id
 WHERE
-    (sqlc.narg('action_type_filter')::text IS NULL OR a.action_type = sqlc.narg('action_type_filter'))
-    AND (sqlc.narg('category_filter')::text IS NULL OR a.concept = sqlc.narg('category_filter'))
+    (sqlc.narg('event_action')::text IS NULL OR a.action_type = sqlc.narg('event_action'))
+    AND (sqlc.narg('event_category')::text IS NULL OR a.concept = sqlc.narg('event_category'))
     AND (sqlc.narg('publisher_id_filter')::integer IS NULL OR a.publisher_id = sqlc.narg('publisher_id_filter'))
-    AND (sqlc.narg('user_id_filter')::text IS NULL OR a.user_id = sqlc.narg('user_id_filter'))
+    AND (sqlc.narg('actor_id')::text IS NULL OR a.user_id = sqlc.narg('actor_id'))
     AND (sqlc.narg('status_filter')::text IS NULL OR a.status = sqlc.narg('status_filter'))
-    AND (sqlc.narg('start_date')::timestamptz IS NULL OR a.started_at >= sqlc.narg('start_date'))
-    AND (sqlc.narg('end_date')::timestamptz IS NULL OR a.started_at <= sqlc.narg('end_date'))
+    AND (sqlc.narg('from_date')::timestamptz IS NULL OR a.started_at >= sqlc.narg('from_date'))
+    AND (sqlc.narg('to_date')::timestamptz IS NULL OR a.started_at <= sqlc.narg('to_date'))
 ORDER BY a.started_at DESC
-LIMIT sqlc.arg('limit_val') OFFSET sqlc.arg('offset_val');
+LIMIT sqlc.arg('limit_count') OFFSET sqlc.arg('offset_count');
 
--- name: CountAdminAuditLogsExtended :one
+-- name: CountAuditLogs :one
 -- Returns count for extended admin audit logs
 SELECT COUNT(*)::bigint
 FROM public.actions a
 WHERE
-    (sqlc.narg('action_type_filter')::text IS NULL OR a.action_type = sqlc.narg('action_type_filter'))
-    AND (sqlc.narg('category_filter')::text IS NULL OR a.concept = sqlc.narg('category_filter'))
+    (sqlc.narg('event_action')::text IS NULL OR a.action_type = sqlc.narg('event_action'))
+    AND (sqlc.narg('event_category')::text IS NULL OR a.concept = sqlc.narg('event_category'))
     AND (sqlc.narg('publisher_id_filter')::integer IS NULL OR a.publisher_id = sqlc.narg('publisher_id_filter'))
-    AND (sqlc.narg('user_id_filter')::text IS NULL OR a.user_id = sqlc.narg('user_id_filter'))
+    AND (sqlc.narg('actor_id')::text IS NULL OR a.user_id = sqlc.narg('actor_id'))
     AND (sqlc.narg('status_filter')::text IS NULL OR a.status = sqlc.narg('status_filter'))
-    AND (sqlc.narg('start_date')::timestamptz IS NULL OR a.started_at >= sqlc.narg('start_date'))
-    AND (sqlc.narg('end_date')::timestamptz IS NULL OR a.started_at <= sqlc.narg('end_date'));
+    AND (sqlc.narg('from_date')::timestamptz IS NULL OR a.started_at >= sqlc.narg('from_date'))
+    AND (sqlc.narg('to_date')::timestamptz IS NULL OR a.started_at <= sqlc.narg('to_date'));
 
 -- name: GetAuditLogByID :one
 -- Returns a single audit log entry by ID

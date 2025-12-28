@@ -57,8 +57,8 @@ export default function AdminAuditPage() {
       setStats(data);
     } catch (err) {
       console.error('Failed to fetch audit stats:', err);
-      // Use mock data for development if endpoint not available
-      setStats(createMockStats());
+      // Show empty stats on error instead of mock data
+      setStats(null);
     } finally {
       setIsLoadingStats(false);
     }
@@ -101,9 +101,9 @@ export default function AdminAuditPage() {
       setHasMore(!!data.pagination?.next_cursor);
     } catch (err) {
       console.error('Failed to fetch audit events:', err);
-      // Use mock data for development if endpoint not available
-      setEvents(createMockEvents());
-      setTotal(10);
+      // Show empty state on error instead of mock data
+      setEvents([]);
+      setTotal(0);
       setHasMore(false);
     } finally {
       setIsLoadingEvents(false);
@@ -250,126 +250,4 @@ export default function AdminAuditPage() {
       />
     </div>
   );
-}
-
-/**
- * Create mock stats for development when API is not available
- */
-function createMockStats(): AuditStats {
-  return {
-    total_events_24h: 42,
-    total_events_7d: 287,
-    events_by_category: {
-      publisher: 120,
-      zman: 85,
-      auth: 45,
-      coverage: 22,
-      user: 15,
-    },
-    events_by_action: {
-      create: 80,
-      update: 150,
-      delete: 25,
-      publish: 32,
-    },
-    events_by_status: {
-      success: 265,
-      failure: 15,
-      error: 7,
-    },
-    top_actors: [
-      { user_id: '1', username: 'Admin User', event_count: 85 },
-      { user_id: '2', username: 'Rabbi Cohen', event_count: 62 },
-      { user_id: '3', username: 'Sarah Levy', event_count: 45 },
-    ],
-    top_publishers: [
-      { publisher_id: 1, publisher_name: 'Orthodox Union', event_count: 95 },
-      { publisher_id: 2, publisher_name: 'Chabad', event_count: 72 },
-      { publisher_id: 3, publisher_name: 'Young Israel', event_count: 55 },
-    ],
-    recent_critical_events: [],
-  };
-}
-
-/**
- * Create mock events for development when API is not available
- */
-function createMockEvents(): AuditEvent[] {
-  const now = new Date();
-  return [
-    {
-      id: '01HQGX8K9Z7ABCDEF1234567',
-      event_type: 'publisher.update',
-      event_category: 'publisher',
-      event_action: 'update',
-      event_severity: 'info',
-      occurred_at: new Date(now.getTime() - 5 * 60000).toISOString(),
-      actor: {
-        user_id: '1',
-        name: 'Admin User',
-        email: 'admin@example.com',
-        is_system: false,
-      },
-      publisher_id: 1,
-      publisher_slug: 'orthodox-union',
-      resource: {
-        type: 'publisher',
-        id: '1',
-        name: 'Orthodox Union',
-      },
-      operation_type: 'UPDATE',
-      changes: {
-        diff: {
-          name: { before: 'OU', after: 'Orthodox Union' },
-        },
-      },
-      status: 'success',
-      request_id: 'req-123-456',
-    },
-    {
-      id: '01HQGX8K9Z7ABCDEF1234568',
-      event_type: 'zman.create',
-      event_category: 'zman',
-      event_action: 'create',
-      event_severity: 'info',
-      occurred_at: new Date(now.getTime() - 15 * 60000).toISOString(),
-      actor: {
-        user_id: '2',
-        name: 'Rabbi Cohen',
-        email: 'rabbi@example.com',
-        is_system: false,
-      },
-      publisher_id: 2,
-      publisher_slug: 'chabad',
-      resource: {
-        type: 'publisher_zman',
-        id: '42',
-        name: 'Alos Hashachar',
-      },
-      operation_type: 'CREATE',
-      status: 'success',
-      request_id: 'req-789-012',
-    },
-    {
-      id: '01HQGX8K9Z7ABCDEF1234569',
-      event_type: 'auth.login',
-      event_category: 'auth',
-      event_action: 'login',
-      event_severity: 'info',
-      occurred_at: new Date(now.getTime() - 60 * 60000).toISOString(),
-      actor: {
-        user_id: '3',
-        name: 'Sarah Levy',
-        email: 'sarah@example.com',
-        is_system: false,
-      },
-      resource: {
-        type: 'user',
-        id: '3',
-      },
-      operation_type: 'EXECUTE',
-      status: 'success',
-      request_id: 'req-345-678',
-    },
-  ];
 }

@@ -1751,13 +1751,13 @@ func (h *Handlers) AdminGetAuditLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query
-	rows, err := h.db.Queries.GetAdminAuditLog(ctx, sqlcgen.GetAdminAuditLogParams{
-		ActionTypeFilter: nilIfEmpty(actionType),
-		UserIDFilter:     nilIfEmpty(userID),
-		StartDate:        startDate,
-		EndDate:          endDate,
-		LimitVal:         int32(pageSize),
-		OffsetVal:        int32(offset),
+	rows, err := h.db.Queries.GetAuditLogs(ctx, sqlcgen.GetAuditLogsParams{
+		EventAction: nilIfEmpty(actionType),
+		ActorID:     nilIfEmpty(userID),
+		FromDate:    startDate,
+		ToDate:      endDate,
+		LimitCount:  int32(pageSize),
+		OffsetCount: int32(offset),
 	})
 	if err != nil {
 		slog.Error("failed to get admin audit log", "error", err)
@@ -1766,11 +1766,11 @@ func (h *Handlers) AdminGetAuditLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get total count
-	total, err := h.db.Queries.CountAdminAuditLog(ctx, sqlcgen.CountAdminAuditLogParams{
-		ActionTypeFilter: nilIfEmpty(actionType),
-		UserIDFilter:     nilIfEmpty(userID),
-		StartDate:        startDate,
-		EndDate:          endDate,
+	total, err := h.db.Queries.CountAuditLogs(ctx, sqlcgen.CountAuditLogsParams{
+		EventAction: nilIfEmpty(actionType),
+		ActorID:     nilIfEmpty(userID),
+		FromDate:    startDate,
+		ToDate:      endDate,
 	})
 	if err != nil {
 		total = 0
@@ -1781,18 +1781,18 @@ func (h *Handlers) AdminGetAuditLog(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		entry := map[string]interface{}{
 			"id":          row.ID,
-			"action_type": row.ActionType,
-			"concept":     row.Concept,
+			"action_type": row.EventAction,
+			"concept":     row.EventCategory,
 		}
 
-		if row.UserID != nil {
-			entry["user_id"] = *row.UserID
+		if row.ActorID != nil {
+			entry["user_id"] = *row.ActorID
 		}
-		if row.EntityType != nil {
-			entry["entity_type"] = *row.EntityType
+		if row.ResourceType != nil {
+			entry["entity_type"] = *row.ResourceType
 		}
-		if row.EntityID != nil {
-			entry["entity_id"] = *row.EntityID
+		if row.ResourceID != nil {
+			entry["entity_id"] = *row.ResourceID
 		}
 		if row.Status != nil {
 			entry["status"] = *row.Status
@@ -1802,7 +1802,7 @@ func (h *Handlers) AdminGetAuditLog(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Generate description from action type
-		entry["description"] = formatAdminActionDescription(row.ActionType, row.EntityType)
+		entry["description"] = formatAdminActionDescription(row.EventAction, row.ResourceType)
 
 		// Parse payload for diff
 		if len(row.Payload) > 2 { // Not empty "{}"

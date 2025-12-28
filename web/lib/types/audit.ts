@@ -91,7 +91,7 @@ export interface AuditStats {
 // =============================================================================
 
 export interface AuditFilters {
-  event_type?: string;
+  event_action?: string;
   event_category?: string;
   resource_type?: string;
   status?: EventStatus;
@@ -223,6 +223,19 @@ export const EVENT_ACTION_LABELS: Record<string, string> = {
   remove_member: 'Member Removed',
   role_change: 'Role Changed',
   revoke: 'Revoked',
+};
+
+// Event category labels for display
+export const EVENT_CATEGORY_LABELS: Record<string, string> = {
+  auth: 'Authentication',
+  publisher: 'Publisher',
+  zman: 'Zman',
+  algorithm: 'Algorithm',
+  coverage: 'Coverage',
+  user: 'User',
+  team: 'Team',
+  api_key: 'API Key',
+  export: 'Export',
 };
 
 // Severity styles for UI display (using design tokens)

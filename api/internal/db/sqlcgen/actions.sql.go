@@ -40,38 +40,7 @@ func (q *Queries) CompleteAction(ctx context.Context, arg CompleteActionParams) 
 	return err
 }
 
-const countAdminAuditLog = `-- name: CountAdminAuditLog :one
-SELECT COUNT(*)::bigint
-FROM public.actions
-WHERE
-    action_type LIKE 'admin_%'
-    AND ($1::text IS NULL OR action_type = $1)
-    AND ($2::text IS NULL OR user_id = $2)
-    AND ($3::timestamptz IS NULL OR started_at >= $3)
-    AND ($4::timestamptz IS NULL OR started_at <= $4)
-`
-
-type CountAdminAuditLogParams struct {
-	ActionTypeFilter *string            `json:"action_type_filter"`
-	UserIDFilter     *string            `json:"user_id_filter"`
-	StartDate        pgtype.Timestamptz `json:"start_date"`
-	EndDate          pgtype.Timestamptz `json:"end_date"`
-}
-
-// Returns count for pagination
-func (q *Queries) CountAdminAuditLog(ctx context.Context, arg CountAdminAuditLogParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAdminAuditLog,
-		arg.ActionTypeFilter,
-		arg.UserIDFilter,
-		arg.StartDate,
-		arg.EndDate,
-	)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const countAdminAuditLogsExtended = `-- name: CountAdminAuditLogsExtended :one
+const countAuditLogs = `-- name: CountAuditLogs :one
 SELECT COUNT(*)::bigint
 FROM public.actions a
 WHERE
@@ -84,59 +53,26 @@ WHERE
     AND ($7::timestamptz IS NULL OR a.started_at <= $7)
 `
 
-type CountAdminAuditLogsExtendedParams struct {
-	ActionTypeFilter  *string            `json:"action_type_filter"`
-	CategoryFilter    *string            `json:"category_filter"`
+type CountAuditLogsParams struct {
+	EventAction       *string            `json:"event_action"`
+	EventCategory     *string            `json:"event_category"`
 	PublisherIDFilter *int32             `json:"publisher_id_filter"`
-	UserIDFilter      *string            `json:"user_id_filter"`
+	ActorID           *string            `json:"actor_id"`
 	StatusFilter      *string            `json:"status_filter"`
-	StartDate         pgtype.Timestamptz `json:"start_date"`
-	EndDate           pgtype.Timestamptz `json:"end_date"`
+	FromDate          pgtype.Timestamptz `json:"from_date"`
+	ToDate            pgtype.Timestamptz `json:"to_date"`
 }
 
 // Returns count for extended admin audit logs
-func (q *Queries) CountAdminAuditLogsExtended(ctx context.Context, arg CountAdminAuditLogsExtendedParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAdminAuditLogsExtended,
-		arg.ActionTypeFilter,
-		arg.CategoryFilter,
+func (q *Queries) CountAuditLogs(ctx context.Context, arg CountAuditLogsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAuditLogs,
+		arg.EventAction,
+		arg.EventCategory,
 		arg.PublisherIDFilter,
-		arg.UserIDFilter,
+		arg.ActorID,
 		arg.StatusFilter,
-		arg.StartDate,
-		arg.EndDate,
-	)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const countAllAuditLog = `-- name: CountAllAuditLog :one
-SELECT COUNT(*)::bigint
-FROM public.actions
-WHERE
-    ($1::text IS NULL OR action_type = $1)
-    AND ($2::integer IS NULL OR publisher_id = $2)
-    AND ($3::text IS NULL OR user_id = $3)
-    AND ($4::timestamptz IS NULL OR started_at >= $4)
-    AND ($5::timestamptz IS NULL OR started_at <= $5)
-`
-
-type CountAllAuditLogParams struct {
-	ActionTypeFilter  *string            `json:"action_type_filter"`
-	PublisherIDFilter *int32             `json:"publisher_id_filter"`
-	UserIDFilter      *string            `json:"user_id_filter"`
-	StartDate         pgtype.Timestamptz `json:"start_date"`
-	EndDate           pgtype.Timestamptz `json:"end_date"`
-}
-
-// Returns count for pagination of all audit logs
-func (q *Queries) CountAllAuditLog(ctx context.Context, arg CountAllAuditLogParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAllAuditLog,
-		arg.ActionTypeFilter,
-		arg.PublisherIDFilter,
-		arg.UserIDFilter,
-		arg.StartDate,
-		arg.EndDate,
+		arg.FromDate,
+		arg.ToDate,
 	)
 	var column_1 int64
 	err := row.Scan(&column_1)
@@ -289,308 +225,6 @@ func (q *Queries) GetActionsByRequest(ctx context.Context, requestID string) ([]
 	return items, nil
 }
 
-const getAdminAuditLog = `-- name: GetAdminAuditLog :many
-SELECT
-    id,
-    action_type,
-    concept,
-    user_id,
-    publisher_id,
-    request_id,
-    entity_type,
-    entity_id,
-    payload,
-    result,
-    status,
-    error_message,
-    started_at,
-    completed_at,
-    duration_ms,
-    metadata
-FROM public.actions
-WHERE
-    action_type LIKE 'admin_%'
-    AND ($1::text IS NULL OR action_type = $1)
-    AND ($2::text IS NULL OR user_id = $2)
-    AND ($3::timestamptz IS NULL OR started_at >= $3)
-    AND ($4::timestamptz IS NULL OR started_at <= $4)
-ORDER BY started_at DESC
-LIMIT $6 OFFSET $5
-`
-
-type GetAdminAuditLogParams struct {
-	ActionTypeFilter *string            `json:"action_type_filter"`
-	UserIDFilter     *string            `json:"user_id_filter"`
-	StartDate        pgtype.Timestamptz `json:"start_date"`
-	EndDate          pgtype.Timestamptz `json:"end_date"`
-	OffsetVal        int32              `json:"offset_val"`
-	LimitVal         int32              `json:"limit_val"`
-}
-
-type GetAdminAuditLogRow struct {
-	ID           string             `json:"id"`
-	ActionType   string             `json:"action_type"`
-	Concept      string             `json:"concept"`
-	UserID       *string            `json:"user_id"`
-	PublisherID  *int32             `json:"publisher_id"`
-	RequestID    string             `json:"request_id"`
-	EntityType   *string            `json:"entity_type"`
-	EntityID     *string            `json:"entity_id"`
-	Payload      []byte             `json:"payload"`
-	Result       []byte             `json:"result"`
-	Status       *string            `json:"status"`
-	ErrorMessage *string            `json:"error_message"`
-	StartedAt    pgtype.Timestamptz `json:"started_at"`
-	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
-	DurationMs   *int32             `json:"duration_ms"`
-	Metadata     []byte             `json:"metadata"`
-}
-
-// Returns admin activity log with filtering and pagination
-func (q *Queries) GetAdminAuditLog(ctx context.Context, arg GetAdminAuditLogParams) ([]GetAdminAuditLogRow, error) {
-	rows, err := q.db.Query(ctx, getAdminAuditLog,
-		arg.ActionTypeFilter,
-		arg.UserIDFilter,
-		arg.StartDate,
-		arg.EndDate,
-		arg.OffsetVal,
-		arg.LimitVal,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetAdminAuditLogRow{}
-	for rows.Next() {
-		var i GetAdminAuditLogRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ActionType,
-			&i.Concept,
-			&i.UserID,
-			&i.PublisherID,
-			&i.RequestID,
-			&i.EntityType,
-			&i.EntityID,
-			&i.Payload,
-			&i.Result,
-			&i.Status,
-			&i.ErrorMessage,
-			&i.StartedAt,
-			&i.CompletedAt,
-			&i.DurationMs,
-			&i.Metadata,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAdminAuditLogsExtended = `-- name: GetAdminAuditLogsExtended :many
-SELECT
-    a.id,
-    a.action_type,
-    a.concept,
-    a.user_id,
-    a.publisher_id,
-    a.request_id,
-    a.entity_type,
-    a.entity_id,
-    a.payload,
-    a.result,
-    a.status,
-    a.error_message,
-    a.started_at,
-    a.completed_at,
-    a.duration_ms,
-    a.metadata,
-    COALESCE(p.name, '') as publisher_name
-FROM public.actions a
-LEFT JOIN public.publishers p ON a.publisher_id = p.id
-WHERE
-    ($1::text IS NULL OR a.action_type = $1)
-    AND ($2::text IS NULL OR a.concept = $2)
-    AND ($3::integer IS NULL OR a.publisher_id = $3)
-    AND ($4::text IS NULL OR a.user_id = $4)
-    AND ($5::text IS NULL OR a.status = $5)
-    AND ($6::timestamptz IS NULL OR a.started_at >= $6)
-    AND ($7::timestamptz IS NULL OR a.started_at <= $7)
-ORDER BY a.started_at DESC
-LIMIT $9 OFFSET $8
-`
-
-type GetAdminAuditLogsExtendedParams struct {
-	ActionTypeFilter  *string            `json:"action_type_filter"`
-	CategoryFilter    *string            `json:"category_filter"`
-	PublisherIDFilter *int32             `json:"publisher_id_filter"`
-	UserIDFilter      *string            `json:"user_id_filter"`
-	StatusFilter      *string            `json:"status_filter"`
-	StartDate         pgtype.Timestamptz `json:"start_date"`
-	EndDate           pgtype.Timestamptz `json:"end_date"`
-	OffsetVal         int32              `json:"offset_val"`
-	LimitVal          int32              `json:"limit_val"`
-}
-
-type GetAdminAuditLogsExtendedRow struct {
-	ID            string             `json:"id"`
-	ActionType    string             `json:"action_type"`
-	Concept       string             `json:"concept"`
-	UserID        *string            `json:"user_id"`
-	PublisherID   *int32             `json:"publisher_id"`
-	RequestID     string             `json:"request_id"`
-	EntityType    *string            `json:"entity_type"`
-	EntityID      *string            `json:"entity_id"`
-	Payload       []byte             `json:"payload"`
-	Result        []byte             `json:"result"`
-	Status        *string            `json:"status"`
-	ErrorMessage  *string            `json:"error_message"`
-	StartedAt     pgtype.Timestamptz `json:"started_at"`
-	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
-	DurationMs    *int32             `json:"duration_ms"`
-	Metadata      []byte             `json:"metadata"`
-	PublisherName string             `json:"publisher_name"`
-}
-
-// Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
-func (q *Queries) GetAdminAuditLogsExtended(ctx context.Context, arg GetAdminAuditLogsExtendedParams) ([]GetAdminAuditLogsExtendedRow, error) {
-	rows, err := q.db.Query(ctx, getAdminAuditLogsExtended,
-		arg.ActionTypeFilter,
-		arg.CategoryFilter,
-		arg.PublisherIDFilter,
-		arg.UserIDFilter,
-		arg.StatusFilter,
-		arg.StartDate,
-		arg.EndDate,
-		arg.OffsetVal,
-		arg.LimitVal,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetAdminAuditLogsExtendedRow{}
-	for rows.Next() {
-		var i GetAdminAuditLogsExtendedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ActionType,
-			&i.Concept,
-			&i.UserID,
-			&i.PublisherID,
-			&i.RequestID,
-			&i.EntityType,
-			&i.EntityID,
-			&i.Payload,
-			&i.Result,
-			&i.Status,
-			&i.ErrorMessage,
-			&i.StartedAt,
-			&i.CompletedAt,
-			&i.DurationMs,
-			&i.Metadata,
-			&i.PublisherName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllAuditLog = `-- name: GetAllAuditLog :many
-SELECT
-    id,
-    action_type,
-    concept,
-    user_id,
-    publisher_id,
-    entity_type,
-    entity_id,
-    payload,
-    status,
-    started_at,
-    metadata
-FROM public.actions
-WHERE
-    ($1::text IS NULL OR action_type = $1)
-    AND ($2::integer IS NULL OR publisher_id = $2)
-    AND ($3::timestamptz IS NULL OR started_at >= $3)
-    AND ($4::timestamptz IS NULL OR started_at <= $4)
-ORDER BY started_at DESC
-LIMIT $6 OFFSET $5
-`
-
-type GetAllAuditLogParams struct {
-	ActionTypeFilter  *string            `json:"action_type_filter"`
-	PublisherIDFilter *int32             `json:"publisher_id_filter"`
-	StartDate         pgtype.Timestamptz `json:"start_date"`
-	EndDate           pgtype.Timestamptz `json:"end_date"`
-	OffsetVal         int32              `json:"offset_val"`
-	LimitVal          int32              `json:"limit_val"`
-}
-
-type GetAllAuditLogRow struct {
-	ID          string             `json:"id"`
-	ActionType  string             `json:"action_type"`
-	Concept     string             `json:"concept"`
-	UserID      *string            `json:"user_id"`
-	PublisherID *int32             `json:"publisher_id"`
-	EntityType  *string            `json:"entity_type"`
-	EntityID    *string            `json:"entity_id"`
-	Payload     []byte             `json:"payload"`
-	Status      *string            `json:"status"`
-	StartedAt   pgtype.Timestamptz `json:"started_at"`
-	Metadata    []byte             `json:"metadata"`
-}
-
-// Returns all activity log (not just admin) with filtering
-func (q *Queries) GetAllAuditLog(ctx context.Context, arg GetAllAuditLogParams) ([]GetAllAuditLogRow, error) {
-	rows, err := q.db.Query(ctx, getAllAuditLog,
-		arg.ActionTypeFilter,
-		arg.PublisherIDFilter,
-		arg.StartDate,
-		arg.EndDate,
-		arg.OffsetVal,
-		arg.LimitVal,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetAllAuditLogRow{}
-	for rows.Next() {
-		var i GetAllAuditLogRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ActionType,
-			&i.Concept,
-			&i.UserID,
-			&i.PublisherID,
-			&i.EntityType,
-			&i.EntityID,
-			&i.Payload,
-			&i.Status,
-			&i.StartedAt,
-			&i.Metadata,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getAuditLogByID = `-- name: GetAuditLogByID :one
 SELECT
     a.id,
@@ -662,6 +296,120 @@ func (q *Queries) GetAuditLogByID(ctx context.Context, id string) (GetAuditLogBy
 		&i.PublisherName,
 	)
 	return i, err
+}
+
+const getAuditLogs = `-- name: GetAuditLogs :many
+SELECT
+    a.id,
+    a.action_type AS event_action,
+    a.concept AS event_category,
+    a.user_id AS actor_id,
+    a.publisher_id,
+    a.request_id,
+    a.entity_type AS resource_type,
+    a.entity_id AS resource_id,
+    a.payload,
+    a.result,
+    a.status,
+    a.error_message,
+    a.started_at,
+    a.completed_at,
+    a.duration_ms,
+    a.metadata,
+    COALESCE(p.name, '') as publisher_name
+FROM public.actions a
+LEFT JOIN public.publishers p ON a.publisher_id = p.id
+WHERE
+    ($1::text IS NULL OR a.action_type = $1)
+    AND ($2::text IS NULL OR a.concept = $2)
+    AND ($3::integer IS NULL OR a.publisher_id = $3)
+    AND ($4::text IS NULL OR a.user_id = $4)
+    AND ($5::text IS NULL OR a.status = $5)
+    AND ($6::timestamptz IS NULL OR a.started_at >= $6)
+    AND ($7::timestamptz IS NULL OR a.started_at <= $7)
+ORDER BY a.started_at DESC
+LIMIT $9 OFFSET $8
+`
+
+type GetAuditLogsParams struct {
+	EventAction       *string            `json:"event_action"`
+	EventCategory     *string            `json:"event_category"`
+	PublisherIDFilter *int32             `json:"publisher_id_filter"`
+	ActorID           *string            `json:"actor_id"`
+	StatusFilter      *string            `json:"status_filter"`
+	FromDate          pgtype.Timestamptz `json:"from_date"`
+	ToDate            pgtype.Timestamptz `json:"to_date"`
+	OffsetCount       int32              `json:"offset_count"`
+	LimitCount        int32              `json:"limit_count"`
+}
+
+type GetAuditLogsRow struct {
+	ID            string             `json:"id"`
+	EventAction   string             `json:"event_action"`
+	EventCategory string             `json:"event_category"`
+	ActorID       *string            `json:"actor_id"`
+	PublisherID   *int32             `json:"publisher_id"`
+	RequestID     string             `json:"request_id"`
+	ResourceType  *string            `json:"resource_type"`
+	ResourceID    *string            `json:"resource_id"`
+	Payload       []byte             `json:"payload"`
+	Result        []byte             `json:"result"`
+	Status        *string            `json:"status"`
+	ErrorMessage  *string            `json:"error_message"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	DurationMs    *int32             `json:"duration_ms"`
+	Metadata      []byte             `json:"metadata"`
+	PublisherName string             `json:"publisher_name"`
+}
+
+// Returns all audit logs with extended filtering for admin (includes all events, not just admin_*)
+func (q *Queries) GetAuditLogs(ctx context.Context, arg GetAuditLogsParams) ([]GetAuditLogsRow, error) {
+	rows, err := q.db.Query(ctx, getAuditLogs,
+		arg.EventAction,
+		arg.EventCategory,
+		arg.PublisherIDFilter,
+		arg.ActorID,
+		arg.StatusFilter,
+		arg.FromDate,
+		arg.ToDate,
+		arg.OffsetCount,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAuditLogsRow{}
+	for rows.Next() {
+		var i GetAuditLogsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventAction,
+			&i.EventCategory,
+			&i.ActorID,
+			&i.PublisherID,
+			&i.RequestID,
+			&i.ResourceType,
+			&i.ResourceID,
+			&i.Payload,
+			&i.Result,
+			&i.Status,
+			&i.ErrorMessage,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.DurationMs,
+			&i.Metadata,
+			&i.PublisherName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAuditStats24h = `-- name: GetAuditStats24h :one
@@ -873,81 +621,6 @@ func (q *Queries) GetEntityActionHistory(ctx context.Context, arg GetEntityActio
 			&i.StartedAt,
 			&i.CompletedAt,
 			&i.DurationMs,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getEntityAuditTrail = `-- name: GetEntityAuditTrail :many
-SELECT
-    id,
-    action_type,
-    concept,
-    user_id,
-    publisher_id,
-    payload,
-    result,
-    status,
-    started_at,
-    metadata
-FROM public.actions
-WHERE entity_type = $1 AND entity_id = $2
-ORDER BY started_at DESC
-LIMIT $3 OFFSET $4
-`
-
-type GetEntityAuditTrailParams struct {
-	EntityType *string `json:"entity_type"`
-	EntityID   *string `json:"entity_id"`
-	Limit      int32   `json:"limit"`
-	Offset     int32   `json:"offset"`
-}
-
-type GetEntityAuditTrailRow struct {
-	ID          string             `json:"id"`
-	ActionType  string             `json:"action_type"`
-	Concept     string             `json:"concept"`
-	UserID      *string            `json:"user_id"`
-	PublisherID *int32             `json:"publisher_id"`
-	Payload     []byte             `json:"payload"`
-	Result      []byte             `json:"result"`
-	Status      *string            `json:"status"`
-	StartedAt   pgtype.Timestamptz `json:"started_at"`
-	Metadata    []byte             `json:"metadata"`
-}
-
-// Returns full audit trail for a specific entity
-func (q *Queries) GetEntityAuditTrail(ctx context.Context, arg GetEntityAuditTrailParams) ([]GetEntityAuditTrailRow, error) {
-	rows, err := q.db.Query(ctx, getEntityAuditTrail,
-		arg.EntityType,
-		arg.EntityID,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetEntityAuditTrailRow{}
-	for rows.Next() {
-		var i GetEntityAuditTrailRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ActionType,
-			&i.Concept,
-			&i.UserID,
-			&i.PublisherID,
-			&i.Payload,
-			&i.Result,
-			&i.Status,
-			&i.StartedAt,
-			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}

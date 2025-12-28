@@ -29,6 +29,8 @@ type contextKey string
 const (
 	// UserIDKey is the context key for the authenticated user ID
 	UserIDKey contextKey = "user_id"
+	// UserEmailKey is the context key for the authenticated user's email
+	UserEmailKey contextKey = "user_email"
 	// UserRoleKey is the context key for the user's role
 	UserRoleKey contextKey = "user_role"
 	// PrimaryPublisherIDKey is the context key for the user's primary publisher ID
@@ -66,6 +68,7 @@ type Claims struct {
 	ExpiresAt      int64                  `json:"exp"`
 	IssuedAt       int64                  `json:"iat"`
 	NotBefore      int64                  `json:"nbf"`
+	Email          string                 `json:"email"`
 	Metadata       map[string]interface{} `json:"metadata"`
 	PublicMetadata map[string]interface{} `json:"public_metadata"`
 }
@@ -167,6 +170,14 @@ func GetUserID(ctx context.Context) string {
 	return ""
 }
 
+// GetUserEmail retrieves the user email from the request context
+func GetUserEmail(ctx context.Context) string {
+	if email, ok := ctx.Value(UserEmailKey).(string); ok {
+		return email
+	}
+	return ""
+}
+
 // GetUserRole retrieves the user role from the request context
 func GetUserRole(ctx context.Context) string {
 	if role, ok := ctx.Value(UserRoleKey).(string); ok {
@@ -238,6 +249,9 @@ func (am *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 
 		// Add user info to context
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+		if claims.Email != "" {
+			ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
+		}
 		if role := getRoleFromClaims(claims); role != "" {
 			ctx = context.WithValue(ctx, UserRoleKey, role)
 		}
@@ -268,6 +282,9 @@ func (am *AuthMiddleware) RequireRole(role string) func(http.Handler) http.Handl
 
 			// Add user info to context
 			ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+			if claims.Email != "" {
+				ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
+			}
 			ctx = context.WithValue(ctx, UserRoleKey, userRole)
 
 			// Add publisher info to context (from JWT claims)
@@ -290,6 +307,9 @@ func (am *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
 		if err == nil {
 			// Add user info to context
 			ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+			if claims.Email != "" {
+				ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
+			}
 			if role := getRoleFromClaims(claims); role != "" {
 				ctx = context.WithValue(ctx, UserRoleKey, role)
 			}
@@ -401,6 +421,14 @@ func (am *AuthMiddleware) parseJWT(tokenString string) (*Claims, error) {
 	if err := json.Unmarshal(claimsBytes, &claims); err != nil {
 		return nil, fmt.Errorf("failed to parse claims: %w", err)
 	}
+
+	// Debug: log claims to understand structure
+	slog.Debug("JWT claims parsed",
+		"sub", claims.Subject,
+		"email", claims.Email,
+		"has_metadata", claims.Metadata != nil,
+		"has_public_metadata", claims.PublicMetadata != nil,
+	)
 
 	return &claims, nil
 }
