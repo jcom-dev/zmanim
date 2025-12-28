@@ -1232,21 +1232,22 @@ func (h *Handlers) AdminPermanentDeletePublisher(w http.ResponseWriter, r *http.
 		"deletion_summary", deletionSummary)
 
 	// Clean up Clerk users in background
-	if h.clerkService != nil && len(usersToCleanup) > 0 {
-		go func() {
-			for _, user := range usersToCleanup {
-				if user.PublisherCount <= 1 {
-					// This was their only publisher - delete the Clerk user
-					if err := h.clerkService.DeleteUser(context.Background(), user.ClerkUserID); err != nil {
-						slog.Error("failed to delete Clerk user",
-							"error", err,
-							"user_id", user.ClerkUserID,
-							"publisher_id", id)
-					} else {
-						slog.Info("deleted Clerk user who only had access to deleted publisher",
-							"user_id", user.ClerkUserID,
-							"publisher_id", id)
-					}
+	if h.clerkService != nil {
+		if len(usersToCleanup) > 0 {
+			go func() {
+				for _, user := range usersToCleanup {
+					if user.PublisherCount <= 1 {
+						// This was their only publisher - delete the Clerk user
+						if err := h.clerkService.DeleteUser(context.Background(), user.ClerkUserID); err != nil {
+							slog.Error("failed to delete Clerk user",
+								"error", err,
+								"user_id", user.ClerkUserID,
+								"publisher_id", id)
+						} else {
+							slog.Info("deleted Clerk user who only had access to deleted publisher",
+								"user_id", user.ClerkUserID,
+								"publisher_id", id)
+						}
 				} else {
 					// User has other publishers - just remove this one from their list
 					if err := h.clerkService.RemovePublisherFromUser(context.Background(), user.ClerkUserID, id); err != nil {
@@ -1262,6 +1263,7 @@ func (h *Handlers) AdminPermanentDeletePublisher(w http.ResponseWriter, r *http.
 				}
 			}
 		}()
+		}
 	}
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{

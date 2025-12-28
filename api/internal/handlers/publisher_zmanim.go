@@ -582,17 +582,19 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 		}
 
 		// Sort zmanim by category order (Jewish day structure: dawn → midnight)
-		if h.zmanimService != nil && len(zmanimWithTime) > 0 {
-			sortable := make([]services.SortableZman, len(zmanimWithTime))
-			for i := range zmanimWithTime {
-				sortable[i] = &zmanimWithTime[i]
+		if h.zmanimService != nil {
+			if len(zmanimWithTime) > 0 {
+				sortable := make([]services.SortableZman, len(zmanimWithTime))
+				for i := range zmanimWithTime {
+					sortable[i] = &zmanimWithTime[i]
+				}
+				h.zmanimService.SortZmanim(sortable, false)
+				sorted := make([]PublisherZmanWithTime, len(sortable))
+				for i, s := range sortable {
+					sorted[i] = *s.(*PublisherZmanWithTime)
+				}
+				zmanimWithTime = sorted
 			}
-			h.zmanimService.SortZmanim(sortable, false)
-			sorted := make([]PublisherZmanWithTime, len(sortable))
-			for i, s := range sortable {
-				sorted[i] = *s.(*PublisherZmanWithTime)
-			}
-			zmanimWithTime = sorted
 		}
 
 		days = append(days, WeekDayZmanim{
@@ -1792,9 +1794,11 @@ func (h *Handlers) ImportZmanim(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 5. Invalidate cache
-	if h.cache != nil && len(importedZmanim) > 0 {
-		if err := h.cache.InvalidatePublisherCache(ctx, publisherIDStr); err != nil {
-			slog.Warn("failed to invalidate cache after import", "error", err, "publisher_id", publisherID)
+	if h.cache != nil {
+		if len(importedZmanim) > 0 {
+			if err := h.cache.InvalidatePublisherCache(ctx, publisherIDStr); err != nil {
+				slog.Warn("failed to invalidate cache after import", "error", err, "publisher_id", publisherID)
+			}
 		}
 	}
 
