@@ -36,22 +36,22 @@ type AuditChanges struct {
 // AdminAuditLogEntry represents a single audit log entry for admin view
 // Matches the frontend AuditEvent interface
 type AdminAuditLogEntry struct {
-	ID            string         `json:"id"`
-	EventType     string         `json:"event_type"`      // format: "category.action"
-	EventCategory string         `json:"event_category"`
-	EventAction   string         `json:"event_action"`
-	EventSeverity string         `json:"event_severity,omitempty"` // debug, info, warning, error, critical
-	OccurredAt    time.Time      `json:"occurred_at"`
-	Actor         AuditActor     `json:"actor"`
-	PublisherID   *int32         `json:"publisher_id,omitempty"`
-	PublisherSlug *string        `json:"publisher_slug,omitempty"`
-	Resource      AuditResource  `json:"resource"`
-	OperationType string         `json:"operation_type"` // CREATE, UPDATE, DELETE, etc.
-	Changes       *AuditChanges  `json:"changes,omitempty"`
-	Status        string         `json:"status"`
-	ErrorMessage  string         `json:"error_message,omitempty"`
-	DurationMs    *int32         `json:"duration_ms,omitempty"`
-	RequestID     string         `json:"request_id"`
+	ID            string          `json:"id"`
+	EventType     string          `json:"event_type"` // format: "category.action"
+	EventCategory string          `json:"event_category"`
+	EventAction   string          `json:"event_action"`
+	EventSeverity string          `json:"event_severity,omitempty"` // debug, info, warning, error, critical
+	OccurredAt    time.Time       `json:"occurred_at"`
+	Actor         AuditActor      `json:"actor"`
+	PublisherID   *int32          `json:"publisher_id,omitempty"`
+	PublisherSlug *string         `json:"publisher_slug,omitempty"`
+	Resource      AuditResource   `json:"resource"`
+	OperationType string          `json:"operation_type"` // CREATE, UPDATE, DELETE, etc.
+	Changes       *AuditChanges   `json:"changes,omitempty"`
+	Status        string          `json:"status"`
+	ErrorMessage  string          `json:"error_message,omitempty"`
+	DurationMs    *int32          `json:"duration_ms,omitempty"`
+	RequestID     string          `json:"request_id"`
 	Metadata      json.RawMessage `json:"metadata,omitempty"`
 }
 
@@ -71,14 +71,14 @@ type PaginationInfo struct {
 
 // AuditStatsResponse represents aggregated audit statistics for dashboard
 type AuditStatsResponse struct {
-	TotalEvents24h       int64              `json:"total_events_24h"`
-	TotalEvents7d        int64              `json:"total_events_7d"`
-	EventsByCategory     map[string]int64   `json:"events_by_category"`
-	EventsByAction       map[string]int64      `json:"events_by_action"`
-	EventsByStatus       map[string]int64      `json:"events_by_status"`
-	TopActors            []ActorStats          `json:"top_actors"`
-	TopPublishers        []PublisherStats      `json:"top_publishers"`
-	RecentCriticalEvents []AdminAuditLogEntry  `json:"recent_critical_events"`
+	TotalEvents24h       int64                `json:"total_events_24h"`
+	TotalEvents7d        int64                `json:"total_events_7d"`
+	EventsByCategory     map[string]int64     `json:"events_by_category"`
+	EventsByAction       map[string]int64     `json:"events_by_action"`
+	EventsByStatus       map[string]int64     `json:"events_by_status"`
+	TopActors            []ActorStats         `json:"top_actors"`
+	TopPublishers        []PublisherStats     `json:"top_publishers"`
+	RecentCriticalEvents []AdminAuditLogEntry `json:"recent_critical_events"`
 }
 
 // ActorStats represents statistics for an actor (user)
@@ -653,7 +653,7 @@ func formatAdminAuditLogEntry(row sqlcgen.GetAuditLogsRow) AdminAuditLogEntry {
 	// Parse changes from payload
 	var changesBefore, changesAfter map[string]interface{}
 	if row.Payload != nil {
-		json.Unmarshal(row.Payload, &changesBefore)
+		_ = json.Unmarshal(row.Payload, &changesBefore)
 	}
 	// Note: GetAuditLogsRow doesn't have a result field, so changesAfter remains nil
 

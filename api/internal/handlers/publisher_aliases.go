@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // CreateAliasRequest is the request body for creating/updating an alias
@@ -114,11 +115,10 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 
 	// Step 5b: Log alias create/update
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryAlias,
-		EventAction:   AuditActionUpdate,
-		ResourceType:  "publisher_zman_alias",
-		ResourceID:    int32ToString(alias.ID),
-		ResourceName:  zmanKey,
+		ActionType:   services.ActionZmanUpdate,
+		ResourceType: "publisher_zman_alias",
+		ResourceID:   int32ToString(alias.ID),
+		ResourceName: zmanKey,
 		ChangesAfter: map[string]interface{}{
 			"alias_hebrew":          req.AliasHebrew,
 			"alias_english":         req.AliasEnglish,
@@ -243,14 +243,14 @@ func (h *Handlers) DeleteAlias(w http.ResponseWriter, r *http.Request) {
 
 	// Step 5b: Log alias deletion
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryAlias,
-		EventAction:   AuditActionDelete,
-		ResourceType:  "publisher_zman_alias",
-		ResourceID:    zmanKey, // Use zman_key as ID since alias was deleted
-		ResourceName:  zmanKey,
-		Status:        AuditStatusSuccess,
+		ActionType:   services.ActionZmanUpdate,
+		ResourceType: "publisher_zman_alias",
+		ResourceID:   zmanKey, // Use zman_key as ID since alias was deleted
+		ResourceName: zmanKey,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
-			"zman_key": zmanKey,
+			"zman_key":  zmanKey,
+			"operation": "alias_delete",
 		},
 	})
 

@@ -199,11 +199,11 @@ func (h *Handlers) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
 		ActionType:   services.ActionOnboardingCompleted,
 		ResourceType: "onboarding",
 		ResourceID:   publisherID,
-		Status:        AuditStatusSuccess,
+		Status:       AuditStatusSuccess,
 		ChangesAfter: map[string]interface{}{
-			"zmanim_imported":  len(req.Customizations),
-			"coverage_items":   len(req.Coverage),
-			"enabled_zmanim":   len(enabledZmanim),
+			"zmanim_imported": len(req.Customizations),
+			"coverage_items":  len(req.Coverage),
+			"enabled_zmanim":  len(enabledZmanim),
 		},
 	})
 
@@ -416,7 +416,7 @@ func (h *Handlers) ResetOnboarding(w http.ResponseWriter, r *http.Request) {
 		ActionType:   services.ActionOnboardingReset,
 		ResourceType: "onboarding",
 		ResourceID:   publisherID,
-		Status:        AuditStatusSuccess,
+		Status:       AuditStatusSuccess,
 	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]string{

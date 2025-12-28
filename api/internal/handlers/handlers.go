@@ -948,8 +948,7 @@ func (h *Handlers) UpdatePublisherProfile(w http.ResponseWriter, r *http.Request
 
 	// Log profile update with before/after state
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryPublisher,
-		EventAction:   AuditActionUpdate,
+		ActionType:    services.ActionProfileUpdate,
 		ResourceType:  "publisher_profile",
 		ResourceID:    publisher.ID,
 		ResourceName:  publisher.Name,

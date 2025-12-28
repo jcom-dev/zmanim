@@ -1147,11 +1147,10 @@ func (h *Handlers) RollbackZmanVersion(w http.ResponseWriter, r *http.Request) {
 
 	// Log successful rollback
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   AuditActionRollback,
-		ResourceType:  "publisher_zman",
-		ResourceID:    zmanKey,
-		ResourceName:  row.HebrewName,
+		ActionType:   services.ActionVersionRollbackExecuted,
+		ResourceType: "publisher_zman",
+		ResourceID:   zmanKey,
+		ResourceName: row.HebrewName,
 		ChangesBefore: map[string]interface{}{
 			"formula_dsl": row.FormulaDsl, // Current formula (before rollback)
 		},
@@ -1357,11 +1356,10 @@ func (h *Handlers) RestorePublisherZman(w http.ResponseWriter, r *http.Request) 
 
 	// Log successful restore
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   AuditActionRestore,
-		ResourceType:  "publisher_zman",
-		ResourceID:    zmanKey,
-		ResourceName:  row.HebrewName,
+		ActionType:   services.ActionSnapshotRestored,
+		ResourceType: "publisher_zman",
+		ResourceID:   zmanKey,
+		ResourceName: row.HebrewName,
 		ChangesAfter: map[string]interface{}{
 			"zman_key":     row.ZmanKey,
 			"hebrew_name":  row.HebrewName,
@@ -1425,11 +1423,10 @@ func (h *Handlers) PermanentDeletePublisherZman(w http.ResponseWriter, r *http.R
 		slog.Error("error permanently deleting zman", "error", err)
 		// Log failure
 		h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-			EventCategory: AuditCategoryZman,
-			EventAction:   AuditActionDelete,
-			ResourceType:  "publisher_zman",
-			ResourceID:    zmanKey,
-			ResourceName:  beforeState.HebrewName,
+			ActionType:   services.ActionZmanDelete,
+			ResourceType: "publisher_zman",
+			ResourceID:   zmanKey,
+			ResourceName: beforeState.HebrewName,
 			ChangesBefore: map[string]interface{}{
 				"zman_key":     zmanKey,
 				"hebrew_name":  beforeState.HebrewName,
@@ -1445,11 +1442,10 @@ func (h *Handlers) PermanentDeletePublisherZman(w http.ResponseWriter, r *http.R
 
 	// Log successful permanent deletion
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   AuditActionDelete,
-		ResourceType:  "publisher_zman",
-		ResourceID:    zmanKey,
-		ResourceName:  beforeState.HebrewName,
+		ActionType:   services.ActionZmanDelete,
+		ResourceType: "publisher_zman",
+		ResourceID:   zmanKey,
+		ResourceName: beforeState.HebrewName,
 		ChangesBefore: map[string]interface{}{
 			"zman_key":     zmanKey,
 			"hebrew_name":  beforeState.HebrewName,
@@ -2371,8 +2367,8 @@ func (h *Handlers) AdminRejectTagRequest(w http.ResponseWriter, r *http.Request)
 		ResourceID:   fmt.Sprintf("%d", tagRequestID),
 		ResourceName: tagName,
 		ChangesBefore: map[string]interface{}{
-			"tag_request_id":    tagRequestID,
-			"request_id":        requestID,
+			"tag_request_id":     tagRequestID,
+			"request_id":         requestID,
 			"requested_tag_name": tagName,
 		},
 		Severity: services.SeverityInfo,
@@ -2996,13 +2992,13 @@ func (h *Handlers) AdminCreateMasterZman(w http.ResponseWriter, r *http.Request)
 		ResourceID:   result.ID,
 		ResourceName: req.ZmanKey,
 		ChangesAfter: map[string]interface{}{
-			"zman_key":              req.ZmanKey,
-			"canonical_hebrew_name": req.CanonicalHebrewName,
+			"zman_key":               req.ZmanKey,
+			"canonical_hebrew_name":  req.CanonicalHebrewName,
 			"canonical_english_name": req.CanonicalEnglishName,
-			"time_category":         req.TimeCategory,
-			"default_formula_dsl":   req.DefaultFormulaDSL,
-			"is_core":               req.IsCore,
-			"is_hidden":             req.IsHidden,
+			"time_category":          req.TimeCategory,
+			"default_formula_dsl":    req.DefaultFormulaDSL,
+			"is_core":                req.IsCore,
+			"is_hidden":              req.IsHidden,
 		},
 		Severity: services.SeverityInfo,
 		Status:   "success",

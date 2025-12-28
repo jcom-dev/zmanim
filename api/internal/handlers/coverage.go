@@ -482,8 +482,7 @@ func (h *Handlers) UpdatePublisherCoverage(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory:      AuditCategoryCoverage,
-		EventAction:        AuditActionUpdate,
+		ActionType:         services.ActionSettingsUpdate,
 		ResourceType:       "coverage",
 		ResourceID:         coverageID,
 		ChangesBefore:      existingCoverage,
@@ -1046,10 +1045,10 @@ func (h *Handlers) UpdateGlobalCoverage(w http.ResponseWriter, r *http.Request) 
 		actionType = services.ActionCoverageGlobalDisabled
 	}
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		ActionType:   actionType,
-		ResourceType: "publisher_settings",
-		ResourceID:   pc.PublisherID,
-		ResourceName: "global_coverage",
+		ActionType:    actionType,
+		ResourceType:  "publisher_settings",
+		ResourceID:    pc.PublisherID,
+		ResourceName:  "global_coverage",
 		ChangesBefore: map[string]interface{}{"is_global": previousIsGlobal},
 		ChangesAfter:  map[string]interface{}{"is_global": req.IsGlobal},
 		Status:        AuditStatusSuccess,

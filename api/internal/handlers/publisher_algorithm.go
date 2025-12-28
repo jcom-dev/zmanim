@@ -717,13 +717,13 @@ func (h *Handlers) DeprecateAlgorithmVersion(w http.ResponseWriter, r *http.Requ
 
 	// Log algorithm version deprecation
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryAlgorithm,
-		EventAction:   "deprecate",
-		ResourceType:  "algorithm_version",
-		ResourceID:    versionIDStr,
-		Status:        AuditStatusSuccess,
+		ActionType:   services.ActionAlgorithmSave,
+		ResourceType: "algorithm_version",
+		ResourceID:   versionIDStr,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"publisher_id": publisherID,
+			"operation":    "deprecate",
 		},
 	})
 

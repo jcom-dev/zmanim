@@ -28,12 +28,12 @@ import (
 
 // AuditActor represents the actor who performed an action
 type AuditActor struct {
-	UserID    string  `json:"user_id,omitempty"`
-	ClerkID   string  `json:"clerk_id,omitempty"`
-	Name      string  `json:"name,omitempty"`
-	Email     string  `json:"email,omitempty"`
-	IPAddress string  `json:"ip_address,omitempty"`
-	IsSystem  bool    `json:"is_system"`
+	UserID    string `json:"user_id,omitempty"`
+	ClerkID   string `json:"clerk_id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Email     string `json:"email,omitempty"`
+	IPAddress string `json:"ip_address,omitempty"`
+	IsSystem  bool   `json:"is_system"`
 }
 
 // AuditResource represents the affected resource

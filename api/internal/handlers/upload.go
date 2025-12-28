@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 const (
@@ -129,10 +130,9 @@ func (h *Handlers) UploadPublisherLogo(w http.ResponseWriter, r *http.Request) {
 
 	// Log successful logo upload
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryPublisher,
-		EventAction:   AuditActionUpdate,
-		ResourceType:  "publisher_logo",
-		ResourceID:    publisherID,
+		ActionType:   services.ActionProfileUpdate,
+		ResourceType: "publisher_logo",
+		ResourceID:   publisherID,
 		ChangesAfter: map[string]interface{}{
 			"logo_data_length": len(logoData),
 			"content_type":     contentType,

@@ -1483,8 +1483,8 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 		ResourceType: "publisher_zman",
 		ResourceID:   int32ToString(sqlcZman.ID),
 		ResourceName: req.ZmanKey,
-		ChangesAfter:  req,
-		Status:        AuditStatusSuccess,
+		ChangesAfter: req,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key":     req.ZmanKey,
 			"hebrew_name":  req.HebrewName,
@@ -1630,8 +1630,8 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 		ResourceType: "publisher_zman",
 		ResourceID:   int32ToString(sqlcZman.ID),
 		ResourceName: zmanKey,
-		ChangesAfter:  req,
-		Status:        AuditStatusSuccess,
+		ChangesAfter: req,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key": zmanKey,
 		},
@@ -1689,7 +1689,7 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 		ResourceType: "publisher_zman",
 		ResourceID:   zmanKey,
 		ResourceName: zmanKey,
-		Status:        AuditStatusSuccess,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key": zmanKey,
 		},
@@ -1804,16 +1804,16 @@ func (h *Handlers) ImportZmanim(w http.ResponseWriter, r *http.Request) {
 		importedKeys[i] = z.ZmanKey
 	}
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   AuditActionImport,
-		ResourceType:  "publisher_zman",
-		ResourceID:    publisherIDStr,
-		Status:        AuditStatusSuccess,
+		ActionType:   services.ActionZmanCreate,
+		ResourceType: "publisher_zman",
+		ResourceID:   publisherIDStr,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"source":        req.Source,
 			"source_id":     req.PublisherID,
 			"imported_keys": importedKeys,
 			"count":         len(importedZmanim),
+			"operation":     "bulk_import",
 		},
 	})
 
@@ -2234,22 +2234,18 @@ func (h *Handlers) CreateZmanFromPublisher(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Log zman copy/link operation
-	actionType := AuditActionCopy
-	if req.Mode == "link" {
-		actionType = AuditActionLink
-	}
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   actionType,
-		ResourceType:  "publisher_zman",
-		ResourceID:    int32ToString(result.ID),
-		ResourceName:  sourceZman.ZmanKey,
-		Status:        AuditStatusSuccess,
+		ActionType:   services.ActionZmanCreate,
+		ResourceType: "publisher_zman",
+		ResourceID:   int32ToString(result.ID),
+		ResourceName: sourceZman.ZmanKey,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"mode":                     req.Mode,
 			"source_publisher_zman_id": req.SourcePublisherZmanID,
 			"source_publisher_id":      sourceZman.PublisherID,
 			"zman_key":                 sourceZman.ZmanKey,
+			"operation":                req.Mode, // "copy" or "link"
 		},
 	})
 
@@ -2428,16 +2424,16 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		tagIDs[i] = tag.TagID
 	}
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTag,
-		EventAction:   AuditActionUpdate,
-		ResourceType:  "publisher_zman_tags",
-		ResourceID:    int32ToString(zmanID),
-		ResourceName:  zmanKey,
-		Status:        AuditStatusSuccess,
+		ActionType:   services.ActionZmanUpdate,
+		ResourceType: "publisher_zman_tags",
+		ResourceID:   int32ToString(zmanID),
+		ResourceName: zmanKey,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key":  zmanKey,
 			"tag_ids":   tagIDs,
 			"tag_count": len(req.Tags),
+			"operation": "tags_bulk_update",
 		},
 	})
 
@@ -2509,14 +2505,14 @@ func (h *Handlers) RevertPublisherZmanTags(w http.ResponseWriter, r *http.Reques
 
 	// Log tag revert
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTag,
-		EventAction:   AuditActionRevert,
-		ResourceType:  "publisher_zman_tags",
-		ResourceID:    int32ToString(zmanID),
-		ResourceName:  zmanKey,
-		Status:        AuditStatusSuccess,
+		ActionType:   services.ActionZmanUpdate,
+		ResourceType: "publisher_zman_tags",
+		ResourceID:   int32ToString(zmanID),
+		ResourceName: zmanKey,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
-			"zman_key": zmanKey,
+			"zman_key":  zmanKey,
+			"operation": "tags_revert_to_registry",
 		},
 	})
 
@@ -2605,18 +2601,18 @@ func (h *Handlers) AddTagToPublisherZman(w http.ResponseWriter, r *http.Request)
 
 	// Log tag addition
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTag,
-		EventAction:   AuditActionAdd,
-		ResourceType:  "publisher_zman_tag",
-		ResourceID:    int32ToString(zmanID),
-		ResourceName:  zmanKey,
+		ActionType:   services.ActionZmanUpdate,
+		ResourceType: "publisher_zman_tag",
+		ResourceID:   int32ToString(zmanID),
+		ResourceName: zmanKey,
 		ChangesAfter: map[string]interface{}{
 			"tag_id":     tagIDInt32,
 			"is_negated": req.IsNegated,
 		},
 		Status: AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
-			"zman_key": zmanKey,
+			"zman_key":  zmanKey,
+			"operation": "tag_add",
 		},
 	})
 
@@ -2689,17 +2685,17 @@ func (h *Handlers) RemoveTagFromPublisherZman(w http.ResponseWriter, r *http.Req
 
 	// Log tag removal
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTag,
-		EventAction:   AuditActionRemove,
-		ResourceType:  "publisher_zman_tag",
-		ResourceID:    int32ToString(zmanID),
-		ResourceName:  zmanKey,
+		ActionType:   services.ActionZmanUpdate,
+		ResourceType: "publisher_zman_tag",
+		ResourceID:   int32ToString(zmanID),
+		ResourceName: zmanKey,
 		ChangesBefore: map[string]interface{}{
 			"tag_id": tagIDInt32,
 		},
 		Status: AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
-			"zman_key": zmanKey,
+			"zman_key":  zmanKey,
+			"operation": "tag_remove",
 		},
 	})
 
