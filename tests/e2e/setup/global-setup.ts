@@ -146,8 +146,8 @@ async function preLinkPublisherUser(): Promise<void> {
   if (!databaseUrl) return;
 
   // Load user pool to get the publisher user ID
-  const { loadUserPool } = await import('../utils/shared-users');
-  const userPool = loadUserPool();
+  const sharedUsersModule = await import('../utils/shared-users');
+  const userPool = sharedUsersModule.loadUserPool();
   const publisherClerkId = userPool.publisher.id;
 
   const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';
