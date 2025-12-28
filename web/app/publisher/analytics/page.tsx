@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePublisherContext } from '@/providers/PublisherContext';
-import { BarChart3, Globe, Calculator, Calendar, MapPin, Loader2 } from 'lucide-react';
+import { BarChart3, Globe, Calculator, Calendar, MapPin, Loader2, RefreshCw, Clock } from 'lucide-react';
 import { useApi } from '@/lib/api-client';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
 
 interface Analytics {
   calculations_total: number;
@@ -18,13 +19,21 @@ export default function PublisherAnalyticsPage() {
   const { selectedPublisher, isLoading: contextLoading } = usePublisherContext();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAnalytics = useCallback(async () => {
-    if (!selectedPublisher) return;
+  const fetchAnalytics = useCallback(async (isManualRefresh = false) => {
+    if (!selectedPublisher) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      setIsLoading(true);
+      if (isManualRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
 
       const data = await api.get<Analytics>('/publisher/analytics');
@@ -33,14 +42,17 @@ export default function PublisherAnalyticsPage() {
       setError(err instanceof Error ? err.message : 'Failed to load analytics');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [api, selectedPublisher]);
 
+  const handleRefresh = useCallback(() => {
+    fetchAnalytics(true);
+  }, [fetchAnalytics]);
+
   useEffect(() => {
-    if (selectedPublisher) {
-      fetchAnalytics();
-    }
-  }, [selectedPublisher, fetchAnalytics]);
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   if (contextLoading || isLoading) {
     return (
@@ -59,8 +71,35 @@ export default function PublisherAnalyticsPage() {
     return (
       <div className="p-8">
         <div className="max-w-4xl mx-auto">
-          <div className="alert-error">
-            <p className="alert-error-text">{error}</p>
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6">
+            <div className="flex items-start gap-3">
+              <BarChart3 className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-destructive mb-1">Failed to load analytics</h3>
+                <p className="text-sm text-destructive/80">{error}</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+                size="sm"
+                className="border-destructive/20 hover:bg-destructive/5"
+              >
+                {isRefreshing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -73,11 +112,33 @@ export default function PublisherAnalyticsPage() {
     <div className="p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-4 md:mb-8">
-          <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="text-muted-foreground mt-1">
-            View usage statistics for your zmanim
-          </p>
+        <div className="mb-4 md:mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Analytics</h1>
+            <p className="text-muted-foreground mt-1">
+              View usage statistics for your zmanim
+            </p>
+          </div>
+          <Button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            variant="outline"
+            size="sm"
+            data-testid="refresh-analytics-btn"
+            className="mt-1"
+          >
+            {isRefreshing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Empty State */}
@@ -95,7 +156,7 @@ export default function PublisherAnalyticsPage() {
         {/* Stats Cards */}
         {hasActivity && analytics && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-lg border border-border p-6" data-testid="total-calculations">
               <div className="flex items-center gap-2 text-muted-foreground mb-3">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -113,7 +174,7 @@ export default function PublisherAnalyticsPage() {
               <p className="text-muted-foreground text-sm mt-1">all time</p>
             </div>
 
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-lg border border-border p-6" data-testid="monthly-calculations">
               <div className="flex items-center gap-2 text-muted-foreground mb-3">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -131,7 +192,7 @@ export default function PublisherAnalyticsPage() {
               <p className="text-muted-foreground text-sm mt-1">calculations</p>
             </div>
 
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-lg border border-border p-6" data-testid="coverage-areas">
               <div className="flex items-center gap-2 text-muted-foreground mb-3">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -149,7 +210,7 @@ export default function PublisherAnalyticsPage() {
               <p className="text-muted-foreground text-sm mt-1">active areas</p>
             </div>
 
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-lg border border-border p-6" data-testid="localities-covered">
               <div className="flex items-center gap-2 text-muted-foreground mb-3">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -170,20 +231,27 @@ export default function PublisherAnalyticsPage() {
         )}
 
         {/* Coming Soon Note */}
-        <div className="bg-card/50 rounded-lg border border-border p-6 text-center">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <BarChart3 className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>Advanced analytics features in development</TooltipContent>
-          </Tooltip>
-          <h3 className="text-lg font-semibold mb-2">Detailed Analytics Coming Soon</h3>
-          <p className="text-muted-foreground text-sm max-w-md mx-auto">
-            Charts, trends, geographic breakdowns, and more detailed statistics
-            will be available in a future update.
-          </p>
+        <div className="bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20 p-8 text-center">
+          <div className="max-w-md mx-auto">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="inline-block">
+                  <BarChart3 className="w-12 h-12 text-muted-foreground/60 mb-4" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Advanced analytics features in development</TooltipContent>
+            </Tooltip>
+            <h3 className="text-xl font-semibold mb-3 text-foreground">Detailed Analytics Coming Soon</h3>
+            <p className="text-muted-foreground leading-relaxed">
+              Advanced features including interactive charts, trend analysis,
+              geographic breakdowns, and detailed usage statistics will be
+              available in a future update.
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground/80 font-medium">
+              <Clock className="w-4 h-4" />
+              <span>In Development</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

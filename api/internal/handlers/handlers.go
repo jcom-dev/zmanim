@@ -66,6 +66,7 @@ type Handlers struct {
 	completeExportService *services.CompleteExportService
 	calculationLogService *services.CalculationLogService
 	activityService       *services.ActivityService
+	rollupScheduler       *services.RollupScheduler
 	// PublisherResolver consolidates publisher ID resolution logic
 	publisherResolver *PublisherResolver
 	// AI services (optional - may be nil if not configured)
@@ -126,6 +127,11 @@ func (h *Handlers) SetCalculationLogService(s *services.CalculationLogService) {
 // SetZmanimService configures the zmanim service
 func (h *Handlers) SetZmanimService(s *services.ZmanimService) {
 	h.zmanimService = s
+}
+
+// SetRollupScheduler configures the rollup scheduler
+func (h *Handlers) SetRollupScheduler(s *services.RollupScheduler) {
+	h.rollupScheduler = s
 }
 
 // GetPublisherResolver returns the publisher resolver for use by other handlers

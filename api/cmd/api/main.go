@@ -52,6 +52,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -117,6 +118,19 @@ func main() {
 	calculationLogService := services.NewCalculationLogService(database.Pool)
 	h.SetCalculationLogService(calculationLogService)
 	defer calculationLogService.Close()
+
+	// Initialize rollup scheduler
+	rollupIntervalHours := 1
+	if envInterval := os.Getenv("ROLLUP_INTERVAL_HOURS"); envInterval != "" {
+		if parsed, err := strconv.Atoi(envInterval); err == nil && parsed > 0 {
+			rollupIntervalHours = parsed
+		}
+	}
+	rollupScheduler := services.NewRollupScheduler(database.Queries, rollupIntervalHours)
+	h.SetRollupScheduler(rollupScheduler)
+	rollupScheduler.Start(context.Background())
+	defer rollupScheduler.Stop()
+	log.Printf("Rollup scheduler initialized (interval: %d hours)", rollupIntervalHours)
 
 	// Initialize Redis cache (optional - only if REDIS_URL is set)
 	redisCache, err := cache.New()
@@ -199,8 +213,12 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Health check endpoint
+	// Health check endpoints
 	r.Get("/health", h.HealthCheck)
+	r.Get("/health/rollup", h.RollupHealthCheck)
+
+	// Internal endpoints (test only - gated by ENABLE_TEST_ENDPOINTS env var)
+	r.Post("/internal/rollup/trigger", h.TriggerRollup)
 
 	// Static file server for uploads (logos, etc.)
 	uploadsDir := http.Dir("./uploads")

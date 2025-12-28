@@ -192,6 +192,7 @@ var dayNames = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", 
 //	@Failure		500				{object}	APIResponse{error=APIError}	"Internal server error"
 //	@Router			/publisher/zmanim [get]
 func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
+	start := time.Now() // Track response time for logging
 	ctx := r.Context()
 
 	// Use PublisherResolver to get publisher context
@@ -393,6 +394,19 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 		Zmanim:     zmanimWithTime,
 	}
 
+	// Log the calculation
+	if h.calculationLogService != nil {
+		h.calculationLogService.Log(services.CalculationLogEntry{
+			PublisherID:    publisherIDInt32,
+			LocalityID:     localityID,
+			DateCalculated: date,
+			CacheHit:       calcResult.FromCache,
+			ResponseTimeMs: int16(time.Since(start).Milliseconds()),
+			ZmanCount:      int16(len(zmanimWithTime)),
+			Source:         services.SourceAPI,
+		})
+	}
+
 	slog.Info("fetched zmanim with locality_id", "count", len(zmanimWithTime), "publisher_id", publisherID, "locality_id", localityID, "date", dateStr, "cached", calcResult.FromCache)
 	RespondJSON(w, r, http.StatusOK, response)
 }
@@ -412,6 +426,7 @@ type WeekZmanimResponse struct {
 // This is a batch endpoint that calculates all 7 days in one request with caching
 // GET /api/v1/publisher/zmanim/week?start_date=YYYY-MM-DD&locality_id=X
 func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request) {
+	start := time.Now() // Track response time for logging
 	ctx := r.Context()
 
 	// Use PublisherResolver to get publisher context
@@ -605,6 +620,26 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 
 	response := WeekZmanimResponse{Days: days}
 
+	// Log calculations for each day in the week
+	if h.calculationLogService != nil {
+		logEntries := make([]services.CalculationLogEntry, 0, len(days))
+		responseTimePerDay := int16(time.Since(start).Milliseconds() / int64(len(days)))
+		currentDate := startDate
+		for _, day := range days {
+			logEntries = append(logEntries, services.CalculationLogEntry{
+				PublisherID:    publisherIDInt,
+				LocalityID:     localityID,
+				DateCalculated: currentDate,
+				CacheHit:       false, // Week endpoint doesn't expose individual day cache status
+				ResponseTimeMs: responseTimePerDay,
+				ZmanCount:      int16(len(day.Zmanim)),
+				Source:         services.SourceAPI,
+			})
+			currentDate = currentDate.AddDate(0, 0, 1)
+		}
+		h.calculationLogService.LogBatch(logEntries)
+	}
+
 	slog.Info("fetched week zmanim", "publisher_id", publisherID, "start_date", startDateStr, "locality_id", localityID)
 	RespondJSON(w, r, http.StatusOK, response)
 }
@@ -653,6 +688,7 @@ type YearExportDayRow struct {
 //	@Failure		404				{object}	APIResponse{error=APIError}				"Locality not found"
 //	@Router			/publisher/zmanim/year [get]
 func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request) {
+	start := time.Now() // Track response time for logging
 	ctx := r.Context()
 
 	// Use PublisherResolver to get publisher context
@@ -848,6 +884,26 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		ZmanimOrder:  zmanimOrder,
 		ZmanimLabels: zmanimLabels,
 		Days:         days,
+	}
+
+	// Log calculations for each day in the year
+	if h.calculationLogService != nil {
+		logEntries := make([]services.CalculationLogEntry, 0, len(days))
+		responseTimePerDay := int16(time.Since(start).Milliseconds() / int64(len(days)))
+		currentDate := startDate
+		for _, day := range days {
+			logEntries = append(logEntries, services.CalculationLogEntry{
+				PublisherID:    publisherIDInt32,
+				LocalityID:     localityID,
+				DateCalculated: currentDate,
+				CacheHit:       false, // Year endpoint doesn't expose individual day cache status
+				ResponseTimeMs: responseTimePerDay,
+				ZmanCount:      int16(len(day.Times)),
+				Source:         services.SourceAPI,
+			})
+			currentDate = currentDate.AddDate(0, 0, 1)
+		}
+		h.calculationLogService.LogBatch(logEntries)
 	}
 
 	slog.Info("generated year zmanim export",
@@ -1534,6 +1590,21 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	zmanKey := chi.URLParam(r, "zmanKey")
 
+	// Fetch existing zman BEFORE update for audit logging
+	existingZman, fetchErr := h.db.Queries.GetPublisherZmanByKey(ctx, sqlcgen.GetPublisherZmanByKeyParams{
+		PublisherID: publisherID,
+		ZmanKey:     zmanKey,
+	})
+	if fetchErr == pgx.ErrNoRows {
+		RespondNotFound(w, r, "Zman not found")
+		return
+	}
+	if fetchErr != nil {
+		slog.Error("failed to fetch existing zman for audit", "error", fetchErr)
+		RespondInternalError(w, r, "Failed to fetch zman")
+		return
+	}
+
 	// Read and log the raw body for debugging
 	bodyBytes, readErr := io.ReadAll(r.Body)
 	if readErr != nil {
@@ -1632,6 +1703,21 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 		ResourceType: "publisher_zman",
 		ResourceID:   int32ToString(sqlcZman.ID),
 		ResourceName: zmanKey,
+		ChangesBefore: map[string]interface{}{
+			"hebrew_name":       existingZman.HebrewName,
+			"english_name":      existingZman.EnglishName,
+			"transliteration":   existingZman.Transliteration,
+			"description":       existingZman.Description,
+			"formula_dsl":       existingZman.FormulaDsl,
+			"ai_explanation":    existingZman.AiExplanation,
+			"publisher_comment": existingZman.PublisherComment,
+			"is_enabled":        existingZman.IsEnabled,
+			"is_visible":        existingZman.IsVisible,
+			"is_published":      existingZman.IsPublished,
+			"is_beta":           existingZman.IsBeta,
+			"display_status":    existingZman.DisplayStatus,
+			"rounding_mode":     existingZman.RoundingMode,
+		},
 		ChangesAfter: req,
 		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
@@ -1663,6 +1749,21 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	zmanKey := chi.URLParam(r, "zmanKey")
 
+	// Fetch existing zman BEFORE delete for audit logging
+	existingZman, fetchErr := h.db.Queries.GetPublisherZmanByKey(ctx, sqlcgen.GetPublisherZmanByKeyParams{
+		PublisherID: publisherID,
+		ZmanKey:     zmanKey,
+	})
+	if fetchErr == pgx.ErrNoRows {
+		RespondNotFound(w, r, "Zman not found")
+		return
+	}
+	if fetchErr != nil {
+		slog.Error("failed to fetch existing zman for audit", "error", fetchErr)
+		RespondInternalError(w, r, "Failed to fetch zman")
+		return
+	}
+
 	// Use SQLc generated query
 	_, deleteErr := h.db.Queries.DeletePublisherZman(ctx, sqlcgen.DeletePublisherZmanParams{
 		PublisherID: publisherID,
@@ -1691,7 +1792,23 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 		ResourceType: "publisher_zman",
 		ResourceID:   zmanKey,
 		ResourceName: zmanKey,
-		Status:       AuditStatusSuccess,
+		ChangesBefore: map[string]interface{}{
+			"hebrew_name":       existingZman.HebrewName,
+			"english_name":      existingZman.EnglishName,
+			"transliteration":   existingZman.Transliteration,
+			"description":       existingZman.Description,
+			"formula_dsl":       existingZman.FormulaDsl,
+			"ai_explanation":    existingZman.AiExplanation,
+			"publisher_comment": existingZman.PublisherComment,
+			"is_enabled":        existingZman.IsEnabled,
+			"is_visible":        existingZman.IsVisible,
+			"is_published":      existingZman.IsPublished,
+			"is_beta":           existingZman.IsBeta,
+			"is_custom":         existingZman.IsCustom,
+			"display_status":    existingZman.DisplayStatus,
+			"rounding_mode":     existingZman.RoundingMode,
+		},
+		Status: AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key": zmanKey,
 		},
@@ -2382,6 +2499,14 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Fetch existing tags BEFORE deletion for audit logging
+	existingTags, err := h.db.Queries.GetPublisherZmanTags(ctx, zmanID)
+	if err != nil {
+		slog.Error("failed to get existing tags for audit", "error", err)
+		RespondInternalError(w, r, "Failed to get existing tags")
+		return
+	}
+
 	// Delete existing tags using SQLc
 	err = h.db.Queries.DeletePublisherZmanTags(ctx, zmanID)
 	if err != nil {
@@ -2432,7 +2557,13 @@ func (h *Handlers) UpdatePublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		ResourceType: "publisher_zman_tags",
 		ResourceID:   int32ToString(zmanID),
 		ResourceName: zmanKey,
-		Status:       AuditStatusSuccess,
+		ChangesBefore: map[string]interface{}{
+			"tags": existingTags,
+		},
+		ChangesAfter: map[string]interface{}{
+			"tags": tags,
+		},
+		Status: AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key":  zmanKey,
 			"tag_ids":   tagIDs,
@@ -2482,6 +2613,14 @@ func (h *Handlers) RevertPublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Fetch existing tags BEFORE revert for audit logging
+	existingTags, err := h.db.Queries.GetPublisherZmanTags(ctx, zmanID)
+	if err != nil {
+		slog.Error("failed to get existing tags for audit", "error", err)
+		RespondInternalError(w, r, "Failed to get existing tags")
+		return
+	}
+
 	// 5. SQLc query - delete all publisher-specific tags (revert to master)
 	err = h.db.Queries.RevertPublisherZmanTags(ctx, zmanID)
 	if err != nil {
@@ -2513,7 +2652,13 @@ func (h *Handlers) RevertPublisherZmanTags(w http.ResponseWriter, r *http.Reques
 		ResourceType: "publisher_zman_tags",
 		ResourceID:   int32ToString(zmanID),
 		ResourceName: zmanKey,
-		Status:       AuditStatusSuccess,
+		ChangesBefore: map[string]interface{}{
+			"tags": existingTags,
+		},
+		ChangesAfter: map[string]interface{}{
+			"tags": tags,
+		},
+		Status: AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key":  zmanKey,
 			"operation": "tags_revert_to_registry",
@@ -2582,6 +2727,14 @@ func (h *Handlers) AddTagToPublisherZman(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Fetch existing tags BEFORE add for audit logging
+	existingTags, err := h.db.Queries.GetPublisherZmanTags(ctx, zmanID)
+	if err != nil {
+		slog.Error("failed to get existing tags for audit", "error", err)
+		RespondInternalError(w, r, "Failed to get existing tags")
+		return
+	}
+
 	// Add the tag with is_negated using SQLc
 	err = h.db.Queries.AddTagToPublisherZman(ctx, sqlcgen.AddTagToPublisherZmanParams{
 		PublisherZmanID: zmanID,
@@ -2592,6 +2745,13 @@ func (h *Handlers) AddTagToPublisherZman(w http.ResponseWriter, r *http.Request)
 		slog.Error("failed to add tag", "error", err)
 		RespondInternalError(w, r, "Failed to add tag")
 		return
+	}
+
+	// Fetch updated tags after add for audit logging
+	updatedTags, err := h.db.Queries.GetPublisherZmanTags(ctx, zmanID)
+	if err != nil {
+		slog.Warn("failed to get updated tags for audit", "error", err)
+		// Continue - the add succeeded, we just can't log the after state
 	}
 
 	if h.cache != nil {
@@ -2609,7 +2769,11 @@ func (h *Handlers) AddTagToPublisherZman(w http.ResponseWriter, r *http.Request)
 		ResourceType: "publisher_zman_tag",
 		ResourceID:   int32ToString(zmanID),
 		ResourceName: zmanKey,
+		ChangesBefore: map[string]interface{}{
+			"tags": existingTags,
+		},
 		ChangesAfter: map[string]interface{}{
+			"tags":       updatedTags,
 			"tag_id":     tagIDInt32,
 			"is_negated": req.IsNegated,
 		},
