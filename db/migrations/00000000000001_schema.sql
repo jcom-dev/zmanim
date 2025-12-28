@@ -1,5 +1,5 @@
 -- Migration: Initial Schema
--- Generated from database dump on 2025-12-25
+-- Generated from database dump on 2025-12-28
 -- This migration creates the complete database schema for the Zmanim application
 -- Do not make changes to this file after initial creation - create new migration files instead
 
@@ -1812,62 +1812,6 @@ ALTER TABLE public.ai_content_sources ALTER COLUMN id ADD GENERATED ALWAYS AS ID
 );
 
 
--- Name: ai_index_statuses; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.ai_index_statuses (
-    id smallint NOT NULL,
-    key character varying(20) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    description text,
-    color character varying(7),
-    sort_order smallint DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: ai_index_statuses_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-ALTER TABLE public.ai_index_statuses ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.ai_index_statuses_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
--- Name: ai_indexes; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.ai_indexes (
-    id integer NOT NULL,
-    source_id smallint NOT NULL,
-    total_chunks integer DEFAULT 0 NOT NULL,
-    last_indexed_at timestamp with time zone,
-    status_id smallint NOT NULL,
-    error_message text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
--- Name: ai_indexes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.ai_indexes_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: ai_indexes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.ai_indexes_id_seq OWNED BY public.ai_indexes.id;
-
-
 -- Name: algorithm_rollback_audit; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.algorithm_rollback_audit (
@@ -2100,7 +2044,7 @@ ALTER SEQUENCE public.blocked_emails_id_seq OWNED BY public.blocked_emails.id;
 CREATE TABLE public.calculation_logs (
     id bigint NOT NULL,
     publisher_id integer NOT NULL,
-    city_id bigint NOT NULL,
+    locality_id bigint NOT NULL,
     date_calculated date NOT NULL,
     cache_hit boolean DEFAULT false NOT NULL,
     response_time_ms smallint,
@@ -2169,30 +2113,6 @@ COMMENT ON TABLE public.calculation_stats_daily IS 'Pre-aggregated daily statist
 COMMENT ON COLUMN public.calculation_stats_daily.total_response_time_ms IS 'Sum of all response times for average calculation';
 
 
--- Name: calculation_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.calculation_types (
-    id smallint NOT NULL,
-    key character varying(20) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    description text,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: calculation_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-ALTER TABLE public.calculation_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.calculation_types_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
 -- Name: correction_request_history; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.correction_request_history (
@@ -2259,30 +2179,6 @@ ALTER TABLE public.coverage_levels ALTER COLUMN id ADD GENERATED ALWAYS AS IDENT
 );
 
 
--- Name: data_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.data_types (
-    id smallint NOT NULL,
-    key character varying(20) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    description text,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: data_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-ALTER TABLE public.data_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.data_types_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
 -- Name: display_groups; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.display_groups (
@@ -2313,30 +2209,6 @@ CREATE SEQUENCE public.display_groups_id_seq
 -- Name: display_groups_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 
 ALTER SEQUENCE public.display_groups_id_seq OWNED BY public.display_groups.id;
-
-
--- Name: edge_types; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.edge_types (
-    id smallint NOT NULL,
-    key character varying(20) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    description text,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: edge_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-ALTER TABLE public.edge_types ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.edge_types_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
 
 
 -- Name: embeddings; Type: TABLE; Schema: public; Owner: -
@@ -2397,29 +2269,6 @@ CREATE SEQUENCE public.explanation_cache_id_seq
 -- Name: explanation_cache_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 
 ALTER SEQUENCE public.explanation_cache_id_seq OWNED BY public.explanation_cache.id;
-
-
--- Name: explanation_sources; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.explanation_sources (
-    id smallint NOT NULL,
-    key character varying(20) NOT NULL,
-    display_name_hebrew text NOT NULL,
-    display_name_english text NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
--- Name: explanation_sources_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-ALTER TABLE public.explanation_sources ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.explanation_sources_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
 
 
 -- Name: geo_cities_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -3040,31 +2889,6 @@ CREATE SEQUENCE public.location_correction_requests_id_seq
 ALTER SEQUENCE public.location_correction_requests_id_seq OWNED BY public.location_correction_requests.id;
 
 
--- Name: master_zman_events; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.master_zman_events (
-    id integer NOT NULL,
-    master_zman_id integer,
-    jewish_event_id integer
-);
-
-
--- Name: master_zman_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.master_zman_events_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: master_zman_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.master_zman_events_id_seq OWNED BY public.master_zman_events.id;
-
-
 -- Name: master_zman_tags; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.master_zman_tags (
@@ -3645,37 +3469,6 @@ CREATE SEQUENCE public.publisher_zman_aliases_id_seq
 ALTER SEQUENCE public.publisher_zman_aliases_id_seq OWNED BY public.publisher_zman_aliases.id;
 
 
--- Name: publisher_zman_events; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.publisher_zman_events (
-    id integer NOT NULL,
-    publisher_zman_id integer NOT NULL,
-    jewish_event_id integer NOT NULL,
-    override_formula_dsl text,
-    override_hebrew_name text,
-    override_english_name text,
-    is_enabled boolean DEFAULT true NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
--- Name: publisher_zman_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.publisher_zman_events_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: publisher_zman_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.publisher_zman_events_id_seq OWNED BY public.publisher_zman_events.id;
-
-
 -- Name: publisher_zman_tags; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.publisher_zman_tags (
@@ -4201,11 +3994,6 @@ ALTER SEQUENCE public.zman_tags_id_seq OWNED BY public.zman_tags.id;
 ALTER TABLE ONLY public.ai_audit_logs ALTER COLUMN id SET DEFAULT nextval('public.ai_audit_logs_id_seq'::regclass);
 
 
--- Name: ai_indexes id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.ai_indexes ALTER COLUMN id SET DEFAULT nextval('public.ai_indexes_id_seq'::regclass);
-
-
 -- Name: algorithm_rollback_audit id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.algorithm_rollback_audit ALTER COLUMN id SET DEFAULT nextval('public.algorithm_rollback_audit_id_seq'::regclass);
@@ -4271,11 +4059,6 @@ ALTER TABLE ONLY public.geo_data_sources ALTER COLUMN id SET DEFAULT nextval('pu
 ALTER TABLE ONLY public.location_correction_requests ALTER COLUMN id SET DEFAULT nextval('public.location_correction_requests_id_seq'::regclass);
 
 
--- Name: master_zman_events id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.master_zman_events ALTER COLUMN id SET DEFAULT nextval('public.master_zman_events_id_seq'::regclass);
-
-
 -- Name: master_zmanim_registry id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.master_zmanim_registry ALTER COLUMN id SET DEFAULT nextval('public.master_zmanim_registry_id_seq'::regclass);
@@ -4324,11 +4107,6 @@ ALTER TABLE ONLY public.publisher_snapshots ALTER COLUMN id SET DEFAULT nextval(
 -- Name: publisher_zman_aliases id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.publisher_zman_aliases ALTER COLUMN id SET DEFAULT nextval('public.publisher_zman_aliases_id_seq'::regclass);
-
-
--- Name: publisher_zman_events id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.publisher_zman_events ALTER COLUMN id SET DEFAULT nextval('public.publisher_zman_events_id_seq'::regclass);
 
 
 -- Name: publisher_zman_versions id; Type: DEFAULT; Schema: public; Owner: -
@@ -4393,24 +4171,6 @@ ALTER TABLE ONLY public.ai_content_sources
 
 ALTER TABLE ONLY public.ai_content_sources
     ADD CONSTRAINT ai_content_sources_pkey PRIMARY KEY (id);
-
-
--- Name: ai_index_statuses ai_index_statuses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.ai_index_statuses
-    ADD CONSTRAINT ai_index_statuses_pkey PRIMARY KEY (id);
-
-
--- Name: ai_indexes ai_indexes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.ai_indexes
-    ADD CONSTRAINT ai_indexes_pkey PRIMARY KEY (id);
-
-
--- Name: ai_indexes ai_indexes_source_key; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.ai_indexes
-    ADD CONSTRAINT ai_indexes_source_key UNIQUE (source_id);
 
 
 -- Name: algorithm_rollback_audit algorithm_rollback_audit_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4479,12 +4239,6 @@ ALTER TABLE ONLY public.calculation_stats_daily
     ADD CONSTRAINT calculation_stats_daily_pkey PRIMARY KEY (publisher_id, date);
 
 
--- Name: calculation_types calculation_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.calculation_types
-    ADD CONSTRAINT calculation_types_pkey PRIMARY KEY (id);
-
-
 -- Name: correction_request_history correction_request_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.correction_request_history
@@ -4497,22 +4251,10 @@ ALTER TABLE ONLY public.coverage_levels
     ADD CONSTRAINT coverage_levels_pkey PRIMARY KEY (id);
 
 
--- Name: data_types data_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.data_types
-    ADD CONSTRAINT data_types_pkey PRIMARY KEY (id);
-
-
 -- Name: display_groups display_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.display_groups
     ADD CONSTRAINT display_groups_pkey PRIMARY KEY (id);
-
-
--- Name: edge_types edge_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.edge_types
-    ADD CONSTRAINT edge_types_pkey PRIMARY KEY (id);
 
 
 -- Name: embeddings embeddings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4531,12 +4273,6 @@ ALTER TABLE ONLY public.embeddings
 
 ALTER TABLE ONLY public.explanation_cache
     ADD CONSTRAINT explanation_cache_pkey PRIMARY KEY (id);
-
-
--- Name: explanation_sources explanation_sources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.explanation_sources
-    ADD CONSTRAINT explanation_sources_pkey PRIMARY KEY (id);
 
 
 -- Name: geo_continents geo_continents_code_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4651,12 +4387,6 @@ ALTER TABLE ONLY public.languages
 
 ALTER TABLE ONLY public.location_correction_requests
     ADD CONSTRAINT location_correction_requests_pkey PRIMARY KEY (id);
-
-
--- Name: master_zman_events master_zman_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.master_zman_events
-    ADD CONSTRAINT master_zman_events_pkey PRIMARY KEY (id);
 
 
 -- Name: master_zman_tags master_zman_tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4789,18 +4519,6 @@ ALTER TABLE ONLY public.publisher_zman_aliases
 
 ALTER TABLE ONLY public.publisher_zman_aliases
     ADD CONSTRAINT publisher_zman_aliases_unique UNIQUE (publisher_id, alias_hebrew);
-
-
--- Name: publisher_zman_events publisher_zman_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.publisher_zman_events
-    ADD CONSTRAINT publisher_zman_events_pkey PRIMARY KEY (id);
-
-
--- Name: publisher_zman_events publisher_zman_events_unique; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.publisher_zman_events
-    ADD CONSTRAINT publisher_zman_events_unique UNIQUE (publisher_zman_id, jewish_event_id);
 
 
 -- Name: publisher_zman_tags publisher_zman_tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4951,6 +4669,36 @@ CREATE INDEX idx_ai_audit_logs_user_id ON public.ai_audit_logs USING btree (user
 CREATE INDEX idx_algorithms_publisher_status ON public.algorithms USING btree (publisher_id, status_id);
 
 
+-- Name: idx_calculation_logs_created_at; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_logs_created_at ON public.calculation_logs USING btree (created_at);
+
+
+-- Name: idx_calculation_logs_date_calculated; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_logs_date_calculated ON public.calculation_logs USING btree (date_calculated);
+
+
+-- Name: idx_calculation_logs_locality_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_logs_locality_id ON public.calculation_logs USING btree (locality_id);
+
+
+-- Name: idx_calculation_logs_publisher_date; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_logs_publisher_date ON public.calculation_logs USING btree (publisher_id, date_calculated);
+
+
+-- Name: idx_calculation_logs_publisher_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_logs_publisher_id ON public.calculation_logs USING btree (publisher_id);
+
+
+-- Name: idx_calculation_logs_rollup; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_calculation_logs_rollup ON public.calculation_logs USING btree (publisher_id, created_at, date_calculated);
+
+
 -- Name: idx_calculation_stats_date; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX idx_calculation_stats_date ON public.calculation_stats_daily USING btree (date);
@@ -4959,6 +4707,41 @@ CREATE INDEX idx_calculation_stats_date ON public.calculation_stats_daily USING 
 -- Name: idx_calculation_stats_publisher_date; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX idx_calculation_stats_publisher_date ON public.calculation_stats_daily USING btree (publisher_id, date);
+
+
+-- Name: idx_geo_localities_type; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_localities_type ON public.geo_localities USING btree (locality_type_id);
+
+
+-- Name: idx_geo_locality_elevations_locality_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_locality_elevations_locality_id ON public.geo_locality_elevations USING btree (locality_id);
+
+
+-- Name: idx_geo_locality_elevations_publisher_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_locality_elevations_publisher_id ON public.geo_locality_elevations USING btree (publisher_id) WHERE (publisher_id IS NOT NULL);
+
+
+-- Name: idx_geo_locality_elevations_publisher_locality; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_locality_elevations_publisher_locality ON public.geo_locality_elevations USING btree (publisher_id, locality_id) WHERE (publisher_id IS NOT NULL);
+
+
+-- Name: idx_geo_locality_locations_locality_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_locality_locations_locality_id ON public.geo_locality_locations USING btree (locality_id);
+
+
+-- Name: idx_geo_locality_locations_publisher_id; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_locality_locations_publisher_id ON public.geo_locality_locations USING btree (publisher_id) WHERE (publisher_id IS NOT NULL);
+
+
+-- Name: idx_geo_locality_locations_publisher_locality; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_geo_locality_locations_publisher_locality ON public.geo_locality_locations USING btree (publisher_id, locality_id) WHERE (publisher_id IS NOT NULL);
 
 
 -- Name: idx_geo_names_entity_lookup; Type: INDEX; Schema: public; Owner: -
@@ -5269,6 +5052,12 @@ ALTER TABLE ONLY public.algorithms
 
 ALTER TABLE ONLY public.algorithms
     ADD CONSTRAINT fk_algorithms_status FOREIGN KEY (status_id) REFERENCES public.algorithm_statuses(id);
+
+
+-- Name: geo_localities fk_geo_localities_type; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.geo_localities
+    ADD CONSTRAINT fk_geo_localities_type FOREIGN KEY (locality_type_id) REFERENCES public.geo_locality_types(id);
 
 
 -- Name: master_zman_tags fk_master_zman_tags_master_zman; Type: FK CONSTRAINT; Schema: public; Owner: -

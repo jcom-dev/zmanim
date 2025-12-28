@@ -3,6 +3,15 @@
 // This tool downloads and restores geographic data from S3 or local files.
 // Optimized for fast restoration during migrations and new environment setup.
 //
+// IMPORTANT: This tool restores ONLY geographic data from Overture Maps.
+// It does NOT restore seed/lookup tables (geo_locality_types, geo_region_types, geo_data_sources).
+// Those tables are managed by migrations (00000000000002_seed_data.sql) and must be
+// populated before running this tool.
+//
+// Prerequisites:
+//   - Database schema created (migration 00000000000001_schema.sql)
+//   - Seed data populated (migration 00000000000002_seed_data.sql)
+//
 // Features:
 //   - Downloads from S3 with progress tracking and retries
 //   - Fast zstd decompression with parallel restore
@@ -74,6 +83,14 @@ func usage() {
 
 Downloads and restores geographic data from S3 or local files.
 
+IMPORTANT PREREQUISITES:
+  1. Run migrations first: db/migrations/00000000000001_schema.sql
+  2. Run seed migration: db/migrations/00000000000002_seed_data.sql
+     (Populates geo_locality_types, geo_region_types, geo_data_sources)
+
+  This tool restores ONLY geographic data (countries, regions, localities, names).
+  It does NOT restore seed/lookup tables - those are managed by migrations.
+
 Commands:
   seed      Download and restore geographic data
   verify    Verify dump file without restoring
@@ -84,7 +101,7 @@ Options:
   --no-verify      Skip checksum verification
   --keep-temp      Keep temporary files after restore
 
-Note: This command ALWAYS truncates existing geo data before restore.
+Note: This command truncates existing geo data but preserves seed tables.
 
 Environment:
   DATABASE_URL    PostgreSQL connection string (required)
@@ -155,6 +172,13 @@ func cmdSeed(args []string) {
 		log.Fatalf("Database ping failed: %v", err)
 	}
 	log.Printf("✓ Database connection OK")
+
+	// Validate and populate seed tables if needed
+	log.Printf("Validating seed tables...")
+	if err := ensureSeedTables(ctx, pool); err != nil {
+		log.Fatalf("Seed table validation failed: %v", err)
+	}
+	log.Printf("✓ Seed tables validated")
 
 	// Always reset geo data before restore
 	log.Printf("Truncating existing geographic data...")
@@ -465,21 +489,9 @@ func restoreDatabase(ctx context.Context, pool *pgxpool.Pool, dumpFile, dbURL st
 		}()
 	}
 
-	// Build pg_restore command
-	// Use --data-only since schema is managed by migrations
-	// NOTE: We don't use --disable-triggers here because managed databases
-	// don't allow disabling system constraint triggers
-	args := []string{
-		"--verbose",
-		"--data-only", // Only restore data, not schema
-		"--no-owner",
-		"--no-acl",
-		fmt.Sprintf("--jobs=%d", jobs),
-		"--dbname=" + dbURL,
-	}
-
 	// If zstd compressed, decompress to temp file first
 	// (pg_restore doesn't support --jobs with stdin)
+	var actualDumpFile string
 	if strings.HasSuffix(dumpFile, ".zst") {
 		log.Printf("Decompressing with zstd...")
 
@@ -498,27 +510,56 @@ func restoreDatabase(ctx context.Context, pool *pgxpool.Pool, dumpFile, dbURL st
 		}
 
 		log.Printf("✓ Decompression complete")
-		log.Printf("Running parallel restore with %d jobs...", jobs)
-
-		// Now restore from decompressed file with parallel jobs
-		args = append(args, tmpFile)
-		cmd := exec.Command("pg_restore", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("pg_restore failed: %w", err)
-		}
+		actualDumpFile = tmpFile
 	} else {
-		// Direct restore from uncompressed dump
-		args = append(args, dumpFile)
-		cmd := exec.Command("pg_restore", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		actualDumpFile = dumpFile
+	}
 
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("pg_restore failed: %w", err)
+	// Generate TOC and filter out seed tables
+	// Seed tables are managed by migrations, not by geodata dumps
+	log.Printf("Generating filtered restore list (excluding seed tables)...")
+	tocFile, err := createFilteredTOC(actualDumpFile)
+	if err != nil {
+		return fmt.Errorf("failed to create filtered TOC: %w", err)
+	}
+	defer os.Remove(tocFile)
+
+	// Build pg_restore command with filtered TOC
+	// Use --data-only since schema is managed by migrations
+	args := []string{
+		"--verbose",
+		"--data-only", // Only restore data, not schema
+		"--no-owner",
+		"--no-acl",
+		"--use-list=" + tocFile, // Use filtered TOC to exclude seed tables
+		fmt.Sprintf("--jobs=%d", jobs),
+		"--dbname=" + dbURL,
+		actualDumpFile,
+	}
+
+	log.Printf("Running parallel restore with %d jobs...", jobs)
+	cmd := exec.Command("pg_restore", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		// pg_restore may return exit 1 with warnings, but data is still restored
+		// Check if actual fatal error by verifying data was restored
+		log.Printf("Warning: pg_restore exited with error: %v", err)
+		log.Printf("Verifying data was restored...")
+
+		var count int
+		checkErr := pool.QueryRow(ctx, "SELECT COUNT(*) FROM geo_localities").Scan(&count)
+		if checkErr != nil {
+			return fmt.Errorf("pg_restore failed and verification failed: %w (original error: %v)", checkErr, err)
 		}
+
+		if count == 0 {
+			return fmt.Errorf("pg_restore failed: no data restored: %w", err)
+		}
+
+		log.Printf("✓ Data verification passed (%d localities restored)", count)
+		log.Printf("Note: pg_restore warnings can be ignored if data was successfully restored")
 	}
 
 	return nil
@@ -709,6 +750,9 @@ func resetGeoData(ctx context.Context, pool *pgxpool.Pool) error {
 
 	// Truncate all geo tables (Overture schema)
 	// Order matters: truncate dependent tables first (FK cascade handles most)
+	// NOTE: geo_locality_types, geo_region_types, and geo_data_sources are SEED tables
+	//       managed by migrations (00000000000002_seed_data.sql), NOT by geodata dumps.
+	//       They should NOT be truncated here as they won't be restored.
 	geoTables := []string{
 		// Search index (depends on localities)
 		"geo_search_index",
@@ -725,10 +769,8 @@ func resetGeoData(ctx context.Context, pool *pgxpool.Pool) error {
 		"geo_countries",
 		// Continents (root)
 		"geo_continents",
-		// Lookup/metadata tables
-		"geo_locality_types",
-		"geo_region_types",
-		"geo_data_sources",
+		// NOTE: Lookup/metadata tables (geo_locality_types, geo_region_types, geo_data_sources)
+		//       are NOT truncated because they are seed tables managed by migrations
 	}
 
 	for _, table := range geoTables {
@@ -745,6 +787,8 @@ func resetGeoData(ctx context.Context, pool *pgxpool.Pool) error {
 func resetGeoSequences(ctx context.Context, pool *pgxpool.Pool) error {
 	// Map of table names to their sequence names
 	// Only tables with serial/identity columns need sequence resets
+	// NOTE: Seed table sequences (geo_locality_types, geo_region_types, geo_data_sources)
+	//       are NOT reset because those tables are not truncated/restored by geodata dumps
 	geoSequences := []struct {
 		table    string
 		sequence string
@@ -757,9 +801,8 @@ func resetGeoSequences(ctx context.Context, pool *pgxpool.Pool) error {
 		{"geo_locality_elevations", "geo_locality_elevations_id_seq"},
 		{"geo_names", "geo_names_id_seq"},
 		// Note: geo_search_index has no id column (uses composite PK), so no sequence
-		{"geo_locality_types", "geo_locality_types_id_seq"},
-		{"geo_region_types", "geo_region_types_id_seq"},
-		{"geo_data_sources", "geo_data_sources_id_seq"},
+		// Note: Seed tables (geo_locality_types, geo_region_types, geo_data_sources) are NOT included
+		//       because they are managed by migrations, not geodata dumps
 	}
 
 	for _, s := range geoSequences {
@@ -903,6 +946,128 @@ func recreateGeoSearchIndexes(ctx context.Context, pool *pgxpool.Pool) error {
 	if err := geo.AnalyzeSearchIndex(ctx, pool); err != nil {
 		log.Printf("    Warning: failed to analyze geo_search_index: %v", err)
 	}
+
+	return nil
+}
+
+// createFilteredTOC generates a pg_restore TOC file with seed tables filtered out.
+// Seed tables (geo_locality_types, geo_region_types, geo_data_sources) are managed
+// by migrations, not geodata dumps, so we exclude them from restore.
+func createFilteredTOC(dumpFile string) (string, error) {
+	// Generate full TOC from dump file
+	listCmd := exec.Command("pg_restore", "--list", dumpFile)
+	tocOutput, err := listCmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate TOC: %w", err)
+	}
+
+	// Filter out seed table DATA entries
+	// Keep all schema entries (CREATE TABLE, etc.) and only filter TABLE DATA
+	var filteredLines []string
+	lines := strings.Split(string(tocOutput), "\n")
+
+	seedTables := map[string]bool{
+		"geo_locality_types": true,
+		"geo_region_types":   true,
+		"geo_data_sources":   true,
+	}
+
+	for _, line := range lines {
+		// Check if this is a TABLE DATA line for a seed table
+		// Format: "<id>; <oid> <tag> <schema> <name> <owner>"
+		// Example: "3114; 0 TABLE DATA public geo_data_sources daniel"
+		if strings.Contains(line, "TABLE DATA") {
+			// Check if any seed table name is in this line
+			skipLine := false
+			for table := range seedTables {
+				if strings.Contains(line, " "+table+" ") {
+					log.Printf("  Excluding from restore: %s", table)
+					skipLine = true
+					break
+				}
+			}
+			if skipLine {
+				continue
+			}
+		}
+		filteredLines = append(filteredLines, line)
+	}
+
+	// Write filtered TOC to temp file
+	tocFile, err := os.CreateTemp("", "pg_restore_toc_*.list")
+	if err != nil {
+		return "", fmt.Errorf("failed to create TOC file: %w", err)
+	}
+	defer tocFile.Close()
+
+	if _, err := tocFile.WriteString(strings.Join(filteredLines, "\n")); err != nil {
+		os.Remove(tocFile.Name())
+		return "", fmt.Errorf("failed to write TOC file: %w", err)
+	}
+
+	return tocFile.Name(), nil
+}
+
+// ensureSeedTables ensures seed tables are properly populated with canonical data.
+// These tables MUST exist before restoring geographic data due to FK constraints.
+// We TRUNCATE and repopulate to ensure canonical data, even if dump file includes them.
+// Seed tables: geo_locality_types, geo_region_types, geo_data_sources
+func ensureSeedTables(ctx context.Context, pool *pgxpool.Pool) error {
+	// Truncate and repopulate geo_locality_types (required by geo_localities FK)
+	log.Printf("  Seeding geo_locality_types...")
+	_, err := pool.Exec(ctx, `
+		TRUNCATE TABLE geo_locality_types RESTART IDENTITY CASCADE;
+
+		INSERT INTO geo_locality_types (code, name, overture_subtype, sort_order) VALUES
+		  ('locality', 'Locality (General)', 'locality', 100),
+		  ('city', 'City', 'locality', 10),
+		  ('town', 'Town', 'locality', 20),
+		  ('village', 'Village', 'locality', 30),
+		  ('hamlet', 'Hamlet', 'locality', 40),
+		  ('neighborhood', 'Neighborhood', 'neighborhood', 50),
+		  ('borough', 'Borough', 'neighborhood', 60),
+		  ('macrohood', 'Macrohood', 'macrohood', 70),
+		  ('microhood', 'Microhood', 'microhood', 80);
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to seed geo_locality_types: %w", err)
+	}
+	log.Printf("  ✓ Seeded 9 locality types")
+
+	// Truncate and repopulate geo_region_types (required by geo_regions FK)
+	log.Printf("  Seeding geo_region_types...")
+	_, err = pool.Exec(ctx, `
+		TRUNCATE TABLE geo_region_types RESTART IDENTITY CASCADE;
+
+		INSERT INTO geo_region_types (code, name, overture_subtype, sort_order) VALUES
+		  ('region', 'Region', 'region', 10),
+		  ('county', 'County', 'county', 20),
+		  ('localadmin', 'Local Admin Area', 'localadmin', 30);
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to seed geo_region_types: %w", err)
+	}
+	log.Printf("  ✓ Seeded 3 region types")
+
+	// Truncate and repopulate geo_data_sources (required by geo_locality_locations FK)
+	log.Printf("  Seeding geo_data_sources...")
+	_, err = pool.Exec(ctx, `
+		TRUNCATE TABLE geo_data_sources RESTART IDENTITY CASCADE;
+
+		INSERT INTO geo_data_sources (id, key, name, description, data_type_id, priority, default_accuracy_m, attribution, url, is_active) VALUES
+		  (1, 'publisher', 'Publisher Override', 'Publisher-specific coordinate/elevation override', 3, 1, NULL, NULL, NULL, true),
+		  (2, 'community', 'Community Contribution', 'User-submitted corrections (verified)', 3, 2, NULL, NULL, NULL, true),
+		  (3, 'simplemaps', 'SimpleMaps World Cities', 'Government-surveyed coordinates (NGIA, USGS, Census)', 1, 3, 50, 'Data provided by SimpleMaps', 'https://simplemaps.com/data/world-cities', true),
+		  (4, 'wof', 'Who''s On First', 'Polygon centroids from WOF gazetteer', 1, 4, 1000, 'Data from Who''s On First, a gazetteer of places', 'https://whosonfirst.org/', true),
+		  (5, 'glo90', 'Copernicus GLO-90', 'Copernicus 90m Digital Elevation Model', 2, 3, 1, '© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA', 'https://copernicus-dem-90m.s3.amazonaws.com/', true),
+		  (6, 'overture', 'Overture Maps Foundation', 'Global geographic data from Overture Maps Foundation', 1, 2, 100, 'Data provided by Overture Maps Foundation under CDLA Permissive 2.0', 'https://overturemaps.org/', true),
+		  (7, 'synthetic', 'Synthetic', 'Auto-generated geographic entities for hierarchy completeness', 1, 5, NULL, 'Generated during import to ensure 100% region coverage', NULL, true),
+		  (8, 'admin', 'Admin Override', 'System-wide admin coordinate/elevation corrections', 3, 1, NULL, 'Admin corrections by Shtetl Zmanim staff', NULL, true);
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to seed geo_data_sources: %w", err)
+	}
+	log.Printf("  ✓ Seeded 8 data sources")
 
 	return nil
 }

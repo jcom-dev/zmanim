@@ -29,6 +29,88 @@ function loadEnvFiles() {
   dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 }
 
+/**
+ * Create publisher_zmanim records for a test publisher
+ * This ensures registry browsing tests have data to display
+ */
+async function createPublisherZmanim(pool: Pool, publisherId: string): Promise<void> {
+  // Check if publisher already has zmanim
+  const existing = await pool.query(
+    'SELECT COUNT(*) as count FROM publisher_zmanim WHERE publisher_id = $1 AND deleted_at IS NULL',
+    [publisherId]
+  );
+
+  if (parseInt(existing.rows[0].count) > 0) {
+    console.log(`  Publisher ${publisherId} already has zmanim`);
+    return;
+  }
+
+  // Get common zmanim from master registry
+  const masterZmanim = await pool.query(`
+    SELECT id, zman_key, canonical_hebrew_name, canonical_english_name,
+           default_formula_dsl, time_category_id
+    FROM master_zmanim_registry
+    WHERE zman_key IN (
+      'alos_hashachar',
+      'misheyakir',
+      'sof_zman_shma_gra',
+      'sof_zman_tfila_gra',
+      'chatzos',
+      'mincha_gedola',
+      'mincha_ketana',
+      'plag_hamincha',
+      'candle_lighting',
+      'tzais',
+      'tzais_72',
+      'chatzos_layla'
+    )
+    AND is_hidden = false
+    ORDER BY id
+  `);
+
+  if (masterZmanim.rows.length === 0) {
+    console.log('  Skipping publisher_zmanim (master registry is empty)');
+    return;
+  }
+
+  // Insert publisher_zmanim for each master zman
+  for (const masterZman of masterZmanim.rows) {
+    await pool.query(
+      `INSERT INTO publisher_zmanim (
+        publisher_id,
+        zman_key,
+        hebrew_name,
+        english_name,
+        formula_dsl,
+        master_zman_id,
+        time_category_id,
+        is_enabled,
+        is_visible,
+        is_published,
+        is_custom,
+        display_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (publisher_id, zman_key) DO NOTHING`,
+      [
+        publisherId,
+        masterZman.zman_key,
+        masterZman.canonical_hebrew_name,
+        masterZman.canonical_english_name,
+        masterZman.default_formula_dsl || 'solar_noon',
+        masterZman.id,
+        masterZman.time_category_id,
+        true, // is_enabled
+        true, // is_visible
+        true, // is_published
+        false, // is_custom
+        'core', // display_status
+      ]
+    );
+  }
+
+  console.log(`  Created ${masterZmanim.rows.length} publisher_zmanim records`);
+}
+
 // Seed test publishers in the database
 async function seedTestPublishers(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -123,6 +205,9 @@ async function seedTestPublishers(): Promise<void> {
             ]
           );
           console.log(`Created test algorithm for ${pub.name}`);
+
+          // Create publisher_zmanim records so registry tests have data
+          await createPublisherZmanim(pool, publisherId);
         }
       } else {
         console.log(`Test publisher already exists: ${pub.name}`);

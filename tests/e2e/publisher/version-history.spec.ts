@@ -27,11 +27,18 @@ test.describe('Publisher Algorithm Version History', () => {
   test('can retrieve version history list', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
 
+    // Navigate to algorithm page first to establish auth session
+    await page.goto(`http://localhost:3001/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
+    // Wait for authentication to be ready
+    await page.waitForTimeout(1000);
+
     // Call GET /api/v1/auth/publisher/algorithm/history
     // Use page.request to inherit authenticated session
     const response = await page.request.get(publisherApiUrl('algorithm/history'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
       },
     });
 
@@ -48,10 +55,14 @@ test.describe('Publisher Algorithm Version History', () => {
   test('can create version snapshot', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
 
+    // Navigate to algorithm page first to establish auth session
+    await page.goto(`http://localhost:3001/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
     // Create a snapshot
     const response = await page.request.post(publisherApiUrl('algorithm/snapshot'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
         'Content-Type': 'application/json',
       },
       data: {
@@ -73,10 +84,14 @@ test.describe('Publisher Algorithm Version History', () => {
   test('can retrieve version detail', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
 
+    // Navigate to algorithm page first to establish auth session
+    await page.goto(`http://localhost:3001/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
     // First create a snapshot to ensure we have at least one version
     await page.request.post(publisherApiUrl('algorithm/snapshot'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
         'Content-Type': 'application/json',
       },
       data: {
@@ -89,7 +104,7 @@ test.describe('Publisher Algorithm Version History', () => {
     // Get version history to find a version number
     const historyResponse = await page.request.get(publisherApiUrl('algorithm/history'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
       },
     });
 
@@ -101,7 +116,7 @@ test.describe('Publisher Algorithm Version History', () => {
       // Get version detail
       const detailResponse = await page.request.get(publisherApiUrl(`algorithm/history/${versionNumber}`), {
         headers: {
-          'X-Publisher-Id': testPublisher.id,
+          'X-Publisher-Id': String(testPublisher.id),
         },
       });
 
@@ -119,10 +134,14 @@ test.describe('Publisher Algorithm Version History', () => {
   test('can compare versions (diff)', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
 
+    // Navigate to algorithm page first to establish auth session
+    await page.goto(`http://localhost:3001/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
     // Create two versions
     await page.request.post(publisherApiUrl('algorithm/snapshot'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
         'Content-Type': 'application/json',
       },
       data: {
@@ -134,7 +153,7 @@ test.describe('Publisher Algorithm Version History', () => {
 
     await page.request.post(publisherApiUrl('algorithm/snapshot'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
         'Content-Type': 'application/json',
       },
       data: {
@@ -147,7 +166,7 @@ test.describe('Publisher Algorithm Version History', () => {
     // Get version history
     const historyResponse = await page.request.get(publisherApiUrl('algorithm/history'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
       },
     });
 
@@ -160,7 +179,7 @@ test.describe('Publisher Algorithm Version History', () => {
       // Get diff
       const diffResponse = await page.request.get(publisherApiUrl(`algorithm/diff?v1=${v1}&v2=${v2}`), {
         headers: {
-          'X-Publisher-Id': testPublisher.id,
+          'X-Publisher-Id': String(testPublisher.id),
         },
       });
 
@@ -176,10 +195,14 @@ test.describe('Publisher Algorithm Version History', () => {
   test('can rollback to previous version', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
 
+    // Navigate to algorithm page first to establish auth session
+    await page.goto(`http://localhost:3001/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
     // Create a version to rollback to
     await page.request.post(publisherApiUrl('algorithm/snapshot'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
         'Content-Type': 'application/json',
       },
       data: {
@@ -192,7 +215,7 @@ test.describe('Publisher Algorithm Version History', () => {
     // Get version history
     const historyResponse = await page.request.get(publisherApiUrl('algorithm/history'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
       },
     });
 
@@ -204,7 +227,7 @@ test.describe('Publisher Algorithm Version History', () => {
       // Perform rollback
       const rollbackResponse = await page.request.post(publisherApiUrl('algorithm/rollback'), {
         headers: {
-          'X-Publisher-Id': testPublisher.id,
+          'X-Publisher-Id': String(testPublisher.id),
           'Content-Type': 'application/json',
         },
         data: {
@@ -227,8 +250,12 @@ test.describe('Publisher Algorithm Version History', () => {
   test('full version history workflow', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
 
+    // Navigate to algorithm page first to establish auth session
+    await page.goto(`http://localhost:3001/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
     const headers = {
-      'X-Publisher-Id': testPublisher.id,
+      'X-Publisher-Id': String(testPublisher.id),
       'Content-Type': 'application/json',
     };
 
@@ -257,7 +284,7 @@ test.describe('Publisher Algorithm Version History', () => {
     // Step 3: Get version history
     const historyResponse = await page.request.get(publisherApiUrl('algorithm/history'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
       },
     });
     expect(historyResponse.ok()).toBeTruthy();
@@ -271,7 +298,7 @@ test.describe('Publisher Algorithm Version History', () => {
 
     const diffResponse = await page.request.get(publisherApiUrl(`algorithm/diff?v1=${v1Num}&v2=${v2Num}`), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
       },
     });
     expect(diffResponse.ok()).toBeTruthy();
@@ -294,7 +321,7 @@ test.describe('Publisher Algorithm Version History', () => {
     // Step 6: Verify rollback created new version
     const finalHistoryResponse = await page.request.get(publisherApiUrl('algorithm/history'), {
       headers: {
-        'X-Publisher-Id': testPublisher.id,
+        'X-Publisher-Id': String(testPublisher.id),
       },
     });
     expect(finalHistoryResponse.ok()).toBeTruthy();

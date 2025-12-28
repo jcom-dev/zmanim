@@ -126,6 +126,7 @@ const getClerkClient = () => {
 /**
  * Link a Clerk user to a publisher in the database
  * OPTIMIZED: Uses shared pool and skips if link already verified this session
+ * Also updates Clerk user metadata with publisher access
  */
 export async function linkClerkUserToPublisher(
   clerkUserId: string,
@@ -155,17 +156,46 @@ export async function linkClerkUserToPublisher(
       [publisherIdInt]
     );
 
-    if (existing.rows.length > 0 && existing.rows[0].clerk_user_id === clerkUserId) {
-      // Already linked correctly, just mark as verified
-      verifiedLinks.add(linkKey);
-      return;
+    const alreadyLinkedInDb = existing.rows.length > 0 && existing.rows[0].clerk_user_id === clerkUserId;
+
+    if (!alreadyLinkedInDb) {
+      // Need to update database
+      await pool.query(
+        `UPDATE publishers SET clerk_user_id = $1 WHERE id = $2`,
+        [clerkUserId, publisherIdInt]
+      );
     }
 
-    // Need to update
-    await pool.query(
-      `UPDATE publishers SET clerk_user_id = $1 WHERE id = $2`,
-      [clerkUserId, publisherIdInt]
-    );
+    // Always update Clerk user metadata (even if DB was already linked)
+    // This ensures metadata is consistent with database
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (secretKey) {
+      try {
+        const { createClerkClient } = await import('@clerk/backend');
+        const clerkClient = createClerkClient({ secretKey });
+
+        // Get current metadata
+        const user = await clerkClient.users.getUser(clerkUserId);
+        const currentMetadata = user.publicMetadata as any || {};
+
+        // Add publisher to access list if not already present
+        const accessList = currentMetadata.publisher_access_list || [];
+        if (!accessList.includes(publisherId)) {
+          accessList.push(publisherId);
+        }
+
+        // Update metadata with publisher access and primary publisher
+        await clerkClient.users.updateUserMetadata(clerkUserId, {
+          publicMetadata: {
+            ...currentMetadata,
+            publisher_access_list: accessList,
+            primary_publisher_id: publisherId
+          }
+        });
+      } catch (error) {
+        console.warn('Warning: Failed to update Clerk user metadata:', error);
+      }
+    }
 
     verifiedLinks.add(linkKey);
     console.log(`Linked Clerk user ${clerkUserId} to publisher ${publisherId}`);

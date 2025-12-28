@@ -184,6 +184,16 @@ function PublisherSearchCombobox({
     );
   }, [publishers, searchValue]);
 
+  // Handle keyboard input on the button to open popover and start searching
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // If user types a character, open the popover and start searching
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      setSearchValue(e.key);
+      setOpen(true);
+    }
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -192,12 +202,14 @@ function PublisherSearchCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between h-auto py-2"
+          data-testid="publisher-selector"
+          onKeyDown={handleKeyDown}
         >
           {selectedPublisher ? (
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 shrink-0" />
               <div className="text-left">
-                <div className="font-medium">{selectedPublisher.name}</div>
+                <div className="font-medium" data-testid="selected-publisher-name">{selectedPublisher.name}</div>
                 {selectedPublisher.description && (
                   <div className="text-xs text-muted-foreground truncate max-w-[200px]">
                     {selectedPublisher.description}
@@ -211,14 +223,16 @@ function PublisherSearchCombobox({
           <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
+      <PopoverContent className="w-[400px] p-0" align="start" data-testid="publisher-selector-popover" role="dialog">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search publishers..."
             value={searchValue}
             onValueChange={setSearchValue}
+            data-testid="publisher-search-input"
+            aria-label="Search publishers"
           />
-          <CommandList>
+          <CommandList data-testid="publisher-options-list" role="listbox">
             {isLoading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -237,6 +251,9 @@ function PublisherSearchCombobox({
                       setSearchValue('');
                     }}
                     className="flex items-start gap-2 p-2"
+                    data-testid={`publisher-option-${publisher.id}`}
+                    role="option"
+                    aria-selected={selectedPublisher?.id === publisher.id}
                   >
                     <Users className="h-4 w-4 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -299,7 +316,7 @@ function CoverageLocationPicker({
 
   if (!publisherId) {
     return (
-      <Button variant="outline" disabled className="w-full justify-start text-muted-foreground">
+      <Button variant="outline" disabled className="w-full justify-start text-muted-foreground" data-testid="location-selector-disabled">
         <MapPin className="mr-2 h-4 w-4" />
         Select a publisher first to choose a location
       </Button>
@@ -314,6 +331,7 @@ function CoverageLocationPicker({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
+          data-testid="location-selector"
         >
           {selectedLocation ? (
             <span className="truncate">
@@ -326,14 +344,15 @@ function CoverageLocationPicker({
           <MapPin className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
+      <PopoverContent className="w-[400px] p-0" align="start" data-testid="location-selector-popover">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search locations..."
             value={searchValue}
             onValueChange={setSearchValue}
+            data-testid="location-search-input"
           />
-          <CommandList>
+          <CommandList data-testid="location-options-list">
             {isLoading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -353,6 +372,7 @@ function CoverageLocationPicker({
                       setOpen(false);
                       setSearchValue('');
                     }}
+                    data-testid={`location-option-${locality.id}`}
                   >
                     <MapPin className="mr-2 h-4 w-4 shrink-0" />
                     <span className="truncate">
@@ -394,19 +414,20 @@ function PublisherZmanCard({
   const isCurrentlyProcessing = isProcessing === zman.id;
 
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="relative overflow-hidden" data-testid={`publisher-zman-card-${zman.id}`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             {/* Names */}
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-medium text-foreground truncate">
+              <h3 className="font-medium text-foreground truncate" data-testid="zman-hebrew-name">
                 {zman.hebrew_name}
               </h3>
               {isDisabled && (
                 <Badge
                   variant={zman.existing_is_deleted ? "destructive" : "secondary"}
                   className="text-xs flex items-center gap-1 shrink-0"
+                  data-testid="zman-status-badge"
                 >
                   {zman.existing_is_deleted ? (
                     <>
@@ -422,13 +443,13 @@ function PublisherZmanCard({
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground mb-2 truncate">
+            <p className="text-sm text-muted-foreground mb-2 truncate" data-testid="zman-english-name">
               {zman.english_name}
             </p>
 
             {/* Publisher + Master Reference */}
             <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
-              <Badge variant="outline" className="gap-1">
+              <Badge variant="outline" className="gap-1" data-testid="publisher-name-badge">
                 <Users className="h-3 w-3" />
                 {publisherName}
               </Badge>
@@ -455,7 +476,7 @@ function PublisherZmanCard({
 
             {/* Formula */}
             {zman.formula_dsl && (
-              <div className="bg-muted/50 rounded-md p-2 mb-3">
+              <div className="bg-muted/50 rounded-md p-2 mb-3" data-testid="zman-formula">
                 <HighlightedFormula formula={zman.formula_dsl} inline />
               </div>
             )}
@@ -476,6 +497,7 @@ function PublisherZmanCard({
               variant="ghost"
               onClick={() => onInfo(zman.id)}
               aria-label={`View documentation for ${zman.english_name}`}
+              data-testid="zman-info-button"
             >
               <Info className="h-4 w-4" />
             </Button>
@@ -491,6 +513,7 @@ function PublisherZmanCard({
                       disabled={isDisabled || isCurrentlyProcessing}
                       onClick={() => onLink(zman.id)}
                       className="gap-1"
+                      data-testid="zman-link-button"
                     >
                       {isCurrentlyProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -524,6 +547,7 @@ function PublisherZmanCard({
                       disabled={isDisabled || isCurrentlyProcessing}
                       onClick={() => onCopy(zman.id)}
                       className="gap-1"
+                      data-testid="zman-copy-button"
                     >
                       {isCurrentlyProcessing ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -937,7 +961,7 @@ export function RegistryPublisherBrowser() {
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           {/* Desktop Filter Panel */}
           <div className="hidden lg:block">
-            <Card>
+            <Card data-testid="filter-panel">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Filter className="h-4 w-4" />
@@ -974,6 +998,7 @@ export function RegistryPublisherBrowser() {
                     setPage(1);
                   }}
                   className="pl-10"
+                  data-testid="publisher-zmanim-search"
                 />
               </div>
               <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>

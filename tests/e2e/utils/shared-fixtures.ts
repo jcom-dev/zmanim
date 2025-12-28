@@ -122,8 +122,8 @@ export async function initializeSharedPublishers(): Promise<void> {
         console.log(`  Reusing: ${config.name}`);
       } else {
         const result = await pool.query(
-          `INSERT INTO publishers (name, slug, contact_email, status_id, website, bio, is_verified)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO publishers (name, slug, contact_email, status_id, website, bio, is_verified, is_published)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING id, name, contact_email as email, (SELECT key FROM publisher_statuses WHERE id = $4) as status`,
           [
             config.name,
@@ -133,6 +133,7 @@ export async function initializeSharedPublishers(): Promise<void> {
             'https://test.example.com',
             `Shared test publisher: ${config.type}`,
             isVerified,
+            isVerified, // is_published = true for verified publishers
           ]
         );
         publisher = {
@@ -144,13 +145,13 @@ export async function initializeSharedPublishers(): Promise<void> {
 
       sharedPublishers.set(config.key, publisher);
 
-      // Create algorithm for algorithm-type publishers
-      if (config.type === 'with_algorithm') {
+      // Create algorithm and zmanim for verified publishers
+      if (config.status === 'verified' || config.type === 'with_algorithm') {
         await ensureAlgorithm(pool, publisher.id);
       }
 
-      // Create coverage for coverage-type publishers
-      if (config.type === 'with_coverage') {
+      // Create coverage for all verified publishers so they can be tested
+      if (config.status === 'verified' || config.type === 'with_coverage') {
         await ensureCoverage(pool, publisher.id);
       }
     }
@@ -160,6 +161,87 @@ export async function initializeSharedPublishers(): Promise<void> {
   } finally {
     await pool.end();
   }
+}
+
+/**
+ * Create publisher_zmanim records for test publishers
+ * This ensures registry browsing tests have data to display
+ */
+async function ensurePublisherZmanim(pool: Pool, publisherId: string): Promise<void> {
+  // Check if publisher already has zmanim
+  const existing = await pool.query(
+    'SELECT COUNT(*) as count FROM publisher_zmanim WHERE publisher_id = $1 AND deleted_at IS NULL',
+    [publisherId]
+  );
+
+  if (parseInt(existing.rows[0].count) > 0) {
+    return; // Already has zmanim
+  }
+
+  // Get common zmanim from master registry
+  const masterZmanim = await pool.query(`
+    SELECT id, zman_key, canonical_hebrew_name, canonical_english_name,
+           default_formula_dsl, time_category_id
+    FROM master_zmanim_registry
+    WHERE zman_key IN (
+      'alos_hashachar',
+      'misheyakir',
+      'sof_zman_shma_gra',
+      'sof_zman_tfila_gra',
+      'chatzos',
+      'mincha_gedola',
+      'mincha_ketana',
+      'plag_hamincha',
+      'candle_lighting',
+      'tzais',
+      'tzais_72',
+      'chatzos_layla'
+    )
+    AND is_hidden = false
+    ORDER BY id
+  `);
+
+  if (masterZmanim.rows.length === 0) {
+    console.log('  Skipping publisher_zmanim (master registry is empty)');
+    return;
+  }
+
+  // Insert publisher_zmanim for each master zman
+  for (const masterZman of masterZmanim.rows) {
+    await pool.query(
+      `INSERT INTO publisher_zmanim (
+        publisher_id,
+        zman_key,
+        hebrew_name,
+        english_name,
+        formula_dsl,
+        master_zman_id,
+        time_category_id,
+        is_enabled,
+        is_visible,
+        is_published,
+        is_custom,
+        display_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (publisher_id, zman_key) DO NOTHING`,
+      [
+        publisherId,
+        masterZman.zman_key,
+        masterZman.canonical_hebrew_name,
+        masterZman.canonical_english_name,
+        masterZman.default_formula_dsl || 'solar_noon', // Fallback formula
+        masterZman.id,
+        masterZman.time_category_id,
+        true, // is_enabled
+        true, // is_visible
+        true, // is_published
+        false, // is_custom
+        'core', // display_status
+      ]
+    );
+  }
+
+  console.log(`  Created ${masterZmanim.rows.length} publisher_zmanim records`);
 }
 
 async function ensureAlgorithm(pool: Pool, publisherId: string): Promise<void> {
@@ -182,6 +264,9 @@ async function ensureAlgorithm(pool: Pool, publisherId: string): Promise<void> {
       ]
     );
   }
+
+  // Ensure publisher has zmanim in publisher_zmanim table
+  await ensurePublisherZmanim(pool, publisherId);
 }
 
 async function ensureCoverage(pool: Pool, publisherId: string): Promise<void> {
@@ -192,28 +277,27 @@ async function ensureCoverage(pool: Pool, publisherId: string): Promise<void> {
     );
 
     if (existing.rows.length === 0) {
-      // Get a city with its country code from geo_countries table
-      const city = await pool.query(`
-        SELECT c.id, gc.code as country_code
-        FROM cities c
-        JOIN geo_countries gc ON c.country_id = gc.id
+      // Get Jerusalem locality from geo_localities
+      const locality = await pool.query(`
+        SELECT id
+        FROM geo_localities
+        WHERE name = 'Jerusalem'
         LIMIT 1
       `);
-      if (city.rows.length > 0) {
+      if (locality.rows.length > 0) {
         await pool.query(
-          `INSERT INTO publisher_coverage (publisher_id, coverage_level, city_id, country_code, priority, is_active)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [publisherId, 'city', city.rows[0].id, city.rows[0].country_code, 10, true]
+          `INSERT INTO publisher_coverage (publisher_id, locality_id, coverage_level_id, priority, is_active)
+           VALUES ($1, $2, (SELECT id FROM coverage_levels WHERE key = 'locality'), $3, $4)`,
+          [publisherId, locality.rows[0].id, 10, true]
         );
+        console.log(`  Created coverage for Jerusalem (locality_id: ${locality.rows[0].id})`);
+      } else {
+        console.log('  Jerusalem not found in geo_localities - skipping coverage');
       }
     }
   } catch (error: any) {
     // Gracefully handle missing geo data in CI environments
-    if (error?.message?.includes('relation "cities" does not exist')) {
-      console.log('  Skipping coverage (cities table not available in CI)');
-    } else {
-      throw error;
-    }
+    console.log(`  Skipping coverage (error: ${error?.message})`);
   }
 }
 

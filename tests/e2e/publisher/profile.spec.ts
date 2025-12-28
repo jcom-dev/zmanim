@@ -45,7 +45,7 @@ test.describe('Publisher Profile', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Should see form fields
     await expect(page.getByLabel(/publisher.*organization.*name/i)).toBeVisible();
@@ -59,7 +59,7 @@ test.describe('Publisher Profile', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Name field should be filled - wait for it to have value
     const nameInput = page.getByLabel(/publisher.*organization.*name/i);
@@ -73,7 +73,7 @@ test.describe('Publisher Profile', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     await expect(page.getByRole('button', { name: /save/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /cancel/i })).toBeVisible();
@@ -86,7 +86,7 @@ test.describe('Publisher Profile', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     await page.getByRole('button', { name: /cancel/i }).click();
 
@@ -101,7 +101,7 @@ test.describe('Publisher Profile', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     await expect(page.getByText('Account Status')).toBeVisible();
   });
@@ -113,7 +113,7 @@ test.describe('Publisher Profile', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Required fields marked with asterisk
     await expect(page.getByText('Publisher / Organization Name *')).toBeVisible();
@@ -133,7 +133,7 @@ test.describe('Publisher Profile Editing', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Wait for form to load by checking name field has value
     const nameInput = page.getByLabel(/publisher.*organization.*name/i);
@@ -163,7 +163,7 @@ test.describe('Publisher Profile Editing', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Wait for form to load by checking name field has value
     const nameInput = page.getByLabel(/publisher.*organization.*name/i);
@@ -193,7 +193,7 @@ test.describe('Publisher Profile Editing', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Wait for form to load by checking name field has value
     const nameInput = page.getByLabel(/publisher.*organization.*name/i);
@@ -223,7 +223,7 @@ test.describe('Publisher Profile Editing', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Wait for form to load by checking name field has value
     const nameInput = page.getByLabel(/publisher.*organization.*name/i);
@@ -253,7 +253,7 @@ test.describe('Publisher Profile Editing', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load (not the error state)
-    await expect(page.getByText('Profile Information')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Profile Information', { exact: true })).toBeVisible({ timeout: 15000 });
 
     // Wait for form to load by checking name field has value
     const nameInput = page.getByLabel(/publisher.*organization.*name/i);

@@ -889,7 +889,17 @@ def import_localities(conn: psycopg.Connection, duck: duckdb.DuckDBPyConnection,
             if row[2]:
                 locality_type_cache[row[2]] = row[0]
 
-    fallback_type = locality_type_cache.get("locality", 1)
+    # Validate required Overture subtypes exist in geo_locality_types
+    required_subtypes = ['locality', 'neighborhood', 'macrohood', 'microhood']
+    missing_subtypes = [st for st in required_subtypes if st not in locality_type_cache]
+    if missing_subtypes:
+        print(f"\n❌ ERROR: Missing required locality types in geo_locality_types table:")
+        print(f"   Missing Overture subtypes: {', '.join(missing_subtypes)}")
+        print(f"\n   Run migration 00000000000006_seed_geo_locality_types.sql to populate the table.")
+        print(f"   Current locality types: {list(locality_type_cache.keys())}")
+        sys.exit(1)
+
+    print(f"  ✓ Loaded {len(locality_type_cache)} locality type mappings")
 
     # Only import locality-type subtypes (not administrative divisions)
     # Administrative divisions are handled separately:
@@ -958,7 +968,13 @@ def import_localities(conn: psycopg.Connection, duck: duckdb.DuckDBPyConnection,
                         continue
 
                     country_info = country_cache[country_code]
-                    locality_type_id = locality_type_cache.get(type_lookup, fallback_type)
+
+                    # Lookup locality type - MUST exist (validated at import start)
+                    locality_type_id = locality_type_cache.get(type_lookup)
+                    if locality_type_id is None:
+                        print(f"\n⚠️  WARNING: Unknown locality type '{type_lookup}' for {name} (subtype: {subtype})")
+                        print(f"   Using 'locality' as fallback. Consider adding this type to geo_locality_types.")
+                        locality_type_id = locality_type_cache['locality']  # Safe fallback after validation
 
                     # Use English name for display, ASCII version for search
                     # name = English common name (or fallback to local)

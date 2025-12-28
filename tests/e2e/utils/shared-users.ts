@@ -109,7 +109,10 @@ export async function createUserPool(publisherId?: string): Promise<UserPool> {
   const publisherEmail = generateTestEmail('publisher');
   const publisher = await createUser(
     publisherEmail,
-    { publisher_access_list: publisherId ? [publisherId] : [] },
+    {
+      publisher_access_list: publisherId ? [publisherId] : [],
+      primary_publisher_id: publisherId || undefined
+    },
     'E2E',
     'Publisher'
   );

@@ -33,7 +33,7 @@ You are the **E2E Test Orchestrator** with full authority to:
 **REQUIRED:**
 - ✅ Launch sub-agents for ALL work
 - ✅ Use `bmad:bmm:agents:tea` agent type ONLY
-- ✅ Use `model=sonnet` for all agents
+- ✅ Use `model=Sonnet` for all agents
 - ✅ Launch agents in PARALLEL whenever possible
 - ✅ Coordinate and synthesize agent results
 - ✅ Make decisions based on agent reports

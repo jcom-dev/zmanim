@@ -33,8 +33,6 @@ SEED_TABLES=(
   # Algorithm & Calculation Configuration
   "algorithm_statuses"
   "algorithm_templates"
-  "calculation_types"
-  "edge_types"
 
   # Astronomical Primitives & Categories
   "astronomical_primitives"
@@ -66,14 +64,12 @@ SEED_TABLES=(
 
   # Coverage/Geographic Levels (not geo data itself)
   "coverage_levels"
-  "data_types"
   "geo_continents"
   "geo_data_sources"
   "geo_locality_types"
   "geo_region_types"
 
   # Help & Documentation Sources (types only, not indexed content)
-  "explanation_sources"
 )
 
 # Create header

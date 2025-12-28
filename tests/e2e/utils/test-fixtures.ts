@@ -111,8 +111,8 @@ export async function createTestPublisherEntity(
   const client = await getPool().connect();
   try {
     const result = await client.query(
-      `INSERT INTO publishers (name, contact_email, slug, status_id, website, bio, is_verified)
-       VALUES ($1, $2, $3, (SELECT id FROM publisher_statuses WHERE key = $4), $5, $6, $7)
+      `INSERT INTO publishers (name, contact_email, slug, status_id, website, bio, is_verified, is_published)
+       VALUES ($1, $2, $3, (SELECT id FROM publisher_statuses WHERE key = $4), $5, $6, $7, $8)
        RETURNING id, name, contact_email as email, (SELECT key FROM publisher_statuses WHERE id = status_id) as status`,
       [
         testPublisher.name,
@@ -122,6 +122,7 @@ export async function createTestPublisherEntity(
         testPublisher.website,
         testPublisher.bio,
         testPublisher.status === 'active',  // is_verified = true for active publishers
+        testPublisher.status === 'active',  // is_published = true for active publishers
       ]
     );
 
@@ -134,6 +135,84 @@ export async function createTestPublisherEntity(
     return data;
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Create publisher_zmanim records for test publishers
+ * This ensures registry browsing tests have data to display
+ */
+async function ensurePublisherZmanim(client: PoolClient, publisherId: string): Promise<void> {
+  // Check if publisher already has zmanim
+  const existing = await client.query(
+    'SELECT COUNT(*) as count FROM publisher_zmanim WHERE publisher_id = $1 AND deleted_at IS NULL',
+    [publisherId]
+  );
+
+  if (parseInt(existing.rows[0].count) > 0) {
+    return; // Already has zmanim
+  }
+
+  // Get common zmanim from master registry
+  const masterZmanim = await client.query(`
+    SELECT id, zman_key, canonical_hebrew_name, canonical_english_name,
+           default_formula_dsl, time_category_id
+    FROM master_zmanim_registry
+    WHERE zman_key IN (
+      'alos_hashachar',
+      'misheyakir',
+      'sof_zman_shma_gra',
+      'sof_zman_tfila_gra',
+      'chatzos',
+      'mincha_gedola',
+      'mincha_ketana',
+      'plag_hamincha',
+      'candle_lighting',
+      'tzais',
+      'tzais_72',
+      'chatzos_layla'
+    )
+    AND is_hidden = false
+    ORDER BY id
+  `);
+
+  if (masterZmanim.rows.length === 0) {
+    return; // Master registry is empty
+  }
+
+  // Insert publisher_zmanim for each master zman
+  for (const masterZman of masterZmanim.rows) {
+    await client.query(
+      `INSERT INTO publisher_zmanim (
+        publisher_id,
+        zman_key,
+        hebrew_name,
+        english_name,
+        formula_dsl,
+        master_zman_id,
+        time_category_id,
+        is_enabled,
+        is_visible,
+        is_published,
+        is_custom,
+        display_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (publisher_id, zman_key) DO NOTHING`,
+      [
+        publisherId,
+        masterZman.zman_key,
+        masterZman.canonical_hebrew_name,
+        masterZman.canonical_english_name,
+        masterZman.default_formula_dsl || 'solar_noon', // Fallback formula
+        masterZman.id,
+        masterZman.time_category_id,
+        true, // is_enabled
+        true, // is_visible
+        true, // is_published
+        false, // is_custom
+        'core', // display_status
+      ]
+    );
   }
 }
 
@@ -226,6 +305,9 @@ export async function createTestAlgorithm(
     );
 
     const data = result.rows[0];
+
+    // Ensure publisher has zmanim in publisher_zmanim table
+    await ensurePublisherZmanim(client, publisherId);
 
     if (!Object.keys(overrides).length) {
       testEntityCache.set(cacheKey, data);

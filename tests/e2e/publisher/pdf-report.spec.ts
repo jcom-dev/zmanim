@@ -30,6 +30,37 @@ async function skipWizardIfNeeded(page: Page) {
   }
 }
 
+// Helper function to select a location for preview
+async function selectLocationForPreview(page: Page) {
+  // Click on "Select Location" button in toolbar
+  const selectLocationButton = page.getByRole('button', { name: /select location/i }).first();
+  if (await selectLocationButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await selectLocationButton.click();
+    // Wait for location picker combobox to open
+    await page.waitForTimeout(500);
+    // Type to trigger search
+    const combobox = page.locator('[role="combobox"]').first();
+    if (await combobox.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await combobox.fill('jerusalem');
+      await page.waitForTimeout(500);
+    }
+    // Select first option from autocomplete
+    const firstOption = page.locator('[role="option"]').first();
+    if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await firstOption.click();
+      await page.waitForTimeout(500);
+      // Wait for zmanim counts to update (no longer show --)
+      await page.waitForFunction(
+        () => {
+          const tabText = document.querySelector('[role="tab"][aria-selected="true"]')?.textContent;
+          return tabText && !tabText.includes('--');
+        },
+        { timeout: 5000 }
+      ).catch(() => {}); // Ignore timeout - may already be loaded
+    }
+  }
+}
+
 test.describe('PDF Report Generation', () => {
   let testPublisher: { id: number; name: string };
 
@@ -43,6 +74,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Verify Versions button exists and is visible with extended timeout
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -54,6 +86,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button to be visible and clickable
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -73,6 +106,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -114,6 +148,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -168,6 +203,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -214,6 +250,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -259,6 +296,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -325,6 +363,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -381,6 +420,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -412,6 +452,7 @@ test.describe('PDF Report Generation', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -451,6 +492,7 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
@@ -482,6 +524,7 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
+    await selectLocationForPreview(page);
 
     // Wait for Versions button and open dropdown
     const versionsButton = page.getByRole('button', { name: /Versions/i });
