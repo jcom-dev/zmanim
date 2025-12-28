@@ -165,17 +165,22 @@ func (h *Handlers) LogAuditEventFailure(ctx context.Context, r *http.Request, pc
 
 // AuditCategory constants for consistent event categorization
 const (
-	AuditCategoryPublisher = "publisher"
-	AuditCategoryZman      = "zman"
-	AuditCategoryCoverage  = "coverage"
-	AuditCategoryAlgorithm = "algorithm"
-	AuditCategoryTeam      = "team"
-	AuditCategoryAlias     = "alias"
-	AuditCategoryTag       = "tag"
-	AuditCategoryUser      = "user"
-	AuditCategoryAPIKey    = "api_key"
-	AuditCategoryExport    = "export"
-	AuditCategorySettings  = "settings"
+	AuditCategoryPublisher        = "publisher"
+	AuditCategoryZman             = "zman"
+	AuditCategoryCoverage         = "coverage"
+	AuditCategoryAlgorithm        = "algorithm"
+	AuditCategoryTeam             = "team"
+	AuditCategoryAlias            = "alias"
+	AuditCategoryTag              = "tag"
+	AuditCategoryUser             = "user"
+	AuditCategoryAPIKey           = "api_key"
+	AuditCategoryExport           = "export"
+	AuditCategorySettings         = "settings"
+	AuditCategoryLocationOverride = "location_override"
+	AuditCategorySnapshot         = "snapshot"
+	AuditCategoryVersion          = "version"
+	AuditCategoryOnboarding       = "onboarding"
+	AuditCategoryCorrection       = "correction"
 )
 
 // AuditAction constants for consistent action naming
@@ -195,6 +200,14 @@ const (
 	AuditActionCancel    = "cancel"
 	AuditActionRemove    = "remove"
 	AuditActionAdd       = "add"
+	AuditActionRestore   = "restore"
+	AuditActionEnable    = "enable"
+	AuditActionDisable   = "disable"
+	AuditActionComplete  = "complete"
+	AuditActionReset     = "reset"
+	AuditActionRollback  = "rollback"
+	AuditActionViewed    = "viewed"
+	AuditActionExported  = "exported"
 )
 
 // AuditStatus constants
@@ -206,13 +219,13 @@ const (
 // mapCategorytoConcept maps audit categories to activity service concepts
 func mapCategorytoConcept(category string) string {
 	switch category {
-	case AuditCategoryPublisher, AuditCategorySettings:
+	case AuditCategoryPublisher, AuditCategorySettings, AuditCategoryOnboarding, AuditCategorySnapshot:
 		return services.ConceptPublisher
 	case AuditCategoryZman, AuditCategoryAlias, AuditCategoryTag:
 		return services.ConceptZman
-	case AuditCategoryCoverage:
+	case AuditCategoryCoverage, AuditCategoryLocationOverride, AuditCategoryCorrection:
 		return services.ConceptCoverage
-	case AuditCategoryAlgorithm:
+	case AuditCategoryAlgorithm, AuditCategoryVersion:
 		return services.ConceptAlgorithm
 	case AuditCategoryTeam, AuditCategoryUser:
 		return services.ConceptPublisher // Team operations are publisher-scoped

@@ -1942,6 +1942,24 @@ func (h *Handlers) AdminReviewZmanRegistryRequest(w http.ResponseWriter, r *http
 		}
 	}()
 
+	// Audit logging
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminZmanRequestReview,
+		ResourceType: "zman_request",
+		ResourceID:   requestIDStr,
+		ResourceName: result.RequestedKey,
+		ChangesBefore: map[string]interface{}{
+			"status": "pending",
+		},
+		ChangesAfter: map[string]interface{}{
+			"status":         req.Status,
+			"reviewer_notes": req.ReviewerNotes,
+			"zman_key":       result.RequestedKey,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	RespondJSON(w, r, http.StatusOK, result)
 }
 
@@ -2167,6 +2185,23 @@ func (h *Handlers) AdminApproveTagRequest(w http.ResponseWriter, r *http.Request
 
 	slog.Info("tag request approved", "tag_id", newTag.ID, "tag_key", tagKey, "request_id", requestID)
 
+	// Audit logging
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminTagApprove,
+		ResourceType: "tag",
+		ResourceID:   fmt.Sprintf("%d", newTag.ID),
+		ResourceName: tagKey,
+		ChangesAfter: map[string]interface{}{
+			"tag_id":       newTag.ID,
+			"tag_key":      tagKey,
+			"request_id":   requestID,
+			"display_name": *tagReq.RequestedTagName,
+			"tag_type":     tagTypeKey,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	RespondJSON(w, r, http.StatusOK, ApprovedTagResponse{
 		ID:                 newTag.ID,
 		TagKey:             newTag.TagKey,
@@ -2235,6 +2270,25 @@ func (h *Handlers) AdminRejectTagRequest(w http.ResponseWriter, r *http.Request)
 	}
 
 	slog.Info("tag request rejected", "tag_request_id", tagRequestID, "request_id", requestID)
+
+	// Audit logging
+	tagName := ""
+	if tagReq.RequestedTagName != nil {
+		tagName = *tagReq.RequestedTagName
+	}
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminTagReject,
+		ResourceType: "tag_request",
+		ResourceID:   fmt.Sprintf("%d", tagRequestID),
+		ResourceName: tagName,
+		ChangesBefore: map[string]interface{}{
+			"tag_request_id":    tagRequestID,
+			"request_id":        requestID,
+			"requested_tag_name": tagName,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]string{
 		"status":  "rejected",
@@ -2846,6 +2900,25 @@ func (h *Handlers) AdminCreateMasterZman(w http.ResponseWriter, r *http.Request)
 		result.TagIDs = tagIDs
 	}
 
+	// Audit logging
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminMasterZmanCreate,
+		ResourceType: "master_zman",
+		ResourceID:   result.ID,
+		ResourceName: req.ZmanKey,
+		ChangesAfter: map[string]interface{}{
+			"zman_key":              req.ZmanKey,
+			"canonical_hebrew_name": req.CanonicalHebrewName,
+			"canonical_english_name": req.CanonicalEnglishName,
+			"time_category":         req.TimeCategory,
+			"default_formula_dsl":   req.DefaultFormulaDSL,
+			"is_core":               req.IsCore,
+			"is_hidden":             req.IsHidden,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	RespondJSON(w, r, http.StatusCreated, result)
 }
 
@@ -2982,6 +3055,37 @@ func (h *Handlers) AdminUpdateMasterZman(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// Audit logging
+	beforeData := make(map[string]interface{})
+	afterData := make(map[string]interface{})
+
+	if req.CanonicalHebrewName != nil {
+		afterData["canonical_hebrew_name"] = *req.CanonicalHebrewName
+	}
+	if req.CanonicalEnglishName != nil {
+		afterData["canonical_english_name"] = *req.CanonicalEnglishName
+	}
+	if req.TimeCategory != nil {
+		afterData["time_category"] = *req.TimeCategory
+	}
+	if req.DefaultFormulaDSL != nil {
+		afterData["default_formula_dsl"] = *req.DefaultFormulaDSL
+	}
+	if req.IsHidden != nil {
+		afterData["is_hidden"] = *req.IsHidden
+	}
+
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:    services.ActionAdminMasterZmanUpdate,
+		ResourceType:  "master_zman",
+		ResourceID:    id,
+		ResourceName:  result.ZmanKey,
+		ChangesBefore: beforeData,
+		ChangesAfter:  afterData,
+		Severity:      services.SeverityInfo,
+		Status:        "success",
+	})
+
 	RespondJSON(w, r, http.StatusOK, result)
 }
 
@@ -2999,6 +3103,18 @@ func (h *Handlers) AdminDeleteMasterZman(w http.ResponseWriter, r *http.Request)
 	zmanIDInt, err := stringToInt32(id)
 	if err != nil {
 		RespondBadRequest(w, r, "Invalid zman ID")
+		return
+	}
+
+	// Fetch zman details BEFORE deletion for audit log
+	zmanDetails, err := h.db.Queries.GetMasterZmanByID(ctx, zmanIDInt)
+	if err == pgx.ErrNoRows {
+		RespondNotFound(w, r, "Master zman not found")
+		return
+	}
+	if err != nil {
+		slog.Error("error fetching master zman for deletion", "error", err)
+		RespondInternalError(w, r, "Failed to fetch master zman")
 		return
 	}
 
@@ -3022,6 +3138,21 @@ func (h *Handlers) AdminDeleteMasterZman(w http.ResponseWriter, r *http.Request)
 		RespondInternalError(w, r, "Failed to delete master zman")
 		return
 	}
+
+	// Audit logging
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminMasterZmanDelete,
+		ResourceType: "master_zman",
+		ResourceID:   id,
+		ResourceName: zmanDetails.ZmanKey,
+		ChangesBefore: map[string]interface{}{
+			"zman_key":               zmanDetails.ZmanKey,
+			"canonical_hebrew_name":  zmanDetails.CanonicalHebrewName,
+			"canonical_english_name": zmanDetails.CanonicalEnglishName,
+		},
+		Severity: services.SeverityCritical,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]string{
 		"message": "Master zman deleted successfully",
@@ -3075,6 +3206,19 @@ func (h *Handlers) AdminToggleZmanVisibility(w http.ResponseWriter, r *http.Requ
 	result.IsHidden = row.IsHidden
 	result.CreatedAt = row.CreatedAt.Time
 	result.UpdatedAt = row.UpdatedAt.Time
+
+	// Audit logging
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminZmanVisibilityToggle,
+		ResourceType: "master_zman",
+		ResourceID:   id,
+		ResourceName: result.ZmanKey,
+		ChangesAfter: map[string]interface{}{
+			"is_hidden": result.IsHidden,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, result)
 }

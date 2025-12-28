@@ -2606,6 +2606,23 @@ func (h *Handlers) AddTagToPublisherZman(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// Log tag addition
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTag,
+		EventAction:   AuditActionAdd,
+		ResourceType:  "publisher_zman_tag",
+		ResourceID:    int32ToString(zmanID),
+		ResourceName:  zmanKey,
+		ChangesAfter: map[string]interface{}{
+			"tag_id":     tagIDInt32,
+			"is_negated": req.IsNegated,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key": zmanKey,
+		},
+	})
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Tag added successfully",
@@ -2672,6 +2689,22 @@ func (h *Handlers) RemoveTagFromPublisherZman(w http.ResponseWriter, r *http.Req
 			)
 		}
 	}
+
+	// Log tag removal
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTag,
+		EventAction:   AuditActionRemove,
+		ResourceType:  "publisher_zman_tag",
+		ResourceID:    int32ToString(zmanID),
+		ResourceName:  zmanKey,
+		ChangesBefore: map[string]interface{}{
+			"tag_id": tagIDInt32,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"zman_key": zmanKey,
+		},
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success": true,

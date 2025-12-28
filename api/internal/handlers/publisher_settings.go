@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
-	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // CalculationSettingsResponse represents the calculation settings for a publisher
@@ -140,20 +139,18 @@ func (h *Handlers) UpdatePublisherCalculationSettings(w http.ResponseWriter, r *
 		}
 	}
 
-	// 7. Log activity
-	metadata := map[string]interface{}{
-		"ignore_elevation":      req.IgnoreElevation,
-		"transliteration_style": translitStyle,
-	}
-	_ = h.activityService.LogAction(
-		ctx,
-		services.ActionSettingsUpdate,
-		services.ConceptPublisher,
-		"publisher",
-		pc.PublisherID,
-		pc.PublisherID,
-		metadata,
-	)
+	// 7. Log audit event - REPLACED activity_service with LogAuditEvent
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategorySettings,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "calculation_settings",
+		ResourceID:    pc.PublisherID,
+		ChangesAfter: map[string]interface{}{
+			"ignore_elevation":      req.IgnoreElevation,
+			"transliteration_style": translitStyle,
+		},
+		Status: AuditStatusSuccess,
+	})
 
 	// 8. Respond with updated settings
 	RespondJSON(w, r, http.StatusOK, CalculationSettingsResponse{

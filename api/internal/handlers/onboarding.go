@@ -118,15 +118,16 @@ func (h *Handlers) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("CompleteOnboarding parsed data", "customizations", len(req.Customizations), "coverage_items", len(req.Coverage))
 
+	// Filter to only include enabled zmanim
+	enabledZmanim := make([]WizardZman, 0)
+	for _, zman := range req.Customizations {
+		if zman.Enabled {
+			enabledZmanim = append(enabledZmanim, zman)
+		}
+	}
+
 	// Import zmanim from wizard customizations (only enabled ones)
 	if len(req.Customizations) > 0 {
-		// Filter to only include enabled zmanim
-		enabledZmanim := make([]WizardZman, 0)
-		for _, zman := range req.Customizations {
-			if zman.Enabled {
-				enabledZmanim = append(enabledZmanim, zman)
-			}
-		}
 		slog.Info("CompleteOnboarding importing zmanim", "enabled", len(enabledZmanim), "total", len(req.Customizations))
 
 		for i, zman := range enabledZmanim {
@@ -191,6 +192,20 @@ func (h *Handlers) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
 		}
 		slog.Info("CompleteOnboarding successfully imported zmanim", "count", len(enabledZmanim))
 	}
+
+	// Log successful onboarding completion (after zmanim import)
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryOnboarding,
+		EventAction:   AuditActionComplete,
+		ResourceType:  "onboarding",
+		ResourceID:    publisherID,
+		Status:        AuditStatusSuccess,
+		ChangesAfter: map[string]interface{}{
+			"zmanim_imported":  len(req.Customizations),
+			"coverage_items":   len(req.Coverage),
+			"enabled_zmanim":   len(enabledZmanim),
+		},
+	})
 
 	// Import coverage from wizard selections
 	if len(req.Coverage) > 0 {
@@ -395,6 +410,15 @@ func (h *Handlers) ResetOnboarding(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("ResetOnboarding failed to delete coverage", "error", err)
 	}
+
+	// Log successful reset
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryOnboarding,
+		EventAction:   AuditActionReset,
+		ResourceType:  "onboarding",
+		ResourceID:    publisherID,
+		Status:        AuditStatusSuccess,
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]string{
 		"status": "reset",

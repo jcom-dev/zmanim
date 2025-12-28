@@ -154,6 +154,23 @@ func (h *Handlers) CreateLocationOverride(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	// Log location override creation
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: "location_override",
+		EventAction:   AuditActionCreate,
+		ResourceType:  "location_override",
+		ResourceID:    int32ToString(override.ID),
+		ResourceName:  localityIDStr,
+		ChangesAfter: map[string]interface{}{
+			"locality_id":        localityID,
+			"override_latitude":  req.OverrideLatitude,
+			"override_longitude": req.OverrideLongitude,
+			"override_elevation": elevationValue,
+			"reason":             req.Reason,
+		},
+		Status: AuditStatusSuccess,
+	})
+
 	// 6. Respond
 	result := locationOverrideRowToModel(override, "", "", elevationValue)
 	RespondJSON(w, r, http.StatusCreated, result)
@@ -382,6 +399,26 @@ func (h *Handlers) UpdateLocationOverride(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	// Log location override update
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: "location_override",
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "location_override",
+		ResourceID:    idStr,
+		ResourceName:  strconv.FormatInt(int64(existing.LocalityID), 10),
+		ChangesBefore: map[string]interface{}{
+			"latitude":  existing.Latitude,
+			"longitude": existing.Longitude,
+		},
+		ChangesAfter: map[string]interface{}{
+			"latitude":  req.OverrideLatitude,
+			"longitude": req.OverrideLongitude,
+			"elevation": elevationValue,
+			"reason":    req.Reason,
+		},
+		Status: AuditStatusSuccess,
+	})
+
 	// 6. Respond
 	result := updateOverrideRowToModel(override, "", "", elevationValue)
 	RespondJSON(w, r, http.StatusOK, result)
@@ -480,6 +517,21 @@ func (h *Handlers) DeleteLocationOverride(w http.ResponseWriter, r *http.Request
 			)
 		}
 	}
+
+	// Log location override deletion
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: "location_override",
+		EventAction:   AuditActionDelete,
+		ResourceType:  "location_override",
+		ResourceID:    idStr,
+		ResourceName:  strconv.FormatInt(int64(existing.LocalityID), 10),
+		ChangesBefore: map[string]interface{}{
+			"locality_id": existing.LocalityID,
+			"latitude":    existing.Latitude,
+			"longitude":   existing.Longitude,
+		},
+		Status: AuditStatusSuccess,
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusOK, map[string]string{

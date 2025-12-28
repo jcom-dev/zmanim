@@ -132,6 +132,7 @@ func (h *Handlers) CreateCorrectionRequest(w http.ResponseWriter, r *http.Reques
 			"error", err,
 			"publisher_id", pc.PublisherID,
 			"locality_id", req.LocalityID)
+		h.LogAuditEventFailure(ctx, r, pc, AuditCategoryCorrection, AuditActionCreate, "correction_request", fmt.Sprintf("%d", req.LocalityID), err.Error())
 		RespondInternalError(w, r, "Failed to create correction request")
 		return
 	}
@@ -141,6 +142,22 @@ func (h *Handlers) CreateCorrectionRequest(w http.ResponseWriter, r *http.Reques
 		"publisher_id", pc.PublisherID,
 		"locality_id", req.LocalityID,
 		"requester_email", requesterEmail)
+
+	// Log successful creation
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryCorrection,
+		EventAction:   AuditActionCreate,
+		ResourceType:  "correction_request",
+		ResourceID:    fmt.Sprintf("%d", result.ID),
+		Status:        AuditStatusSuccess,
+		ChangesAfter: map[string]interface{}{
+			"locality_id":      req.LocalityID,
+			"requester_email":  requesterEmail,
+			"proposed_lat":     req.ProposedLatitude,
+			"proposed_lng":     req.ProposedLong,
+			"proposed_elev":    req.ProposedElev,
+		},
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusCreated, result)
@@ -353,6 +370,7 @@ func (h *Handlers) UpdateCorrectionRequest(w http.ResponseWriter, r *http.Reques
 			"error", err,
 			"request_id", id,
 			"publisher_id", pc.PublisherID)
+		h.LogAuditEventFailure(ctx, r, pc, AuditCategoryCorrection, AuditActionUpdate, "correction_request", idStr, err.Error())
 		RespondInternalError(w, r, "Failed to update correction request")
 		return
 	}
@@ -361,6 +379,27 @@ func (h *Handlers) UpdateCorrectionRequest(w http.ResponseWriter, r *http.Reques
 		"request_id", id,
 		"publisher_id", pc.PublisherID,
 		"locality_id", req.LocalityID)
+
+	// Log successful update
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryCorrection,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "correction_request",
+		ResourceID:    idStr,
+		Status:        AuditStatusSuccess,
+		ChangesBefore: map[string]interface{}{
+			"locality_id":      existingRequest.LocalityID,
+			"proposed_lat":     existingRequest.ProposedLatitude,
+			"proposed_lng":     existingRequest.ProposedLongitude,
+			"proposed_elev":    existingRequest.ProposedElevation,
+		},
+		ChangesAfter: map[string]interface{}{
+			"locality_id":      req.LocalityID,
+			"proposed_lat":     req.ProposedLatitude,
+			"proposed_lng":     req.ProposedLong,
+			"proposed_elev":    req.ProposedElev,
+		},
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusOK, result)
@@ -424,6 +463,7 @@ func (h *Handlers) DeleteCorrectionRequest(w http.ResponseWriter, r *http.Reques
 			"error", err,
 			"request_id", id,
 			"publisher_id", pc.PublisherID)
+		h.LogAuditEventFailure(ctx, r, pc, AuditCategoryCorrection, AuditActionDelete, "correction_request", idStr, err.Error())
 		RespondInternalError(w, r, "Failed to delete correction request")
 		return
 	}
@@ -432,6 +472,19 @@ func (h *Handlers) DeleteCorrectionRequest(w http.ResponseWriter, r *http.Reques
 		"request_id", id,
 		"publisher_id", pc.PublisherID,
 		"locality_id", request.LocalityID)
+
+	// Log successful deletion
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryCorrection,
+		EventAction:   AuditActionDelete,
+		ResourceType:  "correction_request",
+		ResourceID:    idStr,
+		Status:        AuditStatusSuccess,
+		ChangesBefore: map[string]interface{}{
+			"locality_id":      request.LocalityID,
+			"status":           request.Status,
+		},
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{

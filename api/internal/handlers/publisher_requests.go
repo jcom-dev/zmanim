@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim/internal/middleware"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // PublisherRequest represents a publisher registration request
@@ -291,6 +292,24 @@ func (h *Handlers) AdminApprovePublisherRequest(w http.ResponseWriter, r *http.R
 
 	publisherID := fmt.Sprintf("%d", publisher.ID)
 
+	// Log admin action
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminRequestApprove,
+		ResourceType:      "publisher_request",
+		ResourceID:        requestID,
+		ResourceName:      row.Name,
+		TargetPublisherID: publisherID,
+		ChangesBefore: map[string]interface{}{
+			"status": "pending",
+		},
+		ChangesAfter: map[string]interface{}{
+			"status":       "approved",
+			"publisher_id": publisherID,
+		},
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
+
 	// Send approval email (non-blocking)
 	if h.emailService != nil {
 		webURL := os.Getenv("WEB_URL")
@@ -368,6 +387,23 @@ func (h *Handlers) AdminRejectPublisherRequest(w http.ResponseWriter, r *http.Re
 		RespondInternalError(w, r, "Failed to reject request")
 		return
 	}
+
+	// Log admin action
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:   services.ActionAdminRequestReject,
+		ResourceType: "publisher_request",
+		ResourceID:   requestID,
+		ResourceName: row.Name,
+		ChangesBefore: map[string]interface{}{
+			"status": "pending",
+		},
+		ChangesAfter: map[string]interface{}{
+			"status": "rejected",
+		},
+		Reason:   reqBody.Reason,
+		Severity: services.SeverityInfo,
+		Status:   "success",
+	})
 
 	// Send rejection email (non-blocking)
 	if h.emailService != nil {

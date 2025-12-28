@@ -34,6 +34,57 @@ const (
 	ActionZmanDelete       = "zman_delete"
 )
 
+// Team management action types
+const (
+	ActionTeamMemberAdded         = "team_member_added"
+	ActionTeamMemberRemoved       = "team_member_removed"
+	ActionTeamInvitationSent      = "team_invitation_sent"
+	ActionTeamInvitationResent    = "team_invitation_resent"
+	ActionTeamInvitationCancelled = "team_invitation_cancelled"
+	ActionTeamInvitationAccepted  = "team_invitation_accepted"
+)
+
+// Settings action types (granular)
+const (
+	ActionSettingsCalculationUpdated     = "settings_calculation_updated"
+	ActionSettingsTransliterationUpdated = "settings_transliteration_updated"
+	ActionSettingsElevationUpdated       = "settings_elevation_updated"
+)
+
+// Coverage action types (granular)
+const (
+	ActionCoverageGlobalEnabled  = "coverage_global_enabled"
+	ActionCoverageGlobalDisabled = "coverage_global_disabled"
+	ActionCoverageRegionAdded    = "coverage_region_added"
+	ActionCoverageRegionRemoved  = "coverage_region_removed"
+)
+
+// Version history action types
+const (
+	ActionVersionSnapshotCreated  = "version_snapshot_created"
+	ActionVersionRollbackExecuted = "version_rollback_executed"
+)
+
+// Location override action types
+const (
+	ActionLocationOverrideCreated = "location_override_created"
+	ActionLocationOverrideUpdated = "location_override_updated"
+	ActionLocationOverrideDeleted = "location_override_deleted"
+)
+
+// Snapshot action types
+const (
+	ActionSnapshotCreated  = "snapshot_created"
+	ActionSnapshotRestored = "snapshot_restored"
+	ActionSnapshotDeleted  = "snapshot_deleted"
+)
+
+// Onboarding action types
+const (
+	ActionOnboardingCompleted = "onboarding_completed"
+	ActionOnboardingReset     = "onboarding_reset"
+)
+
 // Admin action type constants
 const (
 	ActionAdminPublisherVerify          = "admin_publisher_verify"
@@ -59,6 +110,38 @@ const (
 	ActionAdminPasswordReset            = "admin_password_reset"
 	ActionAdminImpersonate              = "admin_impersonate"
 	ActionAdminSystemConfig             = "admin_system_config"
+
+	// Publisher request approval workflow
+	ActionAdminRequestApprove = "admin_request_approve"
+	ActionAdminRequestReject  = "admin_request_reject"
+
+	// Master registry management
+	ActionAdminZmanRequestReview    = "admin_zman_request_review"
+	ActionAdminTagApprove           = "admin_tag_approve"
+	ActionAdminTagReject            = "admin_tag_reject"
+	ActionAdminMasterZmanCreate     = "admin_master_zman_create"
+	ActionAdminMasterZmanUpdate     = "admin_master_zman_update"
+	ActionAdminMasterZmanDelete     = "admin_master_zman_delete"
+	ActionAdminZmanVisibilityToggle = "admin_zman_visibility_toggle"
+)
+
+// Admin impersonation tracking (HIGH priority)
+const (
+	ActionAdminImpersonationStart = "admin_impersonation_start"
+	ActionAdminImpersonationEnd   = "admin_impersonation_end"
+)
+
+// Admin audit tracking (HIGH priority)
+const (
+	ActionAdminAuditLogsViewed   = "admin_audit_logs_viewed"
+	ActionAdminAuditLogsExported = "admin_audit_logs_exported"
+)
+
+// Admin user management (HIGH priority)
+const (
+	ActionAdminUserCreated     = "admin_user_created"
+	ActionAdminUserRoleUpdated = "admin_user_role_updated"
+	ActionAdminUserInvited     = "admin_user_invited"
 )
 
 // Event severity constants for critical admin events

@@ -248,6 +248,24 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 		}()
 	}
 
+	// Log team member addition
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTeam,
+		EventAction:   AuditActionAdd,
+		ResourceType:  "team_member",
+		ResourceID:    newUserID,
+		ResourceName:  req.Email,
+		ChangesAfter: map[string]interface{}{
+			"email":       req.Email,
+			"name":        userName,
+			"is_new_user": isNewUser,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"added_by": userID,
+		},
+	})
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success":     true,
 		"message":     "Team member added",
@@ -308,6 +326,24 @@ func (h *Handlers) RemovePublisherTeamMember(w http.ResponseWriter, r *http.Requ
 		RespondInternalError(w, r, "Failed to remove team member")
 		return
 	}
+
+	// Log team member removal
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTeam,
+		EventAction:   AuditActionRemove,
+		ResourceType:  "team_member",
+		ResourceID:    memberUserID,
+		ResourceName:  email,
+		ChangesBefore: map[string]interface{}{
+			"user_id": memberUserID,
+			"email":   email,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"removed_by":   currentUserID,
+			"user_deleted": userDeleted,
+		},
+	})
 
 	if userDeleted {
 		slog.Info("team member removed and user deleted (no remaining roles)",
@@ -425,6 +461,22 @@ func (h *Handlers) ResendPublisherInvitation(w http.ResponseWriter, r *http.Requ
 		"invitation_id", int32(invitationID),
 		"email", email)
 
+	// Log invitation resend
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTeam,
+		EventAction:   AuditActionResend,
+		ResourceType:  "team_invitation",
+		ResourceID:    invitationIDStr,
+		ResourceName:  email,
+		ChangesAfter: map[string]interface{}{
+			"new_expiry": newExpiry,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"resent_by": userID,
+		},
+	})
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Invitation resent",
@@ -472,6 +524,18 @@ func (h *Handlers) CancelPublisherInvitation(w http.ResponseWriter, r *http.Requ
 	slog.Info("publisher invitation cancelled",
 		"invitation_id", int32(invitationID),
 		"cancelled_by", userID)
+
+	// Log invitation cancellation
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTeam,
+		EventAction:   AuditActionCancel,
+		ResourceType:  "team_invitation",
+		ResourceID:    invitationIDStr,
+		Status:        AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"cancelled_by": userID,
+		},
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -545,6 +609,23 @@ func (h *Handlers) AcceptPublisherInvitation(w http.ResponseWriter, r *http.Requ
 		"invitation_id", invitationData.ID,
 		"publisher_id", invitationData.PublisherID,
 		"user_id", userID)
+
+	// Log invitation acceptance
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryTeam,
+		EventAction:   AuditActionAccept,
+		ResourceType:  "team_invitation",
+		ResourceID:    int32ToString(invitationData.ID),
+		ResourceName:  invitationData.Email,
+		ChangesAfter: map[string]interface{}{
+			"publisher_id": invitationData.PublisherID,
+			"user_id":      userID,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"publisher_name": publisherName,
+		},
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"success":        true,

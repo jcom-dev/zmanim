@@ -1498,20 +1498,18 @@ func (h *Handlers) AdminSetPublisherCertified(w http.ResponseWriter, r *http.Req
 
 	slog.Info("publisher certified status updated", "id", id, "name", row.Name, "is_certified", row.IsCertified)
 
-	// Log admin action with diff
-	_ = h.activityService.LogActionWithDiff(
-		ctx,
-		services.ActionAdminPublisherCertified,
-		services.ConceptAdmin,
-		"publisher",
-		id,
-		"",
-		&services.ActionDiff{
-			Old: map[string]interface{}{"is_certified": !row.IsCertified},
-			New: map[string]interface{}{"is_certified": row.IsCertified},
-		},
-		services.ExtractActionContext(r),
-	)
+	// Log admin action
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherCertified,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      row.Name,
+		TargetPublisherID: id,
+		ChangesBefore:     map[string]interface{}{"is_certified": !row.IsCertified},
+		ChangesAfter:      map[string]interface{}{"is_certified": row.IsCertified},
+		Severity:          services.SeverityWarning,
+		Status:            "success",
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"id":           row.ID,
@@ -1599,20 +1597,19 @@ func (h *Handlers) AdminExportPublisher(w http.ResponseWriter, r *http.Request) 
 	filename := fmt.Sprintf("publisher-%s-%s.json", safeName, time.Now().Format("2006-01-02"))
 
 	// Log admin action
-	_ = h.activityService.LogActionWithDiff(
-		ctx,
-		services.ActionAdminPublisherExport,
-		services.ConceptAdmin,
-		"publisher",
-		id,
-		"",
-		&services.ActionDiff{
-			New: map[string]interface{}{
-				"export_format": "json",
-			},
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherExport,
+		ResourceType:      "publisher",
+		ResourceID:        id,
+		ResourceName:      publisher.Name,
+		TargetPublisherID: id,
+		ChangesAfter: map[string]interface{}{
+			"export_format": "json",
+			"filename":      filename,
 		},
-		services.ExtractActionContext(r),
-	)
+		Severity: services.SeverityCritical,
+		Status:   "success",
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
@@ -1689,21 +1686,29 @@ func (h *Handlers) AdminImportPublisher(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Get publisher name for audit log
+	publisherName := result.PublisherName
+	if publisherName == "" {
+		publisherName = fmt.Sprintf("Publisher %d", result.PublisherID)
+	}
+
 	// Log admin action
-	_ = h.activityService.LogActionWithDiff(
-		ctx,
-		services.ActionAdminPublisherImport,
-		services.ConceptAdmin,
-		"publisher",
-		fmt.Sprintf("%d", result.PublisherID),
-		"",
-		&services.ActionDiff{
-			New: map[string]interface{}{
-				"import_stats": result,
-			},
+	_ = h.activityService.LogAdminAction(ctx, r, services.AdminAuditParams{
+		ActionType:        services.ActionAdminPublisherImport,
+		ResourceType:      "publisher",
+		ResourceID:        fmt.Sprintf("%d", result.PublisherID),
+		ResourceName:      publisherName,
+		TargetPublisherID: fmt.Sprintf("%d", result.PublisherID),
+		ChangesAfter: map[string]interface{}{
+			"zmanim_created":   result.ZmanimCreated,
+			"zmanim_updated":   result.ZmanimUpdated,
+			"zmanim_unchanged": result.ZmanimUnchanged,
+			"coverage_created": result.CoverageCreated,
+			"created_new":      createNew,
 		},
-		services.ExtractActionContext(r),
-	)
+		Severity: services.SeverityCritical,
+		Status:   "success",
+	})
 
 	// Log appropriately based on operation
 	if createNew {
