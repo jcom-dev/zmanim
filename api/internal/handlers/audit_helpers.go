@@ -22,10 +22,10 @@ type AuditEventParams struct {
 	// If provided, this takes precedence over EventCategory + EventAction pattern
 	ActionType string
 	// EventCategory is the high-level category (publisher, zman, coverage, algorithm, team)
-	// DEPRECATED: Use ActionType instead for new code
+	// Prefer ActionType for new code; kept for backward compatibility
 	EventCategory string
 	// EventAction is the specific action (create, update, delete, publish, etc.)
-	// DEPRECATED: Use ActionType instead for new code
+	// Prefer ActionType for new code; kept for backward compatibility
 	EventAction string
 	// ResourceType is the type of resource being modified (publisher, publisher_zman, coverage, etc.)
 	ResourceType string
