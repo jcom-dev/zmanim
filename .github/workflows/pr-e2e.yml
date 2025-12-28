@@ -147,6 +147,13 @@ jobs:
           npm ci
           npx playwright install chromium --with-deps
 
+      # Cleanup old test users to prevent hitting Clerk's 100-user limit
+      - name: Cleanup Old Test Users
+        working-directory: tests
+        run: npx tsx cleanup-clerk-users.ts
+        env:
+          CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+
       # Run E2E tests
       - name: Run E2E Tests
         working-directory: tests
