@@ -1248,19 +1248,19 @@ func (h *Handlers) AdminPermanentDeletePublisher(w http.ResponseWriter, r *http.
 								"user_id", user.ClerkUserID,
 								"publisher_id", id)
 						}
-				} else {
-					// User has other publishers - just remove this one from their list
-					if err := h.clerkService.RemovePublisherFromUser(context.Background(), user.ClerkUserID, id); err != nil {
-						slog.Error("failed to remove publisher from user",
-							"error", err,
-							"user_id", user.ClerkUserID,
-							"publisher_id", id)
 					} else {
-						slog.Info("removed publisher from user access list",
-							"user_id", user.ClerkUserID,
-							"publisher_id", id)
+						// User has other publishers - just remove this one from their list
+						if err := h.clerkService.RemovePublisherFromUser(context.Background(), user.ClerkUserID, id); err != nil {
+							slog.Error("failed to remove publisher from user",
+								"error", err,
+								"user_id", user.ClerkUserID,
+								"publisher_id", id)
+						} else {
+							slog.Info("removed publisher from user access list",
+								"user_id", user.ClerkUserID,
+								"publisher_id", id)
+						}
 					}
-				}
 			}
 		}()
 		}

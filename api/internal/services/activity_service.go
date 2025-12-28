@@ -319,7 +319,7 @@ func (s *ActivityService) resolveActor(ctx context.Context) (actorID, actorName 
 	// Note: This adds a small overhead, but ensures we always get email if available
 	if s.clerkService != nil {
 		if user, err := s.clerkService.GetUser(ctx, userID); err == nil {
-			if user.EmailAddresses != nil && len(user.EmailAddresses) > 0 {
+			if len(user.EmailAddresses) > 0 {
 				email = user.EmailAddresses[0].EmailAddress
 				if email != "" {
 					return userID, email
