@@ -38,9 +38,8 @@ test.describe('Location Search - Single Word (Population Ranking)', () => {
     // Each result should have required fields
     results.forEach((result: any) => {
       expect(result.entity_type).toBeDefined();
-      expect(result.name).toBeDefined();
+      expect(result.display_name).toBeDefined();
       expect(result.country_code).toBeDefined();
-      expect(result.country_name).toBeDefined();
     });
   });
 
@@ -53,15 +52,13 @@ test.describe('Location Search - Single Word (Population Ranking)', () => {
       // Required fields
       expect(result.entity_type).toBeDefined();
       expect(result.entity_id).toBeDefined();
-      expect(result.name).toBeDefined();
-      expect(result.name_type).toBeDefined();
+      expect(result.display_name).toBeDefined();
 
       // Geographic hierarchy
       expect(result.country_code).toBeDefined();
-      expect(result.country_name).toBeDefined();
 
-      // Coordinates (if city)
-      if (result.entity_type === 'city') {
+      // Coordinates (if locality)
+      if (result.entity_type === 'locality') {
         expect(result.latitude).toBeDefined();
         expect(result.longitude).toBeDefined();
       }
@@ -102,7 +99,7 @@ test.describe('Location Search - Multi-Word (Context Parsing)', () => {
     // Results should have proper structure
     results.forEach((result: any) => {
       expect(result.entity_type).toBeDefined();
-      expect(result.name).toBeDefined();
+      expect(result.display_name).toBeDefined();
       expect(result.country_code).toBeDefined();
     });
   });
@@ -146,7 +143,6 @@ test.describe('Location Search - Aliases', () => {
     // Results should have country info
     results.forEach((result: any) => {
       expect(result.country_code).toBeDefined();
-      expect(result.country_name).toBeDefined();
     });
   });
 });
@@ -167,7 +163,7 @@ test.describe('Location Search - Foreign Names', () => {
 
     // Results should have proper structure
     results.forEach((result: any) => {
-      expect(result.name).toBeDefined();
+      expect(result.display_name).toBeDefined();
       expect(result.country_code).toBeDefined();
     });
   });
@@ -183,24 +179,24 @@ test.describe('Location Search - Hierarchy Validation', () => {
     results.forEach((result: any) => {
       expect(result.entity_type).toBeDefined();
       expect(result.entity_id).toBeDefined();
-      expect(result.name).toBeDefined();
+      expect(result.display_name).toBeDefined();
       expect(result.country_code).toBeDefined();
-      expect(result.country_name).toBeDefined();
+      expect(result.display_hierarchy).toBeDefined();
     });
   });
 
   test('city results include coordinates', async ({ request }) => {
     const results = await searchLocations(request, 'test');
 
-    // Find city results
-    const cities = results.filter((r: any) => r.entity_type === 'city');
+    // Find locality results
+    const localities = results.filter((r: any) => r.entity_type === 'locality');
 
-    // Cities should have coordinates
-    cities.forEach((city: any) => {
-      expect(city.latitude).toBeDefined();
-      expect(city.longitude).toBeDefined();
-      expect(typeof city.latitude).toBe('number');
-      expect(typeof city.longitude).toBe('number');
+    // Localities should have coordinates
+    localities.forEach((locality: any) => {
+      expect(locality.latitude).toBeDefined();
+      expect(locality.longitude).toBeDefined();
+      expect(typeof locality.latitude).toBe('number');
+      expect(typeof locality.longitude).toBe('number');
     });
   });
 
