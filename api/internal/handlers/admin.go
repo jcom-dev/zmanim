@@ -1261,8 +1261,8 @@ func (h *Handlers) AdminPermanentDeletePublisher(w http.ResponseWriter, r *http.
 								"publisher_id", id)
 						}
 					}
-			}
-		}()
+				}
+			}()
 		}
 	}
 
