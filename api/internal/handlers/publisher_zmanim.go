@@ -1479,11 +1479,10 @@ func (h *Handlers) CreatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	// Log zman creation
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   AuditActionCreate,
-		ResourceType:  "publisher_zman",
-		ResourceID:    int32ToString(sqlcZman.ID),
-		ResourceName:  req.ZmanKey,
+		ActionType:   services.ActionZmanCreate,
+		ResourceType: "publisher_zman",
+		ResourceID:   int32ToString(sqlcZman.ID),
+		ResourceName: req.ZmanKey,
 		ChangesAfter:  req,
 		Status:        AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
@@ -1627,11 +1626,10 @@ func (h *Handlers) UpdatePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	// Log zman update
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   AuditActionUpdate,
-		ResourceType:  "publisher_zman",
-		ResourceID:    int32ToString(sqlcZman.ID),
-		ResourceName:  zmanKey,
+		ActionType:   services.ActionZmanUpdate,
+		ResourceType: "publisher_zman",
+		ResourceID:   int32ToString(sqlcZman.ID),
+		ResourceName: zmanKey,
 		ChangesAfter:  req,
 		Status:        AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
@@ -1687,11 +1685,10 @@ func (h *Handlers) DeletePublisherZman(w http.ResponseWriter, r *http.Request) {
 
 	// Log zman deletion
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryZman,
-		EventAction:   AuditActionDelete,
-		ResourceType:  "publisher_zman",
-		ResourceID:    zmanKey,
-		ResourceName:  zmanKey,
+		ActionType:   services.ActionZmanDelete,
+		ResourceType: "publisher_zman",
+		ResourceID:   zmanKey,
+		ResourceName: zmanKey,
 		Status:        AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key": zmanKey,

@@ -127,6 +127,23 @@ func (h *Handlers) UploadPublisherLogo(w http.ResponseWriter, r *http.Request) {
 		logoData = *result.LogoData
 	}
 
+	// Log successful logo upload
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryPublisher,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "publisher_logo",
+		ResourceID:    publisherID,
+		ChangesAfter: map[string]interface{}{
+			"logo_data_length": len(logoData),
+			"content_type":     contentType,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"file_size":    header.Size,
+			"content_type": contentType,
+		},
+	})
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"logo_data": logoData,
 		"message":   "Logo uploaded successfully",

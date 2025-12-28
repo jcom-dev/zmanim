@@ -200,11 +200,10 @@ func (h *Handlers) SavePublisherSnapshot(w http.ResponseWriter, r *http.Request)
 
 	// Log successful save
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategorySnapshot,
-		EventAction:   AuditActionCreate,
-		ResourceType:  "snapshot",
-		ResourceID:    meta.ID,
-		ResourceName:  req.Description,
+		ActionType:   services.ActionSnapshotCreated,
+		ResourceType: "snapshot",
+		ResourceID:   meta.ID,
+		ResourceName: req.Description,
 		Status:        AuditStatusSuccess,
 		ChangesAfter: map[string]interface{}{
 			"snapshot_id": meta.ID,
@@ -348,10 +347,9 @@ func (h *Handlers) RestorePublisherSnapshot(w http.ResponseWriter, r *http.Reque
 
 	// Log successful restore
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategorySnapshot,
-		EventAction:   AuditActionRestore,
-		ResourceType:  "snapshot",
-		ResourceID:    snapshotIDStr,
+		ActionType:   services.ActionSnapshotRestored,
+		ResourceType: "snapshot",
+		ResourceID:   snapshotIDStr,
 		Status:        AuditStatusSuccess,
 		ChangesAfter: map[string]interface{}{
 			"snapshot_id":  snapshotID,
@@ -412,10 +410,9 @@ func (h *Handlers) DeletePublisherSnapshot(w http.ResponseWriter, r *http.Reques
 
 	// Log successful deletion
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategorySnapshot,
-		EventAction:   AuditActionDelete,
-		ResourceType:  "snapshot",
-		ResourceID:    snapshotIDStr,
+		ActionType:   services.ActionSnapshotDeleted,
+		ResourceType: "snapshot",
+		ResourceID:   snapshotIDStr,
 		Status:        AuditStatusSuccess,
 	})
 

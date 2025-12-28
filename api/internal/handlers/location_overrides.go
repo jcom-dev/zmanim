@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
 	"github.com/jcom-dev/zmanim/internal/models"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // CreateLocationOverride creates a new location override for a locality
@@ -156,11 +157,10 @@ func (h *Handlers) CreateLocationOverride(w http.ResponseWriter, r *http.Request
 
 	// Log location override creation
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: "location_override",
-		EventAction:   AuditActionCreate,
-		ResourceType:  "location_override",
-		ResourceID:    int32ToString(override.ID),
-		ResourceName:  localityIDStr,
+		ActionType:   services.ActionLocationOverrideCreated,
+		ResourceType: "location_override",
+		ResourceID:   int32ToString(override.ID),
+		ResourceName: localityIDStr,
 		ChangesAfter: map[string]interface{}{
 			"locality_id":        localityID,
 			"override_latitude":  req.OverrideLatitude,
@@ -401,11 +401,10 @@ func (h *Handlers) UpdateLocationOverride(w http.ResponseWriter, r *http.Request
 
 	// Log location override update
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: "location_override",
-		EventAction:   AuditActionUpdate,
-		ResourceType:  "location_override",
-		ResourceID:    idStr,
-		ResourceName:  strconv.FormatInt(int64(existing.LocalityID), 10),
+		ActionType:   services.ActionLocationOverrideUpdated,
+		ResourceType: "location_override",
+		ResourceID:   idStr,
+		ResourceName: strconv.FormatInt(int64(existing.LocalityID), 10),
 		ChangesBefore: map[string]interface{}{
 			"latitude":  existing.Latitude,
 			"longitude": existing.Longitude,
@@ -520,11 +519,10 @@ func (h *Handlers) DeleteLocationOverride(w http.ResponseWriter, r *http.Request
 
 	// Log location override deletion
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: "location_override",
-		EventAction:   AuditActionDelete,
-		ResourceType:  "location_override",
-		ResourceID:    idStr,
-		ResourceName:  strconv.FormatInt(int64(existing.LocalityID), 10),
+		ActionType:   services.ActionLocationOverrideDeleted,
+		ResourceType: "location_override",
+		ResourceID:   idStr,
+		ResourceName: strconv.FormatInt(int64(existing.LocalityID), 10),
 		ChangesBefore: map[string]interface{}{
 			"locality_id": existing.LocalityID,
 			"latitude":    existing.Latitude,

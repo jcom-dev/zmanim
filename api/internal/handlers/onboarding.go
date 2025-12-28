@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // WizardZman represents a zman from the onboarding wizard customizations
@@ -195,10 +196,9 @@ func (h *Handlers) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
 
 	// Log successful onboarding completion (after zmanim import)
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryOnboarding,
-		EventAction:   AuditActionComplete,
-		ResourceType:  "onboarding",
-		ResourceID:    publisherID,
+		ActionType:   services.ActionOnboardingCompleted,
+		ResourceType: "onboarding",
+		ResourceID:   publisherID,
 		Status:        AuditStatusSuccess,
 		ChangesAfter: map[string]interface{}{
 			"zmanim_imported":  len(req.Customizations),
@@ -413,10 +413,9 @@ func (h *Handlers) ResetOnboarding(w http.ResponseWriter, r *http.Request) {
 
 	// Log successful reset
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryOnboarding,
-		EventAction:   AuditActionReset,
-		ResourceType:  "onboarding",
-		ResourceID:    publisherID,
+		ActionType:   services.ActionOnboardingReset,
+		ResourceType: "onboarding",
+		ResourceID:   publisherID,
 		Status:        AuditStatusSuccess,
 	})
 

@@ -867,6 +867,24 @@ func (h *Handlers) UpdatePublisherProfile(w http.ResponseWriter, r *http.Request
 			publisher.Bio = publisherRow.Bio
 		}
 	} else {
+		// First, get publisher by clerk user ID to fetch before state
+		currentProfile, err := h.db.Queries.GetPublisherFullProfileByClerkUserID(ctx, &userID)
+		if err != nil {
+			slog.Error("Failed to fetch publisher profile before update", "error", err, "user_id", userID)
+			RespondNotFound(w, r, "Publisher profile not found")
+			return
+		}
+
+		// Capture before state
+		beforeState = map[string]interface{}{
+			"name":    currentProfile.Name,
+			"email":   currentProfile.ContactEmail,
+			"website": currentProfile.Website,
+		}
+		if currentProfile.Bio != "" {
+			beforeState["bio"] = currentProfile.Bio
+		}
+
 		publisherRow, err := h.db.Queries.UpdatePublisherProfileByClerkUserID(ctx, sqlcgen.UpdatePublisherProfileByClerkUserIDParams{
 			ClerkUserID:   &userID,
 			UpdateName:    req.Name,
@@ -908,32 +926,37 @@ func (h *Handlers) UpdatePublisherProfile(w http.ResponseWriter, r *http.Request
 		if publisherRow.Bio != nil {
 			publisher.Bio = publisherRow.Bio
 		}
+
+		publisherID = publisher.ID
 	}
 
-	// Log profile update activity
-	metadata := make(map[string]interface{})
-	if req.Name != nil {
-		metadata["name"] = *req.Name
+	// Build after state for audit logging
+	afterState := map[string]interface{}{
+		"name":    publisher.Name,
+		"email":   publisher.Email,
+		"website": publisher.Website,
 	}
-	if req.Email != nil {
-		metadata["email"] = *req.Email
-	}
-	if req.Website != nil {
-		metadata["website"] = *req.Website
-	}
-	if req.Bio != nil {
-		metadata["bio"] = *req.Bio
+	if publisher.Bio != nil {
+		afterState["bio"] = *publisher.Bio
 	}
 
-	_ = h.activityService.LogAction(
-		ctx,
-		services.ActionProfileUpdate,
-		services.ConceptPublisher,
-		"publisher",
-		publisher.ID,
-		publisher.ID,
-		metadata,
-	)
+	// Create publisher context for audit logging
+	pc := &PublisherContext{
+		PublisherID: publisherID,
+		UserID:      userID,
+	}
+
+	// Log profile update with before/after state
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryPublisher,
+		EventAction:   AuditActionUpdate,
+		ResourceType:  "publisher_profile",
+		ResourceID:    publisher.ID,
+		ResourceName:  publisher.Name,
+		ChangesBefore: beforeState,
+		ChangesAfter:  afterState,
+		Status:        AuditStatusSuccess,
+	})
 
 	RespondJSON(w, r, http.StatusOK, publisher)
 }
