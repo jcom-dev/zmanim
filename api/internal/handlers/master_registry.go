@@ -1311,6 +1311,21 @@ func (h *Handlers) RestorePublisherZman(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Fetch deleted zman state BEFORE restore for audit logging
+	beforeState, err := h.db.Queries.GetDeletedZmanByKeyForAudit(ctx, db.GetDeletedZmanByKeyForAuditParams{
+		PublisherID: publisherIDInt,
+		ZmanKey:     zmanKey,
+	})
+	if err == pgx.ErrNoRows {
+		RespondNotFound(w, r, "Deleted zman not found")
+		return
+	}
+	if err != nil {
+		slog.Error("error fetching deleted zman for audit", "error", err)
+		RespondInternalError(w, r, "Failed to fetch deleted zman")
+		return
+	}
+
 	row, err := h.db.Queries.RestoreZman(ctx, db.RestoreZmanParams{
 		PublisherID: publisherIDInt,
 		ZmanKey:     zmanKey,
@@ -1355,11 +1370,28 @@ func (h *Handlers) RestorePublisherZman(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Log successful restore
+	changesBefore := map[string]interface{}{
+		"zman_key":     beforeState.ZmanKey,
+		"hebrew_name":  beforeState.HebrewName,
+		"english_name": beforeState.EnglishName,
+		"formula_dsl":  beforeState.FormulaDsl,
+		"is_enabled":   beforeState.IsEnabled,
+		"is_visible":   beforeState.IsVisible,
+		"was_deleted":  true,
+	}
+	if beforeState.DeletedAt.Valid {
+		changesBefore["deleted_at"] = beforeState.DeletedAt.Time
+	}
+	if beforeState.DeletedBy != nil {
+		changesBefore["deleted_by"] = *beforeState.DeletedBy
+	}
+
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		ActionType:   services.ActionSnapshotRestored,
-		ResourceType: "publisher_zman",
-		ResourceID:   zmanKey,
-		ResourceName: row.HebrewName,
+		ActionType:    services.ActionSnapshotRestored,
+		ResourceType:  "publisher_zman",
+		ResourceID:    zmanKey,
+		ResourceName:  row.HebrewName,
+		ChangesBefore: changesBefore,
 		ChangesAfter: map[string]interface{}{
 			"zman_key":     row.ZmanKey,
 			"hebrew_name":  row.HebrewName,
@@ -1367,6 +1399,7 @@ func (h *Handlers) RestorePublisherZman(w http.ResponseWriter, r *http.Request) 
 			"formula_dsl":  row.FormulaDsl,
 			"is_enabled":   row.IsEnabled,
 			"is_visible":   row.IsVisible,
+			"is_deleted":   false,
 		},
 		Status: AuditStatusSuccess,
 	})

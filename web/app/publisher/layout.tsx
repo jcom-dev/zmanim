@@ -39,10 +39,10 @@ function PublisherLayoutContent({ children }: { children: ReactNode }) {
     { href: '/publisher/algorithm', label: 'Zmanim' },
     { href: '/publisher/registry', label: 'Registry' },
     { href: '/publisher/primitives', label: 'Primitives' },
-    { href: '/publisher/corrections', label: 'Corrections' },
+    { href: '/publisher/corrections', label: 'Requests' },
     { href: '/publisher/team', label: 'Team' },
     { href: '/publisher/analytics', label: 'Analytics' },
-    { href: '/publisher/audit', label: 'Audit Log' },
+    { href: '/publisher/audit', label: 'Audit' },
   ];
 
   return (
@@ -113,14 +113,14 @@ function PublisherLayoutContent({ children }: { children: ReactNode }) {
         {/* Desktop Navigation - Fixed height, hidden scrollbar */}
         <nav className="flex-none hidden sm:block bg-card/50 border-b border-border">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex gap-2 sm:gap-4 lg:gap-8 overflow-x-auto scrollbar-hide">
+            <div className="flex justify-between overflow-x-auto scrollbar-hide">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`py-3 px-2 sm:px-3 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`flex-1 text-center py-3 px-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                       isActive
                         ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'

@@ -67,10 +67,8 @@ type PublisherAuditLogEntry struct {
 	ErrorMessage string `json:"error_message,omitempty"`
 	// Duration in milliseconds
 	DurationMs *int32 `json:"duration_ms,omitempty" example:"125"`
-	// Changes before (for updates)
-	ChangesBefore json.RawMessage `json:"changes_before,omitempty"`
-	// Changes after (for creates/updates)
-	ChangesAfter json.RawMessage `json:"changes_after,omitempty"`
+	// Changes (before/after) - matches frontend AuditChanges interface
+	Changes *AuditChanges `json:"changes,omitempty"`
 	// Operation type (CREATE, UPDATE, DELETE, etc.)
 	OperationType string `json:"operation_type" example:"CREATE"`
 	// Request ID for correlation
@@ -608,6 +606,23 @@ func formatPublisherAuditLogRow(row sqlcgen.GetAuditLogsRow) PublisherAuditLogEn
 	// Determine operation type from action
 	operationType := getOperationType(row.EventAction)
 
+	// Extract before/after from payload (which contains ActionDiff with old/new)
+	var changes *AuditChanges
+	if row.Payload != nil {
+		var diff struct {
+			Old map[string]interface{} `json:"old"`
+			New map[string]interface{} `json:"new"`
+		}
+		if err := json.Unmarshal(row.Payload, &diff); err == nil {
+			if diff.Old != nil || diff.New != nil {
+				changes = &AuditChanges{
+					Before: diff.Old,
+					After:  diff.New,
+				}
+			}
+		}
+	}
+
 	return PublisherAuditLogEntry{
 		ID:            row.ID,
 		EventType:     row.EventCategory + "." + row.EventAction,
@@ -626,7 +641,7 @@ func formatPublisherAuditLogRow(row sqlcgen.GetAuditLogsRow) PublisherAuditLogEn
 		},
 		Status:        stringFromStringPtr(row.Status),
 		OperationType: operationType,
-		ChangesAfter:  row.Payload,
+		Changes:       changes,
 		Metadata:      row.Metadata,
 	}
 }
@@ -660,6 +675,23 @@ func formatPublisherActionRow(row sqlcgen.Action) PublisherAuditLogEntry {
 	// Determine operation type from action
 	operationType := getOperationType(row.ActionType)
 
+	// Extract before/after from payload (which contains ActionDiff with old/new)
+	var changes *AuditChanges
+	if row.Payload != nil {
+		var diff struct {
+			Old map[string]interface{} `json:"old"`
+			New map[string]interface{} `json:"new"`
+		}
+		if err := json.Unmarshal(row.Payload, &diff); err == nil {
+			if diff.Old != nil || diff.New != nil {
+				changes = &AuditChanges{
+					Before: diff.Old,
+					After:  diff.New,
+				}
+			}
+		}
+	}
+
 	return PublisherAuditLogEntry{
 		ID:            row.ID,
 		EventType:     row.Concept + "." + row.ActionType,
@@ -681,8 +713,7 @@ func formatPublisherActionRow(row sqlcgen.Action) PublisherAuditLogEntry {
 		ErrorMessage:  stringFromStringPtr(row.ErrorMessage),
 		DurationMs:    durationMs,
 		OperationType: operationType,
-		ChangesAfter:  row.Result,
-		ChangesBefore: row.Payload,
+		Changes:       changes,
 		RequestID:     row.RequestID,
 		Metadata:      row.Metadata,
 	}
@@ -717,6 +748,23 @@ func formatPublisherActivityRow(row sqlcgen.GetPublisherActivitiesRow) Publisher
 	// Determine operation type from action
 	operationType := getOperationType(row.ActionType)
 
+	// Extract before/after from payload (which contains ActionDiff with old/new)
+	var changes *AuditChanges
+	if row.Payload != nil {
+		var diff struct {
+			Old map[string]interface{} `json:"old"`
+			New map[string]interface{} `json:"new"`
+		}
+		if err := json.Unmarshal(row.Payload, &diff); err == nil {
+			if diff.Old != nil || diff.New != nil {
+				changes = &AuditChanges{
+					Before: diff.Old,
+					After:  diff.New,
+				}
+			}
+		}
+	}
+
 	return PublisherAuditLogEntry{
 		ID:            row.ID,
 		EventType:     row.Concept + "." + row.ActionType,
@@ -738,8 +786,7 @@ func formatPublisherActivityRow(row sqlcgen.GetPublisherActivitiesRow) Publisher
 		ErrorMessage:  stringFromStringPtr(row.ErrorMessage),
 		DurationMs:    durationMs,
 		OperationType: operationType,
-		ChangesAfter:  row.Result,
-		ChangesBefore: row.Payload,
+		Changes:       changes,
 		RequestID:     row.RequestID,
 		Metadata:      row.Metadata,
 	}

@@ -393,6 +393,26 @@ WHERE pz.publisher_id = $1
   AND pz.deleted_at IS NOT NULL
 ORDER BY pz.deleted_at DESC;
 
+-- name: GetDeletedZmanByKeyForAudit :one
+-- Get a single deleted zman's details for audit logging before restore
+SELECT
+    pz.id,
+    pz.publisher_id,
+    pz.zman_key,
+    COALESCE(mr.canonical_hebrew_name, pz.hebrew_name) AS hebrew_name,
+    COALESCE(mr.canonical_english_name, pz.english_name) AS english_name,
+    pz.formula_dsl,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.deleted_at,
+    pz.deleted_by,
+    tc.key AS time_category,
+    pz.master_zman_id
+FROM publisher_zmanim pz
+LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
+LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
+WHERE pz.publisher_id = $1 AND pz.zman_key = $2 AND pz.deleted_at IS NOT NULL;
+
 -- name: PermanentDeletePublisherZman :exec
 DELETE FROM publisher_zmanim
 WHERE publisher_id = $1 AND zman_key = $2 AND deleted_at IS NOT NULL;

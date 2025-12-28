@@ -2003,6 +2003,67 @@ func (q *Queries) GetDeletedPublisherZmanim(ctx context.Context, publisherID int
 	return items, nil
 }
 
+const getDeletedZmanByKeyForAudit = `-- name: GetDeletedZmanByKeyForAudit :one
+SELECT
+    pz.id,
+    pz.publisher_id,
+    pz.zman_key,
+    COALESCE(mr.canonical_hebrew_name, pz.hebrew_name) AS hebrew_name,
+    COALESCE(mr.canonical_english_name, pz.english_name) AS english_name,
+    pz.formula_dsl,
+    pz.is_enabled,
+    pz.is_visible,
+    pz.deleted_at,
+    pz.deleted_by,
+    tc.key AS time_category,
+    pz.master_zman_id
+FROM publisher_zmanim pz
+LEFT JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
+LEFT JOIN time_categories tc ON pz.time_category_id = tc.id
+WHERE pz.publisher_id = $1 AND pz.zman_key = $2 AND pz.deleted_at IS NOT NULL
+`
+
+type GetDeletedZmanByKeyForAuditParams struct {
+	PublisherID int32  `json:"publisher_id"`
+	ZmanKey     string `json:"zman_key"`
+}
+
+type GetDeletedZmanByKeyForAuditRow struct {
+	ID           int32              `json:"id"`
+	PublisherID  int32              `json:"publisher_id"`
+	ZmanKey      string             `json:"zman_key"`
+	HebrewName   string             `json:"hebrew_name"`
+	EnglishName  string             `json:"english_name"`
+	FormulaDsl   string             `json:"formula_dsl"`
+	IsEnabled    bool               `json:"is_enabled"`
+	IsVisible    bool               `json:"is_visible"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+	DeletedBy    *string            `json:"deleted_by"`
+	TimeCategory *string            `json:"time_category"`
+	MasterZmanID *int32             `json:"master_zman_id"`
+}
+
+// Get a single deleted zman's details for audit logging before restore
+func (q *Queries) GetDeletedZmanByKeyForAudit(ctx context.Context, arg GetDeletedZmanByKeyForAuditParams) (GetDeletedZmanByKeyForAuditRow, error) {
+	row := q.db.QueryRow(ctx, getDeletedZmanByKeyForAudit, arg.PublisherID, arg.ZmanKey)
+	var i GetDeletedZmanByKeyForAuditRow
+	err := row.Scan(
+		&i.ID,
+		&i.PublisherID,
+		&i.ZmanKey,
+		&i.HebrewName,
+		&i.EnglishName,
+		&i.FormulaDsl,
+		&i.IsEnabled,
+		&i.IsVisible,
+		&i.DeletedAt,
+		&i.DeletedBy,
+		&i.TimeCategory,
+		&i.MasterZmanID,
+	)
+	return i, err
+}
+
 const getDistinctCategories = `-- name: GetDistinctCategories :many
 SELECT DISTINCT category
 FROM master_zmanim_registry

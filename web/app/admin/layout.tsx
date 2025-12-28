@@ -41,15 +41,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }, [userLoaded, api]);
 
   const navItems = [
-    { href: '/admin', label: 'Overview', icon: Home, exact: true },
+    { href: '/admin/dashboard', label: 'Dashboard', icon: BarChart3 },
     { href: '/admin/users', label: 'Users', icon: UserCog },
     { href: '/admin/publishers', label: 'Publishers', icon: Users },
     { href: '/admin/zmanim/primitives', label: 'Primitives', icon: Sun },
-    { href: '/admin/zmanim/registry', label: 'Zmanim Registry', icon: Clock },
-    { href: '/admin/zman-requests', label: 'Zman Requests', icon: FileQuestion, badge: pendingRequestCount },
-    { href: '/admin/correction-requests', label: 'City Corrections', icon: MapPinCheck },
-    { href: '/admin/audit', label: 'Audit Log', icon: ScrollText },
-    { href: '/admin/dashboard', label: 'Dashboard', icon: BarChart3 },
+    { href: '/admin/zmanim/registry', label: 'Registry', icon: Clock },
+    { href: '/admin/zman-requests', label: 'Requests', icon: FileQuestion, badge: pendingRequestCount },
+    { href: '/admin/correction-requests', label: 'Corrections', icon: MapPinCheck },
+    { href: '/admin/audit', label: 'Audit', icon: ScrollText },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
@@ -97,7 +96,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Navigation - Fixed height, hidden scrollbar, horizontal scroll on overflow */}
       <nav className="flex-none bg-card/50 border-b border-border">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+          <div className="flex justify-between overflow-x-auto scrollbar-hide">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href, item.exact);
@@ -106,7 +105,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                     active
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'

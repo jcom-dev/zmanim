@@ -179,66 +179,105 @@ export async function linkClerkUserToPublisher(
 /**
  * Setup Clerk testing token and sign in using the official @clerk/testing approach
  * This bypasses bot detection and uses Clerk's programmatic sign-in
+ *
+ * Includes retry logic with exponential backoff to handle intermittent Clerk loading issues
  */
 async function performClerkSignIn(page: Page, email: string): Promise<void> {
-  // Navigate to the app first (Clerk needs to be loaded)
-  await page.goto(BASE_URL);
-  await page.waitForLoadState('domcontentloaded');
+  const MAX_RETRIES = 3;
+  const INITIAL_DELAY = 2000; // 2 seconds
 
-  // Setup testing token to bypass bot detection
-  try {
-    await setupClerkTestingToken({ page });
-  } catch (error: any) {
-    console.warn('Warning: setupClerkTestingToken failed:', error?.message);
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // Navigate to the app first (Clerk needs to be loaded)
+      await page.goto(BASE_URL);
+      await page.waitForLoadState('domcontentloaded');
+
+      // Setup testing token to bypass bot detection
+      try {
+        await setupClerkTestingToken({ page });
+      } catch (error: any) {
+        console.warn('Warning: setupClerkTestingToken failed:', error?.message);
+      }
+
+      // Wait for Clerk to be loaded with retry-friendly timeout
+      await page.waitForFunction(
+        () => typeof (window as any).Clerk !== 'undefined',
+        { timeout: TIMEOUTS.CLERK_AUTH }
+      );
+
+      await page.waitForFunction(
+        () => (window as any).Clerk?.loaded === true,
+        { timeout: TIMEOUTS.CLERK_AUTH }
+      );
+
+      // Check if already signed in (from storage state)
+      const isAlreadySignedIn = await page.evaluate(() => {
+        const clerk = (window as any).Clerk;
+        return clerk?.user !== null && clerk?.session?.status === 'active';
+      });
+
+      if (isAlreadySignedIn) {
+        // Already signed in from storage state, skip sign-in
+        return;
+      }
+
+      // Sign in using email-based approach (more reliable in test environments)
+      await clerk.signIn({
+        page,
+        emailAddress: email,
+      });
+
+      // Wait for authentication to complete
+      await page.waitForFunction(
+        () => (window as any).Clerk?.user !== null,
+        { timeout: TIMEOUTS.CLERK_AUTH }
+      );
+
+      // Wait for app to recognize the authenticated state
+      await page.waitForFunction(
+        () => {
+          const clerk = (window as any).Clerk;
+          // Verify session is fully active and user data is loaded
+          return clerk?.user !== null &&
+                 clerk?.session?.status === 'active' &&
+                 clerk?.user?.primaryEmailAddress !== undefined;
+        },
+        { timeout: TIMEOUTS.CLERK_LOAD }
+      ).catch(() => {
+        // If detailed check times out, the basic auth check passed - continue
+      });
+
+      // Success - return without retrying
+      console.log(`[performClerkSignIn] Successfully authenticated as ${email}`);
+      return;
+
+    } catch (error: any) {
+      lastError = error;
+      const isClerkLoadError = error.message?.includes('Clerk') ||
+                               error.message?.includes('timeout') ||
+                               error.message?.includes('TimeoutError');
+
+      if (isClerkLoadError && attempt < MAX_RETRIES) {
+        // Calculate exponential backoff delay: 2s, 4s, 8s
+        const delay = INITIAL_DELAY * Math.pow(2, attempt - 1);
+        console.warn(
+          `[performClerkSignIn] Attempt ${attempt}/${MAX_RETRIES} failed: ${error.message}. ` +
+          `Retrying in ${delay}ms...`
+        );
+        await page.waitForTimeout(delay);
+      } else if (!isClerkLoadError) {
+        // Non-retryable error (not Clerk-related), throw immediately
+        throw error;
+      }
+    }
   }
 
-  // Wait for Clerk to be loaded
-  await page.waitForFunction(
-    () => typeof (window as any).Clerk !== 'undefined',
-    { timeout: TIMEOUTS.CLERK_AUTH }
+  // All retries exhausted - throw the last error
+  throw new Error(
+    `Failed to authenticate after ${MAX_RETRIES} attempts. Last error: ${lastError?.message}`
   );
-
-  await page.waitForFunction(
-    () => (window as any).Clerk?.loaded === true,
-    { timeout: TIMEOUTS.CLERK_AUTH }
-  );
-
-  // Check if already signed in (from storage state)
-  const isAlreadySignedIn = await page.evaluate(() => {
-    const clerk = (window as any).Clerk;
-    return clerk?.user !== null && clerk?.session?.status === 'active';
-  });
-
-  if (isAlreadySignedIn) {
-    // Already signed in from storage state, skip sign-in
-    return;
-  }
-
-  // Sign in using email-based approach (more reliable in test environments)
-  await clerk.signIn({
-    page,
-    emailAddress: email,
-  });
-
-  // Wait for authentication to complete
-  await page.waitForFunction(
-    () => (window as any).Clerk?.user !== null,
-    { timeout: TIMEOUTS.CLERK_AUTH }
-  );
-
-  // Wait for app to recognize the authenticated state
-  await page.waitForFunction(
-    () => {
-      const clerk = (window as any).Clerk;
-      // Verify session is fully active and user data is loaded
-      return clerk?.user !== null &&
-             clerk?.session?.status === 'active' &&
-             clerk?.user?.primaryEmailAddress !== undefined;
-    },
-    { timeout: TIMEOUTS.CLERK_LOAD }
-  ).catch(() => {
-    // If detailed check times out, the basic auth check passed - continue
-  });
 }
 
 /**

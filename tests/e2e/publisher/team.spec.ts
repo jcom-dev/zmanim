@@ -113,6 +113,16 @@ test.describe('Team - Add Member Dialog', () => {
     await expect(page.getByText(/add a new member to your publisher team/i)).toBeVisible();
   });
 
+  test('dialog has name input', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /add member/i }).click();
+    await expect(page.locator('#name')).toBeVisible();
+  });
+
   test('dialog has email input', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
@@ -120,7 +130,7 @@ test.describe('Team - Add Member Dialog', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /add member/i }).click();
-    await expect(page.getByLabel(/email/i)).toBeVisible();
+    await expect(page.locator('#email')).toBeVisible();
   });
 
   test('dialog has placeholder', async ({ page }) => {
@@ -168,6 +178,18 @@ test.describe('Team - Add Member Dialog', () => {
     await expect(page.getByText('Add Team Member')).not.toBeVisible();
   });
 
+  test('error for empty name', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/team`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /add member/i }).click();
+    await page.getByRole('button', { name: /add member/i }).last().click();
+
+    await expect(page.getByText(/name is required/i)).toBeVisible();
+  });
+
   test('error for empty email', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
@@ -187,7 +209,8 @@ test.describe('Team - Add Member Dialog', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /add member/i }).click();
-    await page.getByLabel(/email/i).fill('invalid-email');
+    await page.locator('#name').fill('Test User');
+    await page.locator('#email').fill('invalid-email');
     await page.getByRole('button', { name: /add member/i }).last().click();
 
     await expect(page.getByText(/valid email/i)).toBeVisible();

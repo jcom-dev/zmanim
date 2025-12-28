@@ -6,6 +6,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -192,7 +193,9 @@ func (h *Handlers) AdminApproveCorrectionRequest(w http.ResponseWriter, r *http.
 	// Send approval email in background
 	if h.emailService != nil && h.emailService.IsEnabled() {
 		go func() {
-			locality, err := h.db.Queries.GetLocalityByID(ctx, localityID)
+			// Use context.WithoutCancel to prevent cancellation when HTTP response is sent
+			bgCtx := context.WithoutCancel(ctx)
+			locality, err := h.db.Queries.GetLocalityByID(bgCtx, localityID)
 			if err != nil {
 				slog.Error("failed to get locality for email", "error", err, "locality_id", localityID)
 				return
@@ -319,7 +322,9 @@ func (h *Handlers) AdminRejectCorrectionRequest(w http.ResponseWriter, r *http.R
 	// Send rejection email in background
 	if h.emailService != nil && h.emailService.IsEnabled() {
 		go func() {
-			locality, err := h.db.Queries.GetLocalityByID(ctx, rejLocalityID)
+			// Use context.WithoutCancel to prevent cancellation when HTTP response is sent
+			bgCtx := context.WithoutCancel(ctx)
+			locality, err := h.db.Queries.GetLocalityByID(bgCtx, rejLocalityID)
 			if err != nil {
 				slog.Error("failed to get locality for email", "error", err, "locality_id", rejLocalityID)
 				return

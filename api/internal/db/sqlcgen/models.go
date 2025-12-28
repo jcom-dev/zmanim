@@ -232,7 +232,7 @@ type BlockedEmail struct {
 type CalculationLog struct {
 	ID             int64       `json:"id"`
 	PublisherID    int32       `json:"publisher_id"`
-	CityID         int64       `json:"city_id"`
+	LocalityID     int64       `json:"locality_id"`
 	DateCalculated pgtype.Date `json:"date_calculated"`
 	// Whether result was served from Redis cache
 	CacheHit bool `json:"cache_hit"`

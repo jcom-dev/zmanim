@@ -76,7 +76,17 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First delete any existing primary alias for this zman
+	// First get existing alias (if any) for audit logging
+	var existingAlias *sqlcgen.GetPublisherZmanAliasRow
+	existing, err := h.db.Queries.GetPublisherZmanAlias(ctx, sqlcgen.GetPublisherZmanAliasParams{
+		PublisherID: publisherID,
+		ZmanKey:     zmanKey,
+	})
+	if err == nil {
+		existingAlias = &existing
+	}
+
+	// Delete any existing primary alias for this zman
 	_ = h.db.Queries.DeletePublisherZmanAliasByZmanKey(ctx, sqlcgen.DeletePublisherZmanAliasByZmanKeyParams{
 		PublisherID: publisherID,
 		ZmanKey:     zmanKey,
@@ -114,11 +124,20 @@ func (h *Handlers) CreateOrUpdateAlias(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 5b: Log alias create/update
+	var changesBefore map[string]interface{}
+	if existingAlias != nil {
+		changesBefore = map[string]interface{}{
+			"alias_hebrew":          existingAlias.AliasHebrew,
+			"alias_english":         existingAlias.AliasEnglish,
+			"alias_transliteration": existingAlias.AliasTransliteration,
+		}
+	}
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		ActionType:   services.ActionZmanUpdate,
-		ResourceType: "publisher_zman_alias",
-		ResourceID:   int32ToString(alias.ID),
-		ResourceName: zmanKey,
+		ActionType:    services.ActionZmanUpdate,
+		ResourceType:  "publisher_zman_alias",
+		ResourceID:    int32ToString(alias.ID),
+		ResourceName:  zmanKey,
+		ChangesBefore: changesBefore,
 		ChangesAfter: map[string]interface{}{
 			"alias_hebrew":          req.AliasHebrew,
 			"alias_english":         req.AliasEnglish,
@@ -231,6 +250,20 @@ func (h *Handlers) DeleteAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch existing alias before deletion for audit logging
+	var changesBefore map[string]interface{}
+	existingAlias, err := h.db.Queries.GetPublisherZmanAlias(ctx, sqlcgen.GetPublisherZmanAliasParams{
+		PublisherID: publisherID,
+		ZmanKey:     zmanKey,
+	})
+	if err == nil {
+		changesBefore = map[string]interface{}{
+			"alias_hebrew":          existingAlias.AliasHebrew,
+			"alias_english":         existingAlias.AliasEnglish,
+			"alias_transliteration": existingAlias.AliasTransliteration,
+		}
+	}
+
 	err = h.db.Queries.DeletePublisherZmanAliasByZmanKey(ctx, sqlcgen.DeletePublisherZmanAliasByZmanKeyParams{
 		PublisherID: publisherID,
 		ZmanKey:     zmanKey,
@@ -243,11 +276,12 @@ func (h *Handlers) DeleteAlias(w http.ResponseWriter, r *http.Request) {
 
 	// Step 5b: Log alias deletion
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		ActionType:   services.ActionZmanUpdate,
-		ResourceType: "publisher_zman_alias",
-		ResourceID:   zmanKey, // Use zman_key as ID since alias was deleted
-		ResourceName: zmanKey,
-		Status:       AuditStatusSuccess,
+		ActionType:    services.ActionZmanUpdate,
+		ResourceType:  "publisher_zman_alias",
+		ResourceID:    zmanKey, // Use zman_key as ID since alias was deleted
+		ResourceName:  zmanKey,
+		ChangesBefore: changesBefore,
+		Status:        AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"zman_key":  zmanKey,
 			"operation": "alias_delete",

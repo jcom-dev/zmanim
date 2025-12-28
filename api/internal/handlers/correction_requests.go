@@ -379,6 +379,14 @@ func (h *Handlers) UpdateCorrectionRequest(w http.ResponseWriter, r *http.Reques
 			ActionType:   services.ActionCorrectionRequestUpdate,
 			ResourceType: "correction_request",
 			ResourceID:   idStr,
+			ChangesBefore: map[string]interface{}{
+				"locality_id":   existingRequest.LocalityID,
+				"proposed_lat":  existingRequest.ProposedLatitude,
+				"proposed_lng":  existingRequest.ProposedLongitude,
+				"proposed_elev": existingRequest.ProposedElevation,
+				"reason":        existingRequest.CorrectionReason,
+				"status":        existingRequest.Status,
+			},
 			Status:       AuditStatusFailure,
 			ErrorMessage: err.Error(),
 		})
@@ -476,6 +484,14 @@ func (h *Handlers) DeleteCorrectionRequest(w http.ResponseWriter, r *http.Reques
 			ActionType:   services.ActionCorrectionRequestDelete,
 			ResourceType: "correction_request",
 			ResourceID:   idStr,
+			ChangesBefore: map[string]interface{}{
+				"locality_id":   request.LocalityID,
+				"proposed_lat":  request.ProposedLatitude,
+				"proposed_lng":  request.ProposedLongitude,
+				"proposed_elev": request.ProposedElevation,
+				"reason":        request.CorrectionReason,
+				"status":        request.Status,
+			},
 			Status:       AuditStatusFailure,
 			ErrorMessage: err.Error(),
 		})

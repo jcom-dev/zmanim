@@ -87,10 +87,10 @@ export const TIMEOUTS = {
   /** Extended timeout for very slow operations (60s) */
   EXTENDED: 60000,
 
-  /** Clerk authentication timeout (30s) */
-  CLERK_AUTH: 30000,
-  /** Clerk JavaScript load timeout (10s) */
-  CLERK_LOAD: 10000,
+  /** Clerk authentication timeout (45s) - increased for reliability in CI/CD */
+  CLERK_AUTH: 45000,
+  /** Clerk JavaScript load timeout (45s) - increased for reliability in CI/CD */
+  CLERK_LOAD: 45000,
 
   /** Email delivery wait timeout (60s) */
   EMAIL_WAIT: 60000,

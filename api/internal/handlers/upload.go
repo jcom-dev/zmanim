@@ -113,6 +113,19 @@ func (h *Handlers) UploadPublisherLogo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch existing publisher state BEFORE modification (for audit logging)
+	existingPublisher, err := h.db.Queries.GetPublisherByID(ctx, publisherIDInt)
+	if err != nil {
+		RespondInternalError(w, r, "Failed to fetch publisher")
+		return
+	}
+
+	// Capture existing logo data length for audit
+	existingLogoDataLength := 0
+	if existingPublisher.LogoData != nil {
+		existingLogoDataLength = len(*existingPublisher.LogoData)
+	}
+
 	// Update publisher's logo_data in database
 	result, err := h.db.Queries.UpdatePublisherLogo(ctx, sqlcgen.UpdatePublisherLogoParams{
 		ID:       publisherIDInt,
@@ -133,6 +146,9 @@ func (h *Handlers) UploadPublisherLogo(w http.ResponseWriter, r *http.Request) {
 		ActionType:   services.ActionProfileUpdate,
 		ResourceType: "publisher_logo",
 		ResourceID:   publisherID,
+		ChangesBefore: map[string]interface{}{
+			"logo_data_length": existingLogoDataLength,
+		},
 		ChangesAfter: map[string]interface{}{
 			"logo_data_length": len(logoData),
 			"content_type":     contentType,

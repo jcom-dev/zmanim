@@ -42,7 +42,7 @@ func (h *Handlers) LogAuditEvent(ctx context.Context, r *http.Request, pc *Publi
 
 	go func() {
 		err := h.activityService.LogActionWithDiff(
-			ctx,
+			context.WithoutCancel(ctx),
 			params.ActionType,
 			inferConceptFromActionType(params.ActionType),
 			params.ResourceType,

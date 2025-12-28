@@ -130,15 +130,32 @@ func (h *Handlers) ImportPublisherSnapshot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Capture current state BEFORE import for audit trail
+	currentSnapshot, err := h.snapshotService.BuildSnapshot(ctx, publisherID, "pre-import-state")
+	if err != nil {
+		slog.Warn("failed to capture pre-import state for audit", "error", err)
+		// Continue with import - audit capture failure shouldn't block the operation
+	}
+
+	// Build ChangesBefore from current state
+	var changesBefore map[string]interface{}
+	if currentSnapshot != nil {
+		changesBefore = map[string]interface{}{
+			"zmanim_count":   len(currentSnapshot.Zmanim),
+			"format_version": currentSnapshot.FormatVersion,
+		}
+	}
+
 	result, err := h.snapshotService.ImportSnapshot(ctx, publisherID, pc.UserID, &req.Snapshot)
 	if err != nil {
 		slog.Error("failed to import snapshot", "error", err, "publisher_id", pc.PublisherID)
 		h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-			ActionType:   services.ActionSnapshotRestored,
-			ResourceType: "snapshot",
-			ResourceID:   fmt.Sprintf("%d", publisherID),
-			Status:       AuditStatusFailure,
-			ErrorMessage: err.Error(),
+			ActionType:    services.ActionSnapshotRestored,
+			ResourceType:  "snapshot",
+			ResourceID:    fmt.Sprintf("%d", publisherID),
+			ChangesBefore: changesBefore,
+			Status:        AuditStatusFailure,
+			ErrorMessage:  err.Error(),
 		})
 		RespondBadRequest(w, r, err.Error())
 		return
@@ -146,13 +163,17 @@ func (h *Handlers) ImportPublisherSnapshot(w http.ResponseWriter, r *http.Reques
 
 	// Log successful import
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		ActionType:   services.ActionSnapshotRestored,
-		ResourceType: "snapshot",
-		ResourceID:   fmt.Sprintf("%d", publisherID),
-		Status:       AuditStatusSuccess,
+		ActionType:    services.ActionSnapshotRestored,
+		ResourceType:  "snapshot",
+		ResourceID:    fmt.Sprintf("%d", publisherID),
+		ChangesBefore: changesBefore,
+		Status:        AuditStatusSuccess,
 		ChangesAfter: map[string]interface{}{
-			"format_version": req.Snapshot.FormatVersion,
-			"zmanim_count":   len(req.Snapshot.Zmanim),
+			"format_version":    req.Snapshot.FormatVersion,
+			"zmanim_count":      len(req.Snapshot.Zmanim),
+			"zmanim_created":    result.ZmanimCreated,
+			"zmanim_updated":    result.ZmanimUpdated,
+			"zmanim_not_import": len(result.ZmanimNotInImport),
 		},
 	})
 
@@ -347,31 +368,62 @@ func (h *Handlers) RestorePublisherSnapshot(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// 5. Restore snapshot (auto-saves current state first)
+	// 5. Capture current state BEFORE restore for audit trail
+	currentSnapshot, err := h.snapshotService.BuildSnapshot(ctx, publisherID, "pre-restore-state")
+	if err != nil {
+		slog.Warn("failed to capture pre-restore state for audit", "error", err)
+		// Continue with restore - audit capture failure shouldn't block the operation
+	}
+
+	// Build ChangesBefore from current state
+	var changesBefore map[string]interface{}
+	if currentSnapshot != nil {
+		changesBefore = map[string]interface{}{
+			"zmanim_count":   len(currentSnapshot.Zmanim),
+			"format_version": currentSnapshot.FormatVersion,
+		}
+	}
+
+	// Get the snapshot being restored to for ChangesAfter
+	snapshotToRestore, err := h.snapshotService.GetSnapshot(ctx, snapshotID, publisherID)
+	if err != nil {
+		slog.Warn("failed to get snapshot details for audit", "error", err)
+		// Continue - we still want to attempt the restore
+	}
+
+	// Restore snapshot (auto-saves current state first)
 	autoSave, err := h.snapshotService.RestoreSnapshot(ctx, snapshotID, publisherID, pc.UserID)
 	if err != nil {
 		slog.Error("failed to restore snapshot", "error", err, "snapshot_id", snapshotIDStr, "publisher_id", pc.PublisherID)
 		h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-			ActionType:   services.ActionSnapshotRestored,
-			ResourceType: "snapshot",
-			ResourceID:   snapshotIDStr,
-			Status:       AuditStatusFailure,
-			ErrorMessage: err.Error(),
+			ActionType:    services.ActionSnapshotRestored,
+			ResourceType:  "snapshot",
+			ResourceID:    snapshotIDStr,
+			ChangesBefore: changesBefore,
+			Status:        AuditStatusFailure,
+			ErrorMessage:  err.Error(),
 		})
 		RespondInternalError(w, r, "Failed to restore version")
 		return
 	}
 
+	// Build ChangesAfter with restored snapshot info
+	changesAfter := map[string]interface{}{
+		"snapshot_id":  snapshotID,
+		"auto_save_id": autoSave.ID,
+	}
+	if snapshotToRestore != nil {
+		changesAfter["restored_zmanim_count"] = len(snapshotToRestore.Zmanim)
+	}
+
 	// Log successful restore
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		ActionType:   services.ActionSnapshotRestored,
-		ResourceType: "snapshot",
-		ResourceID:   snapshotIDStr,
-		Status:       AuditStatusSuccess,
-		ChangesAfter: map[string]interface{}{
-			"snapshot_id":  snapshotID,
-			"auto_save_id": autoSave.ID,
-		},
+		ActionType:    services.ActionSnapshotRestored,
+		ResourceType:  "snapshot",
+		ResourceID:    snapshotIDStr,
+		ChangesBefore: changesBefore,
+		Status:        AuditStatusSuccess,
+		ChangesAfter:  changesAfter,
 	})
 
 	// 6. Respond
@@ -416,16 +468,35 @@ func (h *Handlers) DeletePublisherSnapshot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// 5. Delete snapshot
+	// 5. Capture snapshot metadata BEFORE deletion for audit trail
+	snapshotToDelete, err := h.snapshotService.GetSnapshot(ctx, snapshotID, publisherID)
+	if err != nil {
+		slog.Warn("failed to get snapshot for audit before deletion", "error", err)
+		// Continue - we still want to attempt the delete
+	}
+
+	// Build ChangesBefore from snapshot being deleted
+	var changesBefore map[string]interface{}
+	if snapshotToDelete != nil {
+		changesBefore = map[string]interface{}{
+			"zmanim_count":   len(snapshotToDelete.Zmanim),
+			"format_version": snapshotToDelete.FormatVersion,
+			"description":    snapshotToDelete.Description,
+			"exported_at":    snapshotToDelete.ExportedAt,
+		}
+	}
+
+	// Delete snapshot
 	err = h.snapshotService.DeleteSnapshot(ctx, snapshotID, publisherID)
 	if err != nil {
 		slog.Error("failed to delete snapshot", "error", err, "snapshot_id", snapshotIDStr, "publisher_id", pc.PublisherID)
 		h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-			ActionType:   services.ActionSnapshotDeleted,
-			ResourceType: "snapshot",
-			ResourceID:   snapshotIDStr,
-			Status:       AuditStatusFailure,
-			ErrorMessage: err.Error(),
+			ActionType:    services.ActionSnapshotDeleted,
+			ResourceType:  "snapshot",
+			ResourceID:    snapshotIDStr,
+			ChangesBefore: changesBefore,
+			Status:        AuditStatusFailure,
+			ErrorMessage:  err.Error(),
 		})
 		RespondInternalError(w, r, "Failed to delete version")
 		return
@@ -433,10 +504,11 @@ func (h *Handlers) DeletePublisherSnapshot(w http.ResponseWriter, r *http.Reques
 
 	// Log successful deletion
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		ActionType:   services.ActionSnapshotDeleted,
-		ResourceType: "snapshot",
-		ResourceID:   snapshotIDStr,
-		Status:       AuditStatusSuccess,
+		ActionType:    services.ActionSnapshotDeleted,
+		ResourceType:  "snapshot",
+		ResourceID:    snapshotIDStr,
+		ChangesBefore: changesBefore,
+		Status:        AuditStatusSuccess,
 	})
 
 	// 6. Respond

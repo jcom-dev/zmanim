@@ -650,12 +650,18 @@ func formatAdminAuditLogEntry(row sqlcgen.GetAuditLogsRow) AdminAuditLogEntry {
 		}
 	}
 
-	// Parse changes from payload
+	// Parse changes from payload (which contains ActionDiff with old/new)
 	var changesBefore, changesAfter map[string]interface{}
 	if row.Payload != nil {
-		_ = json.Unmarshal(row.Payload, &changesBefore)
+		var diff struct {
+			Old map[string]interface{} `json:"old"`
+			New map[string]interface{} `json:"new"`
+		}
+		if err := json.Unmarshal(row.Payload, &diff); err == nil {
+			changesBefore = diff.Old
+			changesAfter = diff.New
+		}
 	}
-	// Note: GetAuditLogsRow doesn't have a result field, so changesAfter remains nil
 
 	// Build changes object if we have before/after
 	var changes *AuditChanges

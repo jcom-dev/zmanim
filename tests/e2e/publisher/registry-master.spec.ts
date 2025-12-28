@@ -127,10 +127,10 @@ test.describe('Master Registry - Location & Date Selection', () => {
       // Type to search for Jerusalem
       await locationInput.click();
       await locationInput.fill('Jerusalem');
-      await page.waitForTimeout(500); // Wait for autocomplete results
 
-      // Try to select Jerusalem from results
+      // Wait for autocomplete results to appear
       const jerusalemOption = page.getByText(/Jerusalem.*Israel/i).first();
+      await expect(jerusalemOption).toBeVisible({ timeout: 10000 });
       if (await jerusalemOption.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
         await jerusalemOption.click();
 
@@ -201,10 +201,7 @@ test.describe('Master Registry - Search & Filter Operations', () => {
     if (await searchInput.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
       await searchInput.fill('Alos');
 
-      // Wait for search results to update (debounced 300ms + processing)
-      await page.waitForTimeout(500);
-
-      // Wait for API response
+      // Wait for API response after search (handles debouncing internally)
       await page.waitForResponse(
         (response) => response.url().includes('/registry') && response.ok(),
         { timeout: Timeouts.MEDIUM }
@@ -236,8 +233,8 @@ test.describe('Master Registry - Search & Filter Operations', () => {
       if (await alosCheckbox.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
         await alosCheckbox.check();
 
-        // Wait for filter to apply
-        await page.waitForTimeout(500);
+        // Wait for network idle after filter application
+        await page.waitForLoadState('networkidle', { timeout: 10000 });
 
         // Look for filter chip
         const content = await page.textContent('body');
@@ -257,7 +254,9 @@ test.describe('Master Registry - Search & Filter Operations', () => {
     const categoryFilter = page.getByLabel(/alos/i).first();
     if (await categoryFilter.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
       await categoryFilter.check();
-      await page.waitForTimeout(500);
+
+      // Wait for network idle after filter application
+      await page.waitForLoadState('networkidle', { timeout: 10000 });
 
       // Look for filter chip (badge with X button)
       const chipExists = await page.locator('[role="button"]').filter({ hasText: /alos/i }).isVisible({ timeout: Timeouts.SHORT }).catch(() => false);
@@ -281,7 +280,9 @@ test.describe('Master Registry - Search & Filter Operations', () => {
 
     if (clearExists) {
       await clearButton.click();
-      await page.waitForTimeout(500);
+
+      // Wait for network idle after clearing filters
+      await page.waitForLoadState('networkidle', { timeout: 10000 });
 
       // Filters should be cleared
       const content = await page.textContent('body');
@@ -298,8 +299,8 @@ test.describe('Master Registry - Zman Card Display', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    // Wait for zman cards to load
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     const content = await page.textContent('body');
 
@@ -323,7 +324,8 @@ test.describe('Master Registry - Zman Card Display', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Look for badges (category, shita, status)
     const badges = page.locator('[class*="badge"]').or(
@@ -343,7 +345,8 @@ test.describe('Master Registry - Zman Card Display', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Look for import buttons
     const importButton = page.getByRole('button', { name: /import/i }).first();
@@ -362,7 +365,8 @@ test.describe('Master Registry - Master Zman Documentation Modal', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Look for info button (ℹ️ icon)
     const infoButton = page.getByRole('button', { name: /info/i }).or(
@@ -374,13 +378,12 @@ test.describe('Master Registry - Master Zman Documentation Modal', () => {
     if (await infoButton.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
       await infoButton.click();
 
-      // Wait for modal to open
-      await page.waitForTimeout(500);
-
-      // Look for modal content
+      // Wait for modal to appear
       const modal = page.locator('[role="dialog"]').or(
         page.locator('[data-testid*="modal"]')
       ).first();
+
+      await expect(modal).toBeVisible({ timeout: 10000 });
 
       if (await modal.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
         await expect(modal).toBeVisible();
@@ -399,15 +402,16 @@ test.describe('Master Registry - Master Zman Documentation Modal', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     const infoButton = page.getByRole('button', { name: /info/i }).first();
 
     if (await infoButton.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
       await infoButton.click();
-      await page.waitForTimeout(500);
 
       const modal = page.locator('[role="dialog"]').first();
+      await expect(modal).toBeVisible({ timeout: 10000 });
       if (await modal.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
         const modalText = await modal.textContent();
 
@@ -429,19 +433,23 @@ test.describe('Master Registry - Master Zman Documentation Modal', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     const infoButton = page.getByRole('button', { name: /info/i }).first();
 
     if (await infoButton.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
       await infoButton.click();
-      await page.waitForTimeout(500);
 
       const modal = page.locator('[role="dialog"]').first();
+      await expect(modal).toBeVisible({ timeout: 10000 });
+
       if (await modal.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
         // Press Escape to close
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(300);
+
+        // Wait for modal to disappear
+        await expect(modal).toBeHidden({ timeout: 10000 });
 
         // Modal should be closed
         const stillVisible = await modal.isVisible({ timeout: Timeouts.SHORT }).catch(() => false);
@@ -459,7 +467,8 @@ test.describe('Master Registry - Import Flow', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Look for enabled import button
     const importButton = page.getByRole('button', { name: /import.*zman/i }).first();
@@ -496,7 +505,8 @@ test.describe('Master Registry - Import Flow', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     const importButton = page.getByRole('button', { name: /import.*zman/i }).first();
 
@@ -528,7 +538,8 @@ test.describe('Master Registry - Duplicate Prevention', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Look for imported badge or status
     const importedBadge = page.getByText(/imported/i).first();
@@ -545,7 +556,8 @@ test.describe('Master Registry - Duplicate Prevention', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Look for disabled import buttons
     const importButtons = page.getByRole('button', { name: /import/i });
@@ -570,7 +582,8 @@ test.describe('Master Registry - Duplicate Prevention', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await waitForRegistryPage(page);
 
-    await page.waitForTimeout(1000);
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Find a disabled import button
     const importButtons = page.getByRole('button', { name: /import/i });
@@ -583,7 +596,9 @@ test.describe('Master Registry - Duplicate Prevention', () => {
       if (isDisabled) {
         // Hover over disabled button
         await button.hover();
-        await page.waitForTimeout(300);
+
+        // Wait for tooltip to appear (if present)
+        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
 
         // Look for tooltip (title attribute or aria-label)
         const title = await button.getAttribute('title');
@@ -610,7 +625,9 @@ test.describe('Master Registry - Empty State', () => {
 
     if (await searchInput.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
       await searchInput.fill('XYZNONEXISTENTXYZ12345');
-      await page.waitForTimeout(500);
+
+      // Wait for search to complete
+      await page.waitForLoadState('networkidle', { timeout: 10000 });
 
       // Look for empty state message
       const emptyState = page.getByText(/no.*match/i).or(
@@ -637,7 +654,9 @@ test.describe('Master Registry - Empty State', () => {
 
     if (await searchInput.isVisible({ timeout: Timeouts.SHORT }).catch(() => false)) {
       await searchInput.fill('XYZNONEXISTENT');
-      await page.waitForTimeout(500);
+
+      // Wait for search to complete
+      await page.waitForLoadState('networkidle', { timeout: 10000 });
 
       const content = await page.textContent('body');
 

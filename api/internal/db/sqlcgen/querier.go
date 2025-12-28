@@ -525,6 +525,8 @@ type Querier interface {
 	GetDeletedPublisherZmanim(ctx context.Context, publisherID int32) ([]GetDeletedPublisherZmanimRow, error)
 	// Check if a zman exists in deleted state (for restore decision)
 	GetDeletedZmanByKey(ctx context.Context, arg GetDeletedZmanByKeyParams) (GetDeletedZmanByKeyRow, error)
+	// Get a single deleted zman's details for audit logging before restore
+	GetDeletedZmanByKeyForAudit(ctx context.Context, arg GetDeletedZmanByKeyForAuditParams) (GetDeletedZmanByKeyForAuditRow, error)
 	// Get direct children of a locality (sub-localities like neighborhoods)
 	GetDirectChildrenOfLocality(ctx context.Context, arg GetDirectChildrenOfLocalityParams) ([]GetDirectChildrenOfLocalityRow, error)
 	// Get direct children of a region (both sub-regions and localities)

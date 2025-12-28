@@ -9,14 +9,10 @@
  * - Error handling for invalid configurations
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import {
   loginAsPublisher,
-  createTestPublisherEntity,
-  createTestAlgorithm,
-  createTestCoverage,
-  getTestCity,
-  cleanupTestData,
+  getPublisherWithAlgorithm,
   BASE_URL,
   waitForPageReady,
   Timeouts,
@@ -25,101 +21,116 @@ import {
 // Enable parallel mode for faster test execution
 test.describe.configure({ mode: 'parallel' });
 
+// Helper function to skip wizard if it appears and wait for algorithm page
+async function skipWizardIfNeeded(page: Page) {
+  const skipButton = page.getByRole('button', { name: /Skip wizard/i });
+  if (await skipButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await skipButton.click();
+    await waitForPageReady(page);
+  }
+}
+
 test.describe('PDF Report Generation', () => {
-  let testPublisher: { id: string; name: string };
+  let testPublisher: { id: number; name: string };
 
   test.beforeAll(async () => {
-    // Create test publisher with algorithm and coverage
-    testPublisher = await createTestPublisherEntity({
-      name: 'TEST_E2E_PDF_Publisher',
-      status: 'verified',
-    });
-
-    // Add algorithm with published status
-    await createTestAlgorithm(testPublisher.id, {
-      name: 'TEST_E2E_PDF_Algorithm',
-      status: 'published',
-    });
-
-    // Add coverage for Jerusalem
-    const city = await getTestCity('Jerusalem');
-    if (city) {
-      await createTestCoverage(testPublisher.id, city.id);
-    }
-  });
-
-  test.afterAll(async () => {
-    await cleanupTestData();
+    // Use shared publisher that already has algorithm and coverage
+    testPublisher = await getPublisherWithAlgorithm();
   });
 
   test('algorithm page shows Versions dropdown menu', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Verify Versions button exists
+    // Verify Versions button exists and is visible with extended timeout
     const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible();
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
   });
 
   test('Versions dropdown contains Generate PDF Report option', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Click Versions dropdown
+    // Wait for Versions button to be visible and clickable
     const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
+
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
 
     // Verify "Generate PDF Report" menu item exists
     const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
-    await expect(pdfMenuItem).toBeVisible();
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
   });
 
   test('clicking Generate PDF Report opens modal with configuration options', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open Versions dropdown
-    await page.getByRole('button', { name: /Versions/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
+
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
 
     // Click Generate PDF Report
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
 
     // Verify modal is open
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Verify modal has location selector
     const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
-    await expect(locationInput).toBeVisible();
+    await expect(locationInput).toBeVisible({ timeout: Timeouts.SHORT });
 
     // Verify modal has date picker
     const dateInput = modal.locator('input[type="date"], button:has-text("Select date")').first();
-    await expect(dateInput).toBeVisible();
+    await expect(dateInput).toBeVisible({ timeout: Timeouts.SHORT });
 
     // Verify modal has "Include Glossary" toggle
-    await expect(modal.getByText(/Include Glossary/i)).toBeVisible();
+    await expect(modal.getByText(/Include Glossary/i)).toBeVisible({ timeout: Timeouts.SHORT });
 
     // Verify modal has Generate PDF button
-    await expect(modal.getByRole('button', { name: /Generate PDF/i })).toBeVisible();
+    await expect(modal.getByRole('button', { name: /Generate PDF/i })).toBeVisible({ timeout: Timeouts.SHORT });
 
     // Verify modal has Cancel button
-    await expect(modal.getByRole('button', { name: /Cancel/i })).toBeVisible();
+    await expect(modal.getByRole('button', { name: /Cancel/i })).toBeVisible({ timeout: Timeouts.SHORT });
   });
 
   test('Generate PDF button shows loading state and triggers download', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Select location (type "Jerusalem" and select from autocomplete)
     const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
@@ -156,12 +167,24 @@ test.describe('PDF Report Generation', () => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Select location
     const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
@@ -190,13 +213,24 @@ test.describe('PDF Report Generation', () => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Select location
     const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
@@ -224,13 +258,24 @@ test.describe('PDF Report Generation', () => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Select location
     const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
@@ -279,13 +324,24 @@ test.describe('PDF Report Generation', () => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Do NOT select location - leave it empty
 
@@ -324,13 +380,24 @@ test.describe('PDF Report Generation', () => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Click Cancel button
     const cancelButton = modal.getByRole('button', { name: /Cancel/i });
@@ -344,13 +411,24 @@ test.describe('PDF Report Generation', () => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Press Escape key
     await page.keyboard.press('Escape');
@@ -361,40 +439,35 @@ test.describe('PDF Report Generation', () => {
 });
 
 test.describe('PDF Report Generation - Date Selection', () => {
-  let testPublisher: { id: string; name: string };
+  let testPublisher: { id: number; name: string };
 
   test.beforeAll(async () => {
-    testPublisher = await createTestPublisherEntity({
-      name: 'TEST_E2E_PDF_Date_Publisher',
-      status: 'verified',
-    });
-
-    await createTestAlgorithm(testPublisher.id, {
-      name: 'TEST_E2E_PDF_Date_Algorithm',
-      status: 'published',
-    });
-
-    const city = await getTestCity('Jerusalem');
-    if (city) {
-      await createTestCoverage(testPublisher.id, city.id);
-    }
-  });
-
-  test.afterAll(async () => {
-    await cleanupTestData();
+    // Use shared publisher that already has algorithm and coverage
+    testPublisher = await getPublisherWithAlgorithm();
   });
 
   test('date picker defaults to today', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Verify date input exists (exact selector depends on implementation)
     const dateInput = modal.locator('input[type="date"], button:has-text("Select date")').first();
@@ -408,13 +481,24 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
+    await skipWizardIfNeeded(page);
 
-    // Open modal
-    await page.getByRole('button', { name: /Versions/i }).click();
-    await page.getByRole('menuitem', { name: /Generate PDF Report/i }).click();
+    // Wait for Versions button and open dropdown
+    const versionsButton = page.getByRole('button', { name: /Versions/i });
+    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await versionsButton.click();
 
+    // Wait for dropdown menu to appear
+    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+
+    // Click Generate PDF Report
+    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    await pdfMenuItem.click();
+
+    // Wait for modal to appear
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Select location first
     const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();

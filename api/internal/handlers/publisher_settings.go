@@ -113,7 +113,15 @@ func (h *Handlers) UpdatePublisherCalculationSettings(w http.ResponseWriter, r *
 		return
 	}
 
-	// 5. Update calculation settings in database
+	// 5. Fetch existing settings for audit logging (before state)
+	existing, err := h.db.Queries.GetPublisherCalculationSettings(ctx, publisherID)
+	if err != nil {
+		slog.Error("failed to get existing calculation settings", "error", err, "publisher_id", pc.PublisherID)
+		RespondNotFound(w, r, "Publisher not found")
+		return
+	}
+
+	// 6. Update calculation settings in database
 	translitStyle := req.TransliterationStyle
 	if translitStyle == "" {
 		translitStyle = "ashkenazi"
@@ -133,26 +141,30 @@ func (h *Handlers) UpdatePublisherCalculationSettings(w http.ResponseWriter, r *
 		return
 	}
 
-	// 6. Invalidate cache - calculation settings affect results
+	// 7. Invalidate cache - calculation settings affect results
 	if h.cache != nil {
 		if err := h.cache.InvalidatePublisherCache(ctx, pc.PublisherID); err != nil {
 			slog.Warn("failed to invalidate cache after settings update", "error", err, "publisher_id", pc.PublisherID)
 		}
 	}
 
-	// 7. Log audit event - REPLACED activity_service with LogAuditEvent
+	// 8. Log audit event
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
 		ActionType:   services.ActionSettingsCalculationUpdated,
 		ResourceType: "calculation_settings",
 		ResourceID:   pc.PublisherID,
+		ChangesBefore: map[string]interface{}{
+			"ignore_elevation":      existing.IgnoreElevation,
+			"transliteration_style": existing.TransliterationStyle,
+		},
 		ChangesAfter: map[string]interface{}{
-			"ignore_elevation":      req.IgnoreElevation,
-			"transliteration_style": translitStyle,
+			"ignore_elevation":      updated.IgnoreElevation,
+			"transliteration_style": updated.TransliterationStyle,
 		},
 		Status: AuditStatusSuccess,
 	})
 
-	// 8. Respond with updated settings
+	// 9. Respond with updated settings
 	RespondJSON(w, r, http.StatusOK, CalculationSettingsResponse{
 		IgnoreElevation:      updated.IgnoreElevation,
 		TransliterationStyle: updated.TransliterationStyle,
