@@ -15,7 +15,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { Pool } from 'pg';
 import { initializeSharedPublishers, getSharedPublisherAsync, getAllSharedPublishers } from '../utils/shared-fixtures';
-import { createUserPool } from '../utils/shared-users';
+import { createUserPool, loadUserPool } from '../utils/shared-users';
 
 // Load environment variables from multiple locations
 function loadEnvFiles() {
@@ -146,8 +146,7 @@ async function preLinkPublisherUser(): Promise<void> {
   if (!databaseUrl) return;
 
   // Load user pool to get the publisher user ID
-  const sharedUsersModule = await import('../utils/shared-users');
-  const userPool = sharedUsersModule.loadUserPool();
+  const userPool = loadUserPool();
   const publisherClerkId = userPool.publisher.id;
 
   const requiresSSL = databaseUrl.includes('xata.sh') || process.env.CI === 'true';

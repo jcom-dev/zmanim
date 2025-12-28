@@ -9,6 +9,9 @@
 import { FullConfig } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { cleanupUserPool } from '../utils/shared-users';
+import { cleanupTestData, closePool } from '../utils/test-fixtures';
+import { isMailSlurpConfigured, cleanupAllInboxes } from '../utils/email-testing';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -29,12 +32,7 @@ async function globalTeardown(config: FullConfig) {
   // Clean up shared user pool
   try {
     console.log('Cleaning up shared user pool...');
-    const sharedUsers = await import('../utils/shared-users');
-    if (typeof sharedUsers.cleanupUserPool === 'function') {
-      await sharedUsers.cleanupUserPool();
-    } else {
-      console.log('cleanupUserPool not available, skipping user pool cleanup');
-    }
+    await cleanupUserPool();
   } catch (error) {
     console.error('Error cleaning up user pool:', error);
   }
@@ -42,27 +40,18 @@ async function globalTeardown(config: FullConfig) {
   // Clean up database data
   try {
     console.log('Cleaning up database test data...');
-    const testFixtures = await import('../utils/test-fixtures');
-    if (typeof testFixtures.cleanupTestData === 'function') {
-      await testFixtures.cleanupTestData();
-    }
-    // Close pool
-    if (typeof testFixtures.closePool === 'function') {
-      console.log('Closing database connection pool...');
-      await testFixtures.closePool();
-    }
+    await cleanupTestData();
+    console.log('Closing database connection pool...');
+    await closePool();
   } catch (error) {
     console.error('Error cleaning up database data:', error);
   }
 
   // Clean up MailSlurp inboxes
   try {
-    const emailTesting = await import('../utils/email-testing');
-    if (typeof emailTesting.isMailSlurpConfigured === 'function' && emailTesting.isMailSlurpConfigured()) {
+    if (isMailSlurpConfigured()) {
       console.log('Cleaning up MailSlurp inboxes...');
-      if (typeof emailTesting.cleanupAllInboxes === 'function') {
-        await emailTesting.cleanupAllInboxes();
-      }
+      await cleanupAllInboxes();
     }
   } catch (error) {
     console.error('Error cleaning up email inboxes:', error);

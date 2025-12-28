@@ -522,7 +522,7 @@ test.describe('Master Registry - Import Flow', () => {
 
 test.describe('Master Registry - Duplicate Prevention', () => {
   test('already imported zman shows imported badge', async ({ page }) => {
-    const publisher = getSharedPublisher('with-algorithm');
+    const publisher = getSharedPublisher('with-algorithm-1');
     await loginAsPublisher(page, publisher.id);
 
     await page.goto(`${BASE_URL}/publisher/registry`);
@@ -539,7 +539,7 @@ test.describe('Master Registry - Duplicate Prevention', () => {
   });
 
   test('already imported zman has disabled import button', async ({ page }) => {
-    const publisher = getSharedPublisher('with-algorithm');
+    const publisher = getSharedPublisher('with-algorithm-1');
     await loginAsPublisher(page, publisher.id);
 
     await page.goto(`${BASE_URL}/publisher/registry`);
@@ -564,7 +564,7 @@ test.describe('Master Registry - Duplicate Prevention', () => {
   });
 
   test('disabled import button shows tooltip on hover', async ({ page }) => {
-    const publisher = getSharedPublisher('with-algorithm');
+    const publisher = getSharedPublisher('with-algorithm-1');
     await loginAsPublisher(page, publisher.id);
 
     await page.goto(`${BASE_URL}/publisher/registry`);

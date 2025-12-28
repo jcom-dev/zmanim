@@ -1,10 +1,10 @@
 /**
  * API Helper Utilities for E2E Tests
  *
- * Utilities for working with the new API structure introduced in Epic 9:
+ * Utilities for working with the API structure:
  * - /api/v1/auth/publisher/* (publisher-scoped endpoints)
  * - /api/v1/auth/admin/* (admin-scoped endpoints)
- * - /api/v1/public/* (public endpoints)
+ * - /api/v1/* (public endpoints - no /public/ prefix)
  *
  * Story: 9.7 - E2E Test Suite Refresh for New API Structure
  */
@@ -19,8 +19,8 @@ export const API_PATHS = {
   PUBLISHER: '/api/v1/auth/publisher',
   /** Admin-scoped endpoints requiring authentication + admin role */
   ADMIN: '/api/v1/auth/admin',
-  /** Public endpoints (no authentication) */
-  PUBLIC: '/api/v1/public',
+  /** Public endpoints (no authentication) - Note: routes are /api/v1/* not /api/v1/public/* */
+  PUBLIC: '/api/v1',
 } as const;
 
 /**
@@ -29,9 +29,7 @@ export const API_PATHS = {
  * Converts old API paths to new structure:
  * - /api/v1/publisher/* → /api/v1/auth/publisher/*
  * - /api/v1/admin/* → /api/v1/auth/admin/*
- * - /api/v1/publishers → /api/v1/public/publishers
- * - /api/v1/cities → /api/v1/public/cities
- * - /api/v1/countries → /api/v1/public/countries
+ * - Public routes remain as /api/v1/* (no /public/ prefix)
  *
  * @param path - API path to normalize
  * @returns Normalized API path
@@ -45,12 +43,12 @@ export const API_PATHS = {
  * // Returns: '/api/v1/auth/admin/publishers'
  *
  * normalizeApiPath('/api/v1/cities')
- * // Returns: '/api/v1/public/cities'
+ * // Returns: '/api/v1/cities'
  * ```
  */
 export function normalizeApiPath(path: string): string {
   // Already normalized paths - return as is
-  if (path.startsWith('/api/v1/auth/') || path.startsWith('/api/v1/public/')) {
+  if (path.startsWith('/api/v1/auth/')) {
     return path;
   }
 
@@ -64,24 +62,7 @@ export function normalizeApiPath(path: string): string {
     return path.replace('/api/v1/admin/', '/api/v1/auth/admin/');
   }
 
-  // Convert public resource paths
-  const publicResources = [
-    '/api/v1/publishers',
-    '/api/v1/cities',
-    '/api/v1/countries',
-    '/api/v1/regions',
-    '/api/v1/localities/search',
-  ];
-
-  for (const resource of publicResources) {
-    if (path.startsWith(resource)) {
-      // Extract the resource name (e.g., 'publishers', 'cities')
-      const resourcePath = path.substring('/api/v1/'.length);
-      return `/api/v1/public/${resourcePath}`;
-    }
-  }
-
-  // Path doesn't match any known pattern - return as is
+  // Public routes remain as /api/v1/* - no conversion needed
   return path;
 }
 
@@ -170,16 +151,16 @@ export function adminApiUrl(endpoint: string): string {
 /**
  * Build a public API URL
  *
- * @param endpoint - Endpoint path (without /public prefix)
+ * @param endpoint - Endpoint path (e.g., 'cities', 'publishers')
  * @returns Full API URL for public endpoint
  *
  * @example
  * ```typescript
  * publicApiUrl('cities')
- * // Returns: 'http://localhost:8080/api/v1/public/cities'
+ * // Returns: 'http://localhost:8080/api/v1/cities'
  *
  * publicApiUrl('/localities/search')
- * // Returns: 'http://localhost:8080/api/v1/public/localities/search'
+ * // Returns: 'http://localhost:8080/api/v1/localities/search'
  * ```
  */
 export function publicApiUrl(endpoint: string): string {
