@@ -85,6 +85,13 @@ const (
 	ActionOnboardingReset     = "onboarding_reset"
 )
 
+// Correction request action types
+const (
+	ActionCorrectionRequestCreate = "correction_request_create"
+	ActionCorrectionRequestUpdate = "correction_request_update"
+	ActionCorrectionRequestDelete = "correction_request_delete"
+)
+
 // Admin action type constants
 const (
 	ActionAdminPublisherVerify          = "admin_publisher_verify"
