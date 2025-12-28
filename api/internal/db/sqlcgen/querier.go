@@ -696,6 +696,11 @@ type Querier interface {
 	GetPublisherCoverageForExport(ctx context.Context, publisherID int32) ([]GetPublisherCoverageForExportRow, error)
 	// Get localities where a publisher has coverage
 	GetPublisherCoverageLocalities(ctx context.Context, publisherID int32) ([]GetPublisherCoverageLocalitiesRow, error)
+	// ============================================================================
+	// ANALYTICS QUERIES
+	// ============================================================================
+	// Returns daily calculation counts for the last 7 days
+	GetPublisherDailyTrend(ctx context.Context, publisherID int32) ([]GetPublisherDailyTrendRow, error)
 	GetPublisherDashboardSummary(ctx context.Context, id int32) (GetPublisherDashboardSummaryRow, error)
 	// Algorithms SQL Queries
 	// SQLc will generate type-safe Go code from these queries
@@ -765,6 +770,8 @@ type Querier interface {
 	// Provides access to all lookup/reference tables for frontend dropdowns and validation
 	// Publisher Statuses --
 	GetPublisherStatuses(ctx context.Context) ([]GetPublisherStatusesRow, error)
+	// Returns top localities by calculation count
+	GetPublisherTopLocalities(ctx context.Context, arg GetPublisherTopLocalitiesParams) ([]GetPublisherTopLocalitiesRow, error)
 	// Calculation Logging Queries
 	// Story 8.2: Implement Calculation Logging
 	//

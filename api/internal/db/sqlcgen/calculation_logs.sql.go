@@ -242,6 +242,46 @@ func (q *Queries) GetPublisherCacheHitRatio(ctx context.Context, publisherID int
 	return i, err
 }
 
+const getPublisherDailyTrend = `-- name: GetPublisherDailyTrend :many
+
+SELECT
+    date,
+    total_calculations
+FROM calculation_stats_daily
+WHERE publisher_id = $1
+  AND date >= CURRENT_DATE - interval '6 days'
+ORDER BY date ASC
+`
+
+type GetPublisherDailyTrendRow struct {
+	Date              pgtype.Date `json:"date"`
+	TotalCalculations int32       `json:"total_calculations"`
+}
+
+// ============================================================================
+// ANALYTICS QUERIES
+// ============================================================================
+// Returns daily calculation counts for the last 7 days
+func (q *Queries) GetPublisherDailyTrend(ctx context.Context, publisherID int32) ([]GetPublisherDailyTrendRow, error) {
+	rows, err := q.db.Query(ctx, getPublisherDailyTrend, publisherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPublisherDailyTrendRow{}
+	for rows.Next() {
+		var i GetPublisherDailyTrendRow
+		if err := rows.Scan(&i.Date, &i.TotalCalculations); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPublisherMonthlyCalculations = `-- name: GetPublisherMonthlyCalculations :one
 SELECT COALESCE(SUM(total_calculations), 0)::bigint as total
 FROM calculation_stats_daily
@@ -350,6 +390,49 @@ func (q *Queries) GetPublisherStatsDetailed(ctx context.Context, publisherID int
 		&i.AvgResponseMs,
 	)
 	return i, err
+}
+
+const getPublisherTopLocalities = `-- name: GetPublisherTopLocalities :many
+SELECT
+    gl.name,
+    COUNT(*)::bigint as count
+FROM calculation_logs cl
+JOIN geo_localities gl ON cl.locality_id = gl.id
+WHERE cl.publisher_id = $1
+GROUP BY gl.id, gl.name
+ORDER BY count DESC
+LIMIT $2
+`
+
+type GetPublisherTopLocalitiesParams struct {
+	PublisherID int32 `json:"publisher_id"`
+	Limit       int32 `json:"limit"`
+}
+
+type GetPublisherTopLocalitiesRow struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+// Returns top localities by calculation count
+func (q *Queries) GetPublisherTopLocalities(ctx context.Context, arg GetPublisherTopLocalitiesParams) ([]GetPublisherTopLocalitiesRow, error) {
+	rows, err := q.db.Query(ctx, getPublisherTopLocalities, arg.PublisherID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPublisherTopLocalitiesRow{}
+	for rows.Next() {
+		var i GetPublisherTopLocalitiesRow
+		if err := rows.Scan(&i.Name, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getPublisherTotalCalculations = `-- name: GetPublisherTotalCalculations :one

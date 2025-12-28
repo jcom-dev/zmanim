@@ -2,16 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePublisherContext } from '@/providers/PublisherContext';
-import { BarChart3, Globe, Calculator, Calendar, MapPin, Loader2, RefreshCw, Clock } from 'lucide-react';
+import { BarChart3, Globe, Calculator, Calendar, MapPin, Loader2, RefreshCw } from 'lucide-react';
 import { useApi } from '@/lib/api-client';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { Sparkline } from '@/components/ui/sparkline';
 
 interface Analytics {
   calculations_total: number;
   calculations_this_month: number;
   coverage_areas: number;
   localities_covered: number;
+  daily_trend: { date: string; count: number }[];
+  top_localities: { name: string; count: number }[];
 }
 
 export default function PublisherAnalyticsPage() {
@@ -155,104 +158,134 @@ export default function PublisherAnalyticsPage() {
 
         {/* Stats Cards */}
         {hasActivity && analytics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-card rounded-lg border border-border p-6" data-testid="total-calculations">
-              <div className="flex items-center gap-2 text-muted-foreground mb-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Calculator className="w-5 h-5" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Total number of zmanim calculations performed</TooltipContent>
-                </Tooltip>
-                <span className="text-sm font-medium">Total Calculations</span>
-              </div>
-              <p className="text-4xl font-bold text-foreground">
-                {analytics.calculations_total.toLocaleString()}
-              </p>
-              <p className="text-muted-foreground text-sm mt-1">all time</p>
-            </div>
-
-            <div className="bg-card rounded-lg border border-border p-6" data-testid="monthly-calculations">
-              <div className="flex items-center gap-2 text-muted-foreground mb-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Calculations performed this month</TooltipContent>
-                </Tooltip>
-                <span className="text-sm font-medium">This Month</span>
-              </div>
-              <p className="text-4xl font-bold text-foreground">
-                {analytics.calculations_this_month.toLocaleString()}
-              </p>
-              <p className="text-muted-foreground text-sm mt-1">calculations</p>
-            </div>
-
-            <div className="bg-card rounded-lg border border-border p-6" data-testid="coverage-areas">
-              <div className="flex items-center gap-2 text-muted-foreground mb-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Globe className="w-5 h-5" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Number of active coverage areas</TooltipContent>
-                </Tooltip>
-                <span className="text-sm font-medium">Coverage Areas</span>
-              </div>
-              <p className="text-4xl font-bold text-foreground">
-                {analytics.coverage_areas.toLocaleString()}
-              </p>
-              <p className="text-muted-foreground text-sm mt-1">active areas</p>
-            </div>
-
-            <div className="bg-card rounded-lg border border-border p-6" data-testid="localities-covered">
-              <div className="flex items-center gap-2 text-muted-foreground mb-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <MapPin className="w-5 h-5" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Total number of localities within coverage areas</TooltipContent>
-                </Tooltip>
-                <span className="text-sm font-medium">Localities Covered</span>
-              </div>
-              <p className="text-4xl font-bold text-foreground">
-                {analytics.localities_covered.toLocaleString()}
-              </p>
-              <p className="text-muted-foreground text-sm mt-1">total localities</p>
-            </div>
-          </div>
-        )}
-
-        {/* Coming Soon Note */}
-        <div className="bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20 p-8 text-center">
-          <div className="max-w-md mx-auto">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="inline-block">
-                  <BarChart3 className="w-12 h-12 text-muted-foreground/60 mb-4" />
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-card rounded-lg border border-border p-6" data-testid="total-calculations">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Calculator className="w-5 h-5" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Total number of zmanim calculations performed</TooltipContent>
+                    </Tooltip>
+                    <span className="text-sm font-medium">Total Calculations</span>
+                  </div>
+                  {analytics.daily_trend && analytics.daily_trend.length > 0 && (
+                    <Sparkline
+                      data={analytics.daily_trend.map(d => d.count)}
+                      color="currentColor"
+                      height={32}
+                      className="text-primary opacity-50"
+                      data-testid="daily-trend-sparkline"
+                    />
+                  )}
                 </div>
-              </TooltipTrigger>
-              <TooltipContent>Advanced analytics features in development</TooltipContent>
-            </Tooltip>
-            <h3 className="text-xl font-semibold mb-3 text-foreground">Detailed Analytics Coming Soon</h3>
-            <p className="text-muted-foreground leading-relaxed">
-              Advanced features including interactive charts, trend analysis,
-              geographic breakdowns, and detailed usage statistics will be
-              available in a future update.
-            </p>
-            <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground/80 font-medium">
-              <Clock className="w-4 h-4" />
-              <span>In Development</span>
+                <p className="text-4xl font-bold text-foreground">
+                  {analytics.calculations_total.toLocaleString()}
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">all time</p>
+              </div>
+
+              <div className="bg-card rounded-lg border border-border p-6" data-testid="monthly-calculations">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Calendar className="w-5 h-5" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Calculations performed this month</TooltipContent>
+                    </Tooltip>
+                    <span className="text-sm font-medium">This Month</span>
+                  </div>
+                  {analytics.daily_trend && analytics.daily_trend.length > 0 && (
+                    <Sparkline
+                      data={analytics.daily_trend.map(d => d.count)}
+                      color="currentColor"
+                      height={32}
+                      className="text-primary opacity-50"
+                      data-testid="daily-trend-sparkline"
+                    />
+                  )}
+                </div>
+                <p className="text-4xl font-bold text-foreground">
+                  {analytics.calculations_this_month.toLocaleString()}
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">calculations</p>
+              </div>
+
+              <div className="bg-card rounded-lg border border-border p-6" data-testid="coverage-areas">
+                <div className="flex items-center gap-2 text-muted-foreground mb-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Globe className="w-5 h-5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Number of active coverage areas</TooltipContent>
+                  </Tooltip>
+                  <span className="text-sm font-medium">Coverage Areas</span>
+                </div>
+                <p className="text-4xl font-bold text-foreground">
+                  {analytics.coverage_areas.toLocaleString()}
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">active areas</p>
+              </div>
+
+              <div className="bg-card rounded-lg border border-border p-6" data-testid="localities-covered">
+                <div className="flex items-center gap-2 text-muted-foreground mb-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <MapPin className="w-5 h-5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Total number of localities within coverage areas</TooltipContent>
+                </Tooltip>
+                  <span className="text-sm font-medium">Localities Covered</span>
+                </div>
+                <p className="text-4xl font-bold text-foreground">
+                  {analytics.localities_covered.toLocaleString()}
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">total localities</p>
+              </div>
             </div>
-          </div>
-        </div>
+
+            {/* Top Localities */}
+            {analytics.top_localities && analytics.top_localities.length > 0 && (
+              <div className="bg-card rounded-lg border border-border p-6" data-testid="top-localities-section">
+                <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                  <MapPin className="w-5 h-5" />
+                  <h2 className="text-lg font-semibold text-foreground">Top Localities</h2>
+                </div>
+                <div className="space-y-3">
+                  {analytics.top_localities.map((locality, index) => {
+                    const maxCount = analytics.top_localities[0]?.count || 1;
+                    const percentage = (locality.count / maxCount) * 100;
+                    return (
+                      <div key={index} className="space-y-1" data-testid="top-locality-item">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-foreground">{locality.name}</span>
+                          <span className="text-muted-foreground">{locality.count.toLocaleString()}</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

@@ -99,7 +99,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <div className="flex justify-between overflow-x-auto scrollbar-hide">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const active = isActive(item.href, item.exact);
+              const active = isActive(item.href);
               const badge = 'badge' in item ? (item.badge ?? 0) : 0;
               return (
                 <Link

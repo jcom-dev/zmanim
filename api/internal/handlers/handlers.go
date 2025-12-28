@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim/internal/ai"
@@ -1165,12 +1166,56 @@ func (h *Handlers) GetPublisherAnalytics(w http.ResponseWriter, r *http.Request)
 		slog.Error("failed to get cache hit ratio", "error", err, "publisher_id", pubID)
 	}
 
+	// Get daily trend (last 7 days)
+	dailyTrendRows, err := h.db.Queries.GetPublisherDailyTrend(ctx, pubID)
+	if err != nil {
+		slog.Error("failed to get daily trend", "error", err, "publisher_id", pubID)
+	}
+
+	// Build daily trend response, filling missing days with 0
+	dailyTrend := make([]map[string]interface{}, 0)
+	trendMap := make(map[string]int32)
+	for _, row := range dailyTrendRows {
+		trendMap[row.Date.Time.Format("2006-01-02")] = row.TotalCalculations
+	}
+
+	// Fill last 7 days including today
+	now := time.Now()
+	for i := 6; i >= 0; i-- {
+		date := now.AddDate(0, 0, -i)
+		dateStr := date.Format("2006-01-02")
+		count := trendMap[dateStr]
+		dailyTrend = append(dailyTrend, map[string]interface{}{
+			"date":  dateStr,
+			"count": count,
+		})
+	}
+
+	// Get top 5 localities
+	topLocalitiesRows, err := h.db.Queries.GetPublisherTopLocalities(ctx, sqlcgen.GetPublisherTopLocalitiesParams{
+		PublisherID: pubID,
+		Limit:       5,
+	})
+	if err != nil {
+		slog.Error("failed to get top localities", "error", err, "publisher_id", pubID)
+	}
+
+	topLocalities := make([]map[string]interface{}, 0)
+	for _, row := range topLocalitiesRows {
+		topLocalities = append(topLocalities, map[string]interface{}{
+			"name":  row.Name,
+			"count": row.Count,
+		})
+	}
+
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
 		"calculations_total":      calculationsTotal,
 		"calculations_this_month": calculationsThisMonth,
 		"cache_hit_ratio":         cacheStats.CacheHitRatio,
 		"coverage_areas":          coverageAreas,
 		"localities_covered":      localitiesCovered,
+		"daily_trend":             dailyTrend,
+		"top_localities":          topLocalities,
 	})
 }
 

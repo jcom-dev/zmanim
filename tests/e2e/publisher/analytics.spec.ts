@@ -275,29 +275,121 @@ test.describe('Publisher Analytics - Empty State', () => {
   });
 });
 
-test.describe('Publisher Analytics - Coming Soon Section', () => {
-  test('shows coming soon note', async ({ page }) => {
+test.describe('Publisher Analytics - Sparklines', () => {
+  test('displays sparkline charts for trend data', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
 
     await page.goto(`${BASE_URL}/publisher/analytics`);
     await waitForAnalyticsLoad(page);
 
-    // Should show "Coming Soon" section
-    await expect(page.getByText(/detailed analytics coming soon/i)).toBeVisible();
+    const hasStats = await page.getByText('Total Calculations').isVisible().catch(() => false);
+
+    if (hasStats) {
+      // Check if sparklines are present
+      const sparklines = await page.locator('[data-testid="daily-trend-sparkline"]').count();
+      expect(sparklines).toBeGreaterThan(0);
+    }
   });
 
-  test('coming soon note mentions future features', async ({ page }) => {
+  test('sparklines are SVG elements', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
 
     await page.goto(`${BASE_URL}/publisher/analytics`);
     await waitForAnalyticsLoad(page);
 
-    // Should mention future features
-    await expect(page.getByText(/interactive charts/i)).toBeVisible();
-    await expect(page.getByText(/trend analysis/i)).toBeVisible();
-    await expect(page.getByText(/geographic breakdowns/i)).toBeVisible();
+    const hasStats = await page.getByText('Total Calculations').isVisible().catch(() => false);
+
+    if (hasStats) {
+      const sparkline = page.locator('[data-testid="daily-trend-sparkline"]').first();
+      if (await sparkline.count() > 0) {
+        // Should be an SVG element
+        const tagName = await sparkline.evaluate((el) => el.tagName.toLowerCase());
+        expect(tagName).toBe('svg');
+      }
+    }
+  });
+});
+
+test.describe('Publisher Analytics - Top Localities', () => {
+  test('displays top localities section when data exists', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+
+    await page.goto(`${BASE_URL}/publisher/analytics`);
+    await waitForAnalyticsLoad(page);
+
+    // Check if top localities section exists
+    const topLocalitiesSection = await page.locator('[data-testid="top-localities-section"]').isVisible().catch(() => false);
+
+    // Top localities section may or may not exist depending on data
+    if (topLocalitiesSection) {
+      // Verify section heading
+      await expect(page.getByText('Top Localities')).toBeVisible();
+
+      // Verify at least one locality item
+      const localityItems = await page.locator('[data-testid="top-locality-item"]').count();
+      expect(localityItems).toBeGreaterThan(0);
+      expect(localityItems).toBeLessThanOrEqual(5);
+    }
+  });
+
+  test('top locality items show name and count', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+
+    await page.goto(`${BASE_URL}/publisher/analytics`);
+    await waitForAnalyticsLoad(page);
+
+    const topLocalitiesSection = await page.locator('[data-testid="top-localities-section"]').isVisible().catch(() => false);
+
+    if (topLocalitiesSection) {
+      const firstItem = page.locator('[data-testid="top-locality-item"]').first();
+
+      // Should have text content (locality name and count)
+      const text = await firstItem.textContent();
+      expect(text).toBeTruthy();
+      expect(text?.length).toBeGreaterThan(0);
+
+      // Should have a progress bar (visual indicator)
+      const progressBar = firstItem.locator('.bg-muted.rounded-full');
+      await expect(progressBar).toBeVisible();
+    }
+  });
+
+  test('top localities have progress bars', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+
+    await page.goto(`${BASE_URL}/publisher/analytics`);
+    await waitForAnalyticsLoad(page);
+
+    const topLocalitiesSection = await page.locator('[data-testid="top-localities-section"]').isVisible().catch(() => false);
+
+    if (topLocalitiesSection) {
+      const localityItems = await page.locator('[data-testid="top-locality-item"]').all();
+
+      for (const item of localityItems) {
+        // Each item should have a progress bar
+        const progressBars = await item.locator('.bg-primary.rounded-full').count();
+        expect(progressBars).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+test.describe('Publisher Analytics - No Coming Soon Section', () => {
+  test('does not show coming soon message', async ({ page }) => {
+    const publisher = getSharedPublisher('verified-1');
+    await loginAsPublisher(page, publisher.id);
+
+    await page.goto(`${BASE_URL}/publisher/analytics`);
+    await waitForAnalyticsLoad(page);
+
+    // Should NOT show "Coming Soon" text anywhere on the page
+    const comingSoonText = await page.getByText(/coming soon/i).isVisible().catch(() => false);
+    expect(comingSoonText).toBeFalsy();
   });
 });
 
@@ -367,7 +459,7 @@ test.describe('Publisher Analytics - Tooltips', () => {
 });
 
 test.describe('Publisher Analytics - API Response', () => {
-  test('analytics API returns valid JSON', async ({ page }) => {
+  test('analytics API returns valid JSON with all fields', async ({ page }) => {
     const publisher = getSharedPublisher('verified-1');
     await loginAsPublisher(page, publisher.id);
 
@@ -384,18 +476,40 @@ test.describe('Publisher Analytics - API Response', () => {
       expect(data).toHaveProperty('calculations_this_month');
       expect(data).toHaveProperty('coverage_areas');
       expect(data).toHaveProperty('localities_covered');
+      expect(data).toHaveProperty('daily_trend');
+      expect(data).toHaveProperty('top_localities');
 
       // Verify types
       expect(typeof data.calculations_total).toBe('number');
       expect(typeof data.calculations_this_month).toBe('number');
       expect(typeof data.coverage_areas).toBe('number');
       expect(typeof data.localities_covered).toBe('number');
+      expect(Array.isArray(data.daily_trend)).toBe(true);
+      expect(Array.isArray(data.top_localities)).toBe(true);
 
       // Verify values are non-negative
       expect(data.calculations_total).toBeGreaterThanOrEqual(0);
       expect(data.calculations_this_month).toBeGreaterThanOrEqual(0);
       expect(data.coverage_areas).toBeGreaterThanOrEqual(0);
       expect(data.localities_covered).toBeGreaterThanOrEqual(0);
+
+      // Verify daily_trend structure
+      if (data.daily_trend.length > 0) {
+        const trend = data.daily_trend[0];
+        expect(trend).toHaveProperty('date');
+        expect(trend).toHaveProperty('count');
+        expect(typeof trend.date).toBe('string');
+        expect(typeof trend.count).toBe('number');
+      }
+
+      // Verify top_localities structure
+      if (data.top_localities.length > 0) {
+        const locality = data.top_localities[0];
+        expect(locality).toHaveProperty('name');
+        expect(locality).toHaveProperty('count');
+        expect(typeof locality.name).toBe('string');
+        expect(typeof locality.count).toBe('number');
+      }
     }
   });
 });

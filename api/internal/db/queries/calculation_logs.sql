@@ -199,3 +199,29 @@ FROM calculation_logs;
 -- name: GetCalculationLogsDiskSize :one
 -- Returns disk size of calculation_logs table
 SELECT pg_size_pretty(pg_total_relation_size('calculation_logs')) as size;
+
+-- ============================================================================
+-- ANALYTICS QUERIES
+-- ============================================================================
+
+-- name: GetPublisherDailyTrend :many
+-- Returns daily calculation counts for the last 7 days
+SELECT
+    date,
+    total_calculations
+FROM calculation_stats_daily
+WHERE publisher_id = $1
+  AND date >= CURRENT_DATE - interval '6 days'
+ORDER BY date ASC;
+
+-- name: GetPublisherTopLocalities :many
+-- Returns top localities by calculation count
+SELECT
+    gl.name,
+    COUNT(*)::bigint as count
+FROM calculation_logs cl
+JOIN geo_localities gl ON cl.locality_id = gl.id
+WHERE cl.publisher_id = $1
+GROUP BY gl.id, gl.name
+ORDER BY count DESC
+LIMIT $2;
