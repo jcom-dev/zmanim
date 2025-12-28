@@ -18,9 +18,14 @@ import (
 
 // AuditEventParams contains parameters for logging an audit event
 type AuditEventParams struct {
+	// ActionType is the specific granular action constant (e.g., services.ActionTeamMemberAdded)
+	// If provided, this takes precedence over EventCategory + EventAction pattern
+	ActionType string
 	// EventCategory is the high-level category (publisher, zman, coverage, algorithm, team)
+	// DEPRECATED: Use ActionType instead for new code
 	EventCategory string
 	// EventAction is the specific action (create, update, delete, publish, etc.)
+	// DEPRECATED: Use ActionType instead for new code
 	EventAction string
 	// ResourceType is the type of resource being modified (publisher, publisher_zman, coverage, etc.)
 	ResourceType string
@@ -97,11 +102,24 @@ func (h *Handlers) LogAuditEvent(ctx context.Context, r *http.Request, pc *Publi
 		publisherID = pc.PublisherID
 	}
 
-	// Map event category to activity service concept
-	concept := mapCategorytoConcept(params.EventCategory)
+	// Determine action type: use specific ActionType if provided, otherwise fall back to category_action pattern
+	var actionType string
+	if params.ActionType != "" {
+		// Use the specific granular action constant
+		actionType = params.ActionType
+	} else {
+		// Fall back to legacy category_action pattern for backward compatibility
+		actionType = params.EventCategory + "_" + params.EventAction
+	}
 
-	// Build action type in format: category_action (e.g., zman_create, coverage_update)
-	actionType := params.EventCategory + "_" + params.EventAction
+	// Map to activity service concept
+	// If using ActionType, infer concept from the action name; otherwise use category
+	var concept string
+	if params.ActionType != "" {
+		concept = inferConceptFromActionType(params.ActionType)
+	} else {
+		concept = mapCategorytoConcept(params.EventCategory)
+	}
 
 	// Log asynchronously to avoid blocking the handler
 	go func() {
@@ -232,6 +250,124 @@ func mapCategorytoConcept(category string) string {
 	default:
 		return category
 	}
+}
+
+// inferConceptFromActionType infers the concept from a specific action type constant
+// This maps granular action types to their high-level concepts
+func inferConceptFromActionType(actionType string) string {
+	// Team-related actions
+	if actionType == services.ActionTeamMemberAdded ||
+		actionType == services.ActionTeamMemberRemoved ||
+		actionType == services.ActionTeamInvitationSent ||
+		actionType == services.ActionTeamInvitationResent ||
+		actionType == services.ActionTeamInvitationCancelled ||
+		actionType == services.ActionTeamInvitationAccepted {
+		return services.ConceptPublisher // Team operations are publisher-scoped
+	}
+
+	// Settings-related actions
+	if actionType == services.ActionSettingsCalculationUpdated ||
+		actionType == services.ActionSettingsTransliterationUpdated ||
+		actionType == services.ActionSettingsElevationUpdated ||
+		actionType == services.ActionSettingsUpdate {
+		return services.ConceptPublisher
+	}
+
+	// Coverage-related actions
+	if actionType == services.ActionCoverageGlobalEnabled ||
+		actionType == services.ActionCoverageGlobalDisabled ||
+		actionType == services.ActionCoverageRegionAdded ||
+		actionType == services.ActionCoverageRegionRemoved ||
+		actionType == services.ActionCoverageAdd ||
+		actionType == services.ActionCoverageRemove {
+		return services.ConceptCoverage
+	}
+
+	// Zman-related actions
+	if actionType == services.ActionZmanCreate ||
+		actionType == services.ActionZmanUpdate ||
+		actionType == services.ActionZmanDelete {
+		return services.ConceptZman
+	}
+
+	// Algorithm-related actions
+	if actionType == services.ActionAlgorithmSave ||
+		actionType == services.ActionAlgorithmPublish {
+		return services.ConceptAlgorithm
+	}
+
+	// Version-related actions
+	if actionType == services.ActionVersionSnapshotCreated ||
+		actionType == services.ActionVersionRollbackExecuted ||
+		actionType == services.ActionSnapshotCreated ||
+		actionType == services.ActionSnapshotRestored ||
+		actionType == services.ActionSnapshotDeleted {
+		return services.ConceptPublisher
+	}
+
+	// Location override actions
+	if actionType == services.ActionLocationOverrideCreated ||
+		actionType == services.ActionLocationOverrideUpdated ||
+		actionType == services.ActionLocationOverrideDeleted {
+		return services.ConceptCoverage
+	}
+
+	// Onboarding actions
+	if actionType == services.ActionOnboardingCompleted ||
+		actionType == services.ActionOnboardingReset {
+		return services.ConceptPublisher
+	}
+
+	// Admin actions
+	if actionType == services.ActionAdminPublisherVerify ||
+		actionType == services.ActionAdminPublisherSuspend ||
+		actionType == services.ActionAdminPublisherReactivate ||
+		actionType == services.ActionAdminPublisherDelete ||
+		actionType == services.ActionAdminPublisherRestore ||
+		actionType == services.ActionAdminPublisherPermanentDelete ||
+		actionType == services.ActionAdminPublisherCertified ||
+		actionType == services.ActionAdminPublisherCreate ||
+		actionType == services.ActionAdminPublisherUpdate ||
+		actionType == services.ActionAdminUserAdd ||
+		actionType == services.ActionAdminUserRemove ||
+		actionType == services.ActionAdminCorrectionApprove ||
+		actionType == services.ActionAdminCorrectionReject ||
+		actionType == services.ActionAdminPublisherExport ||
+		actionType == services.ActionAdminPublisherImport ||
+		actionType == services.ActionAdminCacheFlush ||
+		actionType == services.ActionAdminLocalityUpdate ||
+		actionType == services.ActionAdminGrantAccess ||
+		actionType == services.ActionAdminRevokeAccess ||
+		actionType == services.ActionAdminSetRole ||
+		actionType == services.ActionAdminPasswordReset ||
+		actionType == services.ActionAdminImpersonate ||
+		actionType == services.ActionAdminSystemConfig ||
+		actionType == services.ActionAdminRequestApprove ||
+		actionType == services.ActionAdminRequestReject ||
+		actionType == services.ActionAdminZmanRequestReview ||
+		actionType == services.ActionAdminTagApprove ||
+		actionType == services.ActionAdminTagReject ||
+		actionType == services.ActionAdminMasterZmanCreate ||
+		actionType == services.ActionAdminMasterZmanUpdate ||
+		actionType == services.ActionAdminMasterZmanDelete ||
+		actionType == services.ActionAdminZmanVisibilityToggle ||
+		actionType == services.ActionAdminImpersonationStart ||
+		actionType == services.ActionAdminImpersonationEnd ||
+		actionType == services.ActionAdminAuditLogsViewed ||
+		actionType == services.ActionAdminAuditLogsExported ||
+		actionType == services.ActionAdminUserCreated ||
+		actionType == services.ActionAdminUserRoleUpdated ||
+		actionType == services.ActionAdminUserInvited {
+		return services.ConceptAdmin
+	}
+
+	// Default fallback
+	if actionType == services.ActionProfileUpdate {
+		return services.ConceptPublisher
+	}
+
+	// If unknown, return the action type itself as the concept
+	return actionType
 }
 
 // toJSONMap converts an interface to a map[string]interface{} for JSON serialization

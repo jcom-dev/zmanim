@@ -797,6 +797,7 @@ func (h *Handlers) UpdatePublisherProfile(w http.ResponseWriter, r *http.Request
 	}
 
 	var publisher models.Publisher
+	var beforeState map[string]interface{}
 
 	if publisherID != "" {
 		// Convert string ID to int32
@@ -804,6 +805,24 @@ func (h *Handlers) UpdatePublisherProfile(w http.ResponseWriter, r *http.Request
 		if convErr != nil {
 			RespondBadRequest(w, r, "Invalid publisher ID")
 			return
+		}
+
+		// Fetch current state BEFORE update for audit logging
+		currentProfile, err := h.db.Queries.GetPublisherFullProfileByID(ctx, id)
+		if err != nil {
+			slog.Error("Failed to fetch publisher profile before update", "error", err, "publisher_id", publisherID)
+			RespondNotFound(w, r, "Publisher profile not found")
+			return
+		}
+
+		// Capture before state
+		beforeState = map[string]interface{}{
+			"name":    currentProfile.Name,
+			"email":   currentProfile.ContactEmail,
+			"website": currentProfile.Website,
+		}
+		if currentProfile.Bio != "" {
+			beforeState["bio"] = currentProfile.Bio
 		}
 
 		publisherRow, err := h.db.Queries.UpdatePublisherProfile(ctx, sqlcgen.UpdatePublisherProfileParams{

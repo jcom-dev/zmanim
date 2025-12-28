@@ -1041,12 +1041,15 @@ func (h *Handlers) UpdateGlobalCoverage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 4b. Log global coverage update
+	actionType := services.ActionCoverageGlobalEnabled
+	if !req.IsGlobal {
+		actionType = services.ActionCoverageGlobalDisabled
+	}
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategorySettings,
-		EventAction:   AuditActionUpdate,
-		ResourceType:  "publisher_settings",
-		ResourceID:    pc.PublisherID,
-		ResourceName:  "global_coverage",
+		ActionType:   actionType,
+		ResourceType: "publisher_settings",
+		ResourceID:   pc.PublisherID,
+		ResourceName: "global_coverage",
 		ChangesBefore: map[string]interface{}{"is_global": previousIsGlobal},
 		ChangesAfter:  map[string]interface{}{"is_global": req.IsGlobal},
 		Status:        AuditStatusSuccess,

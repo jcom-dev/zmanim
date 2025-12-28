@@ -141,10 +141,9 @@ func (h *Handlers) UpdatePublisherCalculationSettings(w http.ResponseWriter, r *
 
 	// 7. Log audit event - REPLACED activity_service with LogAuditEvent
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategorySettings,
-		EventAction:   AuditActionUpdate,
-		ResourceType:  "calculation_settings",
-		ResourceID:    pc.PublisherID,
+		ActionType:   services.ActionSettingsCalculationUpdated,
+		ResourceType: "calculation_settings",
+		ResourceID:   pc.PublisherID,
 		ChangesAfter: map[string]interface{}{
 			"ignore_elevation":      req.IgnoreElevation,
 			"transliteration_style": translitStyle,

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jcom-dev/zmanim/internal/db/sqlcgen"
+	"github.com/jcom-dev/zmanim/internal/services"
 )
 
 // PublisherInvitation represents a team invitation
@@ -250,11 +251,10 @@ func (h *Handlers) AddPublisherTeamMember(w http.ResponseWriter, r *http.Request
 
 	// Log team member addition
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTeam,
-		EventAction:   AuditActionAdd,
-		ResourceType:  "team_member",
-		ResourceID:    newUserID,
-		ResourceName:  req.Email,
+		ActionType:   services.ActionTeamMemberAdded,
+		ResourceType: "team_member",
+		ResourceID:   newUserID,
+		ResourceName: req.Email,
 		ChangesAfter: map[string]interface{}{
 			"email":       req.Email,
 			"name":        userName,
@@ -329,11 +329,10 @@ func (h *Handlers) RemovePublisherTeamMember(w http.ResponseWriter, r *http.Requ
 
 	// Log team member removal
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTeam,
-		EventAction:   AuditActionRemove,
-		ResourceType:  "team_member",
-		ResourceID:    memberUserID,
-		ResourceName:  email,
+		ActionType:   services.ActionTeamMemberRemoved,
+		ResourceType: "team_member",
+		ResourceID:   memberUserID,
+		ResourceName: email,
 		ChangesBefore: map[string]interface{}{
 			"user_id": memberUserID,
 			"email":   email,
@@ -463,11 +462,10 @@ func (h *Handlers) ResendPublisherInvitation(w http.ResponseWriter, r *http.Requ
 
 	// Log invitation resend
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTeam,
-		EventAction:   AuditActionResend,
-		ResourceType:  "team_invitation",
-		ResourceID:    invitationIDStr,
-		ResourceName:  email,
+		ActionType:   services.ActionTeamInvitationResent,
+		ResourceType: "team_invitation",
+		ResourceID:   invitationIDStr,
+		ResourceName: email,
 		ChangesAfter: map[string]interface{}{
 			"new_expiry": newExpiry,
 		},
@@ -527,11 +525,10 @@ func (h *Handlers) CancelPublisherInvitation(w http.ResponseWriter, r *http.Requ
 
 	// Log invitation cancellation
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTeam,
-		EventAction:   AuditActionCancel,
-		ResourceType:  "team_invitation",
-		ResourceID:    invitationIDStr,
-		Status:        AuditStatusSuccess,
+		ActionType:   services.ActionTeamInvitationCancelled,
+		ResourceType: "team_invitation",
+		ResourceID:   invitationIDStr,
+		Status:       AuditStatusSuccess,
 		AdditionalMetadata: map[string]interface{}{
 			"cancelled_by": userID,
 		},
@@ -612,11 +609,10 @@ func (h *Handlers) AcceptPublisherInvitation(w http.ResponseWriter, r *http.Requ
 
 	// Log invitation acceptance
 	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
-		EventCategory: AuditCategoryTeam,
-		EventAction:   AuditActionAccept,
-		ResourceType:  "team_invitation",
-		ResourceID:    int32ToString(invitationData.ID),
-		ResourceName:  invitationData.Email,
+		ActionType:   services.ActionTeamInvitationAccepted,
+		ResourceType: "team_invitation",
+		ResourceID:   int32ToString(invitationData.ID),
+		ResourceName: invitationData.Email,
 		ChangesAfter: map[string]interface{}{
 			"publisher_id": invitationData.PublisherID,
 			"user_id":      userID,

@@ -1145,6 +1145,26 @@ func (h *Handlers) RollbackZmanVersion(w http.ResponseWriter, r *http.Request) {
 		// Don't fail the request, the rollback itself succeeded
 	}
 
+	// Log successful rollback
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   AuditActionRollback,
+		ResourceType:  "publisher_zman",
+		ResourceID:    zmanKey,
+		ResourceName:  row.HebrewName,
+		ChangesBefore: map[string]interface{}{
+			"formula_dsl": row.FormulaDsl, // Current formula (before rollback)
+		},
+		ChangesAfter: map[string]interface{}{
+			"formula_dsl":    formulaToUse, // Target formula (after rollback)
+			"version_number": req.VersionNumber,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"target_version": req.VersionNumber,
+		},
+	})
+
 	RespondJSON(w, r, http.StatusOK, result)
 }
 
@@ -1335,6 +1355,24 @@ func (h *Handlers) RestorePublisherZman(w http.ResponseWriter, r *http.Request) 
 		// Don't fail the request - cache will eventually expire
 	}
 
+	// Log successful restore
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   AuditActionRestore,
+		ResourceType:  "publisher_zman",
+		ResourceID:    zmanKey,
+		ResourceName:  row.HebrewName,
+		ChangesAfter: map[string]interface{}{
+			"zman_key":     row.ZmanKey,
+			"hebrew_name":  row.HebrewName,
+			"english_name": row.EnglishName,
+			"formula_dsl":  row.FormulaDsl,
+			"is_enabled":   row.IsEnabled,
+			"is_visible":   row.IsVisible,
+		},
+		Status: AuditStatusSuccess,
+	})
+
 	RespondJSON(w, r, http.StatusOK, result)
 }
 
@@ -1362,6 +1400,22 @@ func (h *Handlers) PermanentDeletePublisherZman(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Fetch zman details BEFORE deletion for audit logging
+	beforeState, err := h.db.Queries.GetPublisherZmanByKeySimplified(ctx, db.GetPublisherZmanByKeySimplifiedParams{
+		PublisherID: publisherIDInt,
+		ZmanKey:     zmanKey,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			RespondNotFound(w, r, "Deleted zman not found")
+			return
+		}
+		slog.Error("error fetching zman before permanent deletion", "error", err)
+		RespondInternalError(w, r, "Failed to fetch zman details")
+		return
+	}
+
+	// Perform permanent deletion
 	err = h.db.Queries.PermanentDeleteZman(ctx, db.PermanentDeleteZmanParams{
 		PublisherID: publisherIDInt,
 		ZmanKey:     zmanKey,
@@ -1369,9 +1423,44 @@ func (h *Handlers) PermanentDeletePublisherZman(w http.ResponseWriter, r *http.R
 
 	if err != nil {
 		slog.Error("error permanently deleting zman", "error", err)
+		// Log failure
+		h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+			EventCategory: AuditCategoryZman,
+			EventAction:   AuditActionDelete,
+			ResourceType:  "publisher_zman",
+			ResourceID:    zmanKey,
+			ResourceName:  beforeState.HebrewName,
+			ChangesBefore: map[string]interface{}{
+				"zman_key":     zmanKey,
+				"hebrew_name":  beforeState.HebrewName,
+				"english_name": beforeState.EnglishName,
+				"formula_dsl":  beforeState.FormulaDsl,
+			},
+			Status:       AuditStatusFailure,
+			ErrorMessage: err.Error(),
+		})
 		RespondInternalError(w, r, "Failed to permanently delete zman")
 		return
 	}
+
+	// Log successful permanent deletion
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategoryZman,
+		EventAction:   AuditActionDelete,
+		ResourceType:  "publisher_zman",
+		ResourceID:    zmanKey,
+		ResourceName:  beforeState.HebrewName,
+		ChangesBefore: map[string]interface{}{
+			"zman_key":     zmanKey,
+			"hebrew_name":  beforeState.HebrewName,
+			"english_name": beforeState.EnglishName,
+			"formula_dsl":  beforeState.FormulaDsl,
+		},
+		Status: AuditStatusSuccess,
+		AdditionalMetadata: map[string]interface{}{
+			"deletion_type": "permanent",
+		},
+	})
 
 	RespondJSON(w, r, http.StatusOK, map[string]string{
 		"message":  "Zman permanently deleted",
