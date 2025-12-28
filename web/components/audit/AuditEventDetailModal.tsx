@@ -93,7 +93,7 @@ export function AuditEventDetailModal({ event, onClose }: AuditEventDetailModalP
 
   return (
     <Dialog open={!!event} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {/* Severity dot */}
@@ -114,7 +114,7 @@ export function AuditEventDetailModal({ event, onClose }: AuditEventDetailModalP
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 mt-4">
+        <div className="space-y-6 mt-4 overflow-y-auto max-h-[calc(90vh-8rem)] pr-2">
           {/* Status and Event ID */}
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="solid" className={cn('border', statusStyle)}>

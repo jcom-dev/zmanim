@@ -287,44 +287,43 @@ export interface PopularLocality {
 
 /**
  * Popular localities constant
- * Note: IDs will need to be updated after Overture import (Story 10.2)
- * These are placeholder IDs - actual IDs will be from geo_localities table
+ * Updated with correct IDs from geo_localities table (Overture data)
  */
 export const POPULAR_LOCALITIES: PopularLocality[] = [
   {
-    id: 293397, // Placeholder - will be updated post-import
+    id: 2093434,
     name: 'Jerusalem',
     country_code: 'IL',
     display_name: 'Jerusalem, Israel',
   },
   {
-    id: 5128581, // Placeholder
+    id: 846479,
     name: 'New York',
     country_code: 'US',
     display_name: 'New York City, NY, USA',
   },
   {
-    id: 5368361, // Placeholder
+    id: 425927,
     name: 'Los Angeles',
     country_code: 'US',
     display_name: 'Los Angeles, CA, USA',
   },
   {
-    id: 2643743, // Placeholder
+    id: 566005,
     name: 'London',
     country_code: 'GB',
     display_name: 'London, United Kingdom',
   },
   {
-    id: 293396, // Placeholder
-    name: 'Tel Aviv',
-    country_code: 'IL',
-    display_name: 'Tel Aviv, Israel',
+    id: 847259,
+    name: 'Lakewood',
+    country_code: 'US',
+    display_name: 'Lakewood, NJ, USA',
   },
   {
-    id: 4164138, // Placeholder
-    name: 'Miami',
-    country_code: 'US',
-    display_name: 'Miami, FL, USA',
+    id: 542266,
+    name: 'Manchester',
+    country_code: 'GB',
+    display_name: 'Manchester, United Kingdom',
   },
 ];

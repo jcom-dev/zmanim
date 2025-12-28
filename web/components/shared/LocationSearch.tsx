@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { POPULAR_LOCALITIES } from '@/lib/locality-display';
 import type { LocationType, LocationSelection, LocationSearchResult } from '@/types/geography';
 
 // API response type (snake_case from backend)
@@ -100,16 +101,6 @@ export interface LocationSearchProps {
   /** Mode: 'all' searches all types, 'localities' only searches localities */
   mode?: 'all' | 'localities';
 }
-
-// Quick select localities for common locations
-const QUICK_SELECT_LOCALITIES = [
-  { id: '1626940', name: 'Jerusalem', country: 'Israel' },
-  { id: '4337144', name: 'New York', country: 'USA' },
-  { id: '3483797', name: 'Los Angeles', country: 'USA' },
-  { id: '1553482', name: 'London', country: 'UK' },
-  { id: '1627539', name: 'Tel Aviv', country: 'Israel' },
-  { id: '3484030', name: 'Miami', country: 'USA' },
-];
 
 /**
  * Unified LocationSearch component for searching across all geographic levels.
@@ -289,11 +280,11 @@ export function LocationSearch({
     lastSearchParamsRef.current = '';
   }, [onSelect]);
 
-  const handleQuickSelect = useCallback((locality: typeof QUICK_SELECT_LOCALITIES[0]) => {
+  const handleQuickSelect = useCallback((locality: typeof POPULAR_LOCALITIES[0]) => {
     onSelect({
       type: 'locality',
-      id: locality.id,
-      name: `${locality.name}, ${locality.country}`,
+      id: String(locality.id),
+      name: locality.display_name,
     });
   }, [onSelect]);
 
@@ -484,8 +475,8 @@ export function LocationSearch({
         <div className="mt-3 space-y-2">
           <label className="text-sm font-medium">Quick add popular localities:</label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {QUICK_SELECT_LOCALITIES.map((locality) => {
-              const isExcluded = excludeLocations.some((loc) => loc.id === locality.id && loc.type === 'locality');
+            {POPULAR_LOCALITIES.map((locality) => {
+              const isExcluded = excludeLocations.some((loc) => loc.id === String(locality.id) && loc.type === 'locality');
 
               return (
                 <button
@@ -505,7 +496,7 @@ export function LocationSearch({
                     {locality.name}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {locality.country}
+                    {locality.country_code}
                     {isExcluded && ' (Added)'}
                   </div>
                 </button>
