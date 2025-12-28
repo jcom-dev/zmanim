@@ -133,9 +133,23 @@ func (h *Handlers) ImportPublisherSnapshot(w http.ResponseWriter, r *http.Reques
 	result, err := h.snapshotService.ImportSnapshot(ctx, publisherID, pc.UserID, &req.Snapshot)
 	if err != nil {
 		slog.Error("failed to import snapshot", "error", err, "publisher_id", pc.PublisherID)
+		h.LogAuditEventFailure(ctx, r, pc, AuditCategorySnapshot, AuditActionImport, "snapshot", fmt.Sprintf("%d", publisherID), err.Error())
 		RespondBadRequest(w, r, err.Error())
 		return
 	}
+
+	// Log successful import
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategorySnapshot,
+		EventAction:   AuditActionImport,
+		ResourceType:  "snapshot",
+		ResourceID:    fmt.Sprintf("%d", publisherID),
+		Status:        AuditStatusSuccess,
+		ChangesAfter: map[string]interface{}{
+			"format_version": req.Snapshot.FormatVersion,
+			"zmanim_count":   len(req.Snapshot.Zmanim),
+		},
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusOK, result)
@@ -179,9 +193,24 @@ func (h *Handlers) SavePublisherSnapshot(w http.ResponseWriter, r *http.Request)
 	meta, err := h.snapshotService.SaveSnapshot(ctx, publisherID, pc.UserID, req.Description)
 	if err != nil {
 		slog.Error("failed to save snapshot", "error", err, "publisher_id", pc.PublisherID)
+		h.LogAuditEventFailure(ctx, r, pc, AuditCategorySnapshot, AuditActionCreate, "snapshot", fmt.Sprintf("%d", publisherID), err.Error())
 		RespondInternalError(w, r, "Failed to save version")
 		return
 	}
+
+	// Log successful save
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategorySnapshot,
+		EventAction:   AuditActionCreate,
+		ResourceType:  "snapshot",
+		ResourceID:    meta.ID,
+		ResourceName:  req.Description,
+		Status:        AuditStatusSuccess,
+		ChangesAfter: map[string]interface{}{
+			"snapshot_id": meta.ID,
+			"description": req.Description,
+		},
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusCreated, meta)
@@ -312,9 +341,23 @@ func (h *Handlers) RestorePublisherSnapshot(w http.ResponseWriter, r *http.Reque
 	autoSave, err := h.snapshotService.RestoreSnapshot(ctx, snapshotID, publisherID, pc.UserID)
 	if err != nil {
 		slog.Error("failed to restore snapshot", "error", err, "snapshot_id", snapshotIDStr, "publisher_id", pc.PublisherID)
+		h.LogAuditEventFailure(ctx, r, pc, AuditCategorySnapshot, AuditActionRestore, "snapshot", snapshotIDStr, err.Error())
 		RespondInternalError(w, r, "Failed to restore version")
 		return
 	}
+
+	// Log successful restore
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategorySnapshot,
+		EventAction:   AuditActionRestore,
+		ResourceType:  "snapshot",
+		ResourceID:    snapshotIDStr,
+		Status:        AuditStatusSuccess,
+		ChangesAfter: map[string]interface{}{
+			"snapshot_id":  snapshotID,
+			"auto_save_id": autoSave.ID,
+		},
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
@@ -362,9 +405,19 @@ func (h *Handlers) DeletePublisherSnapshot(w http.ResponseWriter, r *http.Reques
 	err = h.snapshotService.DeleteSnapshot(ctx, snapshotID, publisherID)
 	if err != nil {
 		slog.Error("failed to delete snapshot", "error", err, "snapshot_id", snapshotIDStr, "publisher_id", pc.PublisherID)
+		h.LogAuditEventFailure(ctx, r, pc, AuditCategorySnapshot, AuditActionDelete, "snapshot", snapshotIDStr, err.Error())
 		RespondInternalError(w, r, "Failed to delete version")
 		return
 	}
+
+	// Log successful deletion
+	h.LogAuditEvent(ctx, r, pc, AuditEventParams{
+		EventCategory: AuditCategorySnapshot,
+		EventAction:   AuditActionDelete,
+		ResourceType:  "snapshot",
+		ResourceID:    snapshotIDStr,
+		Status:        AuditStatusSuccess,
+	})
 
 	// 6. Respond
 	RespondJSON(w, r, http.StatusOK, map[string]interface{}{

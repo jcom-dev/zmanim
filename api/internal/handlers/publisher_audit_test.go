@@ -156,10 +156,8 @@ func TestPublisherAuditLogEntry_JSONSerialization(t *testing.T) {
 		EventCategory: "publisher",
 		EventAction:   "update",
 		OccurredAt:    time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
-		ActorUsername: "user_123",
-		ActorName:     "Test User",
-		ResourceType:  "publisher_zman",
-		ResourceID:    "42",
+		Actor:         AuditActor{UserID: "user_123", Name: "Test User"},
+		Resource:      AuditResource{Type: "publisher_zman", ID: "42"},
 		Status:        "completed",
 	}
 
@@ -533,9 +531,8 @@ func BenchmarkPublisherAuditLogEntry_Marshal(b *testing.B) {
 		EventCategory: "publisher",
 		EventAction:   "update",
 		OccurredAt:    time.Now(),
-		ActorUsername: "user_123",
-		ResourceType:  "publisher_zman",
-		ResourceID:    "42",
+		Actor:         AuditActor{UserID: "user_123"},
+		Resource:      AuditResource{Type: "publisher_zman", ID: "42"},
 		Status:        "completed",
 	}
 

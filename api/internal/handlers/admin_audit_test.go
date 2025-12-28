@@ -70,7 +70,7 @@ func TestGetAdminAuditStats(t *testing.T) {
 			EventsByStatus:       map[string]int64{"success": 450, "failure": 50},
 			TopActors:            []ActorStats{{UserID: "user_1", Username: "user_1", EventCount: 50}},
 			TopPublishers:        []PublisherStats{{PublisherID: 1, PublisherName: "Test", EventCount: 100}},
-			RecentCriticalEvents: []AuditLogResponse{},
+			RecentCriticalEvents: []AdminAuditLogEntry{},
 		}
 
 		// Verify it can be marshaled to JSON
@@ -198,12 +198,12 @@ func TestFormatActionTypeNice(t *testing.T) {
 // TestAuditLogResponseSerialization tests JSON serialization of response types
 func TestAuditLogResponseSerialization(t *testing.T) {
 	t.Run("handles nil optional fields", func(t *testing.T) {
-		response := AuditLogResponse{
-			ID:          "01HX123ABC",
-			ActionType:  "test_action",
-			Category:    "test",
-			StartedAt:   time.Now().UTC(),
-			Description: "Test action",
+		response := AdminAuditLogEntry{
+			ID:            "01HX123ABC",
+			EventAction:   "test_action",
+			EventCategory: "test",
+			OccurredAt:    time.Now().UTC(),
+			EventType:     "test.test_action",
 		}
 
 		data, err := json.Marshal(response)
@@ -220,14 +220,14 @@ func TestAuditLogResponseSerialization(t *testing.T) {
 	t.Run("includes populated optional fields", func(t *testing.T) {
 		userID := "user_123"
 		status := "success"
-		response := AuditLogResponse{
-			ID:          "01HX123ABC",
-			ActionType:  "test_action",
-			Category:    "test",
-			UserID:      &userID,
-			Status:      &status,
-			StartedAt:   time.Now().UTC(),
-			Description: "Test action",
+		response := AdminAuditLogEntry{
+			ID:            "01HX123ABC",
+			EventAction:   "test_action",
+			EventCategory: "test",
+			Actor:         AuditActor{UserID: userID},
+			Status:        status,
+			OccurredAt:    time.Now().UTC(),
+			EventType:     "test.test_action",
 		}
 
 		data, err := json.Marshal(response)
