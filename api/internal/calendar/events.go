@@ -506,9 +506,11 @@ func (s *CalendarService) GetZmanimContext(date time.Time, loc Location, transli
 
 	// Add erev events to ActiveEventCodes (for candle lighting zmanim)
 	// These events are starting tonight, so we need their day_before zmanim
+	// IMPORTANT: Add as "erev_*" so day_before timing tag logic can match correctly
 	for _, erev := range info.ErevEvents {
-		ctx.ActiveEventCodes = appendUnique(ctx.ActiveEventCodes, erev.EventCode)
-		slog.Info("GetZmanimContext: added erev event", "event_code", erev.EventCode)
+		erevCode := "erev_" + erev.EventCode
+		ctx.ActiveEventCodes = appendUnique(ctx.ActiveEventCodes, erevCode)
+		slog.Info("GetZmanimContext: added erev event", "event_code", erevCode, "original", erev.EventCode)
 	}
 
 	// Add motzei events to ActiveEventCodes (for havdalah zmanim)
