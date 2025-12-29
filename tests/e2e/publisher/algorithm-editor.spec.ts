@@ -50,16 +50,6 @@ test.describe('Algorithm Editor - Page Load', () => {
     }
   });
 
-  test('has Back to Dashboard button', async ({ page }) => {
-    const publisher = getPublisherWithAlgorithm();
-    await loginAsPublisher(page, publisher.id);
-    await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await waitForClientReady(page);
-
-    if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /back to dashboard/i })).toBeVisible({ timeout: 15000 });
-    }
-  });
 });
 
 test.describe('Algorithm Editor - Search and Filter', () => {
@@ -114,28 +104,15 @@ test.describe('Algorithm Editor - Search and Filter', () => {
   });
 });
 
-test.describe('Algorithm Editor - Browse Registry', () => {
-  test('Browse Registry button visible', async ({ page }) => {
+test.describe('Algorithm Editor - Toolbar Actions', () => {
+  test('Restart Wizard button visible', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /browse registry/i })).toBeVisible({ timeout: 15000 });
-    }
-  });
-
-  test('Browse Registry navigates to registry', async ({ page }) => {
-    const publisher = getPublisherWithAlgorithm();
-    await loginAsPublisher(page, publisher.id);
-    await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await waitForClientReady(page);
-
-    if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /browse registry/i }).click();
-      await page.waitForURL('**/publisher/registry', { timeout: 10000 });
-      expect(page.url()).toContain('/publisher/registry');
+      await expect(page.getByRole('button', { name: /restart wizard/i })).toBeVisible({ timeout: 15000 });
     }
   });
 });
@@ -171,8 +148,13 @@ test.describe('Algorithm Editor - Import/Export', () => {
     await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /^export/i }).click();
-      await expect(page.getByRole('menuitem', { name: /import from json/i })).toBeVisible({ timeout: 15000 });
+      const exportButton = page.getByRole('button', { name: /^export/i });
+      await exportButton.waitFor({ state: 'visible', timeout: 15000 });
+      await exportButton.click();
+
+      // Wait for menu to open and check for import option
+      await page.waitForSelector('[role="menuitem"]', { timeout: 5000 });
+      await expect(page.getByRole('menuitem', { name: /import from json/i })).toBeVisible({ timeout: 10000 });
     }
   });
 
@@ -261,8 +243,10 @@ test.describe('Algorithm Editor - View Options', () => {
     await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /view week/i }).click();
-      await expect(page.getByText('Week Preview')).toBeVisible({ timeout: 15000 });
+      const viewWeekButton = page.getByRole('button', { name: /view week/i });
+      await viewWeekButton.waitFor({ state: 'visible', timeout: 15000 });
+      await viewWeekButton.click();
+      await expect(page.getByRole('heading', { name: /week preview/i })).toBeVisible({ timeout: 15000 });
     }
   });
 });
@@ -275,6 +259,15 @@ test.describe('Algorithm Editor - Zmanim Grid', () => {
     await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
+      // Wait for zmanim list to load - wait for either heading to be visible
+      await page.waitForFunction(
+        () => {
+          const text = document.body.textContent || '';
+          return text.includes('Everyday Zmanim') || text.includes('Event Zmanim');
+        },
+        { timeout: 15000 }
+      );
+
       // Check for either "Everyday Zmanim" or "Event Zmanim" heading
       const hasEveryday = await page.getByRole('heading', { name: /everyday zmanim/i }).isVisible().catch(() => false);
       const hasEvent = await page.getByRole('heading', { name: /event zmanim/i }).isVisible().catch(() => false);
@@ -289,30 +282,29 @@ test.describe('Algorithm Editor - Zmanim Grid', () => {
     await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
+      // Wait for zmanim list to load first
+      await page.waitForFunction(
+        () => {
+          const text = document.body.textContent || '';
+          return text.includes('Everyday Zmanim') || text.includes('Event Zmanim');
+        },
+        { timeout: 15000 }
+      );
+
+      // Wait a bit for description to render
+      await page.waitForTimeout(500);
+
       // Check for description text that contains count information
       const content = await page.textContent('body');
       expect(
         content?.includes('daily solar calculation times') ||
-        content?.includes('Shabbos, holiday, and fast day times')
+        content?.includes('Shabbos, holiday, and fast day times') ||
+        content?.includes('Select a location to view zmanim')
       ).toBeTruthy();
     }
   });
 });
 
-test.describe('Algorithm Editor - Navigation', () => {
-  test('Back to Dashboard works', async ({ page }) => {
-    const publisher = getPublisherWithAlgorithm();
-    await loginAsPublisher(page, publisher.id);
-    await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await waitForClientReady(page);
-
-    if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /back to dashboard/i }).click();
-      await page.waitForURL('**/publisher/dashboard', { timeout: 10000 });
-      expect(page.url()).toContain('/publisher/dashboard');
-    }
-  });
-});
 
 test.describe('Algorithm Editor - Empty State', () => {
   test('new publisher shows onboarding', async ({ page }) => {

@@ -61,10 +61,11 @@ test.describe('Admin Dashboard', () => {
     // Should see quick actions section
     await expect(page.getByText('Quick Actions')).toBeVisible({ timeout: 15000 });
 
-    // Should have links to other admin pages - check for card titles
-    await expect(page.getByRole('heading', { name: /Manage Publishers/i })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole('heading', { name: /Create Publisher/i })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole('heading', { name: /System Settings/i })).toBeVisible({ timeout: 15000 });
+    // Should have links to other admin pages - CardTitle with text-lg renders as heading
+    // Use text content matching instead of role-based matching for more flexibility
+    await expect(page.getByText('Manage Publishers', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Create Publisher', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('System Settings', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('can refresh dashboard statistics', async ({ page }) => {

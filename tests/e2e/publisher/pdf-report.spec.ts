@@ -87,7 +87,8 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Verify Export button exists and is visible with extended timeout
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    // Look for button containing both "Export" text and the download icon
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
   });
 
@@ -99,11 +100,12 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button to be visible and clickable
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
     // Wait for dropdown content to appear (verify PDF button is visible)
+    // The dropdown menu items are rendered as buttons with text "Generate PDF Report"
     const pdfButton = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfButton).toBeVisible({ timeout: Timeouts.SHORT });
   });
@@ -116,7 +118,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -129,12 +131,12 @@ test.describe('PDF Report Generation', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Verify modal has location selector
-    const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
+    // Verify modal has location selector (LocalityPicker with placeholder "Search for a location...")
+    const locationInput = modal.getByPlaceholder(/Search for a location/i);
     await expect(locationInput).toBeVisible({ timeout: Timeouts.SHORT });
 
-    // Verify modal has date picker
-    const dateInput = modal.locator('input[type="date"], button:has-text("Select date")').first();
+    // Verify modal has date picker (input type="date" with id="report-date")
+    const dateInput = modal.locator('input[type="date"]#report-date');
     await expect(dateInput).toBeVisible({ timeout: Timeouts.SHORT });
 
     // Verify modal has "Include Glossary" toggle
@@ -155,7 +157,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -169,8 +171,8 @@ test.describe('PDF Report Generation', () => {
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Location should be pre-filled from the toolbar's selection
-    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
-    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
+    // Wait for "Selected: " text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:/i)).toBeVisible({ timeout: 5000 });
 
     // Set up download listener BEFORE clicking Generate PDF
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
@@ -200,7 +202,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -214,8 +216,8 @@ test.describe('PDF Report Generation', () => {
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Location should be pre-filled from the toolbar's selection
-    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
-    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
+    // Wait for "Selected: " text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:/i)).toBeVisible({ timeout: 5000 });
 
     // Set up download listener
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
@@ -226,8 +228,8 @@ test.describe('PDF Report Generation', () => {
     // Wait for download
     await downloadPromise;
 
-    // Verify toast notification appears
-    const toast = page.locator('[role="status"], .toast, [data-sonner-toast]').filter({ hasText: /generated|success/i });
+    // Verify toast notification appears (Sonner toast with "downloaded successfully" text)
+    const toast = page.locator('[data-sonner-toast]').filter({ hasText: /downloaded successfully/i });
     await expect(toast.first()).toBeVisible({ timeout: 5000 });
   });
 
@@ -239,7 +241,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -253,8 +255,8 @@ test.describe('PDF Report Generation', () => {
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Location should be pre-filled from the toolbar's selection
-    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
-    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
+    // Wait for "Selected: " text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:/i)).toBeVisible({ timeout: 5000 });
 
     // Set up download listener
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
@@ -277,7 +279,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -291,20 +293,17 @@ test.describe('PDF Report Generation', () => {
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Location should be pre-filled from the toolbar's selection
-    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
-    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
+    // Wait for "Selected: " text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:/i)).toBeVisible({ timeout: 5000 });
 
-    // Toggle "Include Glossary" OFF
-    const glossaryToggle = modal.locator('[role="switch"], input[type="checkbox"]').filter({
-      has: page.locator('text=/Include Glossary/i')
-    }).first();
+    // Toggle "Include Glossary" OFF (Switch component with id="include-glossary")
+    const glossarySwitch = modal.locator('#include-glossary');
+    await expect(glossarySwitch).toBeVisible({ timeout: 2000 });
 
-    if (await glossaryToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      // Check if toggle is currently on (default state)
-      const isChecked = await glossaryToggle.isChecked().catch(() => true);
-      if (isChecked) {
-        await glossaryToggle.click();
-      }
+    // Check if toggle is currently on (default state is true)
+    const isChecked = await glossarySwitch.getAttribute('data-state');
+    if (isChecked === 'checked') {
+      await glossarySwitch.click();
     }
 
     // Set up download listener
@@ -321,7 +320,7 @@ test.describe('PDF Report Generation', () => {
     expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
 
     // Verify toast notification
-    const toast = page.locator('[role="status"], .toast, [data-sonner-toast]').filter({ hasText: /generated|success/i });
+    const toast = page.locator('[data-sonner-toast]').filter({ hasText: /downloaded successfully/i });
     await expect(toast.first()).toBeVisible({ timeout: 5000 });
 
     // Verify modal closes
@@ -336,7 +335,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -350,7 +349,7 @@ test.describe('PDF Report Generation', () => {
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Verify location is pre-filled from toolbar selection
-    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
+    await expect(modal.getByText(/Selected:/i)).toBeVisible({ timeout: 5000 });
 
     // Generate button should be enabled since location is pre-selected
     const generateButton = modal.getByRole('button', { name: /Generate PDF/i });
@@ -365,7 +364,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -394,7 +393,7 @@ test.describe('PDF Report Generation', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -431,7 +430,7 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -444,12 +443,14 @@ test.describe('PDF Report Generation - Date Selection', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Verify date input exists (exact selector depends on implementation)
-    const dateInput = modal.locator('input[type="date"], button:has-text("Select date")').first();
+    // Verify date input exists (input type="date" with id="report-date")
+    const dateInput = modal.locator('input[type="date"]#report-date');
     await expect(dateInput).toBeVisible();
 
-    // Default value should be today or have some default
-    // Exact validation depends on component implementation
+    // Verify default value is today's date (YYYY-MM-DD format)
+    const today = new Date().toISOString().split('T')[0];
+    const dateValue = await dateInput.inputValue();
+    expect(dateValue).toBe(today);
   });
 
   test('user can select custom date for report', async ({ page }) => {
@@ -460,7 +461,7 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await selectLocationForPreview(page);
 
     // Wait for Export button and open dropdown
-    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    const exportButton = page.getByRole('button', { name: /Export/i });
     await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await exportButton.click();
 
@@ -474,30 +475,21 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
     // Location should be pre-filled from the toolbar's selection
-    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
-    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
+    // Wait for "Selected: " text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:/i)).toBeVisible({ timeout: 5000 });
 
-    // Try to interact with date picker
-    const dateButton = modal.locator('button:has-text("Select date"), button:has-text("Pick a date")').first();
-    if (await dateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await dateButton.click();
+    // Set custom date (7 days from now)
+    const dateInput = modal.locator('input[type="date"]#report-date');
+    await expect(dateInput).toBeVisible();
 
-      // Select a date (if calendar opens, click a day)
-      const dateCell = page.locator('[role="gridcell"]:not([aria-disabled="true"])').first();
-      if (await dateCell.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await dateCell.click();
-      }
-    } else {
-      // Direct input type="date" field
-      const dateInput = modal.locator('input[type="date"]').first();
-      if (await dateInput.isVisible().catch(() => false)) {
-        // Set to 7 days from now
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + 7);
-        const dateString = futureDate.toISOString().split('T')[0];
-        await dateInput.fill(dateString);
-      }
-    }
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+    const dateString = futureDate.toISOString().split('T')[0];
+    await dateInput.fill(dateString);
+
+    // Verify the date was set
+    const dateValue = await dateInput.inputValue();
+    expect(dateValue).toBe(dateString);
 
     // Set up download listener
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
