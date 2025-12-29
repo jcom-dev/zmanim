@@ -12,6 +12,7 @@ import {
   getEmptyPublisher,
   BASE_URL,
 } from '../utils';
+import { waitForClientReady } from '../utils/hydration-helpers';
 
 // All tests in this file run in parallel
 test.describe.configure({ mode: 'parallel' });
@@ -29,69 +30,69 @@ test.describe('Onboarding - Welcome Step', () => {
     const publisher = getEmptyPublisher(1);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
-    await expect(page.getByText('Welcome to Shtetl Zmanim')).toBeVisible();
+    await expect(page.getByText('Welcome to Shtetl Zmanim')).toBeVisible({ timeout: 15000 });
   });
 
   test('shows Hebrew text', async ({ page }) => {
     const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
-    await expect(page.getByText('ברוכים הבאים לזמנים לאב')).toBeVisible();
+    await expect(page.getByText('ברוכים הבאים לזמנים לאב')).toBeVisible({ timeout: 15000 });
   });
 
   test('shows feature cards', async ({ page }) => {
     const publisher = getEmptyPublisher(3);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
     // Check for feature card titles - wait for both to be visible
-    await expect(page.locator('text=Select & Customize').first()).toBeVisible();
-    await expect(page.locator('text=Set Coverage').first()).toBeVisible();
+    await expect(page.locator('text=Select & Customize').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=Set Coverage').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('shows time estimate', async ({ page }) => {
     const publisher = getEmptyPublisher(1);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
-    await expect(page.getByText(/5-10 minutes/)).toBeVisible();
+    await expect(page.getByText(/5-10 minutes/)).toBeVisible({ timeout: 15000 });
   });
 
   test('has Get Started button', async ({ page }) => {
     const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
-    await expect(page.getByRole('button', { name: /get started/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /get started/i })).toBeVisible({ timeout: 15000 });
   });
 
   test('has Skip button', async ({ page }) => {
     const publisher = getEmptyPublisher(3);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
-    await expect(page.getByRole('button', { name: /skip wizard/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /skip wizard/i })).toBeVisible({ timeout: 15000 });
   });
 
   test('Get Started advances to customize step', async ({ page }) => {
     const publisher = getEmptyPublisher(1);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
     await page.getByRole('button', { name: /get started/i }).click();
@@ -114,7 +115,7 @@ test.describe('Onboarding - Navigation', () => {
     const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Step 0: Welcome
     await waitForWelcome(page);
@@ -133,7 +134,7 @@ test.describe('Onboarding - Navigation', () => {
     const publisher = getEmptyPublisher(3);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     await waitForWelcome(page);
     await page.getByRole('button', { name: /get started/i }).click();
@@ -147,7 +148,7 @@ test.describe('Onboarding - Navigation', () => {
     await page.getByRole('button', { name: /back/i }).click();
     await waitForWelcome(page);
 
-    await expect(page.getByText('Welcome to Shtetl Zmanim')).toBeVisible();
+    await expect(page.getByText('Welcome to Shtetl Zmanim')).toBeVisible({ timeout: 15000 });
   });
 });
 
@@ -156,7 +157,7 @@ test.describe('Onboarding - Progress Indicator', () => {
     const publisher = getEmptyPublisher(1);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
     const content = await page.textContent('body');
@@ -171,7 +172,7 @@ test.describe('Onboarding - Skip Flow', () => {
     const publisher = getEmptyPublisher(2);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForWelcome(page);
 
     await page.getByRole('button', { name: /skip wizard/i }).click();

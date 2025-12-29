@@ -79,11 +79,11 @@ export default defineConfig({
     // Disable video recording for speed (enable for debugging)
     video: 'off',
 
-    // Default timeout for actions (15s is plenty for most actions)
-    actionTimeout: 15000,
+    // Default timeout for actions (increased for production builds in CI)
+    actionTimeout: process.env.CI ? 20000 : 15000,
 
-    // Default navigation timeout (30s is sufficient)
-    navigationTimeout: 30000,
+    // Default navigation timeout (increased for production builds in CI)
+    navigationTimeout: process.env.CI ? 45000 : 30000,
   },
 
   // Configure projects with authentication setup
@@ -200,8 +200,8 @@ export default defineConfig({
   // Global timeout for each test (60s is sufficient for most tests)
   timeout: 60000,
 
-  // Expect timeout (10s is sufficient for most assertions)
+  // Expect timeout (increased for production builds in CI)
   expect: {
-    timeout: 10000,
+    timeout: process.env.CI ? 15000 : 10000,
   },
 });

@@ -13,6 +13,7 @@ import {
   getEmptyPublisher,
   BASE_URL,
 } from '../utils';
+import { waitForClientReady } from '../utils/hydration-helpers';
 
 // All tests run in parallel
 test.describe.configure({ mode: 'parallel' });
@@ -32,7 +33,7 @@ test.describe('Algorithm Editor - Page Load', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
     await waitForEditor(page);
 
     expect(await page.textContent('body')).toBeTruthy();
@@ -42,10 +43,10 @@ test.describe('Algorithm Editor - Page Load', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByText(/\d+ Zmanim/)).toBeVisible();
+      await expect(page.getByText(/\d+ Zmanim/)).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -53,10 +54,10 @@ test.describe('Algorithm Editor - Page Load', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /back to dashboard/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /back to dashboard/i })).toBeVisible({ timeout: 15000 });
     }
   });
 });
@@ -66,10 +67,10 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByPlaceholder(/search by name or key/i)).toBeVisible();
+      await expect(page.getByPlaceholder(/search by name or key/i)).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -77,12 +78,12 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('tab', { name: /^all/i })).toBeVisible();
-      await expect(page.getByRole('tab', { name: /published/i })).toBeVisible();
-      await expect(page.getByRole('tab', { name: /draft/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /^all/i })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('tab', { name: /published/i })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('tab', { name: /draft/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -90,7 +91,7 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       const publishedTab = page.getByRole('tab', { name: /published/i });
@@ -103,7 +104,7 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       const coreTab = page.getByRole('tab', { name: /^core/i });
@@ -118,10 +119,10 @@ test.describe('Algorithm Editor - Browse Registry', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /browse registry/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /browse registry/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -129,7 +130,7 @@ test.describe('Algorithm Editor - Browse Registry', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /browse registry/i }).click();
@@ -144,10 +145,10 @@ test.describe('Algorithm Editor - Import/Export', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /^export/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /^export/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -155,11 +156,11 @@ test.describe('Algorithm Editor - Import/Export', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /^export/i }).click();
-      await expect(page.getByRole('menuitem', { name: /export to json/i })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: /export to json/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -167,11 +168,11 @@ test.describe('Algorithm Editor - Import/Export', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /^export/i }).click();
-      await expect(page.getByRole('menuitem', { name: /import from json/i })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: /import from json/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -179,11 +180,11 @@ test.describe('Algorithm Editor - Import/Export', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /^export/i }).click();
-      await expect(page.getByRole('menuitem', { name: /export full year/i })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: /export full year/i })).toBeVisible({ timeout: 15000 });
     }
   });
 });
@@ -193,10 +194,10 @@ test.describe('Algorithm Editor - Preview Panel', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByTestId('location-picker')).toBeVisible();
+      await expect(page.getByTestId('location-picker')).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -204,7 +205,7 @@ test.describe('Algorithm Editor - Preview Panel', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       const content = await page.textContent('body');
@@ -221,11 +222,11 @@ test.describe('Algorithm Editor - Preview Panel', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       await page.getByTestId('location-picker').click();
-      await expect(page.getByPlaceholder(/search localities/i)).toBeVisible();
+      await expect(page.getByPlaceholder(/search localities/i)).toBeVisible({ timeout: 15000 });
     }
   });
 });
@@ -235,10 +236,10 @@ test.describe('Algorithm Editor - View Options', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /version history/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /version history/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -246,10 +247,10 @@ test.describe('Algorithm Editor - View Options', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /view week/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /view week/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -257,11 +258,11 @@ test.describe('Algorithm Editor - View Options', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /view week/i }).click();
-      await expect(page.getByText('Week Preview')).toBeVisible();
+      await expect(page.getByText('Week Preview')).toBeVisible({ timeout: 15000 });
     }
   });
 });
@@ -271,7 +272,7 @@ test.describe('Algorithm Editor - Zmanim Grid', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       // Check for either "Everyday Zmanim" or "Event Zmanim" heading
@@ -285,7 +286,7 @@ test.describe('Algorithm Editor - Zmanim Grid', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       // Check for description text that contains count information
@@ -303,7 +304,7 @@ test.describe('Algorithm Editor - Navigation', () => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /back to dashboard/i }).click();
@@ -318,7 +319,7 @@ test.describe('Algorithm Editor - Empty State', () => {
     const publisher = getEmptyPublisher(1);
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     await page.waitForFunction(
       () => document.body.textContent?.toLowerCase().includes('welcome') ||
