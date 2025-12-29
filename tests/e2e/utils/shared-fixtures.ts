@@ -145,13 +145,13 @@ export async function initializeSharedPublishers(): Promise<void> {
 
       sharedPublishers.set(config.key, publisher);
 
-      // Create algorithm and zmanim for verified publishers
-      if (config.status === 'verified' || config.type === 'with_algorithm') {
+      // Create algorithm and zmanim for verified publishers (excluding empty publishers)
+      if ((config.status === 'verified' && config.type !== 'empty') || config.type === 'with_algorithm') {
         await ensureAlgorithm(pool, publisher.id);
       }
 
-      // Create coverage for all verified publishers so they can be tested
-      if (config.status === 'verified' || config.type === 'with_coverage') {
+      // Create coverage for all verified publishers (excluding empty publishers)
+      if ((config.status === 'verified' && config.type !== 'empty') || config.type === 'with_coverage') {
         await ensureCoverage(pool, publisher.id);
       }
     }

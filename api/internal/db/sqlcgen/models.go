@@ -920,10 +920,6 @@ type PublisherZmanim struct {
 	DisplayStatus DisplayStatus `json:"display_status"`
 	// If this zman was copied from another publisher, the source publisher ID. Used for lineage tracking.
 	CopiedFromPublisherID *int32 `json:"copied_from_publisher_id"`
-	// Controls whether this zman appears in preview contexts (week view, reports).
-	// When false, zman only appears in Algorithm Editor (includeInactive=true).
-	// Use false for event-specific zmanim that should only show when their event is active.
-	ShowInPreview bool `json:"show_in_preview"`
 }
 
 type RequestStatus struct {

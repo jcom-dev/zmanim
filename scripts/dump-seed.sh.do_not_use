@@ -1,6 +1,8 @@
 #!/bin/bash
 # dump-seed.sh - Generate seed data migration from current database
 #
+# WE ARE IN PRODUCTION - DO NOT USE THIS SCRIPT ANYMORE
+#
 # Usage: DATABASE_URL=postgresql://... ./scripts/dump-seed.sh
 #
 # This script dumps ONLY reference/lookup tables that contain static configuration data.

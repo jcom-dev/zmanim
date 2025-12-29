@@ -1,6 +1,8 @@
 #!/bin/bash
 # dump-schema.sh - Generate a new schema migration file from the current database
 #
+# WE ARE IN PRODUCTION - DO NOT USE THIS SCRIPT ANYMORE
+#
 # Usage: DATABASE_URL=postgresql://... ./scripts/dump-schema.sh
 #
 # This script dumps the current database schema and creates a clean migration file

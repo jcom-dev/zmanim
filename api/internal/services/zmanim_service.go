@@ -89,7 +89,7 @@ type CalculateParams struct {
 	IncludeDisabled    bool
 	IncludeUnpublished bool
 	IncludeBeta        bool
-	IncludeInactive    bool // If true, disable show_in_preview filtering (Algorithm Editor mode)
+	IncludeInactive    bool // If true, disable tag-based event filtering (Algorithm Editor mode)
 	// Active event codes for tag-driven filtering and is_active_today computation
 	// ALWAYS provide actual event codes (even with IncludeInactive=true) for is_active_today computation
 	ActiveEventCodes []string
@@ -350,30 +350,15 @@ func (s *ZmanimService) CalculateZmanim(ctx context.Context, params CalculatePar
 		}
 
 		// Apply calendar context filtering (event zmanim)
-		// Only filter if ALL conditions met:
-		// 1. NOT in Algorithm Editor mode (IncludeInactive = false)
-		// 2. Zman requires event filtering (show_in_preview = false)
-		if !params.IncludeInactive && !pz.ShowInPreview {
-			slog.Info("preview mode: checking event filtering for event-based zman",
-				"zman_key", pz.ZmanKey,
-				"show_in_preview", pz.ShowInPreview,
-				"active_event_codes", params.ActiveEventCodes)
-
+		// Only filter if NOT in Algorithm Editor mode (IncludeInactive = false)
+		// Event filtering is now purely tag-based via ShouldShowZman
+		if !params.IncludeInactive {
 			// Check if this zman should be shown based on calendar context
 			shouldShow := s.ShouldShowZman(tags, params.ActiveEventCodes)
-			slog.Info("event filtering decision",
-				"zman_key", pz.ZmanKey,
-				"should_show", shouldShow,
-				"active_events", params.ActiveEventCodes,
-				"tag_count", len(tags))
 			if !shouldShow {
 				slog.Info("filtering out event-based zman", "zman_key", pz.ZmanKey, "active_events", params.ActiveEventCodes)
 				continue
 			}
-		} else if !params.IncludeInactive {
-			slog.Debug("preview mode: skipping filter (show_in_preview=true)",
-				"zman_key", pz.ZmanKey,
-				"show_in_preview", pz.ShowInPreview)
 		}
 
 		// Skip if no formula

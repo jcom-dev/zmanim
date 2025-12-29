@@ -1135,7 +1135,7 @@ SELECT
     COALESCE(linked_pz.formula_dsl, pz.formula_dsl) AS formula_dsl,
     pz.ai_explanation, pz.publisher_comment,
     pz.is_enabled, pz.is_visible, pz.is_published, pz.is_beta, pz.is_custom,
-    pz.display_status, pz.show_in_preview,
+    pz.display_status,
     pz.dependencies, pz.rounding_mode, pz.created_at, pz.updated_at,
     pz.master_zman_id, pz.linked_publisher_zman_id,
     -- Time category ID and display values
@@ -1254,7 +1254,6 @@ type GetPublisherZmanimRow struct {
 	IsBeta                    bool               `json:"is_beta"`
 	IsCustom                  bool               `json:"is_custom"`
 	DisplayStatus             DisplayStatus      `json:"display_status"`
-	ShowInPreview             bool               `json:"show_in_preview"`
 	Dependencies              []string           `json:"dependencies"`
 	RoundingMode              string             `json:"rounding_mode"`
 	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
@@ -1308,7 +1307,6 @@ func (q *Queries) GetPublisherZmanim(ctx context.Context, publisherID int32) ([]
 			&i.IsBeta,
 			&i.IsCustom,
 			&i.DisplayStatus,
-			&i.ShowInPreview,
 			&i.Dependencies,
 			&i.RoundingMode,
 			&i.CreatedAt,

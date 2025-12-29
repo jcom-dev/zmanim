@@ -306,11 +306,26 @@ export default function AlgorithmEditorPage() {
   const currentViewOptionalCount = currentViewZmanim.filter(z => z.display_status === 'optional').length;
   const currentViewHiddenCount = currentViewZmanim.filter(z => z.display_status === 'hidden').length;
 
+  // Show loading state only if not initialized yet OR if data is loading
+  // IMPORTANT: Must check this BEFORE wizard logic to avoid flash of wizard while coverage loads
+  if (!isInitialized || isLoading || coverageLoading) {
+    return (
+      <div className="min-h-screen bg-background p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-foreground">Loading zmanim...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Auto-launch wizard when there are 0 zmanim AND no coverage (new publisher or after restart)
   // The wizard helps set up both coverage and zmanim
+  // IMPORTANT: This check must come AFTER the loading check above
   const shouldShowWizard = forceShowWizard || (zmanim.length === 0 && !hasCoverage);
 
-  if (!isLoading && shouldShowWizard) {
+  if (shouldShowWizard) {
     return (
       <div className="min-h-screen bg-background">
         <OnboardingWizard
@@ -323,19 +338,6 @@ export default function AlgorithmEditorPage() {
             setShowImportDialog(true);
           }}
         />
-      </div>
-    );
-  }
-
-  // Show loading state only if not initialized yet OR if data is loading
-  if (!isInitialized || isLoading || coverageLoading) {
-    return (
-      <div className="min-h-screen bg-background p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-center items-center h-64">
-            <div className="text-foreground">Loading zmanim...</div>
-          </div>
-        </div>
       </div>
     );
   }
@@ -362,20 +364,23 @@ export default function AlgorithmEditorPage() {
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold text-foreground">Algorithm Editor</h1>
-              {localityId && (
-                <>
-                  <Badge variant="outline" className="text-sm">
-                    {zmanim.length} Zmanim
-                  </Badge>
-                  <Badge variant="secondary" className="text-sm">
-                    {totalPublishedCount} Published
-                  </Badge>
-                </>
-              )}
+              <Badge variant="outline" className="text-sm">
+                {zmanim.length} Zmanim
+              </Badge>
+              <Badge variant="secondary" className="text-sm">
+                {totalPublishedCount} Published
+              </Badge>
             </div>
             <p className="text-muted-foreground">Configure your zmanim calculation formulas</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/publisher/dashboard')}
+            >
+              Back to Dashboard
+            </Button>
+
             <Button
               variant="outline"
               onClick={() => setShowRestartConfirm(true)}
@@ -425,26 +430,13 @@ export default function AlgorithmEditorPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Version Control Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <History className="h-4 w-4 mr-2" />
-                  Versions
-                  <ChevronDown className="h-3 w-3 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowSaveVersionDialog(true)}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Version
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowVersionHistoryDialog(true)}>
-                  <History className="h-4 w-4 mr-2" />
-                  Version History
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              onClick={() => setShowVersionHistoryDialog(true)}
+            >
+              <History className="h-4 w-4 mr-2" />
+              Version History
+            </Button>
 
             <Button
               variant="outline"

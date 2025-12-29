@@ -31,6 +31,77 @@ import {
 // Enable parallel mode for faster test execution
 test.describe.configure({ mode: 'parallel' });
 
+// Helper function to select a publisher in the Publisher Examples tab
+async function selectPublisher(page: Page, publisherName: string) {
+  // Click the publisher selector button to open the popover
+  const publisherSelector = page.getByTestId('publisher-selector');
+  await publisherSelector.waitFor({ state: 'visible', timeout: 5000 });
+  await publisherSelector.click();
+
+  // Wait for popover to open
+  await page.waitForSelector('[data-testid="publisher-selector-popover"]', {
+    state: 'visible',
+    timeout: 5000
+  });
+
+  // Type the publisher name in the search input
+  const searchInput = page.getByTestId('publisher-search-input');
+  await searchInput.fill(publisherName);
+
+  // Wait a moment for filtering
+  await page.waitForTimeout(500);
+
+  // Click on the option that contains the publisher name
+  // The CommandItem has the publisher name in its text content
+  const option = page.locator('[role="option"]').filter({ hasText: publisherName }).first();
+  await option.waitFor({ state: 'visible', timeout: 5000 });
+  await option.click();
+
+  // Wait for popover to close
+  await page.waitForSelector('[data-testid="publisher-selector-popover"]', {
+    state: 'hidden',
+    timeout: 5000
+  });
+
+  // Wait for publisher to be selected and data to load
+  await page.waitForLoadState('networkidle');
+}
+
+// Helper function to select a location in the Publisher Examples tab
+async function selectLocation(page: Page, locationName: string) {
+  // Click the location selector button to open the popover
+  const locationSelector = page.getByTestId('location-selector');
+  await locationSelector.waitFor({ state: 'visible', timeout: 5000 });
+  await locationSelector.click();
+
+  // Wait for popover to open
+  await page.waitForSelector('[data-testid="location-selector-popover"]', {
+    state: 'visible',
+    timeout: 5000
+  });
+
+  // Type the location name in the search input
+  const searchInput = page.getByTestId('location-search-input');
+  await searchInput.fill(locationName);
+
+  // Wait a moment for filtering
+  await page.waitForTimeout(500);
+
+  // Click on the option that contains the location name
+  const option = page.locator('[role="option"]').filter({ hasText: locationName }).first();
+  await option.waitFor({ state: 'visible', timeout: 5000 });
+  await option.click();
+
+  // Wait for popover to close
+  await page.waitForSelector('[data-testid="location-selector-popover"]', {
+    state: 'hidden',
+    timeout: 5000
+  });
+
+  // Wait for location to be selected and data to load
+  await page.waitForLoadState('networkidle');
+}
+
 test.describe('Publisher Examples - Tab Switch & Publisher Search', () => {
   let testPublisher: { id: string; name: string };
 
@@ -127,20 +198,8 @@ test.describe('Publisher Examples - Publisher Selection & Display', () => {
     // Switch to Publisher Examples tab
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    // Select publisher (implementation depends on UI component type)
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      // Autocomplete/combobox
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    // Select publisher using helper
+    await selectPublisher(page, sourcePublisher.name);
 
     // Verify publisher name is displayed
     await waitForContent(page, [sourcePublisher.name], { timeout: Timeouts.MEDIUM });
@@ -153,22 +212,7 @@ test.describe('Publisher Examples - Publisher Selection & Display', () => {
 
     // Switch to Publisher Examples tab and select publisher
     await page.getByRole('tab', { name: /publisher examples/i }).click();
-
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
-
-    // Wait for publisher to load
-    await page.waitForLoadState('networkidle');
+    await selectPublisher(page, sourcePublisher.name);
 
     // Verify Validated Publisher badge
     await waitForContent(page, ['validated'], { timeout: Timeouts.MEDIUM, ignoreCase: true });
@@ -182,18 +226,7 @@ test.describe('Publisher Examples - Publisher Selection & Display', () => {
     // Switch to Publisher Examples tab and select publisher
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
     // Wait for publisher to load
     await page.waitForLoadState('networkidle');
@@ -211,18 +244,7 @@ test.describe('Publisher Examples - Publisher Selection & Display', () => {
     // Switch to Publisher Examples tab and select publisher
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
     // Wait for publisher to load
     await page.waitForLoadState('networkidle');
@@ -278,32 +300,13 @@ test.describe('Publisher Examples - Coverage-Restricted Location Selection', () 
     // Switch to Publisher Examples tab and select publisher
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
     // Wait for publisher to load
     await page.waitForLoadState('networkidle');
 
     // Select Jerusalem location
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-
-    // Wait for autocomplete results to appear
-    await page.waitForSelector('text=Jerusalem', { state: 'visible', timeout: 10000 });
-
-    // Select Jerusalem from results
-    await page.getByText('Jerusalem', { exact: false }).first().click();
+    await selectLocation(page, 'Jerusalem');
 
     // Verify location badge updates
     await waitForContent(page, ['Jerusalem'], { timeout: Timeouts.MEDIUM });
@@ -317,29 +320,9 @@ test.describe('Publisher Examples - Coverage-Restricted Location Selection', () 
     // Switch to Publisher Examples tab, select publisher and location
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
+    await selectLocation(page, 'Jerusalem');
 
     // Wait for preview times to calculate
     await page.waitForLoadState('networkidle');
@@ -389,31 +372,9 @@ test.describe('Publisher Examples - Publisher Zman Card Display', () => {
     // Switch to Publisher Examples tab, select publisher and location
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Get first zman card
     const firstCard = page.locator('[data-testid="publisher-zman-card"], [data-testid="zman-card"]').first();
@@ -431,31 +392,9 @@ test.describe('Publisher Examples - Publisher Zman Card Display', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Verify info button exists
     const infoButton = page.getByRole('button', { name: /info/i }).first();
@@ -469,31 +408,9 @@ test.describe('Publisher Examples - Publisher Zman Card Display', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Verify Link or Copy button exists on first card
     const linkButton = page.getByRole('button', { name: /link/i }).first();
@@ -543,31 +460,9 @@ test.describe('Publisher Examples - Documentation Modal', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Click info button
     const infoButton = page.getByRole('button', { name: /info/i }).first();
@@ -585,31 +480,9 @@ test.describe('Publisher Examples - Documentation Modal', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Open modal
     await page.getByRole('button', { name: /info/i }).first().click();
@@ -628,31 +501,9 @@ test.describe('Publisher Examples - Documentation Modal', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Open modal
     await page.getByRole('button', { name: /info/i }).first().click();
@@ -672,31 +523,9 @@ test.describe('Publisher Examples - Documentation Modal', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Open modal
     await page.getByRole('button', { name: /info/i }).first().click();
@@ -749,31 +578,9 @@ test.describe('Publisher Examples - Link Flow', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Click Link button on first available zman
     const linkButton = page.getByRole('button', { name: /link/i }).first();
@@ -795,31 +602,9 @@ test.describe('Publisher Examples - Link Flow', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Click Link button
     const linkButton = page.getByRole('button', { name: /link/i }).first();
@@ -875,31 +660,9 @@ test.describe('Publisher Examples - Copy Flow', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Click Copy button on first available zman
     const copyButton = page.getByRole('button', { name: /copy/i }).first();
@@ -921,31 +684,9 @@ test.describe('Publisher Examples - Copy Flow', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Click Copy button
     const copyButton = page.getByRole('button', { name: /copy/i }).first();
@@ -1001,20 +742,7 @@ test.describe('Publisher Examples - Search & Filter', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
-
-    await page.waitForLoadState('networkidle');
+    await selectPublisher(page, sourcePublisher.name);
 
     // Verify search box is visible
     const searchBox = page.locator('input[placeholder*="search" i]').first();
@@ -1028,31 +756,9 @@ test.describe('Publisher Examples - Search & Filter', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Search for "Alos"
     const searchBox = page.locator('input[placeholder*="search" i]').first();
@@ -1073,31 +779,9 @@ test.describe('Publisher Examples - Search & Filter', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Try to apply a filter (category checkbox)
     const categoryFilter = page.getByRole('checkbox', { name: /alos/i }).first();
@@ -1124,31 +808,9 @@ test.describe('Publisher Examples - Search & Filter', () => {
 
     await page.getByRole('tab', { name: /publisher examples/i }).click();
 
-    const publisherSelector = page.locator('input[placeholder*="publisher" i], select, [role="combobox"]').first();
-    if (await publisherSelector.evaluate(el => el.tagName === 'SELECT')) {
-      await publisherSelector.selectOption({ label: sourcePublisher.name });
-    } else {
-      await publisherSelector.click();
-      await publisherSelector.pressSequentially(sourcePublisher.name, { delay: 50 });
-      await page.waitForTimeout(1000); // Wait for dropdown to populate
-      // Click on the option containing the publisher name (may include additional text)
-      const option = page.locator(`[role="option"]:has-text("${sourcePublisher.name}")`).first();
-      await option.waitFor({ state: 'visible', timeout: 5000 });
-      await option.click();
-    }
+    await selectPublisher(page, sourcePublisher.name);
 
-    await page.waitForLoadState('networkidle');
-
-    const locationInput = page.locator('input[placeholder*="location" i], input[placeholder*="city" i]').first();
-    await locationInput.click();
-    await locationInput.pressSequentially('Jerusalem', { delay: 50 });
-    await page.waitForTimeout(1000); // Wait for dropdown to populate
-    // Click on the option containing Jerusalem (may include country/region info)
-    const locationOption = page.locator('[role="option"]:has-text("Jerusalem")').first();
-    await locationOption.waitFor({ state: 'visible', timeout: 5000 });
-    await locationOption.click();
-
-    await page.waitForLoadState('networkidle');
+    await selectLocation(page, 'Jerusalem');
 
     // Apply a filter
     const categoryFilter = page.getByRole('checkbox', { name: /alos/i }).first();

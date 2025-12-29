@@ -157,7 +157,10 @@ export function PreviewToolbar({
             {/* Locality Picker */}
             <Popover open={localityPickerOpen} onOpenChange={setLocalityPickerOpen}>
               <PopoverTrigger asChild>
-                <button className="flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-muted/50 transition-colors text-left">
+                <button
+                  data-testid="location-picker"
+                  className="flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-muted/50 transition-colors text-left"
+                >
                   <MapPin className={cn('h-4 w-4 shrink-0', !localityId && 'text-amber-500')} />
                   <span
                     className={cn(
