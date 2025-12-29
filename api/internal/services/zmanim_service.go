@@ -817,157 +817,65 @@ type EventFilterTag struct {
 }
 
 // ShouldShowZman determines if a zman should be shown based on its tags and active event codes
-// This is entirely tag-driven with timing tag support:
-// - event/jewish_day tags are checked against activeEventCodes
-// - timing tags (day_before, motzei) modify how event tags are matched:
-//   - day_before + shabbos matches erev_shabbos in activeEventCodes
-//   - motzei + shabbos matches shabbos in activeEventCodes (from MoetzeiEvents)
+// SIMPLE LOGIC:
+// - If zman has day_before tag → show ONLY on day before the event (match erev_* codes)
+// - If zman has motzei tag → show ONLY when event ends (match event codes in MoetzeiEvents)
+// - If zman has NO timing tag → show ONLY on the actual event day (direct match)
 func (s *ZmanimService) ShouldShowZman(tags []EventFilterTag, activeEventCodes []string) bool {
-	// Extract zman_key for logging (if available in first tag)
-	zmanKey := "unknown"
-	if len(tags) > 0 {
-		// Note: zman_key is not in EventFilterTag struct, using first tag_key as identifier
-		zmanKey = tags[0].TagKey
-	}
-
-	slog.Debug("ShouldShowZman: START",
-		"zman_key", zmanKey,
-		"input_tags_count", len(tags),
-		"input_tags", tags,
-		"active_event_codes", activeEventCodes)
-
 	// Separate event tags and timing tags
 	eventTags := []EventFilterTag{}
-	timingTags := []EventFilterTag{}
+	hasDayBefore := false
+	hasMoetzei := false
+
 	for _, tag := range tags {
 		switch tag.TagType {
 		case "event", "jewish_day":
 			eventTags = append(eventTags, tag)
 		case "timing":
-			timingTags = append(timingTags, tag)
+			if tag.TagKey == "day_before" {
+				hasDayBefore = true
+			}
+			if tag.TagKey == "motzei" {
+				hasMoetzei = true
+			}
 		}
 	}
-
-	// Check for timing modifiers
-	hasDayBefore := false
-	hasMoetzei := false
-	for _, tt := range timingTags {
-		if tt.TagKey == "day_before" {
-			hasDayBefore = true
-		}
-		if tt.TagKey == "motzei" {
-			hasMoetzei = true
-		}
-	}
-
-	slog.Debug("ShouldShowZman: after filtering tags",
-		"zman_key", zmanKey,
-		"event_tags", eventTags,
-		"timing_tags", timingTags,
-		"has_day_before", hasDayBefore,
-		"has_motzei", hasMoetzei)
 
 	// If no event tags, always show
 	if len(eventTags) == 0 {
-		slog.Debug("ShouldShowZman: RETURN true",
-			"zman_key", zmanKey,
-			"reason", "no event tags")
 		return true
 	}
 
-	// Check event tags against activeEventCodes, considering timing modifiers
-	hasPositiveMatch := false
-	hasNegativeMatch := false
-	positiveMatchedTags := []string{}
-	negativeMatchedTags := []string{}
-
+	// Check event tags against activeEventCodes
 	for _, tag := range eventTags {
 		var isActive bool
 
-		// Timing modifiers change HOW we match, not just add alternatives:
-		// - day_before: ONLY match "erev_" + event (NOT the event itself)
-		// - motzei: ONLY match the event when it's motzei time
-		// - no timing tag: direct match to event
-
-		if hasDayBefore && !tag.IsNegated {
-			// day_before timing: candle lighting should show on EREV, not on the day itself
-			// Example: shabbos + day_before matches erev_shabbos (Friday), NOT shabbos (Saturday)
+		// SIMPLE: day_before tag? Look for erev_*. No day_before tag? Direct match.
+		if hasDayBefore {
+			// Show ONLY on day before → match erev_* codes
 			erevCode := "erev_" + tag.TagKey
 			isActive = s.sliceContainsString(activeEventCodes, erevCode)
-			if isActive {
-				slog.Debug("ShouldShowZman: day_before timing match",
-					"zman_key", zmanKey,
-					"event_tag", tag.TagKey,
-					"matched_via", erevCode)
-			}
-		} else if hasMoetzei && !tag.IsNegated {
-			// motzei timing: havdalah should show when the event ends
-			// MoetzeiEvents populates activeEventCodes with event codes for motzei
+		} else if hasMoetzei {
+			// Show ONLY when event ends → match event codes
 			isActive = s.sliceContainsString(activeEventCodes, tag.TagKey)
-			if isActive {
-				slog.Debug("ShouldShowZman: motzei timing match",
-					"zman_key", zmanKey,
-					"event_tag", tag.TagKey)
-			}
 		} else {
-			// No timing modifier: direct match to event
+			// Show ONLY on actual event day → direct match
 			isActive = s.sliceContainsString(activeEventCodes, tag.TagKey)
 		}
 
-		if tag.IsNegated {
-			if isActive {
-				hasNegativeMatch = true
-				negativeMatchedTags = append(negativeMatchedTags, tag.TagKey)
-			}
-		} else {
-			if isActive {
-				hasPositiveMatch = true
-				positiveMatchedTags = append(positiveMatchedTags, tag.TagKey)
-			}
+		// Negated tags: if active, hide the zman
+		if tag.IsNegated && isActive {
+			return false
+		}
+
+		// Positive tags: if active, show the zman
+		if !tag.IsNegated && isActive {
+			return true
 		}
 	}
 
-	slog.Debug("ShouldShowZman: after matching against active codes",
-		"zman_key", zmanKey,
-		"hasPositiveMatch", hasPositiveMatch,
-		"positive_matched_tags", positiveMatchedTags,
-		"hasNegativeMatch", hasNegativeMatch,
-		"negative_matched_tags", negativeMatchedTags)
-
-	// Negated tags take precedence
-	if hasNegativeMatch {
-		slog.Debug("ShouldShowZman: RETURN false",
-			"zman_key", zmanKey,
-			"reason", "negated tag matched",
-			"matched_negated_tags", negativeMatchedTags)
-		return false
-	}
-
-	// If there are positive tags, at least one must match
-	hasPositiveTags := false
-	for _, tag := range eventTags {
-		if !tag.IsNegated {
-			hasPositiveTags = true
-			break
-		}
-	}
-
-	slog.Debug("ShouldShowZman: checking positive tags requirement",
-		"zman_key", zmanKey,
-		"hasPositiveTags", hasPositiveTags,
-		"hasPositiveMatch", hasPositiveMatch)
-
-	if hasPositiveTags && !hasPositiveMatch {
-		slog.Debug("ShouldShowZman: RETURN false",
-			"zman_key", zmanKey,
-			"reason", "has positive tags but none matched")
-		return false
-	}
-
-	slog.Debug("ShouldShowZman: RETURN true",
-		"zman_key", zmanKey,
-		"reason", "all checks passed")
-	return true
+	// No positive tags matched
+	return false
 }
 
 // sliceContainsString checks if a string slice contains a given string
