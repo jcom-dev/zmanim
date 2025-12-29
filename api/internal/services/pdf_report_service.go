@@ -9,7 +9,6 @@ import (
 	"html/template"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -31,6 +30,7 @@ type PDFReportService struct {
 	zmanimService *ZmanimService
 	cache         *redis.Client
 	mapboxAPIKey  string
+	chromePool    *ChromePool
 }
 
 // NewPDFReportService creates a new PDF report service
@@ -40,6 +40,7 @@ func NewPDFReportService(database *db.DB, zmanimService *ZmanimService, cache *r
 		zmanimService: zmanimService,
 		cache:         cache,
 		mapboxAPIKey:  mapboxAPIKey,
+		chromePool:    NewChromePool(),
 	}
 }
 
@@ -339,37 +340,13 @@ func (s *PDFReportService) buildPDF(data *ZmanimReportData, includeGlossary bool
 	}
 
 	// Use chromedp to convert HTML to PDF
-	// Create an allocator context with options for headless Chrome/Chromium
-	allocatorOpts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.DisableGPU,
-		chromedp.NoSandbox,                           // Required for running in containers
-		chromedp.Flag("disable-dev-shm-usage", true), // Avoid /dev/shm issues in containers
-	)
-
-	// Check for Chrome/Chromium path in order of preference
-	// Prefer google-chrome over chromium-browser (snap) due to file:// protocol sandbox issues
-	chromePaths := []string{
-		"/usr/bin/google-chrome",
-		"/usr/bin/chromium",
-		"/usr/bin/chromium-browser",
-		"/snap/bin/chromium",
+	// Get a Chrome context from the pool (reuses existing Chrome instance)
+	// 60s timeout allows for Chrome cold start on first request
+	ctx, cancel, err := s.chromePool.GetContext(60 * time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("get chrome context: %w", err)
 	}
-	for _, chromePath := range chromePaths {
-		if _, err := os.Stat(chromePath); err == nil {
-			allocatorOpts = append(allocatorOpts, chromedp.ExecPath(chromePath))
-			break
-		}
-	}
-
-	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocatorOpts...)
-	defer allocCancel()
-
-	ctx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
-
-	// Set a timeout for the entire operation
-	ctx, cancel2 := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel2()
 
 	var pdfBuf []byte
 	htmlContent := htmlBuf.String()
@@ -1222,36 +1199,13 @@ func (s *PDFReportService) buildWeeklyCalendarPDF(data *WeeklyCalendarData) ([]b
 	}
 
 	// Use chromedp to convert HTML to PDF
-	allocatorOpts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.DisableGPU,
-		chromedp.NoSandbox,
-		chromedp.Flag("disable-dev-shm-usage", true),
-	)
-
-	// Check for Chrome/Chromium path in order of preference
-	// Prefer google-chrome over chromium-browser (snap) due to file:// protocol sandbox issues
-	chromePaths := []string{
-		"/usr/bin/google-chrome",
-		"/usr/bin/chromium",
-		"/usr/bin/chromium-browser",
-		"/snap/bin/chromium",
+	// Get a Chrome context from the pool (reuses existing Chrome instance)
+	// 60s timeout allows for Chrome cold start on first request
+	ctx, cancel, err := s.chromePool.GetContext(60 * time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("get chrome context: %w", err)
 	}
-	for _, chromePath := range chromePaths {
-		if _, err := os.Stat(chromePath); err == nil {
-			allocatorOpts = append(allocatorOpts, chromedp.ExecPath(chromePath))
-			break
-		}
-	}
-
-	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocatorOpts...)
-	defer allocCancel()
-
-	ctx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
-
-	// Set a timeout for the entire operation
-	ctx, cancel2 := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel2()
 
 	var pdfBuf []byte
 	htmlContent := htmlBuf.String()

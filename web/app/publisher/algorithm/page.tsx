@@ -383,12 +383,12 @@ export default function AlgorithmEditorPage() {
               Restart Wizard
             </Button>
 
-            {/* Version Control Dropdown */}
+            {/* Export/Import Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
-                  <History className="h-4 w-4 mr-2" />
-                  Versions
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
                   <ChevronDown className="h-3 w-3 ml-1" />
                 </Button>
               </DropdownMenuTrigger>
@@ -413,6 +413,7 @@ export default function AlgorithmEditorPage() {
                   <Upload className="h-4 w-4 mr-2" />
                   Import from JSON
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowYearExportDialog(true)}>
                   <CalendarDays className="h-4 w-4 mr-2" />
                   Export Full Year
@@ -421,7 +422,19 @@ export default function AlgorithmEditorPage() {
                   <Printer className="h-4 w-4 mr-2" />
                   Generate PDF Report
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Version Control Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <History className="h-4 w-4 mr-2" />
+                  Versions
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setShowSaveVersionDialog(true)}>
                   <Save className="h-4 w-4 mr-2" />
                   Save Version
@@ -438,12 +451,6 @@ export default function AlgorithmEditorPage() {
               onClick={() => setShowMonthView(true)}
             >
               View Week
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/publisher/dashboard')}
-            >
-              Back to Dashboard
             </Button>
           </div>
         </div>

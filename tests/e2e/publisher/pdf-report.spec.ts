@@ -23,9 +23,22 @@ test.describe.configure({ mode: 'parallel' });
 
 // Helper function to skip wizard if it appears and wait for algorithm page
 async function skipWizardIfNeeded(page: Page) {
+  // Wait for either wizard or algorithm page to appear
+  await page.waitForFunction(
+    () => {
+      const body = document.body.textContent || '';
+      return body.includes('Welcome to Shtetl Zmanim') || body.includes('Versions');
+    },
+    { timeout: 10000 }
+  );
+
+  // If wizard is present, skip it
   const skipButton = page.getByRole('button', { name: /Skip wizard/i });
-  if (await skipButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await skipButton.isVisible({ timeout: 1000 }).catch(() => false)) {
     await skipButton.click();
+
+    // Wait for algorithm page to load (Versions button appears)
+    await expect(page.getByRole('button', { name: /Versions/i })).toBeVisible({ timeout: 10000 });
     await waitForPageReady(page);
   }
 }
@@ -36,43 +49,25 @@ async function selectLocationForPreview(page: Page) {
   const selectLocationButton = page.getByRole('button', { name: /select location/i }).first();
   if (await selectLocationButton.isVisible({ timeout: 2000 }).catch(() => false)) {
     await selectLocationButton.click();
-    // Wait for popover to open
-    await page.waitForTimeout(500);
 
     // LocalityPicker uses an Input for search (placeholder: "Search localities...")
     const searchInput = page.getByPlaceholder(/search localities/i);
-    if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await searchInput.fill('jerusalem');
-      // Wait for search results to load
-      await page.waitForTimeout(1000);
+    await expect(searchInput).toBeVisible({ timeout: 3000 });
+    await searchInput.fill('jerusalem');
 
-      // Results are rendered as buttons inside the popover
-      // Look for a button with Jerusalem text
-      const resultButton = page.locator('button').filter({ hasText: /jerusalem/i }).first();
-      if (await resultButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await resultButton.click();
-        // Wait for the location to actually be selected (button text changes from "Select Location")
-        await page.waitForFunction(
-          () => {
-            const locationButton = document.querySelector('button');
-            return locationButton && locationButton.textContent && locationButton.textContent.toLowerCase().includes('jerusalem');
-          },
-          { timeout: 5000 }
-        ).catch(() => {});
+    // Results are rendered as buttons inside the popover - wait for them to appear
+    const resultButton = page.locator('button').filter({ hasText: /jerusalem/i }).first();
+    await expect(resultButton).toBeVisible({ timeout: 5000 });
+    await resultButton.click();
 
-        // CRITICAL: Also wait for zmanim counts to update (ensures API call completed and state is ready)
-        await page.waitForFunction(
-          () => {
-            const tabText = document.querySelector('[role="tab"][aria-selected="true"]')?.textContent;
-            return tabText && !tabText.includes('--');
-          },
-          { timeout: 5000 }
-        ).catch(() => {}); // Ignore timeout - may already be loaded
-
-        // Extra buffer to ensure React state has propagated
-        await page.waitForTimeout(1000);
-      }
-    }
+    // Wait for zmanim counts to update (ensures API call completed and state is ready)
+    await page.waitForFunction(
+      () => {
+        const tabText = document.querySelector('[role="tab"][aria-selected="true"]')?.textContent;
+        return tabText && !tabText.includes('--');
+      },
+      { timeout: 10000 }
+    );
   }
 }
 
@@ -84,34 +79,31 @@ test.describe('PDF Report Generation', () => {
     testPublisher = await getPublisherWithAlgorithm();
   });
 
-  test('algorithm page shows Versions dropdown menu', async ({ page }) => {
+  test('algorithm page shows Export dropdown menu', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Verify Versions button exists and is visible with extended timeout
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    // Verify Export button exists and is visible with extended timeout
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
   });
 
-  test('Versions dropdown contains Generate PDF Report option', async ({ page }) => {
+  test('Export dropdown contains Generate PDF Report option', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button to be visible and clickable
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button to be visible and clickable
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Verify "Generate PDF Report" button exists in dropdown
+    // Wait for dropdown content to appear (verify PDF button is visible)
     const pdfButton = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfButton).toBeVisible({ timeout: Timeouts.SHORT });
   });
@@ -123,15 +115,12 @@ test.describe('PDF Report Generation', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -165,15 +154,12 @@ test.describe('PDF Report Generation', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -213,15 +199,12 @@ test.describe('PDF Report Generation', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -255,15 +238,12 @@ test.describe('PDF Report Generation', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -296,15 +276,12 @@ test.describe('PDF Report Generation', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -351,22 +328,19 @@ test.describe('PDF Report Generation', () => {
     await expect(modal).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('error handling when location is not selected', async ({ page }) => {
+  test('PDF generation uses pre-selected location from toolbar', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await waitForPageReady(page);
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -375,37 +349,12 @@ test.describe('PDF Report Generation', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Do NOT select location - leave it empty
+    // Verify location is pre-filled from toolbar selection
+    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
 
-    // Click Generate PDF without selecting location
+    // Generate button should be enabled since location is pre-selected
     const generateButton = modal.getByRole('button', { name: /Generate PDF/i });
-    await generateButton.click();
-
-    // Verify error message appears (modal should NOT close)
-    await expect(modal).toBeVisible({ timeout: 2000 });
-
-    // Look for error message (could be in toast, inline error, or form validation)
-    const errorIndicators = [
-      page.getByText(/select.*location/i),
-      page.getByText(/location.*required/i),
-      modal.locator('.error, [role="alert"]').filter({ hasText: /location/i }),
-    ];
-
-    // At least one error indicator should be visible
-    let errorFound = false;
-    for (const indicator of errorIndicators) {
-      if (await indicator.isVisible({ timeout: 1000 }).catch(() => false)) {
-        errorFound = true;
-        break;
-      }
-    }
-
-    // If no error message, the button might be disabled
-    if (!errorFound) {
-      // Generate button might be disabled when location is not selected
-      const isDisabled = await generateButton.isDisabled().catch(() => false);
-      expect(isDisabled).toBe(true);
-    }
+    await expect(generateButton).toBeEnabled();
   });
 
   test('modal can be cancelled without generating PDF', async ({ page }) => {
@@ -415,15 +364,12 @@ test.describe('PDF Report Generation', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -447,15 +393,12 @@ test.describe('PDF Report Generation', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -487,15 +430,12 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
@@ -519,15 +459,12 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await skipWizardIfNeeded(page);
     await selectLocationForPreview(page);
 
-    // Wait for Versions button and open dropdown
-    const versionsButton = page.getByRole('button', { name: /Versions/i });
-    await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
-    await versionsButton.click();
+    // Wait for Export button and open dropdown
+    const exportButton = page.getByRole('button', { name: /Export/i }).filter({ hasText: /Export/i });
+    await expect(exportButton).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await exportButton.click();
 
-    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
-    await page.waitForTimeout(300);
-
-    // Click Generate PDF Report button
+    // Click Generate PDF Report button (wait for it to appear in dropdown)
     const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();

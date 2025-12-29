@@ -104,8 +104,8 @@ func (h *PublisherReportsHandler) GenerateZmanimReport(w http.ResponseWriter, r 
 		return
 	}
 
-	// Step 5: Generate PDF with timeout
-	timeoutCtx, cancel := ContextWithTimeout(ctx, 30*time.Second)
+	// Step 5: Generate PDF with timeout (60s to allow for Chrome cold start)
+	timeoutCtx, cancel := ContextWithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	pdfBytes, err := h.pdfService.GenerateZmanimReport(timeoutCtx, services.ZmanimReportParams{
@@ -224,8 +224,8 @@ func (h *PublisherReportsHandler) GenerateWeeklyCalendarPDF(w http.ResponseWrite
 		return
 	}
 
-	// Step 5: Generate PDF with timeout
-	timeoutCtx, cancel := ContextWithTimeout(ctx, 30*time.Second)
+	// Step 5: Generate PDF with timeout (60s to allow for Chrome cold start)
+	timeoutCtx, cancel := ContextWithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	// Default to English if no language specified
