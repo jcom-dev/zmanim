@@ -32,31 +32,46 @@ async function skipWizardIfNeeded(page: Page) {
 
 // Helper function to select a location for preview
 async function selectLocationForPreview(page: Page) {
-  // Click on "Select Location" button in toolbar
+  // Click on "Select Location" button in PreviewToolbar (opens Popover with LocalityPicker)
   const selectLocationButton = page.getByRole('button', { name: /select location/i }).first();
   if (await selectLocationButton.isVisible({ timeout: 2000 }).catch(() => false)) {
     await selectLocationButton.click();
-    // Wait for location picker combobox to open
+    // Wait for popover to open
     await page.waitForTimeout(500);
-    // Type to trigger search
-    const combobox = page.locator('[role="combobox"]').first();
-    if (await combobox.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await combobox.fill('jerusalem');
-      await page.waitForTimeout(500);
-    }
-    // Select first option from autocomplete
-    const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await firstOption.click();
-      await page.waitForTimeout(500);
-      // Wait for zmanim counts to update (no longer show --)
-      await page.waitForFunction(
-        () => {
-          const tabText = document.querySelector('[role="tab"][aria-selected="true"]')?.textContent;
-          return tabText && !tabText.includes('--');
-        },
-        { timeout: 5000 }
-      ).catch(() => {}); // Ignore timeout - may already be loaded
+
+    // LocalityPicker uses an Input for search (placeholder: "Search localities...")
+    const searchInput = page.getByPlaceholder(/search localities/i);
+    if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await searchInput.fill('jerusalem');
+      // Wait for search results to load
+      await page.waitForTimeout(1000);
+
+      // Results are rendered as buttons inside the popover
+      // Look for a button with Jerusalem text
+      const resultButton = page.locator('button').filter({ hasText: /jerusalem/i }).first();
+      if (await resultButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await resultButton.click();
+        // Wait for the location to actually be selected (button text changes from "Select Location")
+        await page.waitForFunction(
+          () => {
+            const locationButton = document.querySelector('button');
+            return locationButton && locationButton.textContent && locationButton.textContent.toLowerCase().includes('jerusalem');
+          },
+          { timeout: 5000 }
+        ).catch(() => {});
+
+        // CRITICAL: Also wait for zmanim counts to update (ensures API call completed and state is ready)
+        await page.waitForFunction(
+          () => {
+            const tabText = document.querySelector('[role="tab"][aria-selected="true"]')?.textContent;
+            return tabText && !tabText.includes('--');
+          },
+          { timeout: 5000 }
+        ).catch(() => {}); // Ignore timeout - may already be loaded
+
+        // Extra buffer to ensure React state has propagated
+        await page.waitForTimeout(1000);
+      }
     }
   }
 }
@@ -93,12 +108,12 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Verify "Generate PDF Report" menu item exists
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
-    await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
+    // Verify "Generate PDF Report" button exists in dropdown
+    const pdfButton = page.getByRole('button', { name: /Generate PDF Report/i });
+    await expect(pdfButton).toBeVisible({ timeout: Timeouts.SHORT });
   });
 
   test('clicking Generate PDF Report opens modal with configuration options', async ({ page }) => {
@@ -113,11 +128,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -155,11 +170,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -167,16 +182,9 @@ test.describe('PDF Report Generation', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Select location (type "Jerusalem" and select from autocomplete)
-    const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
-    await locationInput.fill('Jerusalem');
-
-    // Wait for autocomplete results and select first option
-    await page.waitForTimeout(500); // Brief wait for debounced search
-    const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await firstOption.click();
-    }
+    // Location should be pre-filled from the toolbar's selection
+    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
 
     // Set up download listener BEFORE clicking Generate PDF
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
@@ -210,11 +218,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -222,14 +230,9 @@ test.describe('PDF Report Generation', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Select location
-    const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
-    await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
-    const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await firstOption.click();
-    }
+    // Location should be pre-filled from the toolbar's selection
+    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
 
     // Set up download listener
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
@@ -257,11 +260,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -269,14 +272,9 @@ test.describe('PDF Report Generation', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Select location
-    const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
-    await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
-    const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await firstOption.click();
-    }
+    // Location should be pre-filled from the toolbar's selection
+    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
 
     // Set up download listener
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
@@ -303,11 +301,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -315,14 +313,9 @@ test.describe('PDF Report Generation', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Select location
-    const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
-    await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
-    const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await firstOption.click();
-    }
+    // Location should be pre-filled from the toolbar's selection
+    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
 
     // Toggle "Include Glossary" OFF
     const glossaryToggle = modal.locator('[role="switch"], input[type="checkbox"]').filter({
@@ -370,11 +363,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -427,11 +420,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -459,11 +452,11 @@ test.describe('PDF Report Generation', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -499,11 +492,11 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -531,11 +524,11 @@ test.describe('PDF Report Generation - Date Selection', () => {
     await expect(versionsButton).toBeVisible({ timeout: Timeouts.MEDIUM });
     await versionsButton.click();
 
-    // Wait for dropdown menu to appear
-    await page.waitForSelector('[role="menu"]', { state: 'visible', timeout: Timeouts.MEDIUM });
+    // Wait for dropdown content to appear (custom dropdown uses buttons, not role="menu")
+    await page.waitForTimeout(300);
 
-    // Click Generate PDF Report
-    const pdfMenuItem = page.getByRole('menuitem', { name: /Generate PDF Report/i });
+    // Click Generate PDF Report button
+    const pdfMenuItem = page.getByRole('button', { name: /Generate PDF Report/i });
     await expect(pdfMenuItem).toBeVisible({ timeout: Timeouts.SHORT });
     await pdfMenuItem.click();
 
@@ -543,14 +536,9 @@ test.describe('PDF Report Generation - Date Selection', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: Timeouts.MEDIUM });
 
-    // Select location first
-    const locationInput = modal.locator('input[placeholder*="location" i], input[placeholder*="search" i]').first();
-    await locationInput.fill('Jerusalem');
-    await page.waitForTimeout(500);
-    const firstOption = page.locator('[role="option"]').first();
-    if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await firstOption.click();
-    }
+    // Location should be pre-filled from the toolbar's selection
+    // Wait for "Selected: Jerusalem..." text to appear which confirms locality is set
+    await expect(modal.getByText(/Selected:.*Jerusalem/i)).toBeVisible({ timeout: 5000 });
 
     // Try to interact with date picker
     const dateButton = modal.locator('button:has-text("Select date"), button:has-text("Pick a date")').first();

@@ -141,8 +141,9 @@ test.describe('Admin Publisher Details', () => {
     // Wait for page content to load
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15000 });
 
-    // Users section is a CardTitle - look for the heading specifically
-    await expect(page.getByRole('heading', { name: /Users/i })).toBeVisible();
+    // Users section has a CardTitle and description in the main content area
+    // Use the description text which is unique to the card (avoids nav ambiguity)
+    await expect(page.getByText(/Users who can manage this publisher/i)).toBeVisible();
   });
 
   test('admin can open invite user dialog', async ({ page }) => {

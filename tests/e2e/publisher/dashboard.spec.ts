@@ -135,8 +135,8 @@ test.describe('Publisher Dashboard', () => {
     await page.goto(`${BASE_URL}/publisher/dashboard`);
     await waitForDashboardLoad(page);
 
-    // Click on Profile card link
-    await page.getByRole('link', { name: /Profile/i }).click();
+    // Click on Profile card link (use heading within card to find the card link)
+    await page.locator('a[href="/publisher/profile"]').filter({ has: page.getByRole('heading', { name: 'Profile' }) }).click();
 
     await page.waitForURL('**/publisher/profile');
     expect(page.url()).toContain('/publisher/profile');
@@ -161,8 +161,8 @@ test.describe('Publisher Dashboard', () => {
     await page.goto(`${BASE_URL}/publisher/dashboard`);
     await waitForDashboardLoad(page);
 
-    // Click on Coverage card link
-    await page.getByRole('link', { name: /Coverage/i }).click();
+    // Click on Coverage card link (use heading within card to find the card link)
+    await page.locator('a[href="/publisher/coverage"]').filter({ has: page.getByRole('heading', { name: 'Coverage' }) }).click();
 
     await page.waitForURL('**/publisher/coverage');
     expect(page.url()).toContain('/publisher/coverage');

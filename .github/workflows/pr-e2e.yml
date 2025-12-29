@@ -84,6 +84,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client redis-tools
 
+          # Install Chrome for PDF generation (chromedp dependency)
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get install -f -y
+
+          # Verify Chrome installation
+          google-chrome --version
+
       # Verify database connection
       - name: Verify Database Connection
         run: |
