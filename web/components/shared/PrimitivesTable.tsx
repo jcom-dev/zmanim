@@ -233,7 +233,7 @@ function PrimitiveDetailDialog({ primitive, open, onOpenChange }: PrimitiveDetai
         <div className="space-y-6 mt-4">
           {/* Hebrew Name (if available) */}
           {doc?.hebrewName && (
-            <div className="p-3 bg-linear-to-r from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="p-3 bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
               <div className="flex items-center justify-between">
                 <span className="text-2xl font-hebrew text-amber-800 dark:text-amber-200">{doc.hebrewName}</span>
                 {doc.hebrewText && <span className="text-sm text-amber-600 dark:text-amber-400">{doc.hebrewText}</span>}

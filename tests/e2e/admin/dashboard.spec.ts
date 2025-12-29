@@ -49,8 +49,8 @@ test.describe('Admin Dashboard', () => {
     // Should see stat cards (use first() for multiple matches)
     // Wait for actual content instead of hard timeout
     await expect(page.getByText('Total Publishers').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Verified').first()).toBeVisible();
-    await expect(page.getByText('Pending').first()).toBeVisible();
+    await expect(page.getByText('Active Publishers').first()).toBeVisible();
+    await expect(page.getByText('Pending Approval').first()).toBeVisible();
   });
 
   test('dashboard has quick action links', async ({ page }) => {
@@ -60,10 +60,10 @@ test.describe('Admin Dashboard', () => {
     // Should see quick actions section
     await expect(page.getByText('Quick Actions')).toBeVisible();
 
-    // Should have links to other admin pages (use first() for multiple matches)
-    await expect(page.getByRole('link', { name: /publishers/i }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: /create/i }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: /settings/i }).first()).toBeVisible();
+    // Should have links to other admin pages - check for card titles
+    await expect(page.getByRole('heading', { name: /Manage Publishers/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Create Publisher/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /System Settings/i })).toBeVisible();
   });
 
   test('can refresh dashboard statistics', async ({ page }) => {

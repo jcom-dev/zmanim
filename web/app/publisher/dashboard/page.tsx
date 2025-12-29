@@ -350,7 +350,10 @@ export default function PublisherDashboardPage() {
           </Link>
 
           {/* Analytics Card */}
-          <div className="bg-card rounded-lg p-6 border border-border">
+          <Link
+            href="/publisher/analytics"
+            className="bg-card rounded-lg p-6 border border-border hover:border-primary/50 transition-colors group"
+          >
             <div className="flex items-start justify-between mb-4">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -361,7 +364,7 @@ export default function PublisherDashboardPage() {
                 <TooltipContent>View usage statistics for your zmanim</TooltipContent>
               </Tooltip>
             </div>
-            <h2 className="text-lg font-semibold mb-1">Analytics</h2>
+            <h2 className="text-lg font-semibold mb-1 group-hover:text-orange-400 transition-colors">Analytics</h2>
             {summary && (
               <>
                 <p className="text-3xl font-bold text-foreground">
@@ -372,8 +375,7 @@ export default function PublisherDashboardPage() {
                 </StatusTooltip>
               </>
             )}
-            <p className="text-muted-foreground/70 text-xs mt-2">Coming soon in a future update</p>
-          </div>
+          </Link>
         </div>
 
         {/* Recent Activity Section */}

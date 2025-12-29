@@ -1,10 +1,11 @@
 /**
  * @file proxy.ts
- * @purpose Next.js proxy (formerly middleware) - auth routing, public/protected route logic
+ * @purpose Next.js proxy - auth routing, public/protected route logic (Next.js 16+)
  * @pattern next-proxy
  * @dependencies Clerk auth(), publicRoutes matcher
  * @frequency critical - authentication flow
  * @compliance Check docs/adr/ for pattern rationale
+ * @note Next.js 16+ uses proxy.ts instead of middleware.ts
  */
 
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';

@@ -69,7 +69,7 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByPlaceholder(/search zmanim/i)).toBeVisible();
+      await expect(page.getByPlaceholder(/search by name or key/i)).toBeVisible();
     }
   });
 
@@ -80,127 +80,127 @@ test.describe('Algorithm Editor - Search and Filter', () => {
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('tab', { name: /all/i })).toBeVisible();
-      await expect(page.getByRole('tab', { name: /enabled/i })).toBeVisible();
-      await expect(page.getByRole('tab', { name: /disabled/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /^all/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /published/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /draft/i })).toBeVisible();
     }
   });
 
-  test('can filter to enabled', async ({ page }) => {
+  test('can filter to published', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      const enabledTab = page.getByRole('tab', { name: /enabled/i });
-      await enabledTab.click();
-      await expect(enabledTab).toHaveAttribute('data-state', 'active');
+      const publishedTab = page.getByRole('tab', { name: /published/i });
+      await publishedTab.click();
+      await expect(publishedTab).toHaveAttribute('data-state', 'active');
     }
   });
 
-  test('can filter to custom', async ({ page }) => {
+  test('can filter to core', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      const customTab = page.getByRole('tab', { name: /custom/i });
-      await customTab.click();
-      await expect(customTab).toHaveAttribute('data-state', 'active');
-    }
-  });
-});
-
-test.describe('Algorithm Editor - Add Custom', () => {
-  test('Add Custom button visible', async ({ page }) => {
-    const publisher = getPublisherWithAlgorithm();
-    await loginAsPublisher(page, publisher.id);
-    await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
-
-    if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /add custom/i })).toBeVisible();
-    }
-  });
-
-  test('Add Custom navigates to new zman', async ({ page }) => {
-    const publisher = getPublisherWithAlgorithm();
-    await loginAsPublisher(page, publisher.id);
-    await page.goto(`${BASE_URL}/publisher/algorithm`);
-    await page.waitForLoadState('networkidle');
-
-    if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /add custom/i }).click();
-      await page.waitForURL('**/algorithm/edit/new', { timeout: 10000 });
-      expect(page.url()).toContain('/algorithm/edit/new');
+      const coreTab = page.getByRole('tab', { name: /^core/i });
+      await coreTab.click();
+      await expect(coreTab).toHaveAttribute('data-state', 'active');
     }
   });
 });
 
-test.describe('Algorithm Editor - Import Dialog', () => {
-  test('Import button visible', async ({ page }) => {
+test.describe('Algorithm Editor - Browse Registry', () => {
+  test('Browse Registry button visible', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /import/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /browse registry/i })).toBeVisible();
     }
   });
 
-  test('Import opens dialog', async ({ page }) => {
+  test('Browse Registry navigates to registry', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /import/i }).click();
-      await expect(page.getByText('Import Zmanim')).toBeVisible();
+      await page.getByRole('button', { name: /browse registry/i }).click();
+      await page.waitForURL('**/publisher/registry', { timeout: 10000 });
+      expect(page.url()).toContain('/publisher/registry');
+    }
+  });
+});
+
+test.describe('Algorithm Editor - Import/Export', () => {
+  test('Export dropdown visible', async ({ page }) => {
+    const publisher = getPublisherWithAlgorithm();
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
+    if (await waitForEditor(page)) {
+      await expect(page.getByRole('button', { name: /^export/i })).toBeVisible();
     }
   });
 
-  test('Import has default templates', async ({ page }) => {
+  test('Export dropdown opens menu', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /import/i }).click();
-      await expect(page.getByText('Import Default Templates')).toBeVisible();
+      await page.getByRole('button', { name: /^export/i }).click();
+      await expect(page.getByRole('menuitem', { name: /export to json/i })).toBeVisible();
     }
   });
 
-  test('Import has copy from publisher', async ({ page }) => {
+  test('Export dropdown has import option', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /import/i }).click();
-      await expect(page.getByText('Copy from Another Publisher')).toBeVisible();
+      await page.getByRole('button', { name: /^export/i }).click();
+      await expect(page.getByRole('menuitem', { name: /import from json/i })).toBeVisible();
+    }
+  });
+
+  test('Export dropdown has year export', async ({ page }) => {
+    const publisher = getPublisherWithAlgorithm();
+    await loginAsPublisher(page, publisher.id);
+    await page.goto(`${BASE_URL}/publisher/algorithm`);
+    await page.waitForLoadState('networkidle');
+
+    if (await waitForEditor(page)) {
+      await page.getByRole('button', { name: /^export/i }).click();
+      await expect(page.getByRole('menuitem', { name: /export full year/i })).toBeVisible();
     }
   });
 });
 
 test.describe('Algorithm Editor - Preview Panel', () => {
-  test('preview location visible', async ({ page }) => {
+  test('location picker visible', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByText('Preview Location')).toBeVisible();
+      await expect(page.getByTestId('location-picker')).toBeVisible();
     }
   });
 
-  test('shows default location', async ({ page }) => {
+  test('shows location or select prompt', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
@@ -209,6 +209,7 @@ test.describe('Algorithm Editor - Preview Panel', () => {
     if (await waitForEditor(page)) {
       const content = await page.textContent('body');
       expect(
+        content?.includes('Select Location') ||
         content?.includes('Brooklyn') ||
         content?.includes('Jerusalem') ||
         content?.includes('New York')
@@ -216,14 +217,15 @@ test.describe('Algorithm Editor - Preview Panel', () => {
     }
   });
 
-  test('city search visible', async ({ page }) => {
+  test('location picker opens search', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByPlaceholder(/search for a city/i)).toBeVisible();
+      await page.getByTestId('location-picker').click();
+      await expect(page.getByPlaceholder(/search localities/i)).toBeVisible();
     }
   });
 });
@@ -240,26 +242,26 @@ test.describe('Algorithm Editor - View Options', () => {
     }
   });
 
-  test('View Month visible', async ({ page }) => {
+  test('View Week visible', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('button', { name: /view month/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /view week/i })).toBeVisible();
     }
   });
 
-  test('View Month opens dialog', async ({ page }) => {
+  test('View Week opens dialog', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await page.getByRole('button', { name: /view month/i }).click();
-      await expect(page.getByText('Month Preview')).toBeVisible();
+      await page.getByRole('button', { name: /view week/i }).click();
+      await expect(page.getByText('Week Preview')).toBeVisible();
     }
   });
 });
@@ -272,18 +274,26 @@ test.describe('Algorithm Editor - Zmanim Grid', () => {
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByRole('heading', { name: 'Zmanim' })).toBeVisible();
+      // Check for either "Everyday Zmanim" or "Event Zmanim" heading
+      const hasEveryday = await page.getByRole('heading', { name: /everyday zmanim/i }).isVisible().catch(() => false);
+      const hasEvent = await page.getByRole('heading', { name: /event zmanim/i }).isVisible().catch(() => false);
+      expect(hasEveryday || hasEvent).toBeTruthy();
     }
   });
 
-  test('Zmanim count visible', async ({ page }) => {
+  test('Zmanim description visible', async ({ page }) => {
     const publisher = getPublisherWithAlgorithm();
     await loginAsPublisher(page, publisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
 
     if (await waitForEditor(page)) {
-      await expect(page.getByText(/\d+ zmanim/i)).toBeVisible();
+      // Check for description text that contains count information
+      const content = await page.textContent('body');
+      expect(
+        content?.includes('daily solar calculation times') ||
+        content?.includes('Shabbos, holiday, and fast day times')
+      ).toBeTruthy();
     }
   });
 });

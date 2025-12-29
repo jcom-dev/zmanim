@@ -237,7 +237,7 @@ export default function LocalityPublishersPage() {
                       unoptimized
                     />
                   ) : (
-                    <div className="w-full h-full bg-linear-to-br from-primary to-primary/80 flex items-center justify-center rounded-lg">
+                    <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center rounded-lg">
                       <span className="text-lg font-bold text-primary-foreground tracking-tight">
                         {(publisher.name || 'P').split(/\s+/).slice(0, 3).map(w => w.charAt(0).toUpperCase()).join('')}
                       </span>

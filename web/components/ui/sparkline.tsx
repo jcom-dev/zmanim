@@ -3,13 +3,15 @@ export interface SparklineProps {
   color?: string;
   height?: number;
   className?: string;
+  'data-testid'?: string;
 }
 
 export function Sparkline({
   data,
   color = 'currentColor',
   height = 32,
-  className = ''
+  className = '',
+  'data-testid': dataTestId
 }: SparklineProps) {
   if (!data || data.length === 0) {
     return null;
@@ -34,6 +36,7 @@ export function Sparkline({
       height={height}
       className={className}
       viewBox={`0 0 ${width} ${height}`}
+      data-testid={dataTestId}
     >
       <polyline
         fill="none"

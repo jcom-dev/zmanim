@@ -153,7 +153,7 @@ function ZmanCard({
   const displayName = isHebrew ? zman.canonical_hebrew_name : zman.canonical_english_name;
 
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="relative overflow-hidden" data-testid="zman-card">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -192,7 +192,7 @@ function ZmanCard({
               </div>
               {zman.preview_time && (
                 <div className="shrink-0 text-right">
-                  <div className="text-lg font-semibold text-primary tabular-nums">
+                  <div className="text-lg font-semibold text-primary tabular-nums" data-testid="preview-time">
                     {zman.preview_time}
                   </div>
                 </div>
@@ -242,7 +242,7 @@ function ZmanCard({
               size="icon"
               variant="ghost"
               onClick={() => onInfo(zman.id)}
-              aria-label={`View documentation for ${zman.canonical_english_name}`}
+              aria-label="Info"
             >
               <Info className="h-4 w-4" />
             </Button>
@@ -828,7 +828,7 @@ export default function RegistryPage() {
         open={showRequestModal}
         onOpenChange={setShowRequestModal}
         onSuccess={() => {
-          toast.success('Request submitted for admin review');
+          toast.success('Request submitted. Admin review pending.');
           setShowRequestModal(false);
         }}
       />

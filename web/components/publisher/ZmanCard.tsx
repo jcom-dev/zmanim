@@ -370,7 +370,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
         )}
       >
         <div className="p-4 sm:p-5">
-          {/* === ROW 1: Name + Modified + Time + Actions === */}
+          {/* === ROW 1: Name + Modified + Actions === */}
           <div className="flex items-start justify-between gap-4">
             {/* Left: Names + Modified badge inline */}
             <div className="min-w-0 flex-1">
@@ -425,7 +425,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0">
               <TooltipProvider delayDuration={300}>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
                 {/* Metadata edit button (names, description) - only for non-linked zmanim */}
@@ -509,96 +509,99 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                 </Tooltip>
                 </div>
               </TooltipProvider>
-
-              {/* Time - hero element in top-right corner */}
-              {previewTime && (
-                <div className="shrink-0">
-                  <span className="text-2xl sm:text-3xl font-mono font-medium tabular-nums text-primary">
-                    {previewTime}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* === ROW 2: Controls === */}
-          <div className="mt-3 flex items-center gap-2 flex-wrap">
-            {/* Rounding */}
-            <RoundingModeToggle
-              value={zman.rounding_mode || 'math'}
-              onChange={async (mode) => {
-                setPendingField('rounding_mode');
-                try {
-                  await updateZman.mutateAsync({ rounding_mode: mode });
-                } finally {
-                  setPendingField(null);
-                }
-              }}
-              disabled={pendingField === 'rounding_mode'}
-            />
+          {/* === ROW 2: Controls + Time === */}
+          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+            {/* Left: Controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Rounding */}
+              <RoundingModeToggle
+                value={zman.rounding_mode || 'math'}
+                onChange={async (mode) => {
+                  setPendingField('rounding_mode');
+                  try {
+                    await updateZman.mutateAsync({ rounding_mode: mode });
+                  } finally {
+                    setPendingField(null);
+                  }
+                }}
+                disabled={pendingField === 'rounding_mode'}
+              />
 
-            {/* Published - editable for non-linked, display-only for linked */}
-            {isEditable ? (
-              <button
-                onClick={handleTogglePublished}
-                disabled={pendingField === 'is_published'}
-                className={cn(
-                  "text-xs font-medium px-2.5 py-1 rounded transition-colors",
-                  zman.is_published
-                    ? "bg-green-600/80 text-white hover:bg-green-600"
-                    : "bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25"
-                )}
-              >
-                {zman.is_published ? 'Published' : 'Draft'}
-              </button>
-            ) : (
-              <span
-                className={cn(
-                  "text-xs font-medium px-2.5 py-1 rounded",
-                  zman.is_published
-                    ? "bg-green-600/80 text-white"
-                    : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                )}
-              >
-                {zman.is_published ? 'Published' : 'Draft'}
-              </span>
-            )}
-
-            {/* Beta - editable for non-linked, display-only for linked */}
-            {zman.is_beta && (
-              isEditable ? (
+              {/* Published - editable for non-linked, display-only for linked */}
+              {isEditable ? (
                 <button
-                  onClick={handleToggleBeta}
-                  disabled={pendingField === 'is_beta'}
-                  className="text-xs font-medium px-2.5 py-1 rounded bg-amber-500/80 text-white hover:bg-amber-500 transition-colors"
+                  onClick={handleTogglePublished}
+                  disabled={pendingField === 'is_published'}
+                  className={cn(
+                    "text-xs font-medium px-2.5 py-1 rounded transition-colors",
+                    zman.is_published
+                      ? "bg-green-600/80 text-white hover:bg-green-600"
+                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25"
+                  )}
                 >
-                  <FlaskConical className="h-3 w-3 inline mr-1" />
-                  Beta
+                  {zman.is_published ? 'Published' : 'Draft'}
                 </button>
               ) : (
-                <span className="text-xs font-medium px-2.5 py-1 rounded bg-amber-500/80 text-white">
-                  <FlaskConical className="h-3 w-3 inline mr-1" />
-                  Beta
+                <span
+                  className={cn(
+                    "text-xs font-medium px-2.5 py-1 rounded",
+                    zman.is_published
+                      ? "bg-green-600/80 text-white"
+                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                  )}
+                >
+                  {zman.is_published ? 'Published' : 'Draft'}
                 </span>
-              )
-            )}
+              )}
 
-            {/* Source - Registry or Linked */}
-            {zman.is_linked ? (
-              <span className={cn(
-                "text-xs px-2.5 py-1 rounded",
-                zman.linked_source_is_deleted
-                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                  : "bg-muted/60 text-muted-foreground"
-              )}>
-                <Link2 className="h-3 w-3 inline mr-1" />
-                {zman.linked_source_publisher_name}
-              </span>
-            ) : (
-              <span className="text-xs px-2.5 py-1 rounded bg-blue-500/15 text-blue-700 dark:text-blue-300">
-                <Library className="h-3 w-3 inline mr-1" />
-                Registry
-              </span>
+              {/* Beta - editable for non-linked, display-only for linked */}
+              {zman.is_beta && (
+                isEditable ? (
+                  <button
+                    onClick={handleToggleBeta}
+                    disabled={pendingField === 'is_beta'}
+                    className="text-xs font-medium px-2.5 py-1 rounded bg-amber-500/80 text-white hover:bg-amber-500 transition-colors"
+                  >
+                    <FlaskConical className="h-3 w-3 inline mr-1" />
+                    Beta
+                  </button>
+                ) : (
+                  <span className="text-xs font-medium px-2.5 py-1 rounded bg-amber-500/80 text-white">
+                    <FlaskConical className="h-3 w-3 inline mr-1" />
+                    Beta
+                  </span>
+                )
+              )}
+
+              {/* Source - Registry or Linked */}
+              {zman.is_linked ? (
+                <span className={cn(
+                  "text-xs px-2.5 py-1 rounded",
+                  zman.linked_source_is_deleted
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    : "bg-muted/60 text-muted-foreground"
+                )}>
+                  <Link2 className="h-3 w-3 inline mr-1" />
+                  {zman.linked_source_publisher_name}
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-1 rounded bg-blue-500/15 text-blue-700 dark:text-blue-300">
+                  <Library className="h-3 w-3 inline mr-1" />
+                  Registry
+                </span>
+              )}
+            </div>
+
+            {/* Right: Time */}
+            {previewTime && (
+              <div className="shrink-0">
+                <span className="text-2xl sm:text-3xl font-mono font-medium tabular-nums text-primary">
+                  {previewTime}
+                </span>
+              </div>
             )}
           </div>
 

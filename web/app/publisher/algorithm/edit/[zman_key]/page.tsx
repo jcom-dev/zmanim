@@ -577,7 +577,7 @@ export default function ZmanEditorPage() {
                 />
 
                 {/* Compact Result Card - in left panel for advanced mode */}
-                <Card className="border-2 border-primary/30 bg-linear-to-br from-card to-primary/5">
+                <Card className="border-2 border-primary/30 bg-gradient-to-br from-card to-primary/5">
                   <CardContent className="py-5">
                     {previewResult ? (
                       <div className="animate-in fade-in-0 duration-200 text-center">
@@ -738,7 +738,7 @@ export default function ZmanEditorPage() {
               </Card>
 
               {/* Calculated Result - Hero Card */}
-              <Card className="border-2 border-primary/30 bg-linear-to-br from-card to-primary/5">
+              <Card className="border-2 border-primary/30 bg-gradient-to-br from-card to-primary/5">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg font-semibold">Calculated Result</CardTitle>

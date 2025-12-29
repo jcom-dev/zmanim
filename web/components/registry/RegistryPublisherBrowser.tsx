@@ -414,7 +414,7 @@ function PublisherZmanCard({
   const isCurrentlyProcessing = isProcessing === zman.id;
 
   return (
-    <Card className="relative overflow-hidden" data-testid={`publisher-zman-card-${zman.id}`}>
+    <Card className="relative overflow-hidden" data-testid="publisher-zman-card">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -496,7 +496,7 @@ function PublisherZmanCard({
               size="icon"
               variant="ghost"
               onClick={() => onInfo(zman.id)}
-              aria-label={`View documentation for ${zman.english_name}`}
+              aria-label="Info"
               data-testid="zman-info-button"
             >
               <Info className="h-4 w-4" />
@@ -513,6 +513,7 @@ function PublisherZmanCard({
                       disabled={isDisabled || isCurrentlyProcessing}
                       onClick={() => onLink(zman.id)}
                       className="gap-1"
+                      aria-label="Link"
                       data-testid="zman-link-button"
                     >
                       {isCurrentlyProcessing ? (
@@ -547,6 +548,7 @@ function PublisherZmanCard({
                       disabled={isDisabled || isCurrentlyProcessing}
                       onClick={() => onCopy(zman.id)}
                       className="gap-1"
+                      aria-label="Copy"
                       data-testid="zman-copy-button"
                     >
                       {isCurrentlyProcessing ? (

@@ -648,7 +648,7 @@ export default function AlgorithmEditorPage() {
           </div>
 
           {/* Right Column: Live Preview (sticky) */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block border-l border-border pl-6">
             <div className="sticky top-6">
               <AlgorithmPreview
                 zmanim={zmanim}

@@ -12,7 +12,7 @@ export function WelcomeStep({ onNext, onSkip }: WelcomeStepProps) {
     <div className="text-center space-y-8 py-8">
       {/* Welcome illustration */}
       <div className="flex justify-center">
-        <div className="w-24 h-24 rounded-full bg-linear-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 flex items-center justify-center">
+        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 flex items-center justify-center">
           <SunriseIcon className="w-12 h-12 text-amber-600" />
         </div>
       </div>

@@ -76,7 +76,7 @@ export default function PublisherCard({ publisher, onSelect, isSelected }: Publi
             />
           </div>
         ) : (
-          <div className="w-16 h-16 rounded-xl bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center mr-4">
+          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mr-4">
             <span className="text-2xl text-white font-bold">
               {publisher.name.charAt(0)}
             </span>

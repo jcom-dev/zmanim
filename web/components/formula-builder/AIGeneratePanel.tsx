@@ -67,7 +67,7 @@ export function AIGeneratePanel({ onAccept, onEdit, className = '' }: AIGenerate
   };
 
   return (
-    <div className={`space-y-4 p-4 border rounded-lg bg-linear-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 ${className}`}>
+    <div className={`space-y-4 p-4 border rounded-lg bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 ${className}`}>
       <div className="flex items-center gap-2">
         <SparklesIcon className="h-5 w-5 text-purple-500" />
         <h3 className="font-medium">Generate with AI</h3>
@@ -111,7 +111,7 @@ export function AIGeneratePanel({ onAccept, onEdit, className = '' }: AIGenerate
       <Button
         onClick={generate}
         disabled={loading || !description.trim()}
-        className="w-full bg-linear-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
       >
         {loading ? (
           <>

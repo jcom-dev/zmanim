@@ -141,9 +141,10 @@ test.describe('Admin Publisher Details', () => {
     // Wait for page content to load
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15000 });
 
-    // Users section has a CardTitle and description in the main content area
-    // Use the description text which is unique to the card (avoids nav ambiguity)
-    await expect(page.getByText(/Users who can manage this publisher/i)).toBeVisible();
+    // Users section has a CardTitle and CardDescription
+    // Check for the heading "Users" and the description text
+    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+    await expect(page.getByText(/Users who can manage this publisher account/i)).toBeVisible();
   });
 
   test('admin can open invite user dialog', async ({ page }) => {
@@ -169,17 +170,18 @@ test.describe('Admin Publisher Details', () => {
     // Wait for page content to load
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15000 });
 
-    // The edit button is an icon button - we need to find it by its position or hover text
-    // It's in the action buttons area after the impersonation button
-    // Look for any button that when clicked opens a dialog with "Edit Publisher" title
-    const actionButtons = page.locator('button[class*="ghost"]');
+    // The edit button is in a dialog trigger - find all buttons and look for the one that opens edit dialog
+    // It's after the impersonation button, certified toggle, status actions, export/import buttons
+    // Click buttons until we find the one that opens "Edit Publisher" dialog
+    const buttons = page.locator('button[class*="ghost"]');
 
-    // Find the edit button by checking for the pencil icon SVG path or position
-    // The edit icon button is in the toolbar area
-    const editButton = page.locator('button').filter({ hasText: '' }).nth(5); // Edit is after other action buttons
+    // Try to find by hovering to get tooltip "Edit details" or just click the pencil icon button
+    // The button is wrapped in DialogTrigger, so clicking it should open the dialog
+    await buttons.nth(7).click(); // Edit is typically the 8th ghost button
 
-    // Alternative: just verify the page loaded correctly, edit functionality tested elsewhere
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // Should see edit dialog
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Edit Publisher')).toBeVisible();
   });
 
   test('admin sees delete publisher option', async ({ page }) => {
@@ -189,18 +191,15 @@ test.describe('Admin Publisher Details', () => {
     // Wait for page content to load
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15000 });
 
-    // The delete button opens an AlertDialog - find it by looking for any button
-    // that when clicked shows "Delete Publisher" confirmation
-    // Since it's a ghost icon button, look for buttons in the action toolbar
-    // The impersonation button has aria-label, but delete doesn't
+    // The delete button is wrapped in AlertDialogTrigger
+    // It's a ghost icon button with Trash2 icon at the end of the action toolbar
+    // Just verify the toolbar with action buttons exists and is visible
+    await expect(page.locator('button[aria-label="View as publisher"]')).toBeVisible();
 
-    // Verify the action toolbar exists with multiple buttons
-    const actionButtonsContainer = page.locator('button[aria-label="View as publisher"]').locator('..');
-    await expect(actionButtonsContainer).toBeVisible();
-
-    // Count buttons in the toolbar - should have multiple action buttons including delete
-    const actionButtons = actionButtonsContainer.locator('button');
-    await expect(actionButtons.first()).toBeVisible();
+    // Count ghost variant buttons - there should be multiple action buttons
+    const ghostButtons = page.locator('button[class*="ghost"]');
+    const count = await ghostButtons.count();
+    expect(count).toBeGreaterThan(5); // Should have impersonate, certified, status, export, import, edit, delete
   });
 });
 
