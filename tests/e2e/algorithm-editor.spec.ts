@@ -1,29 +1,30 @@
 import { test, expect } from '@playwright/test';
 import { BASE_URL, TIMEOUTS } from './helpers/mcp-playwright';
+import { loginAsPublisher } from './utils';
 
 /**
  * Algorithm Editor E2E Tests
- * Story 1.8: Algorithm Editor
  *
- * These tests verify the algorithm editor functionality including:
- * - AC1: Publisher sees current algorithm configuration
- * - AC2: Publisher can choose from templates (GRA, MGA, Rabbeinu Tam, Custom)
- * - AC3: Clicking zman opens configuration modal
- * - AC4: Modal shows method options with autocomplete
- * - AC5: Live preview shows calculated time
- * - AC6: View Month shows calendar (simplified)
- * - AC7: Invalid configuration shows validation error
- * - AC8: Unsaved changes trigger navigation warning
+ * Tests the algorithm editor page which allows publishers to:
+ * - View and configure their zmanim calculations
+ * - Edit individual zman formulas
+ * - Preview calculated times
+ * - View week preview
+ * - Export/import snapshots
+ *
+ * NOTE: The original AC1-AC8 from Story 1.8 are now obsolete.
+ * The UI was completely redesigned with:
+ * - No template selector (replaced by onboarding wizard)
+ * - No modal editor (replaced by dedicated edit page)
+ * - Always-on live preview sidebar
+ * - Tag-based filtering instead of hardcoded categories
  */
 
 // Enable parallel execution (Story 5.14)
 test.describe.configure({ mode: 'parallel' });
 
 test.describe('Algorithm Editor', () => {
-  // These tests require publisher authentication
-  // For now, testing auth protection and page structure
-
-  test.describe('AC1 & AC2: Algorithm Configuration and Template Selection', () => {
+  test.describe('Authentication & Access', () => {
     test('should require authentication and redirect to sign-in', async ({ page }) => {
       await page.goto(`${BASE_URL}/publisher/algorithm`);
 
@@ -33,177 +34,108 @@ test.describe('Algorithm Editor', () => {
       expect(page.url()).toContain('sign-in');
       expect(page.url()).toContain('redirect_url');
     });
+  });
 
-    test.skip('should display template selector for new algorithms (requires auth)', async ({ page }) => {
+  test.describe('Algorithm Page Display', () => {
+    test('should display algorithm editor page with zmanim list', async ({ page }) => {
+      await loginAsPublisher(page, 'e2e-shared-with-algorithm-1');
       await page.goto(`${BASE_URL}/publisher/algorithm`);
       await page.waitForLoadState('networkidle');
 
-      // AC2: Should show template selector
-      const templatesHeading = page.getByText('Start from a Template');
-      await expect(templatesHeading).toBeVisible();
+      // Should show page heading
+      await expect(page.getByRole('heading', { name: 'Algorithm Editor' })).toBeVisible();
 
-      // AC2: Should show all template options
-      await expect(page.getByText('GRA (Vilna Gaon)')).toBeVisible();
-      await expect(page.getByText('Magen Avraham (MGA)')).toBeVisible();
-      await expect(page.getByText('Rabbeinu Tam')).toBeVisible();
-      await expect(page.getByText('Custom Algorithm')).toBeVisible();
+      // Should show description
+      await expect(page.getByText('Configure your zmanim calculation formulas')).toBeVisible();
     });
 
-    test.skip('should load template when selected (requires auth)', async ({ page }) => {
+    test('should display everyday/events tabs', async ({ page }) => {
+      await loginAsPublisher(page, 'e2e-shared-with-algorithm-1');
       await page.goto(`${BASE_URL}/publisher/algorithm`);
       await page.waitForLoadState('networkidle');
 
-      // AC2: Click on GRA template
-      page.on('dialog', dialog => dialog.accept()); // Accept confirmation
-      await page.getByText('GRA (Vilna Gaon)').click();
+      // Should show tabs
+      await expect(page.getByRole('tab', { name: /Everyday/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /Events/i })).toBeVisible();
+    });
 
-      // Should show algorithm editor with loaded template
-      const algorithmName = page.getByPlaceholder('My Custom Algorithm');
-      await expect(algorithmName).toBeVisible();
-      await expect(algorithmName).toHaveValue(/GRA/i);
+    test('should show search and filter controls', async ({ page }) => {
+      await loginAsPublisher(page, 'e2e-shared-with-algorithm-1');
+      await page.goto(`${BASE_URL}/publisher/algorithm`);
+      await page.waitForLoadState('networkidle');
 
-      // Should show zmanim list
-      await expect(page.getByText('Alos HaShachar')).toBeVisible();
-      await expect(page.getByText('Tzeis HaKochavim')).toBeVisible();
+      // Should show search input
+      await expect(page.getByPlaceholder(/Search by name or key/i)).toBeVisible();
+
+      // Should show filter tabs
+      await expect(page.getByRole('tab', { name: /All/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /Published/i })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /Draft/i })).toBeVisible();
+    });
+
+    test('should show action buttons', async ({ page }) => {
+      await loginAsPublisher(page, 'e2e-shared-with-algorithm-1');
+      await page.goto(`${BASE_URL}/publisher/algorithm`);
+      await page.waitForLoadState('networkidle');
+
+      // Should show restart wizard button
+      await expect(page.getByRole('button', { name: /Restart Wizard/i })).toBeVisible();
+
+      // Should show export button
+      await expect(page.getByRole('button', { name: /Export/i })).toBeVisible();
+
+      // Should show version history button
+      await expect(page.getByRole('button', { name: /Version History/i })).toBeVisible();
+
+      // Should show view week button
+      await expect(page.getByRole('button', { name: /View Week/i })).toBeVisible();
     });
   });
 
-  test.describe('AC3 & AC4: Zman Configuration Modal', () => {
-    test.skip('should open configuration modal when clicking zman (requires auth)', async ({ page }) => {
+  test.describe('Live Preview', () => {
+    test('should display live preview sidebar on desktop', async ({ page }) => {
+      // Set viewport to desktop size
+      await page.setViewportSize({ width: 1280, height: 720 });
+
+      await loginAsPublisher(page, 'e2e-shared-with-algorithm-1');
       await page.goto(`${BASE_URL}/publisher/algorithm`);
+      await page.waitForLoadState('networkidle');
 
-      // Load a template first
-      page.on('dialog', dialog => dialog.accept());
-      await page.getByText('GRA (Vilna Gaon)').click();
-
-      // AC3: Click on a zman to configure
-      await page.getByText('Alos HaShachar').click();
-
-      // AC3: Modal should open
-      const modalHeading = page.getByText('Configure: Alos HaShachar');
-      await expect(modalHeading).toBeVisible();
-
-      // AC4: Should show method selector
-      const methodSelect = page.locator('select').filter({ hasText: /Method/i });
-      await expect(methodSelect).toBeVisible();
-
-      // AC4: Should show method options
-      await methodSelect.click();
-      await expect(page.getByText('Solar Depression Angle')).toBeVisible();
-      await expect(page.getByText('Fixed Minutes')).toBeVisible();
-      await expect(page.getByText('Proportional Hours')).toBeVisible();
-    });
-
-    test.skip('should show method-specific parameters (requires auth)', async ({ page }) => {
-      await page.goto(`${BASE_URL}/publisher/algorithm`);
-
-      // Load template and open modal
-      page.on('dialog', dialog => dialog.accept());
-      await page.getByText('GRA (Vilna Gaon)').click();
-      await page.getByText('Alos HaShachar').click();
-
-      // AC4: Solar angle should show degrees parameter
-      const methodSelect = page.locator('select').filter({ hasText: /Method/i });
-      await methodSelect.selectOption('solar_angle');
-
-      const degreesInput = page.getByPlaceholder('16.1');
-      await expect(degreesInput).toBeVisible();
-
-      // AC4: Fixed minutes should show minutes and from parameters
-      await methodSelect.selectOption('fixed_minutes');
-
-      const minutesInput = page.getByPlaceholder('72');
-      await expect(minutesInput).toBeVisible();
-
-      const fromSelect = page.locator('select').filter({ hasText: /From/i });
-      await expect(fromSelect).toBeVisible();
+      // Live preview should be visible in sidebar (hidden on mobile via lg:block)
+      // Use first() to handle multiple matches
+      await expect(page.getByText('Live Preview').first()).toBeVisible();
     });
   });
 
-  test.describe('AC5 & AC6: Preview Functionality', () => {
-    test.skip('should show live preview after saving configuration (requires auth)', async ({ page }) => {
+  test.describe('Week View', () => {
+    test('should open week preview dialog', async ({ page }) => {
+      await loginAsPublisher(page, 'e2e-shared-with-algorithm-1');
       await page.goto(`${BASE_URL}/publisher/algorithm`);
+      await page.waitForLoadState('networkidle');
 
-      // Load template
-      page.on('dialog', dialog => dialog.accept());
-      await page.getByText('GRA (Vilna Gaon)').click();
+      // Click view week button
+      await page.getByRole('button', { name: /View Week/i }).click();
 
-      // AC5: Click preview button
-      await page.getByText('Preview Calculations').click();
-
-      // AC5: Should show preview panel
-      await expect(page.getByText('Preview')).toBeVisible();
-      await expect(page.getByText('New York, Today')).toBeVisible();
-
-      // AC5: Should show calculated times
-      await expect(page.locator('text=/\\d{2}:\\d{2}:\\d{2}/')).toBeVisible();
+      // Dialog should open with week preview title
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Week Preview' })).toBeVisible();
     });
   });
 
-  test.describe('AC7: Validation', () => {
-    test.skip('should show validation errors for invalid configuration (requires auth)', async ({ page }) => {
+  test.describe('Export/Import', () => {
+    test('should show export dropdown menu', async ({ page }) => {
+      await loginAsPublisher(page, 'e2e-shared-with-algorithm-1');
       await page.goto(`${BASE_URL}/publisher/algorithm`);
+      await page.waitForLoadState('networkidle');
 
-      // Load template and open modal
-      page.on('dialog', dialog => dialog.accept());
-      await page.getByText('GRA (Vilna Gaon)').click();
-      await page.getByText('Alos HaShachar').click();
+      // Click export button to open dropdown
+      await page.getByRole('button', { name: /Export/i }).click();
 
-      // AC7: Enter invalid value (negative degrees)
-      const degreesInput = page.getByPlaceholder('16.1');
-      await degreesInput.fill('-10');
-
-      // Try to save
-      await page.getByRole('button', { name: /Save/i }).click();
-
-      // AC7: Should show validation error
-      await expect(page.getByText(/must be a positive number/i)).toBeVisible();
-    });
-  });
-
-  test.describe('AC8: Unsaved Changes Warning', () => {
-    test.skip('should warn before navigation with unsaved changes (requires auth)', async ({ page }) => {
-      await page.goto(`${BASE_URL}/publisher/algorithm`);
-
-      // Load template
-      page.on('dialog', dialog => dialog.accept());
-      await page.getByText('GRA (Vilna Gaon)').click();
-
-      // Make a change
-      const nameInput = page.getByPlaceholder('My Custom Algorithm');
-      await nameInput.fill('Modified Algorithm');
-
-      // AC8: Try to navigate away
-      let dialogShown = false;
-      page.on('dialog', dialog => {
-        dialogShown = true;
-        dialog.dismiss();
-      });
-
-      await page.goto(`${BASE_URL}/publisher/dashboard`);
-
-      // AC8: Should show beforeunload warning (browser handled)
-      // Note: beforeunload dialogs are browser-native and hard to test directly
-      // This test verifies the setup but actual dialog is browser-dependent
-    });
-
-    test.skip('should not warn after saving changes (requires auth)', async ({ page }) => {
-      await page.goto(`${BASE_URL}/publisher/algorithm`);
-
-      // Load template and save
-      page.on('dialog', dialog => dialog.accept());
-      await page.getByText('GRA (Vilna Gaon)').click();
-
-      await page.getByRole('button', { name: /Save Changes/i }).click();
-
-      // Wait for save to complete
-      await expect(page.getByText('No Changes')).toBeVisible();
-
-      // Navigate away - should not warn
-      await page.goto(`${BASE_URL}/publisher/dashboard`);
-
-      // Should successfully navigate
-      await expect(page).toHaveURL(/\/publisher\/dashboard/);
+      // Should show export options
+      await expect(page.getByText('Export to JSON')).toBeVisible();
+      await expect(page.getByText('Import from JSON')).toBeVisible();
+      await expect(page.getByText('Export Full Year')).toBeVisible();
+      await expect(page.getByText('Generate PDF Report')).toBeVisible();
     });
   });
 });

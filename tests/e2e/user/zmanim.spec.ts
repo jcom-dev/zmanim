@@ -58,8 +58,22 @@ test.describe('Zmanim Page - Publisher Selection', () => {
     await page.goto(`${BASE_URL}/zmanim/${testCity.id}`);
     await page.waitForLoadState('networkidle');
 
-    // Page should load
-    expect(page.url()).toContain('/zmanim/');
+    // Verify URL is correct
+    expect(page.url()).toContain(`/zmanim/${testCity.id}`);
+
+    // Verify page header elements
+    await expect(page.locator('h1').filter({ hasText: testCity.name })).toBeVisible({ timeout: 10000 });
+
+    // Should show "Select Publisher" heading or "No Local Authority" if no publishers
+    const heading = page.locator('h2').first();
+    await expect(heading).toBeVisible();
+    const headingText = await heading.textContent();
+    expect(headingText).toMatch(/(Select Publisher|No Local Authority)/);
+
+    // Should show either the test publisher or a "no coverage" message
+    const hasPublisher = await page.locator('button').filter({ hasText: testPublisher.name }).isVisible();
+    const hasNoCoverage = await page.locator('text=No Local Authority Covers This Area').isVisible();
+    expect(hasPublisher || hasNoCoverage).toBeTruthy();
   });
 
   test('selecting publisher shows zmanim times', async ({ page }) => {
@@ -71,8 +85,23 @@ test.describe('Zmanim Page - Publisher Selection', () => {
     await page.goto(`${BASE_URL}/zmanim/${testCity.id}/${testPublisher.id}`);
     await page.waitForLoadState('networkidle');
 
-    // Should show times page
+    // Verify URL is correct
     expect(page.url()).toContain(`/zmanim/${testCity.id}/${testPublisher.id}`);
+
+    // Verify location is displayed
+    await expect(page.locator('text=' + testCity.name)).toBeVisible({ timeout: 10000 });
+
+    // Verify publisher name is shown (either in header or publisher info)
+    const publisherVisible = await page.locator('text=' + testPublisher.name).isVisible();
+    expect(publisherVisible).toBeTruthy();
+
+    // Verify zmanim data is present - look for time category headers or zman entries
+    // The page groups zmanim by category (Dawn, Sunrise, Morning, etc.)
+    const hasTimeCategoryHeaders = await page.locator('h3').first().isVisible();
+    expect(hasTimeCategoryHeaders).toBeTruthy();
+
+    // Verify date navigation exists
+    await expect(page.locator('button').filter({ hasText: /Previous|Next/i }).first()).toBeVisible({ timeout: 5000 });
   });
 });
 

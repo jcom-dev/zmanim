@@ -80,32 +80,33 @@ test.describe('Registry Accessibility - Keyboard Navigation', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await page.waitForLoadState('networkidle');
 
+    // Wait for registry content to load
+    await expect(page.locator('[data-testid="zman-card"]').first()).toBeVisible({ timeout: 10000 });
+
     // Find first info button
-    const infoButton = page.locator('button[aria-label*="info" i], button[aria-label*="documentation" i]').first();
+    const infoButton = page.locator('button[aria-label*="info" i]').first();
+    await expect(infoButton).toBeVisible({ timeout: 5000 });
 
-    if (await infoButton.count() > 0) {
-      // Focus the button using keyboard
-      await infoButton.focus();
+    // Focus the button using keyboard
+    await infoButton.focus();
 
-      // Verify button is focused
-      const isFocused = await page.evaluate(() => {
-        const el = document.activeElement;
-        return el?.tagName === 'BUTTON';
-      });
-      expect(isFocused).toBe(true);
+    // Verify button is focused
+    const isFocused = await page.evaluate(() => {
+      const el = document.activeElement;
+      return el?.tagName === 'BUTTON';
+    });
+    expect(isFocused).toBe(true);
 
-      // Activate with Enter
-      await page.keyboard.press('Enter');
+    // Activate with Enter
+    await page.keyboard.press('Enter');
 
-      // Verify modal or action occurred (look for dialog role or modal content)
-      const dialogVisible = await page.locator('[role="dialog"]').isVisible({ timeout: 2000 }).catch(() => false);
+    // Verify modal opened
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible({ timeout: 2000 });
 
-      if (dialogVisible) {
-        // Close modal with Escape
-        await page.keyboard.press('Escape');
-        await expect(page.locator('[role="dialog"]')).not.toBeVisible();
-      }
-    }
+    // Close modal with Escape
+    await page.keyboard.press('Escape');
+    await expect(modal).not.toBeVisible();
   });
 
   test('can close modals with Escape key', async ({ page }) => {
@@ -115,22 +116,24 @@ test.describe('Registry Accessibility - Keyboard Navigation', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await page.waitForLoadState('networkidle');
 
+    // Wait for registry content to load
+    await expect(page.locator('[data-testid="zman-card"]').first()).toBeVisible({ timeout: 10000 });
+
     // Find and click first info button to open modal
-    const infoButton = page.locator('button[aria-label*="info" i], button[aria-label*="documentation" i]').first();
+    const infoButton = page.locator('button[aria-label*="info" i]').first();
+    await expect(infoButton).toBeVisible({ timeout: 5000 });
 
-    if (await infoButton.count() > 0) {
-      await infoButton.click();
+    await infoButton.click();
 
-      // Wait for modal to open
-      const modal = page.locator('[role="dialog"]');
-      await expect(modal).toBeVisible({ timeout: 2000 });
+    // Wait for modal to open
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible({ timeout: 2000 });
 
-      // Press Escape to close
-      await page.keyboard.press('Escape');
+    // Press Escape to close
+    await page.keyboard.press('Escape');
 
-      // Verify modal closed
-      await expect(modal).not.toBeVisible();
-    }
+    // Verify modal closed
+    await expect(modal).not.toBeVisible();
   });
 
   test('can navigate dropdowns with arrow keys', async ({ page }) => {
@@ -292,14 +295,12 @@ test.describe('Registry Accessibility - Focus Management', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await page.waitForLoadState('networkidle');
 
-    // Find and click info button to open modal
-    const infoButton = page.locator('button[aria-label*="info" i], button[aria-label*="documentation" i]').first();
+    // Wait for registry content to load
+    await expect(page.locator('[data-testid="zman-card"]').first()).toBeVisible({ timeout: 10000 });
 
-    if (await infoButton.count() === 0) {
-      // No modal trigger found, skip test
-      test.skip();
-      return;
-    }
+    // Find and click info button to open modal
+    const infoButton = page.locator('button[aria-label*="info" i]').first();
+    await expect(infoButton).toBeVisible({ timeout: 5000 });
 
     await infoButton.click();
 
@@ -311,13 +312,10 @@ test.describe('Registry Accessibility - Focus Management', () => {
     const modalInteractiveElements = modal.locator('button, a, input, textarea, select, [tabindex="0"]');
     const count = await modalInteractiveElements.count();
 
-    if (count === 0) {
-      // No interactive elements in modal
-      await page.keyboard.press('Escape');
-      return;
-    }
+    // Modal should have at least the close button
+    expect(count).toBeGreaterThan(0);
 
-    // Tab through all elements plus one more
+    // Tab through all elements plus one more to test wrap-around
     for (let i = 0; i < count + 2; i++) {
       await page.keyboard.press('Tab');
     }
@@ -342,14 +340,12 @@ test.describe('Registry Accessibility - Focus Management', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await page.waitForLoadState('networkidle');
 
-    // Find info button
-    const infoButton = page.locator('button[aria-label*="info" i], button[aria-label*="documentation" i]').first();
+    // Wait for registry content to load
+    await expect(page.locator('[data-testid="zman-card"]').first()).toBeVisible({ timeout: 10000 });
 
-    if (await infoButton.count() === 0) {
-      // No modal trigger found, skip test
-      test.skip();
-      return;
-    }
+    // Find info button
+    const infoButton = page.locator('button[aria-label*="info" i]').first();
+    await expect(infoButton).toBeVisible({ timeout: 5000 });
 
     // Get button identifier before clicking
     const buttonId = await infoButton.evaluate(el => {
@@ -416,22 +412,24 @@ test.describe('Registry Accessibility - Color Contrast', () => {
     await page.goto(`${BASE_URL}/publisher/registry`);
     await page.waitForLoadState('networkidle');
 
-    // Check first few visible buttons for contrast
-    const buttons = page.locator('button:visible').first();
+    // Wait for registry content to load
+    await expect(page.locator('[data-testid="zman-card"]').first()).toBeVisible({ timeout: 10000 });
 
-    if (await buttons.count() > 0) {
-      const contrastInfo = await buttons.evaluate((button) => {
-        const styles = window.getComputedStyle(button);
-        return {
-          color: styles.color,
-          backgroundColor: styles.backgroundColor,
-          borderColor: styles.borderColor,
-        };
-      });
+    // Check first visible button for contrast
+    const button = page.locator('button:visible').first();
+    await expect(button).toBeVisible({ timeout: 5000 });
 
-      // Basic check that color and background are different
-      expect(contrastInfo.color).not.toBe(contrastInfo.backgroundColor);
-    }
+    const contrastInfo = await button.evaluate((button) => {
+      const styles = window.getComputedStyle(button);
+      return {
+        color: styles.color,
+        backgroundColor: styles.backgroundColor,
+        borderColor: styles.borderColor,
+      };
+    });
+
+    // Basic check that color and background are different
+    expect(contrastInfo.color).not.toBe(contrastInfo.backgroundColor);
   });
 
   test('text content has sufficient contrast', async ({ page }) => {
