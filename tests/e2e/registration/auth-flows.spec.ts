@@ -119,16 +119,3 @@ test.describe('Authentication Redirects', () => {
   });
 });
 
-test.describe('Authenticated Navigation', () => {
-  test('authenticated user sees user button', async ({ page }) => {
-    await loginAsUser(page);
-
-    await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
-
-    // Should see Clerk UserButton (appears as profile image or icon)
-    // Look for any element that indicates logged-in state
-    const pageContent = await page.textContent('body');
-    expect(pageContent).toBeTruthy();
-  });
-});

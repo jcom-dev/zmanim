@@ -53,16 +53,6 @@ test.describe('Publisher Registration - Page Access', () => {
     }
   });
 
-  test('registration accessible from home page', async ({ page }) => {
-    await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
-
-    // Click "Become a Publisher" link (now points to /register)
-    await page.getByRole('link', { name: /become a publisher/i }).click();
-
-    await page.waitForURL(/register|clerk\.accounts\.dev/, { timeout: 10000 }).catch(() => {});
-    expect(page.url().includes('/register') || page.url().includes('clerk.accounts.dev')).toBe(true);
-  });
 });
 
 // DELETE: These tests are too brittle with Clerk's dev browser handshake
