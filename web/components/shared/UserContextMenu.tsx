@@ -44,6 +44,7 @@ export function UserContextMenu() {
             type="button"
             className="flex items-center gap-2 p-1.5 rounded-full hover:bg-muted transition-colors"
             aria-label="User menu"
+            data-testid="user-menu-trigger"
           >
             {user.imageUrl ? (
               <img
@@ -91,7 +92,7 @@ export function UserContextMenu() {
           <DropdownMenuSeparator />
 
           {/* Account Settings */}
-          <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+          <DropdownMenuItem onClick={() => setSettingsOpen(true)} data-testid="user-menu-settings">
             <Settings className="w-4 h-4" />
             Account Settings
           </DropdownMenuItem>
@@ -99,7 +100,7 @@ export function UserContextMenu() {
           <DropdownMenuSeparator />
 
           {/* Sign Out */}
-          <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+          <DropdownMenuItem onClick={handleSignOut} className="text-destructive" data-testid="user-menu-sign-out">
             <LogOut className="w-4 h-4" />
             Sign Out
           </DropdownMenuItem>

@@ -57,6 +57,12 @@ var chanukahHebrewDayRegex = regexp.MustCompile(`חנוכה:\s*יום\s*([אבג
 // niqqudRegex matches Hebrew niqqud (vowel marks) - Unicode range U+05B0 to U+05C7
 var niqqudRegex = regexp.MustCompile(`[\x{05B0}-\x{05C7}]`)
 
+// removeNiqqud strips all niqqud (vowel points) from Hebrew text
+// This is a global setting - ALL Hebrew text in the app should be without niqqud
+func removeNiqqud(text string) string {
+	return niqqudRegex.ReplaceAllString(text, "")
+}
+
 // hebrewNumeralMap maps Hebrew letters to their numeric values for days 1-8
 var hebrewNumeralMap = map[rune]int{
 	'א': 1, 'ב': 2, 'ג': 3, 'ד': 4,
@@ -205,7 +211,7 @@ func (s *CalendarService) GetHebrewDate(date time.Time) HebrewDate {
 		Month:     hd.MonthName("en"),
 		MonthNum:  int(hd.Month()),
 		Year:      hd.Year(),
-		Hebrew:    hebrewStr,
+		Hebrew:    removeNiqqud(hebrewStr), // Strip niqqud from Hebrew text
 		Formatted: engStr,
 	}
 }
@@ -248,6 +254,7 @@ func (s *CalendarService) GetDayInfo(date time.Time) DayInfo {
 var excludedHolidays = map[string]bool{
 	"Chag HaBanot":           true, // North African daughters' observance
 	"Rosh Hashana LaBehemot": true, // New Year for Animal Tithes
+	"Chanukah: 1 Candle":     true, // First day labeled as "1 Candle" - confusing, use day-based instead
 }
 
 // GetHolidays returns holidays for a given date (uses Sephardi transliteration by default)
@@ -263,6 +270,7 @@ func (s *CalendarService) GetHolidaysWithStyle(date time.Time, transliterationSt
 
 	// Get calendar events for the Hebrew year
 	// NoModern: true excludes modern Israeli holidays (Yom HaAtzmaut, Yom HaZikaron, etc.)
+	// Sedrot: true includes weekly Torah readings (parashah hashavua on Saturdays)
 	opts := hebcal.CalOptions{
 		Year:             year,
 		IsHebrewYear:     true,
@@ -272,6 +280,7 @@ func (s *CalendarService) GetHolidaysWithStyle(date time.Time, transliterationSt
 		NoRoshChodesh:    false,
 		NoSpecialShabbat: false,
 		ShabbatMevarchim: true,
+		Sedrot:           true, // Include weekly Torah readings
 	}
 
 	events, _ := hebcal.HebrewCalendar(&opts)
@@ -483,8 +492,8 @@ func eventToHolidayWithStyle(ev event.CalEvent, transliterationStyle string) Hol
 	}
 
 	desc := ev.Render(locale)
-	hebrewName := ev.Render("he")
-	originalDesc := ev.Render("en") // Always store Sephardi for database matching
+	hebrewName := removeNiqqud(ev.Render("he")) // Strip niqqud from Hebrew text
+	originalDesc := ev.Render("en")             // Always store Sephardi for database matching
 
 	// Transform Chanukah candle count to day number
 	desc = transformChanukahName(desc)
@@ -497,10 +506,16 @@ func eventToHolidayWithStyle(ev event.CalEvent, transliterationStyle string) Hol
 
 	flags := ev.GetFlags()
 
+	// PARSHA_HASHAVUAH flag value (weekly Torah reading)
+	// This flag is not exported in older versions of hebcal-go, but the value is 1024
+	const PARSHA_HASHAVUAH event.HolidayFlags = 1024
+
 	if flags&event.MAJOR_FAST != 0 || flags&event.MINOR_FAST != 0 {
 		category = "fast"
 	} else if flags&event.ROSH_CHODESH != 0 {
 		category = "roshchodesh"
+	} else if flags&PARSHA_HASHAVUAH != 0 {
+		category = "shabbat" // Weekly Torah readings are categorized as shabbat
 	} else if flags&event.SPECIAL_SHABBAT != 0 {
 		category = "shabbat"
 	} else if flags&event.CHAG != 0 {

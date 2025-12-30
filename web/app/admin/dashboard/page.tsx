@@ -54,13 +54,15 @@ export default function AdminDashboardPage() {
     value,
     description,
     tooltip,
+    testId,
   }: {
     title: string;
     value: string | number;
     description?: string;
     tooltip?: string;
+    testId?: string;
   }) => (
-    <Card>
+    <Card data-testid={testId}>
       <CardHeader className="pb-3">
         <CardDescription className="flex items-center gap-1.5">
           {title}
@@ -109,7 +111,7 @@ export default function AdminDashboardPage() {
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <p className="text-muted-foreground mt-1">Platform usage statistics and metrics</p>
         </div>
-        <Button onClick={fetchStats} variant="outline" disabled={loading}>
+        <Button onClick={fetchStats} variant="outline" disabled={loading} data-testid="admin-stats-refresh-button">
           {loading ? 'Refreshing...' : 'Refresh'}
         </Button>
       </div>
@@ -136,24 +138,28 @@ export default function AdminDashboardPage() {
             title="Total Publishers"
             value={stats?.publishers.total ?? 0}
             description="All registered publishers"
+            testId="admin-stats-total-publishers"
           />
           <StatCard
             title="Active Publishers"
             value={stats?.publishers.active ?? 0}
             description="Verified and publishing"
             tooltip={ADMIN_TOOLTIPS.active_publishers}
+            testId="admin-stats-active-publishers"
           />
           <StatCard
             title="Pending Approval"
             value={stats?.publishers.pending ?? 0}
             description="Awaiting verification"
             tooltip={ADMIN_TOOLTIPS.pending_approval}
+            testId="admin-stats-pending-approval"
           />
           <StatCard
             title="Suspended"
             value={stats?.publishers.suspended ?? 0}
             description="Currently suspended"
             tooltip={ADMIN_TOOLTIPS.suspended_count}
+            testId="admin-stats-suspended"
           />
         </div>
       </div>
@@ -167,12 +173,14 @@ export default function AdminDashboardPage() {
             value={stats?.calculations.total ?? 0}
             description="Zmanim calculations performed"
             tooltip={ADMIN_TOOLTIPS.total_calculations}
+            testId="admin-stats-total-calculations"
           />
           <StatCard
             title="Cache Hit Ratio"
             value={`${((stats?.calculations.cache_hit_ratio ?? 0) * 100).toFixed(1)}%`}
             description="Percentage of cached responses"
             tooltip={ADMIN_TOOLTIPS.cache_hit_ratio}
+            testId="admin-stats-cache-hit-ratio"
           />
         </div>
       </div>
@@ -220,7 +228,7 @@ export default function AdminDashboardPage() {
       {stats && stats.publishers.total > 0 && (
         <div>
           <h2 className="text-xl font-semibold mb-4">Publisher Status Distribution</h2>
-          <Card>
+          <Card data-testid="admin-stats-distribution-chart">
             <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">

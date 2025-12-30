@@ -64,6 +64,7 @@ type ZmanimReportData struct {
 	Bases             []dsl.BaseDoc
 	MapImageURL       string
 	MapImageData      []byte
+	IgnoreElevation   bool
 }
 
 // PDFZmanTag represents a tag for a zman in the PDF report
@@ -211,6 +212,14 @@ func (s *PDFReportService) fetchReportData(ctx context.Context, params ZmanimRep
 	lon := effectiveLocation.Longitude
 	elev := float64(effectiveLocation.ElevationM)
 
+	// Check if publisher ignores elevation
+	calcSettings, err := s.db.Queries.GetPublisherCalculationSettings(ctx, params.PublisherID)
+	ignoreElevation := false
+	if err == nil && calcSettings.IgnoreElevation {
+		ignoreElevation = true
+		elev = 0 // Use sea level for calculations
+	}
+
 	for _, pz := range publisherZmanim {
 		formula := pz.FormulaDsl
 
@@ -310,6 +319,7 @@ func (s *PDFReportService) fetchReportData(ctx context.Context, params ZmanimRep
 		Functions:         functionDocs,
 		Bases:             baseDocs,
 		MapImageData:      mapImageData,
+		IgnoreElevation:   ignoreElevation,
 	}, nil
 }
 
@@ -532,10 +542,11 @@ func (s *PDFReportService) prepareTemplateData(data *ZmanimReportData, includeGl
 			"IsGlobal":    data.Publisher.IsGlobal,
 		},
 		"Locality": map[string]interface{}{
-			"DisplayName": locationName,
-			"Coordinates": coordinates,
-			"Elevation":   data.EffectiveLocation.ElevationM,
-			"Timezone":    data.Locality.Timezone,
+			"DisplayName":      locationName,
+			"Coordinates":      coordinates,
+			"Elevation":        data.EffectiveLocation.ElevationM,
+			"Timezone":         data.Locality.Timezone,
+			"IgnoreElevation":  data.IgnoreElevation,
 		},
 		"Date": map[string]interface{}{
 			"Day":        data.Date.Day(),

@@ -50,7 +50,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MapPin, Search, Download, Upload, AlertTriangle, CalendarDays, Flame, ChevronDown, Library, History, Save, Printer } from 'lucide-react';
+import { MapPin, Search, Download, Upload, AlertTriangle, CalendarDays, Flame, ChevronDown, History, Save, Printer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { StatusTooltip } from '@/components/shared/InfoTooltip';
 import { ALGORITHM_TOOLTIPS, STATUS_TOOLTIPS } from '@/lib/tooltip-content';
@@ -373,14 +373,7 @@ export default function AlgorithmEditorPage() {
             </div>
             <p className="text-muted-foreground">Configure your zmanim calculation formulas</p>
           </div>
-          <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <Button
-              variant="outline"
-              onClick={() => router.push('/publisher/dashboard')}
-            >
-              Back to Dashboard
-            </Button>
-
+          <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
             <Button
               variant="outline"
               onClick={() => setShowRestartConfirm(true)}
@@ -480,9 +473,9 @@ export default function AlgorithmEditorPage() {
         )}
 
         {/* Two-column layout: Controls on left, Live Preview on right - only show when coverage exists */}
-        {hasCoverage && <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+        {hasCoverage && <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
           {/* Left Column: All controls and zmanim list */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {/* Preview Toolbar - Unified location, date, and language controls */}
             <PreviewToolbar
               storageKey="algorithm"
@@ -549,56 +542,52 @@ export default function AlgorithmEditorPage() {
                       />
                     )}
 
-                    {/* Story 8-34: Seconds toggle - default ON for publisher algorithm page */}
-                    <DisplaySettingsToggle defaultShowSeconds={true} compact />
-
                     <DisabledZmanimDialog localityId={localityId} />
                     <DeletedZmanimDialog />
-
-                    <Button
-                      variant="default"
-                      onClick={() => router.push('/publisher/registry')}
-                      className="flex items-center gap-2 whitespace-nowrap"
-                    >
-                      <Library className="h-4 w-4" />
-                      Browse Registry
-                    </Button>
                   </div>
                 </div>
 
                 {/* Filter Tabs */}
                 <Tabs value={filterType} onValueChange={(v) => setFilterType(v as FilterType)}>
-                  <div className="overflow-x-auto -mx-4 px-4 sm:overflow-visible sm:mx-0 sm:px-0 scrollbar-hide">
-                  <TabsList className="w-max sm:w-full h-auto justify-start gap-1">
-                    <TabsTrigger value="all">
-                      All ({localityId ? currentViewCount : '--'})
-                    </TabsTrigger>
-                    <StatusTooltip status="published" tooltip={STATUS_TOOLTIPS.published}>
-                      <TabsTrigger value="published">
-                        Published ({localityId ? currentViewPublishedCount : '--'})
-                      </TabsTrigger>
-                    </StatusTooltip>
-                    <StatusTooltip status="draft" tooltip={STATUS_TOOLTIPS.draft}>
-                      <TabsTrigger value="draft">
-                        Draft ({localityId ? currentViewDraftCount : '--'})
-                      </TabsTrigger>
-                    </StatusTooltip>
-                    <StatusTooltip status="core" tooltip={ALGORITHM_TOOLTIPS.core_zman}>
-                      <TabsTrigger value="essential">
-                        Core ({localityId ? currentViewCoreCount : '--'})
-                      </TabsTrigger>
-                    </StatusTooltip>
-                    <StatusTooltip status="optional" tooltip={ALGORITHM_TOOLTIPS.optional_zman}>
-                      <TabsTrigger value="optional">
-                        Optional ({localityId ? currentViewOptionalCount : '--'})
-                      </TabsTrigger>
-                    </StatusTooltip>
-                    {(localityId ? currentViewHiddenCount : 0) > 0 && (
-                      <TabsTrigger value="hidden" className="text-muted-foreground">
-                        Hidden ({currentViewHiddenCount})
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="overflow-x-auto -mx-4 px-4 sm:overflow-visible sm:mx-0 sm:px-0 scrollbar-hide">
+                      <TabsList className="w-max h-auto justify-start gap-1">
+                        <TabsTrigger value="all">
+                          All ({localityId ? currentViewCount : '--'})
+                        </TabsTrigger>
+                        <StatusTooltip status="published" tooltip={STATUS_TOOLTIPS.published}>
+                          <TabsTrigger value="published">
+                            Published ({localityId ? currentViewPublishedCount : '--'})
+                          </TabsTrigger>
+                        </StatusTooltip>
+                        <StatusTooltip status="draft" tooltip={STATUS_TOOLTIPS.draft}>
+                          <TabsTrigger value="draft">
+                            Draft ({localityId ? currentViewDraftCount : '--'})
+                          </TabsTrigger>
+                        </StatusTooltip>
+                        <StatusTooltip status="core" tooltip={ALGORITHM_TOOLTIPS.core_zman}>
+                          <TabsTrigger value="essential">
+                            Core ({localityId ? currentViewCoreCount : '--'})
+                          </TabsTrigger>
+                        </StatusTooltip>
+                        <StatusTooltip status="optional" tooltip={ALGORITHM_TOOLTIPS.optional_zman}>
+                          <TabsTrigger value="optional">
+                            Optional ({localityId ? currentViewOptionalCount : '--'})
+                          </TabsTrigger>
+                        </StatusTooltip>
+                        {(localityId ? currentViewHiddenCount : 0) > 0 && (
+                          <TabsTrigger value="hidden" className="text-muted-foreground">
+                            Hidden ({currentViewHiddenCount})
+                          </TabsTrigger>
+                        )}
+                      </TabsList>
+                    </div>
+
+                    {/* Right-aligned controls */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Story 8-34: Seconds toggle - default ON for publisher algorithm page */}
+                      <DisplaySettingsToggle defaultShowSeconds={true} compact />
+                    </div>
                   </div>
                 </Tabs>
               </CardContent>
@@ -744,6 +733,7 @@ export default function AlgorithmEditorPage() {
           open={showVersionHistoryDialog}
           onOpenChange={setShowVersionHistoryDialog}
           onRestore={() => refetch()}
+          onSaveVersion={() => setShowSaveVersionDialog(true)}
         />
         <ImportSnapshotDialog
           open={showImportSnapshotDialog}

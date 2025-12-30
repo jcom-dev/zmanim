@@ -299,6 +299,17 @@ func (s *ZmanimService) CalculateZmanim(ctx context.Context, params CalculatePar
 	longitude := location.Longitude
 	elevation := float64(location.ElevationM)
 
+	// Check if publisher wants to ignore elevation (use sea level)
+	calcSettings, err := s.db.Queries.GetPublisherCalculationSettings(ctx, params.PublisherID)
+	if err != nil {
+		slog.Warn("failed to get publisher calculation settings, using defaults",
+			"error", err, "publisher_id", params.PublisherID)
+	} else if calcSettings.IgnoreElevation {
+		slog.Info("publisher ignores elevation, using sea level",
+			"publisher_id", params.PublisherID, "original_elevation", elevation)
+		elevation = 0
+	}
+
 	// Use preloaded publisher zmanim if provided, otherwise query database
 	var publisherZmanim []sqlcgen.GetPublisherZmanimRow
 	if params.PreloadedPublisherZman != nil {

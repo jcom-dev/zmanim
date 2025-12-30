@@ -95,7 +95,7 @@ export function YearExportDialog({
           </DialogTitle>
           <DialogDescription>
             Download a complete Hebrew year of zmanim calculations as an Excel spreadsheet.
-            Each zman will have two columns: Shtetl (calculated) and Control (empty for comparison).
+            Includes parsha/holiday names, location details, and DSL formulas.
           </DialogDescription>
         </DialogHeader>
 

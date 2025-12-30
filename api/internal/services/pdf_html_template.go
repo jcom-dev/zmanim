@@ -902,7 +902,14 @@ func PDFHTMLTemplate() string {
                         <div class="location-icon">⛰️</div>
                         <div class="location-content">
                             <div class="location-label">Elevation</div>
-                            <div class="location-value">{{.Locality.Elevation}}m above sea level</div>
+                            <div class="location-value">
+                                {{.Locality.Elevation}}m above sea level
+                                {{if .Locality.IgnoreElevation}}
+                                <span style="color: var(--warning-500); font-size: 11px; display: block; margin-top: 2px;">
+                                    ⚠️ Elevation ignored (calculations use sea level)
+                                </span>
+                                {{end}}
+                            </div>
                         </div>
                     </div>
                     <div class="location-item">
@@ -975,6 +982,9 @@ func PDFHTMLTemplate() string {
             </h2>
             <div class="zmanim-intro">
                 All times are calculated using our DSL (Domain-Specific Language) formulas. See glossary below for detailed explanations of each primitive and function.
+                {{if .Locality.IgnoreElevation}}
+                <br><strong>Note:</strong> This publisher has configured calculations to ignore elevation and use sea level (0m) for all astronomical calculations.
+                {{end}}
             </div>
 
             <table class="zmanim-table">
@@ -1084,6 +1094,9 @@ func PDFHTMLTemplate() string {
             </h2>
             <p class="glossary-intro">
                 Primitives are foundational astronomical events used in zmanim calculations. These are the building blocks from which all zmanim are derived.
+                {{if .Locality.IgnoreElevation}}
+                <br><strong>Important:</strong> Elevation is ignored in all calculations. All astronomical times are computed at sea level (0m elevation).
+                {{end}}
             </p>
 
             <div class="glossary-grid">

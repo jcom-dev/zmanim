@@ -646,29 +646,46 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 
 // YearExportResponse is the response for the year export endpoint
 type YearExportResponse struct {
-	Publisher    string             `json:"publisher"`
-	HebrewYear   int                `json:"hebrew_year"`
-	Location     YearExportLocation `json:"location"`
-	GeneratedAt  string             `json:"generated_at"`
-	ZmanimOrder  []string           `json:"zmanim_order"`  // Ordered list of zman_keys
-	ZmanimLabels map[string]string  `json:"zmanim_labels"` // zman_key -> display name
-	Days         []YearExportDayRow `json:"days"`
+	Publisher        string                         `json:"publisher"`
+	HebrewYear       int                            `json:"hebrew_year"`
+	Location         YearExportLocation             `json:"location"`
+	GeneratedAt      string                         `json:"generated_at"`
+	ZmanimOrder      []string                       `json:"zmanim_order"`       // Ordered list of zman_keys
+	ZmanimLabels     map[string]string              `json:"zmanim_labels"`      // zman_key -> English display name
+	ZmanimLabelsHe   map[string]string              `json:"zmanim_labels_he"`   // zman_key -> Hebrew display name
+	ZmanimFormulas   map[string]string              `json:"zmanim_formulas"`    // zman_key -> DSL formula
+	Days             []YearExportDayRow             `json:"days"`
+	Primitives       map[string]YearExportPrimitive `json:"primitives,omitempty"` // Primitive values used in calculations
+	ElevationUsed    bool                           `json:"elevation_used"`     // Whether elevation was used for calculations
 }
 
 // YearExportLocation contains the location info for export
 type YearExportLocation struct {
-	Name      string  `json:"name"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-	Timezone  string  `json:"timezone"`
+	Name          string  `json:"name"`
+	Latitude      float64 `json:"latitude"`
+	Longitude     float64 `json:"longitude"`
+	Elevation     float64 `json:"elevation"`       // Elevation in meters
+	Timezone      string  `json:"timezone"`
+	TimezoneLabel string  `json:"timezone_label"`  // Human-readable timezone name
+	Algorithm     string  `json:"algorithm"`       // Calculation algorithm used
 }
 
 // YearExportDayRow represents a single day's data in the export
 type YearExportDayRow struct {
-	Date       string            `json:"date"`        // YYYY-MM-DD
-	DayOfWeek  string            `json:"day_of_week"` // Sun, Mon, etc.
-	HebrewDate string            `json:"hebrew_date"` // Hebrew date string
-	Times      map[string]string `json:"times"`       // zman_key -> HH:MM:SS
+	Date           string            `json:"date"`             // YYYY-MM-DD
+	DayOfWeek      string            `json:"day_of_week"`      // Sun, Mon, etc.
+	HebrewDate     string            `json:"hebrew_date"`      // Hebrew date string (English)
+	HebrewDateHe   string            `json:"hebrew_date_he"`   // Hebrew date string (Hebrew characters)
+	Parsha         string            `json:"parsha"`           // Parsha/Yom Tov name (English, if applicable)
+	ParshaHe       string            `json:"parsha_he"`        // Parsha/Yom Tov name (Hebrew, if applicable)
+	Times          map[string]string `json:"times"`            // zman_key -> HH:MM:SS
+}
+
+// YearExportPrimitive represents a primitive calculation value for reference
+type YearExportPrimitive struct {
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
 }
 
 // GetPublisherZmanimYear returns all zmanim for a publisher for an entire Hebrew year
@@ -805,12 +822,14 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// Build zmanim order and labels
+	// Build zmanim order and labels (both English and Hebrew)
 	zmanimOrder := make([]string, len(everydayZmanim))
 	zmanimLabels := make(map[string]string)
+	zmanimLabelsHe := make(map[string]string)
 	for i, z := range everydayZmanim {
 		zmanimOrder[i] = z.ZmanKey
 		zmanimLabels[z.ZmanKey] = z.EnglishName
+		zmanimLabelsHe[z.ZmanKey] = z.HebrewName
 	}
 
 	// Get publisher name
@@ -847,6 +866,11 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		// Get Hebrew date
 		hebrewDate := calService.GetHebrewDate(dateLocal)
 
+		// Get parsha and holidays for this date
+		holidays := calService.GetHolidaysWithStyle(dateLocal, transliterationStyle)
+		parsha := buildParshaString(holidays)
+		parshaHe := buildParshaStringHebrew(holidays)
+
 		// Calculate all formulas using the service (handles references like @alos_12)
 		calculatedTimes, calcErr := h.zmanimService.ExecuteFormulasWithCoordinates(
 			dateLocal, latitude, longitude, elevation, tz, formulas,
@@ -864,26 +888,55 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		}
 
 		days = append(days, YearExportDayRow{
-			Date:       dateStr,
-			DayOfWeek:  dayNames[dateLocal.Weekday()],
-			HebrewDate: hebrewDate.Formatted,
-			Times:      times,
+			Date:         dateStr,
+			DayOfWeek:    dayNames[dateLocal.Weekday()],
+			HebrewDate:   hebrewDate.Formatted,
+			HebrewDateHe: hebrewDate.Hebrew,
+			Parsha:       parsha,
+			ParshaHe:     parshaHe,
+			Times:        times,
 		})
+	}
+
+	// Check if publisher ignores elevation
+	calcSettings, settingsErr := h.db.Queries.GetPublisherCalculationSettings(ctx, publisherIDInt32)
+	elevationUsed := false
+	if settingsErr == nil && !calcSettings.IgnoreElevation && elevation > 0 {
+		elevationUsed = true
+	}
+
+	// Build timezone label
+	tzLabel := location.Timezone
+	if tz != nil {
+		// Get current offset for display
+		_, offset := time.Now().In(tz).Zone()
+		hours := offset / 3600
+		if hours >= 0 {
+			tzLabel = fmt.Sprintf("%s (UTC+%d)", location.Timezone, hours)
+		} else {
+			tzLabel = fmt.Sprintf("%s (UTC%d)", location.Timezone, hours)
+		}
 	}
 
 	response := YearExportResponse{
 		Publisher:  publisherName,
 		HebrewYear: hebrewYear,
 		Location: YearExportLocation{
-			Name:      locationName,
-			Latitude:  latitude,
-			Longitude: longitude,
-			Timezone:  location.Timezone,
+			Name:          locationName,
+			Latitude:      latitude,
+			Longitude:     longitude,
+			Elevation:     elevation,
+			Timezone:      location.Timezone,
+			TimezoneLabel: tzLabel,
+			Algorithm:     "US National Oceanic and Atmospheric Administration (NOAA)",
 		},
-		GeneratedAt:  time.Now().UTC().Format(time.RFC3339),
-		ZmanimOrder:  zmanimOrder,
-		ZmanimLabels: zmanimLabels,
-		Days:         days,
+		GeneratedAt:      time.Now().UTC().Format(time.RFC3339),
+		ZmanimOrder:      zmanimOrder,
+		ZmanimLabels:     zmanimLabels,
+		ZmanimLabelsHe:   zmanimLabelsHe,
+		ZmanimFormulas:   formulas,
+		Days:             days,
+		ElevationUsed:    elevationUsed,
 	}
 
 	// Log calculations for each day in the year
@@ -914,6 +967,93 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 	)
 
 	RespondJSON(w, r, http.StatusOK, response)
+}
+
+// buildParshaString builds a combined parsha/holiday string for export (English)
+// Priority: Parsha names first, then holidays (Chanukah, Rosh Chodesh, etc.)
+func buildParshaString(holidays []calendar.Holiday) string {
+	var parts []string
+
+	// First, add any parsha (shabbat category)
+	for _, h := range holidays {
+		if h.Category == "shabbat" {
+			// Include all shabbat category events (parsha and special shabbatot)
+			parts = append(parts, h.Name)
+		}
+	}
+
+	// Then add other notable holidays
+	for _, h := range holidays {
+		switch h.Category {
+		case "major":
+			parts = append(parts, h.Name)
+		case "roshchodesh":
+			parts = append(parts, h.Name)
+		case "fast":
+			parts = append(parts, h.Name)
+		case "minor":
+			// Include Chanukah but skip minor observances
+			if containsPrefix(h.Name, "Chanukah") || containsPrefix(h.Name, "Tu B") {
+				parts = append(parts, h.Name)
+			}
+		}
+	}
+
+	return joinUnique(parts, ", ")
+}
+
+// buildParshaStringHebrew builds a combined parsha/holiday string for export (Hebrew)
+// Priority: Parsha names first, then holidays (Chanukah, Rosh Chodesh, etc.)
+func buildParshaStringHebrew(holidays []calendar.Holiday) string {
+	var parts []string
+
+	// First, add any parsha (shabbat category)
+	for _, h := range holidays {
+		if h.Category == "shabbat" {
+			// Include all shabbat category events (parsha and special shabbatot)
+			parts = append(parts, h.NameHebrew)
+		}
+	}
+
+	// Then add other notable holidays
+	for _, h := range holidays {
+		switch h.Category {
+		case "major":
+			parts = append(parts, h.NameHebrew)
+		case "roshchodesh":
+			parts = append(parts, h.NameHebrew)
+		case "fast":
+			parts = append(parts, h.NameHebrew)
+		case "minor":
+			// Include Chanukah but skip minor observances
+			if containsPrefix(h.Name, "Chanukah") || containsPrefix(h.Name, "Tu B") {
+				parts = append(parts, h.NameHebrew)
+			}
+		}
+	}
+
+	return joinUnique(parts, ", ")
+}
+
+// containsPrefix checks if a string starts with a prefix (case-insensitive)
+func containsPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+}
+
+// joinUnique joins strings, removing duplicates while preserving order
+func joinUnique(parts []string, sep string) string {
+	seen := make(map[string]bool)
+	var unique []string
+	for _, p := range parts {
+		if !seen[p] && p != "" {
+			seen[p] = true
+			unique = append(unique, p)
+		}
+	}
+	if len(unique) == 0 {
+		return ""
+	}
+	return strings.Join(unique, sep)
 }
 
 // fetchPublisherZmanim retrieves all zmanim for a publisher from the database

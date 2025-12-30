@@ -100,7 +100,7 @@ export default function PublisherDashboardPage() {
     return (
       <div className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <div className="bg-card border border-border rounded-lg p-8 text-center" data-testid="publisher-dashboard-no-publisher-state">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -254,6 +254,7 @@ export default function PublisherDashboardPage() {
           <Link
             href="/publisher/profile"
             className="bg-card rounded-lg p-6 border border-border hover:border-primary/50 transition-colors group"
+            data-testid="publisher-dashboard-profile-card"
           >
             <div className="flex items-start justify-between mb-4">
               <Tooltip>
@@ -281,6 +282,7 @@ export default function PublisherDashboardPage() {
               ? 'border-yellow-500/50 hover:border-yellow-500'
               : 'border-border hover:border-primary/50'
               }`}
+            data-testid="publisher-dashboard-algorithm-card"
           >
             <div className="flex items-start justify-between mb-4">
               <Tooltip>
@@ -314,6 +316,7 @@ export default function PublisherDashboardPage() {
           <Link
             href="/publisher/coverage"
             className="bg-card rounded-lg p-6 border border-border hover:border-primary/50 transition-colors group"
+            data-testid="publisher-dashboard-coverage-card"
           >
             <div className="flex items-start justify-between mb-4">
               <Tooltip>
@@ -353,6 +356,7 @@ export default function PublisherDashboardPage() {
           <Link
             href="/publisher/analytics"
             className="bg-card rounded-lg p-6 border border-border hover:border-primary/50 transition-colors group"
+            data-testid="publisher-dashboard-analytics-card"
           >
             <div className="flex items-start justify-between mb-4">
               <Tooltip>
@@ -379,7 +383,7 @@ export default function PublisherDashboardPage() {
         </div>
 
         {/* Recent Activity Section */}
-        <div className="bg-card rounded-lg border border-border p-6">
+        <div className="bg-card rounded-lg border border-border p-6" data-testid="publisher-dashboard-recent-activity">
           <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
           {summary && summary.recent_activity.length > 0 ? (
             <div className="space-y-3">

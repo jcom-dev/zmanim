@@ -56,7 +56,7 @@ var PrimitivesReference = map[string]PrimitiveDoc{
 	"civil_dawn": {
 		Name:              "civil_dawn",
 		Definition:        "When the sun's center is 6 degrees below the horizon. Enough natural light for most outdoor activities without artificial lighting. Horizon clearly visible.",
-		CalculationMethod: "NOAA algorithm with zenith angle 96 degrees (90 + 6). Includes elevation adjustment for extended horizon.",
+		CalculationMethod: "NOAA algorithm with zenith angle 96 degrees (90 + 6). Note: Elevation may be ignored if publisher has configured calculations for sea level only.",
 		ScientificSource:  "US Naval Observatory twilight definitions, FAA aviation regulations",
 		Icon:              "twilight",
 	},

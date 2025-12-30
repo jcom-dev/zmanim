@@ -336,10 +336,12 @@ func calcSunriseOrSunsetWithElevation(jd, latitude, longitude, elevation float64
 	// Standard zenith for sunrise/sunset (includes atmospheric refraction)
 	zenith := 90.833
 
-	// Apply elevation adjustment - higher elevation means the horizon is lower,
-	// so we reduce the zenith angle (sun is visible when it's geometrically lower)
+	// Apply elevation adjustment - higher elevation means the horizon is depressed,
+	// so the sun appears earlier (sunrise) or later (sunset).
+	// We ADD the elevation adjustment to zenith: a larger zenith means we're looking
+	// for when the sun is geometrically lower, which occurs earlier in the morning.
 	elevationAdj := calcElevationAdjustment(elevation)
-	adjustedZenith := zenith - elevationAdj
+	adjustedZenith := zenith + elevationAdj
 
 	return calcSunTimeForZenith(jd, latitude, longitude, tz, date, adjustedZenith, isSunrise)
 }
@@ -354,10 +356,10 @@ func calcSunAngleTimeWithElevation(jd, latitude, longitude, elevation float64, t
 	// Zenith = 90 + angle (angle below horizon)
 	zenith := 90.0 + angle
 
-	// Apply elevation adjustment - higher elevation means the horizon is lower,
-	// so we reduce the zenith angle (sun is visible when it's geometrically lower)
+	// Apply elevation adjustment - higher elevation means the horizon is depressed,
+	// so we ADD the elevation adjustment to zenith for consistency with sunrise/sunset.
 	elevationAdj := calcElevationAdjustment(elevation)
-	adjustedZenith := zenith - elevationAdj
+	adjustedZenith := zenith + elevationAdj
 
 	return calcSunTimeForZenith(jd, latitude, longitude, tz, date, adjustedZenith, isDawn)
 }

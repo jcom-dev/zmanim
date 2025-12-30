@@ -5,8 +5,10 @@ import { usePublisherContext } from '@/providers/PublisherContext';
 import { useApi } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Languages, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Languages, Info, Loader2, Mountain } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 
 interface CalculationSettings {
@@ -189,7 +191,7 @@ export default function CalculationSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Elevation Setting - Hidden for now
+          {/* Elevation Setting */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -222,7 +224,6 @@ export default function CalculationSettingsPage() {
               </div>
             </CardContent>
           </Card>
-          */}
         </div>
 
         {/* Back button */}

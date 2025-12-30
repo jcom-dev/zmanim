@@ -27,13 +27,14 @@ import {
   useDeleteSnapshot,
   SnapshotMeta,
 } from '@/lib/hooks/usePublisherSnapshots';
-import { Loader2, History, RotateCcw, Trash2, AlertTriangle, Clock, FileJson } from 'lucide-react';
+import { Loader2, History, RotateCcw, Trash2, AlertTriangle, Clock, FileJson, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface VersionHistoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRestore?: () => void;
+  onSaveVersion?: () => void;
 }
 
 /**
@@ -45,7 +46,7 @@ interface VersionHistoryDialogProps {
  * - Delete version
  * - Shows confirmation dialogs for destructive actions
  */
-export function VersionHistoryDialog({ open, onOpenChange, onRestore }: VersionHistoryDialogProps) {
+export function VersionHistoryDialog({ open, onOpenChange, onRestore, onSaveVersion }: VersionHistoryDialogProps) {
   const { data, isLoading, refetch } = useSnapshotList();
   const restoreSnapshot = useRestoreSnapshot();
   const deleteSnapshot = useDeleteSnapshot();
@@ -110,10 +111,22 @@ export function VersionHistoryDialog({ open, onOpenChange, onRestore }: VersionH
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Version History
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Version History
+              </DialogTitle>
+              {onSaveVersion && (
+                <Button
+                  size="sm"
+                  onClick={onSaveVersion}
+                  className="mr-6"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Version
+                </Button>
+              )}
+            </div>
             <DialogDescription>
               View and restore previous versions of your publisher configuration.
               Maximum 20 versions are kept.

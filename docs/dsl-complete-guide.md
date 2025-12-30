@@ -1526,11 +1526,14 @@ Using degrees instead of fixed minutes ensures the calculation reflects the actu
 5. **Execution**: The formula is calculated using the primitives and astronomical data
 6. **Result**: A precise time is returned
 
+**Note on Elevation**: Publishers can configure whether to include elevation in calculations. When elevation is ignored (via the `ignore_elevation` publisher setting), all astronomical calculations use sea level (0m elevation), regardless of the actual location elevation. This ensures consistency with certain halachic traditions that use sea-level calculations.
+
 ### Precision
 
 - Times are calculated to the second
 - Solar positions use the NOAA Solar Calculator algorithms
 - Atmospheric refraction is accounted for (34 arc-minutes)
+- Elevation adjustments can be applied or ignored based on publisher preference
 - Results match authoritative sources like KosherJava and hebcal-go
 
 ### Type Safety

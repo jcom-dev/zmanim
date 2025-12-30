@@ -369,36 +369,36 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
           isFocused && "ring-2 ring-primary ring-offset-2"
         )}
       >
-        <div className="p-4 sm:p-5">
+        <div className="p-3 sm:p-4 min-w-0">
           {/* === ROW 1: Name + Modified + Actions === */}
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-2">
             {/* Left: Names + Modified badge inline */}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Primary name based on language setting */}
                 {displayLanguage === 'english' ? (
                   // English only: show English as primary
-                  <h3 className="text-lg font-semibold leading-tight text-foreground">
+                  <h3 className="text-base font-semibold leading-tight text-foreground">
                     {zman.english_name}
                   </h3>
                 ) : displayLanguage === 'hebrew' ? (
                   // Hebrew only: show Hebrew as primary
-                  <h3 className="text-lg font-semibold font-hebrew leading-tight text-foreground">
+                  <h3 className="text-base font-semibold font-hebrew leading-tight text-foreground">
                     {zman.hebrew_name}
                   </h3>
                 ) : (
                   // Both: show Hebrew primary, English secondary
                   <>
-                    <h3 className="text-lg font-semibold font-hebrew leading-tight text-foreground">
+                    <h3 className="text-base font-semibold font-hebrew leading-tight text-foreground">
                       {zman.hebrew_name}
                     </h3>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {zman.english_name}
                     </span>
                   </>
                 )}
                 {/* Zman key for reference */}
-                <span className="text-xs font-mono text-muted-foreground/70">
+                <span className="text-[10px] font-mono text-muted-foreground/70">
                   @{zman.zman_key}
                 </span>
                 {/* Modified badge - inline with name */}
@@ -408,18 +408,9 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
                     Modified
                   </Badge>
                 )}
-                {/* Publisher comment indicator - inline with name */}
+                {/* Publisher comment indicator - just shows icon, full comment displayed below */}
                 {zman.publisher_comment && (
-                  <TooltipProvider delayDuration={300}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground cursor-help transition-colors" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="text-sm">{zman.publisher_comment}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
                 )}
               </div>
             </div>
@@ -513,7 +504,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
           </div>
 
           {/* === ROW 2: Controls + Time === */}
-          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+          <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
             {/* Left: Controls */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* Rounding */}
@@ -598,7 +589,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
             {/* Right: Time */}
             {previewTime && (
               <div className="shrink-0">
-                <span className="text-2xl sm:text-3xl font-mono font-medium tabular-nums text-primary">
+                <span className="text-xl sm:text-2xl font-mono font-medium tabular-nums text-primary">
                   {previewTime}
                 </span>
               </div>
@@ -606,13 +597,13 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
           </div>
 
           {/* === ROW 3: Formula === */}
-          <div className="mt-4">
+          <div className="mt-2 min-w-0 overflow-hidden">
             <HighlightedFormula formula={zman.formula_dsl} />
           </div>
 
           {/* === ROW 4: Tags === */}
           {!compact && (
-            <div className="mt-3 flex items-center gap-1.5">
+            <div className="mt-2 flex items-center gap-1.5">
               {/* Only show tag editor for editable (non-linked) zmanim */}
               {isEditable && (
                 <ZmanTagEditor zmanKey={zman.zman_key} currentTags={zman.tags || []} />
@@ -650,7 +641,7 @@ export function ZmanCard({ zman, category, onEdit, displayLanguage = 'both', all
 
           {/* === Comments === */}
           {!compact && zman.publisher_comment && (
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
               {zman.publisher_comment}
             </p>
           )}
@@ -880,7 +871,7 @@ export function ZmanGrid({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {zmanim.map((zman) => (
         <ZmanCard
           key={zman.id}
