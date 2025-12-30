@@ -25,7 +25,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nrefactor: improve audit trail and E2E test reliability\n\n- Enhance snapshot import/restore with before/after state capture for audit\n- Add retry logic with exponential backoff to Clerk auth in E2E tests\n- Move audit documentation from root to docs-temp/ for cleaner project structure\n- Improve handler audit logging with detailed change tracking\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
-      "Bash(npx playwright test:*)"
+      "Bash(npx playwright test:*)",
+      "Bash(pkill:*)"
     ]
   }
 }

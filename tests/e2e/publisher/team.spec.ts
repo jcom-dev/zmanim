@@ -185,9 +185,11 @@ test.describe('Team - Add Member Dialog', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /add member/i }).click();
+    await page.waitForTimeout(500); // Wait for dialog to open
     await page.getByRole('button', { name: /add member/i }).last().click();
 
-    await expect(page.getByText(/name is required/i)).toBeVisible();
+    // Error appears when trying to submit with empty fields
+    await expect(page.getByText('Name is required')).toBeVisible();
   });
 
   test('error for empty email', async ({ page }) => {
@@ -197,9 +199,11 @@ test.describe('Team - Add Member Dialog', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /add member/i }).click();
+    await page.waitForTimeout(500); // Wait for dialog to open
     await page.getByRole('button', { name: /add member/i }).last().click();
 
-    await expect(page.getByText(/email is required/i)).toBeVisible();
+    // Error appears when trying to submit with empty fields
+    await expect(page.getByText('Email is required')).toBeVisible();
   });
 
   test('error for invalid email', async ({ page }) => {
@@ -209,11 +213,14 @@ test.describe('Team - Add Member Dialog', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /add member/i }).click();
+    await page.waitForTimeout(500); // Wait for dialog to open
     await page.locator('#name').fill('Test User');
     await page.locator('#email').fill('invalid-email');
-    await page.getByRole('button', { name: /add member/i }).last().click();
+    // Trigger blur to show validation error
+    await page.locator('#email').blur();
 
-    await expect(page.getByText(/valid email/i)).toBeVisible();
+    // Error appears on blur with invalid email
+    await expect(page.getByText('Please enter a valid email address')).toBeVisible();
   });
 });
 

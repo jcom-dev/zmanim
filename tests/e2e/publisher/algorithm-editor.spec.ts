@@ -137,7 +137,8 @@ test.describe('Algorithm Editor - Import/Export', () => {
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /^export/i }).click();
-      await expect(page.getByRole('menuitem', { name: /export to json/i })).toBeVisible({ timeout: 15000 });
+      // DropdownMenuItem renders as button, not menuitem
+      await expect(page.getByRole('button', { name: /export to json/i })).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -152,9 +153,9 @@ test.describe('Algorithm Editor - Import/Export', () => {
       await exportButton.waitFor({ state: 'visible', timeout: 15000 });
       await exportButton.click();
 
-      // Wait for menu to open and check for import option
-      await page.waitForSelector('[role="menuitem"]', { timeout: 5000 });
-      await expect(page.getByRole('menuitem', { name: /import from json/i })).toBeVisible({ timeout: 10000 });
+      // Wait for menu to open and check for import option (DropdownMenuItem renders as button)
+      await page.waitForTimeout(500); // Give dropdown time to open
+      await expect(page.getByRole('button', { name: /import from json/i })).toBeVisible({ timeout: 10000 });
     }
   });
 
@@ -166,7 +167,8 @@ test.describe('Algorithm Editor - Import/Export', () => {
 
     if (await waitForEditor(page)) {
       await page.getByRole('button', { name: /^export/i }).click();
-      await expect(page.getByRole('menuitem', { name: /export full year/i })).toBeVisible({ timeout: 15000 });
+      // DropdownMenuItem renders as button, not menuitem
+      await expect(page.getByRole('button', { name: /export full year/i })).toBeVisible({ timeout: 15000 });
     }
   });
 });

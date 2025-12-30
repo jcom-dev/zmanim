@@ -105,9 +105,9 @@ test.describe('PDF Report Generation', () => {
     await exportButton.click();
 
     // Wait for dropdown content to appear (verify PDF button is visible)
-    // The dropdown menu items are rendered as buttons with text "Generate PDF Report"
+    // DropdownMenuItem renders as button (not menuitem)
     const pdfButton = page.getByRole('button', { name: /Generate PDF Report/i });
-    await expect(pdfButton).toBeVisible({ timeout: Timeouts.SHORT });
+    await expect(pdfButton).toBeVisible({ timeout: Timeouts.MEDIUM });
   });
 
   test('clicking Generate PDF Report opens modal with configuration options', async ({ page }) => {

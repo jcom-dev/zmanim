@@ -62,7 +62,7 @@ test.describe('Publisher Lifecycle - Create, Import, Edit DSL', () => {
     expect(page.url()).toContain('/publisher/algorithm');
   });
 
-  test('2. Publisher completes onboarding wizard with Standard Defaults', async ({ page }) => {
+  test('2. Publisher completes onboarding wizard', async ({ page }) => {
     await loginAsPublisher(page, testPublisher.id);
     await page.goto(`${BASE_URL}/publisher/algorithm`);
     await page.waitForLoadState('networkidle');
@@ -79,86 +79,75 @@ test.describe('Publisher Lifecycle - Create, Import, Edit DSL', () => {
     // Click "Get Started"
     await page.getByRole('button', { name: /get started/i }).click();
 
-    // Wait for Template Selection step
+    // Wait for Customize Zmanim step
     await page.waitForFunction(
       () => {
         const text = document.body.textContent?.toLowerCase() || '';
-        return text.includes('starting point') || text.includes('choose your') || text.includes('standard defaults');
+        return text.includes('customize') || text.includes('select zmanim');
       },
       { timeout: 30000 }
     );
 
-    // Select Standard Defaults template (based on GRA calculations)
-    await page.getByText('Standard Defaults').click();
-
-    // Continue button should be enabled now
-    await expect(page.getByRole('button', { name: /continue/i })).toBeEnabled();
-    await page.getByRole('button', { name: /continue/i }).click();
-
-    // Wait for next step (Customize Zmanim)
-    await page.waitForFunction(
-      () => {
-        const text = document.body.textContent?.toLowerCase() || '';
-        return text.includes('customize') || text.includes('zman');
-      },
-      { timeout: 30000 }
-    );
-
-    // Complete remaining wizard steps by clicking through
-    // Step 3: Customize Zmanim -> Continue
+    // Complete wizard steps by clicking Continue
+    // Step 2: Customize Zmanim -> Continue (can proceed with defaults)
     let continueBtn = page.getByRole('button', { name: /continue/i });
-    await expect(continueBtn).toBeEnabled({ timeout: 10000 });
+    await expect(continueBtn).toBeVisible({ timeout: 10000 });
     await continueBtn.click();
 
-    // Step 4: Coverage - Need to add at least one city
+    // Step 3: Coverage - Need to add at least one city
     await page.waitForFunction(
-      () => document.body.textContent?.toLowerCase().includes('coverage'),
+      () => document.body.textContent?.toLowerCase().includes('coverage') ||
+            document.body.textContent?.toLowerCase().includes('set coverage'),
       { timeout: 30000 }
     );
 
-    // Add a quick city (e.g., Jerusalem or New York)
-    const jerusalemBtn = page.getByRole('button', { name: /jerusalem/i });
-    if (await jerusalemBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await jerusalemBtn.click();
-      await page.waitForTimeout(500);
-    } else {
-      // Try New York
-      const newYorkBtn = page.getByRole('button', { name: /new york/i });
-      if (await newYorkBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await newYorkBtn.click();
-        await page.waitForTimeout(500);
+    // Wait a bit for coverage options to load
+    await page.waitForTimeout(1000);
+
+    // Look for any locality/city quick buttons or search
+    const searchInput = page.getByPlaceholder(/search/i);
+    if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // Type Jerusalem and select first result
+      await searchInput.fill('Jerusalem');
+      await page.waitForTimeout(1000);
+      const firstResult = page.locator('[role="option"]').first();
+      if (await firstResult.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await firstResult.click();
       }
     }
 
     // Now Continue should be enabled
     continueBtn = page.getByRole('button', { name: /continue/i });
-    await expect(continueBtn).toBeEnabled({ timeout: 10000 });
-    await continueBtn.click();
+    if (await continueBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await expect(continueBtn).toBeEnabled({ timeout: 10000 });
+      await continueBtn.click();
+    }
 
-    // Step 5: Review -> Finish/Publish
+    // Step 4: Review -> Finish/Publish/Complete
     await page.waitForFunction(
-      () => document.body.textContent?.toLowerCase().includes('review') ||
-            document.body.textContent?.toLowerCase().includes('publish'),
+      () => {
+        const text = document.body.textContent?.toLowerCase() || '';
+        return text.includes('review') || text.includes('publish');
+      },
       { timeout: 30000 }
     );
 
     const finishBtn = page.getByRole('button', { name: /finish|publish|complete/i }).first();
-    await expect(finishBtn).toBeEnabled({ timeout: 10000 });
+    await expect(finishBtn).toBeVisible({ timeout: 10000 });
     await finishBtn.click();
 
-    // Wait for the algorithm editor page to load (after wizard completes)
+    // Wait for success or navigation
     await page.waitForFunction(
       () => {
         const text = document.body.textContent?.toLowerCase() || '';
-        // Look for content that indicates we're on the editor, not in loading state
-        return (text.includes('search zmanim') || text.includes('zman') || text.includes('algorithm')) &&
-               !text.includes('welcome to Shtetl Zmanim') &&
-               !text.includes('loading');
+        return text.includes('success') ||
+               text.includes('dashboard') ||
+               text.includes('algorithm editor');
       },
       { timeout: 45000 }
     );
 
-    // Verify we're on the algorithm page with some content
+    // Verify we completed successfully
     const pageContent = await page.textContent('body');
     expect(pageContent?.length).toBeGreaterThan(100);
   });

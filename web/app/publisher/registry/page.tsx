@@ -153,7 +153,12 @@ function ZmanCard({
   const displayName = isHebrew ? zman.canonical_hebrew_name : zman.canonical_english_name;
 
   return (
-    <Card className="relative overflow-hidden" data-testid="zman-card">
+    <Card
+      className="relative overflow-hidden"
+      data-testid="zman-card"
+      data-zman-key={zman.zman_key}
+      data-master-zman-id={zman.id}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -174,6 +179,7 @@ function ZmanCard({
                     <Badge
                       variant={zman.existing_is_deleted ? "destructive" : "secondary"}
                       className="text-xs flex items-center gap-1 shrink-0"
+                      data-testid="imported-badge"
                     >
                       {zman.existing_is_deleted ? (
                         <>

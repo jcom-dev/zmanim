@@ -4,69 +4,69 @@ Asara B'Tevet,fast,2015-01-01,Jerusalem,true,5775,10,10
 Ben-Gurion Day,holiday,2014-11-30,Jerusalem,true,5775,9,8
 Chag HaBanot,holiday,2014-12-22,Salford,false,5775,9,30
 Chag HaBanot,holiday,2014-12-22,Jerusalem,true,5775,9,30
-Chanukah: 1 Candle,holiday,2014-12-16,Jerusalem,true,5775,9,24
 Chanukah: 1 Candle,holiday,2014-12-16,Salford,false,5775,9,24
-Chanukah: 2 Candles,holiday,2014-12-17,Salford,false,5775,9,25
+Chanukah: 1 Candle,holiday,2014-12-16,Jerusalem,true,5775,9,24
 Chanukah: 2 Candles,holiday,2014-12-17,Jerusalem,true,5775,9,25
-Chanukah: 3 Candles,holiday,2014-12-18,Salford,false,5775,9,26
+Chanukah: 2 Candles,holiday,2014-12-17,Salford,false,5775,9,25
 Chanukah: 3 Candles,holiday,2014-12-18,Jerusalem,true,5775,9,26
+Chanukah: 3 Candles,holiday,2014-12-18,Salford,false,5775,9,26
 Chanukah: 4 Candles,holiday,2014-12-19,Jerusalem,true,5775,9,27
 Chanukah: 4 Candles,holiday,2014-12-19,Salford,false,5775,9,27
-Chanukah: 5 Candles,holiday,2014-12-20,Salford,false,5775,9,28
 Chanukah: 5 Candles,holiday,2014-12-20,Jerusalem,true,5775,9,28
-Chanukah: 6 Candles,holiday,2014-12-21,Salford,false,5775,9,29
+Chanukah: 5 Candles,holiday,2014-12-20,Salford,false,5775,9,28
 Chanukah: 6 Candles,holiday,2014-12-21,Jerusalem,true,5775,9,29
-Chanukah: 7 Candles,holiday,2014-12-22,Salford,false,5775,9,30
+Chanukah: 6 Candles,holiday,2014-12-21,Salford,false,5775,9,29
 Chanukah: 7 Candles,holiday,2014-12-22,Jerusalem,true,5775,9,30
+Chanukah: 7 Candles,holiday,2014-12-22,Salford,false,5775,9,30
 Chanukah: 8 Candles,holiday,2014-12-23,Jerusalem,true,5775,10,1
 Chanukah: 8 Candles,holiday,2014-12-23,Salford,false,5775,10,1
-Chanukah: 8th Day,holiday,2014-12-24,Salford,false,5775,10,2
 Chanukah: 8th Day,holiday,2014-12-24,Jerusalem,true,5775,10,2
+Chanukah: 8th Day,holiday,2014-12-24,Salford,false,5775,10,2
 Erev Pesach,holiday,2015-04-03,Salford,false,5775,1,14
 Erev Pesach,holiday,2015-04-03,Jerusalem,true,5775,1,14
-Erev Purim,holiday,2015-03-04,Jerusalem,true,5775,12,13
 Erev Purim,holiday,2015-03-04,Salford,false,5775,12,13
-Erev Rosh Hashana,holiday,2014-09-24,Salford,false,5774,6,29
+Erev Purim,holiday,2015-03-04,Jerusalem,true,5775,12,13
 Erev Rosh Hashana,holiday,2014-09-24,Jerusalem,true,5774,6,29
+Erev Rosh Hashana,holiday,2014-09-24,Salford,false,5774,6,29
 Erev Shavuot,holiday,2015-05-23,Jerusalem,true,5775,3,5
 Erev Shavuot,holiday,2015-05-23,Salford,false,5775,3,5
-Erev Sukkot,holiday,2014-10-08,Salford,false,5775,7,14
 Erev Sukkot,holiday,2014-10-08,Jerusalem,true,5775,7,14
-Erev Tish'a B'Av,fast,2015-07-25,Salford,false,5775,5,9
+Erev Sukkot,holiday,2014-10-08,Salford,false,5775,7,14
 Erev Tish'a B'Av,fast,2015-07-25,Jerusalem,true,5775,5,9
-Erev Yom Kippur,holiday,2014-10-03,Salford,false,5775,7,9
+Erev Tish'a B'Av,fast,2015-07-25,Salford,false,5775,5,9
 Erev Yom Kippur,holiday,2014-10-03,Jerusalem,true,5775,7,9
+Erev Yom Kippur,holiday,2014-10-03,Salford,false,5775,7,9
 Family Day,holiday,2015-02-19,Jerusalem,true,5775,11,30
 Hebrew Language Day,holiday,2015-01-12,Jerusalem,true,5775,10,21
 Herzl Day,holiday,2015-04-29,Jerusalem,true,5775,2,10
 Jabotinsky Day,holiday,2015-07-16,Jerusalem,true,5775,4,29
 Lag BaOmer,holiday,2015-05-07,Jerusalem,true,5775,2,18
 Lag BaOmer,holiday,2015-05-07,Salford,false,5775,2,18
-Leil Selichot,holiday,2015-09-05,Jerusalem,true,5775,6,21
 Leil Selichot,holiday,2015-09-05,Salford,false,5775,6,21
-Pesach I,holiday,2015-04-04,Jerusalem,true,5775,1,15
+Leil Selichot,holiday,2015-09-05,Jerusalem,true,5775,6,21
 Pesach I,holiday,2015-04-04,Salford,false,5775,1,15
+Pesach I,holiday,2015-04-04,Jerusalem,true,5775,1,15
 Pesach II,holiday,2015-04-05,Salford,false,5775,1,16
 Pesach II (CH''M),holiday,2015-04-05,Jerusalem,true,5775,1,16
 Pesach III (CH''M),holiday,2015-04-06,Salford,false,5775,1,17
 Pesach III (CH''M),holiday,2015-04-06,Jerusalem,true,5775,1,17
 Pesach IV (CH''M),holiday,2015-04-07,Jerusalem,true,5775,1,18
 Pesach IV (CH''M),holiday,2015-04-07,Salford,false,5775,1,18
-Pesach Sheni,holiday,2015-05-03,Salford,false,5775,2,14
 Pesach Sheni,holiday,2015-05-03,Jerusalem,true,5775,2,14
-Pesach V (CH''M),holiday,2015-04-08,Salford,false,5775,1,19
+Pesach Sheni,holiday,2015-05-03,Salford,false,5775,2,14
 Pesach V (CH''M),holiday,2015-04-08,Jerusalem,true,5775,1,19
+Pesach V (CH''M),holiday,2015-04-08,Salford,false,5775,1,19
 Pesach VI (CH''M),holiday,2015-04-09,Jerusalem,true,5775,1,20
 Pesach VI (CH''M),holiday,2015-04-09,Salford,false,5775,1,20
-Pesach VII,holiday,2015-04-10,Salford,false,5775,1,21
 Pesach VII,holiday,2015-04-10,Jerusalem,true,5775,1,21
+Pesach VII,holiday,2015-04-10,Salford,false,5775,1,21
 Pesach VIII,holiday,2015-04-11,Salford,false,5775,1,22
-Purim,holiday,2015-03-05,Jerusalem,true,5775,12,14
 Purim,holiday,2015-03-05,Salford,false,5775,12,14
-Purim Katan,holiday,2016-02-23,Salford,false,5776,12,14
+Purim,holiday,2015-03-05,Jerusalem,true,5775,12,14
 Purim Katan,holiday,2016-02-23,Jerusalem,true,5776,12,14
-Purim Meshulash,holiday,2021-02-28,Salford,false,5781,12,16
+Purim Katan,holiday,2016-02-23,Salford,false,5776,12,14
 Purim Meshulash,holiday,2021-02-28,Jerusalem,true,5781,12,16
+Purim Meshulash,holiday,2021-02-28,Salford,false,5781,12,16
 Rosh Chodesh Adar,roshchodesh,2015-02-19,Jerusalem,true,5775,11,30
 Rosh Chodesh Adar,roshchodesh,2015-02-19,Salford,false,5775,11,30
 Rosh Chodesh Adar I,roshchodesh,2016-02-09,Jerusalem,true,5776,11,30
@@ -75,64 +75,64 @@ Rosh Chodesh Adar II,roshchodesh,2016-03-10,Salford,false,5776,12,30
 Rosh Chodesh Adar II,roshchodesh,2016-03-10,Jerusalem,true,5776,12,30
 Rosh Chodesh Av,roshchodesh,2015-07-17,Jerusalem,true,5775,5,1
 Rosh Chodesh Av,roshchodesh,2015-07-17,Salford,false,5775,5,1
-Rosh Chodesh Cheshvan,roshchodesh,2014-10-24,Salford,false,5775,7,30
 Rosh Chodesh Cheshvan,roshchodesh,2014-10-24,Jerusalem,true,5775,7,30
-Rosh Chodesh Elul,roshchodesh,2015-08-15,Salford,false,5775,5,30
+Rosh Chodesh Cheshvan,roshchodesh,2014-10-24,Salford,false,5775,7,30
 Rosh Chodesh Elul,roshchodesh,2015-08-15,Jerusalem,true,5775,5,30
+Rosh Chodesh Elul,roshchodesh,2015-08-15,Salford,false,5775,5,30
 Rosh Chodesh Iyyar,roshchodesh,2015-04-19,Jerusalem,true,5775,1,30
 Rosh Chodesh Iyyar,roshchodesh,2015-04-19,Salford,false,5775,1,30
-Rosh Chodesh Kislev,roshchodesh,2014-11-23,Jerusalem,true,5775,9,1
 Rosh Chodesh Kislev,roshchodesh,2014-11-23,Salford,false,5775,9,1
+Rosh Chodesh Kislev,roshchodesh,2014-11-23,Jerusalem,true,5775,9,1
 Rosh Chodesh Nisan,roshchodesh,2015-03-21,Salford,false,5775,1,1
 Rosh Chodesh Nisan,roshchodesh,2015-03-21,Jerusalem,true,5775,1,1
-Rosh Chodesh Sh'vat,roshchodesh,2015-01-21,Salford,false,5775,11,1
 Rosh Chodesh Sh'vat,roshchodesh,2015-01-21,Jerusalem,true,5775,11,1
-Rosh Chodesh Sivan,roshchodesh,2015-05-19,Jerusalem,true,5775,3,1
+Rosh Chodesh Sh'vat,roshchodesh,2015-01-21,Salford,false,5775,11,1
 Rosh Chodesh Sivan,roshchodesh,2015-05-19,Salford,false,5775,3,1
+Rosh Chodesh Sivan,roshchodesh,2015-05-19,Jerusalem,true,5775,3,1
 Rosh Chodesh Tammuz,roshchodesh,2015-06-17,Salford,false,5775,3,30
 Rosh Chodesh Tammuz,roshchodesh,2015-06-17,Jerusalem,true,5775,3,30
 Rosh Chodesh Tevet,roshchodesh,2014-12-22,Jerusalem,true,5775,9,30
 Rosh Chodesh Tevet,roshchodesh,2014-12-22,Salford,false,5775,9,30
-Rosh Hashana 5775,holiday,2014-09-25,Jerusalem,true,5775,7,1
 Rosh Hashana 5775,holiday,2014-09-25,Salford,false,5775,7,1
-Rosh Hashana 5776,holiday,2015-09-14,Jerusalem,true,5776,7,1
+Rosh Hashana 5775,holiday,2014-09-25,Jerusalem,true,5775,7,1
 Rosh Hashana 5776,holiday,2015-09-14,Salford,false,5776,7,1
+Rosh Hashana 5776,holiday,2015-09-14,Jerusalem,true,5776,7,1
 Rosh Hashana 5777,holiday,2016-10-03,Jerusalem,true,5777,7,1
 Rosh Hashana 5777,holiday,2016-10-03,Salford,false,5777,7,1
-Rosh Hashana 5778,holiday,2017-09-21,Jerusalem,true,5778,7,1
 Rosh Hashana 5778,holiday,2017-09-21,Salford,false,5778,7,1
+Rosh Hashana 5778,holiday,2017-09-21,Jerusalem,true,5778,7,1
 Rosh Hashana 5779,holiday,2018-09-10,Salford,false,5779,7,1
 Rosh Hashana 5779,holiday,2018-09-10,Jerusalem,true,5779,7,1
 Rosh Hashana 5780,holiday,2019-09-30,Salford,false,5780,7,1
 Rosh Hashana 5780,holiday,2019-09-30,Jerusalem,true,5780,7,1
-Rosh Hashana 5781,holiday,2020-09-19,Jerusalem,true,5781,7,1
 Rosh Hashana 5781,holiday,2020-09-19,Salford,false,5781,7,1
-Rosh Hashana 5782,holiday,2021-09-07,Jerusalem,true,5782,7,1
+Rosh Hashana 5781,holiday,2020-09-19,Jerusalem,true,5781,7,1
 Rosh Hashana 5782,holiday,2021-09-07,Salford,false,5782,7,1
+Rosh Hashana 5782,holiday,2021-09-07,Jerusalem,true,5782,7,1
 Rosh Hashana 5783,holiday,2022-09-26,Jerusalem,true,5783,7,1
 Rosh Hashana 5783,holiday,2022-09-26,Salford,false,5783,7,1
-Rosh Hashana 5784,holiday,2023-09-16,Salford,false,5784,7,1
 Rosh Hashana 5784,holiday,2023-09-16,Jerusalem,true,5784,7,1
+Rosh Hashana 5784,holiday,2023-09-16,Salford,false,5784,7,1
 Rosh Hashana 5785,holiday,2024-10-03,Jerusalem,true,5785,7,1
 Rosh Hashana 5785,holiday,2024-10-03,Salford,false,5785,7,1
-Rosh Hashana II,holiday,2014-09-26,Jerusalem,true,5775,7,2
 Rosh Hashana II,holiday,2014-09-26,Salford,false,5775,7,2
+Rosh Hashana II,holiday,2014-09-26,Jerusalem,true,5775,7,2
 Rosh Hashana LaBehemot,holiday,2015-08-16,Salford,false,5775,6,1
 Rosh Hashana LaBehemot,holiday,2015-08-16,Jerusalem,true,5775,6,1
-Shabbat Chazon,holiday,2015-07-25,Salford,false,5775,5,9
 Shabbat Chazon,holiday,2015-07-25,Jerusalem,true,5775,5,9
+Shabbat Chazon,holiday,2015-07-25,Salford,false,5775,5,9
 Shabbat HaChodesh,holiday,2015-03-21,Jerusalem,true,5775,1,1
 Shabbat HaChodesh,holiday,2015-03-21,Salford,false,5775,1,1
-Shabbat HaGadol,holiday,2015-03-28,Salford,false,5775,1,8
 Shabbat HaGadol,holiday,2015-03-28,Jerusalem,true,5775,1,8
+Shabbat HaGadol,holiday,2015-03-28,Salford,false,5775,1,8
 Shabbat Nachamu,holiday,2015-08-01,Jerusalem,true,5775,5,16
 Shabbat Nachamu,holiday,2015-08-01,Salford,false,5775,5,16
-Shabbat Parah,holiday,2015-03-14,Jerusalem,true,5775,12,23
 Shabbat Parah,holiday,2015-03-14,Salford,false,5775,12,23
-Shabbat Shekalim,holiday,2015-02-14,Salford,false,5775,11,25
+Shabbat Parah,holiday,2015-03-14,Jerusalem,true,5775,12,23
 Shabbat Shekalim,holiday,2015-02-14,Jerusalem,true,5775,11,25
-Shabbat Shirah,holiday,2015-01-31,Salford,false,5775,11,11
+Shabbat Shekalim,holiday,2015-02-14,Salford,false,5775,11,25
 Shabbat Shirah,holiday,2015-01-31,Jerusalem,true,5775,11,11
+Shabbat Shirah,holiday,2015-01-31,Salford,false,5775,11,11
 Shabbat Shuva,holiday,2014-09-27,Salford,false,5775,7,3
 Shabbat Shuva,holiday,2014-09-27,Jerusalem,true,5775,7,3
 Shabbat Zachor,holiday,2015-02-28,Jerusalem,true,5775,12,9
@@ -140,41 +140,41 @@ Shabbat Zachor,holiday,2015-02-28,Salford,false,5775,12,9
 Shavuot,holiday,2015-05-24,Jerusalem,true,5775,3,6
 Shavuot I,holiday,2015-05-24,Salford,false,5775,3,6
 Shavuot II,holiday,2015-05-25,Salford,false,5775,3,7
-Shmini Atzeret,holiday,2014-10-16,Jerusalem,true,5775,7,22
 Shmini Atzeret,holiday,2014-10-16,Salford,false,5775,7,22
-Shushan Purim,holiday,2015-03-06,Salford,false,5775,12,15
+Shmini Atzeret,holiday,2014-10-16,Jerusalem,true,5775,7,22
 Shushan Purim,holiday,2015-03-06,Jerusalem,true,5775,12,15
-Shushan Purim Katan,holiday,2016-02-24,Salford,false,5776,12,15
+Shushan Purim,holiday,2015-03-06,Salford,false,5775,12,15
 Shushan Purim Katan,holiday,2016-02-24,Jerusalem,true,5776,12,15
-Sigd,holiday,2014-11-20,Salford,false,5775,8,27
+Shushan Purim Katan,holiday,2016-02-24,Salford,false,5776,12,15
 Sigd,holiday,2014-11-20,Jerusalem,true,5775,8,27
+Sigd,holiday,2014-11-20,Salford,false,5775,8,27
 Simchat Torah,holiday,2014-10-17,Salford,false,5775,7,23
-Sukkot I,holiday,2014-10-09,Jerusalem,true,5775,7,15
 Sukkot I,holiday,2014-10-09,Salford,false,5775,7,15
+Sukkot I,holiday,2014-10-09,Jerusalem,true,5775,7,15
 Sukkot II,holiday,2014-10-10,Salford,false,5775,7,16
 Sukkot II (CH''M),holiday,2014-10-10,Jerusalem,true,5775,7,16
-Sukkot III (CH''M),holiday,2014-10-11,Jerusalem,true,5775,7,17
 Sukkot III (CH''M),holiday,2014-10-11,Salford,false,5775,7,17
+Sukkot III (CH''M),holiday,2014-10-11,Jerusalem,true,5775,7,17
 Sukkot IV (CH''M),holiday,2014-10-12,Salford,false,5775,7,18
 Sukkot IV (CH''M),holiday,2014-10-12,Jerusalem,true,5775,7,18
 Sukkot V (CH''M),holiday,2014-10-13,Jerusalem,true,5775,7,19
 Sukkot V (CH''M),holiday,2014-10-13,Salford,false,5775,7,19
 Sukkot VI (CH''M),holiday,2014-10-14,Salford,false,5775,7,20
 Sukkot VI (CH''M),holiday,2014-10-14,Jerusalem,true,5775,7,20
-Sukkot VII (Hoshana Raba),holiday,2014-10-15,Salford,false,5775,7,21
 Sukkot VII (Hoshana Raba),holiday,2014-10-15,Jerusalem,true,5775,7,21
+Sukkot VII (Hoshana Raba),holiday,2014-10-15,Salford,false,5775,7,21
 Ta'anit Bechorot,fast,2015-04-03,Jerusalem,true,5775,1,14
 Ta'anit Bechorot,fast,2015-04-03,Salford,false,5775,1,14
 Ta'anit Esther,fast,2015-03-04,Jerusalem,true,5775,12,13
 Ta'anit Esther,fast,2015-03-04,Salford,false,5775,12,13
-Tish'a B'Av,fast,2017-08-01,Salford,false,5777,5,9
 Tish'a B'Av,fast,2017-08-01,Jerusalem,true,5777,5,9
-Tish'a B'Av (observed),fast,2015-07-26,Jerusalem,true,5775,5,10
+Tish'a B'Av,fast,2017-08-01,Salford,false,5777,5,9
 Tish'a B'Av (observed),fast,2015-07-26,Salford,false,5775,5,10
-Tu B'Av,holiday,2015-07-31,Salford,false,5775,5,15
+Tish'a B'Av (observed),fast,2015-07-26,Jerusalem,true,5775,5,10
 Tu B'Av,holiday,2015-07-31,Jerusalem,true,5775,5,15
-Tu BiShvat,holiday,2015-02-04,Jerusalem,true,5775,11,15
+Tu B'Av,holiday,2015-07-31,Salford,false,5775,5,15
 Tu BiShvat,holiday,2015-02-04,Salford,false,5775,11,15
+Tu BiShvat,holiday,2015-02-04,Jerusalem,true,5775,11,15
 Tzom Gedaliah,fast,2014-09-28,Jerusalem,true,5775,7,4
 Tzom Gedaliah,fast,2014-09-28,Salford,false,5775,7,4
 Tzom Tammuz,fast,2015-07-05,Salford,false,5775,4,18
@@ -183,8 +183,8 @@ Yitzhak Rabin Memorial Day,holiday,2014-11-05,Jerusalem,true,5775,8,12
 Yom HaAliyah,holiday,2017-04-06,Salford,false,5777,1,10
 Yom HaAliyah,holiday,2017-04-06,Jerusalem,true,5777,1,10
 Yom HaAliyah School Observance,holiday,2016-11-08,Jerusalem,true,5777,8,7
-Yom HaAtzma'ut,holiday,2015-04-23,Salford,false,5775,2,4
 Yom HaAtzma'ut,holiday,2015-04-23,Jerusalem,true,5775,2,4
+Yom HaAtzma'ut,holiday,2015-04-23,Salford,false,5775,2,4
 Yom HaShoah,holiday,2015-04-16,Jerusalem,true,5775,1,27
 Yom HaShoah,holiday,2015-04-16,Salford,false,5775,1,27
 Yom HaZikaron,holiday,2015-04-22,Jerusalem,true,5775,2,3

@@ -10,6 +10,7 @@
 
 import { test, expect } from '@playwright/test';
 import { BASE_URL } from '../utils';
+import { waitForClientReady } from '../utils/hydration-helpers';
 
 // Enable parallel mode for faster test execution
 test.describe.configure({ mode: 'parallel' });
@@ -17,135 +18,133 @@ test.describe.configure({ mode: 'parallel' });
 test.describe('Home Page - Location Selection', () => {
   test('home page loads with location selection', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Should see title
-    await expect(page.getByRole('heading', { name: 'Shtetl Zmanim' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Shtetl Zmanim' })).toBeVisible({ timeout: 15000 });
 
-    // Should see location selection prompt (starts with continent selection)
-    await expect(page.getByText('Select Continent')).toBeVisible();
+    // Should see location selection heading in breadcrumb area
+    await expect(page.getByText('Select Location')).toBeVisible({ timeout: 15000 });
   });
 
   test('home page shows continent list', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
-    // Should see continent buttons - wait for them to load
-    const continentButtons = page.locator('button').filter({ hasText: /cities$/i });
-    await expect(continentButtons.first()).toBeVisible({ timeout: 10000 });
+    // Should see continent selection heading
+    await expect(page.getByText('Select Continent')).toBeVisible({ timeout: 15000 });
+
+    // Should see continent buttons with location counts
+    const continentButtons = page.locator('button').filter({ hasText: /locations?$/i });
+    await expect(continentButtons.first()).toBeVisible({ timeout: 15000 });
   });
 
   test('clicking continent shows countries', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Wait for continents to load
-    const continentButtons = page.locator('button').filter({ hasText: /cities$/i });
-    await expect(continentButtons.first()).toBeVisible({ timeout: 10000 });
+    const continentButtons = page.locator('button').filter({ hasText: /locations?$/i });
+    await expect(continentButtons.first()).toBeVisible({ timeout: 15000 });
 
     // Click first continent
     await continentButtons.first().click();
+    await waitForClientReady(page);
 
-    // Wait for country selection to appear - look for back button which appears in country step
-    const backButton = page.getByText('← Back').first();
+    // Wait for country list to load - countries will have location counts
+    await expect(page.locator('button').filter({ hasText: /locations?$/i }).first()).toBeVisible({ timeout: 15000 });
 
-    // Should see back button (which appears in country selection step)
-    await expect(backButton).toBeVisible({ timeout: 5000 });
+    // Breadcrumb should update to show continent name
+    await expect(page.locator('button').filter({ hasText: /Select Location in/ })).toBeVisible({ timeout: 15000 });
   });
 
   test('breadcrumb navigation works', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Wait for continents to load
-    const continentButtons = page.locator('button').filter({ hasText: /cities$/i });
-    await expect(continentButtons.first()).toBeVisible({ timeout: 10000 });
+    const continentButtons = page.locator('button').filter({ hasText: /locations?$/i });
+    await expect(continentButtons.first()).toBeVisible({ timeout: 15000 });
 
     // Click first continent
     await continentButtons.first().click();
+    await waitForClientReady(page);
 
-    // Wait for back button to appear
-    const backButton = page.getByText('← Back').first();
-    await expect(backButton).toBeVisible({ timeout: 5000 }).catch(() => {});
+    // Wait for country list to load
+    await expect(page.locator('button').filter({ hasText: /locations?$/i }).first()).toBeVisible({ timeout: 15000 });
 
-    if (await backButton.isVisible()) {
-      await backButton.click();
+    // Click "Select Location" breadcrumb to go back to continents
+    const selectLocationBreadcrumb = page.locator('button').filter({ hasText: 'Select Location' });
+    await expect(selectLocationBreadcrumb).toBeVisible({ timeout: 15000 });
+    await selectLocationBreadcrumb.click();
 
-      // Should be back at continent selection
-      await expect(page.getByText('Select Continent')).toBeVisible({ timeout: 5000 });
-    }
+    // Should be back at continent selection
+    await expect(page.getByText('Select Continent')).toBeVisible({ timeout: 15000 });
   });
 
   test('selecting city navigates to zmanim page', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Wait for continents to load
-    const continentButtons = page.locator('button').filter({ hasText: /cities$/i });
-    await expect(continentButtons.first()).toBeVisible({ timeout: 10000 });
+    const continentButtons = page.locator('button').filter({ hasText: /locations?$/i });
+    await expect(continentButtons.first()).toBeVisible({ timeout: 15000 });
 
     // Click on Asia continent (contains Israel)
     const asiaButton = page.locator('button').filter({ hasText: /Asia/i });
-    if (await asiaButton.isVisible()) {
-      await asiaButton.click();
-      await page.waitForLoadState('networkidle');
+    await expect(asiaButton).toBeVisible({ timeout: 15000 });
+    await asiaButton.click();
+    await waitForClientReady(page);
 
-      // Find Israel
-      const israelButton = page.locator('button').filter({ hasText: /Israel/i });
-      await expect(israelButton).toBeVisible({ timeout: 5000 }).catch(() => {});
+    // Find Israel
+    const israelButton = page.locator('button').filter({ hasText: /Israel/i });
+    await expect(israelButton).toBeVisible({ timeout: 15000 });
+    await israelButton.click();
+    await waitForClientReady(page);
 
-      if (await israelButton.isVisible()) {
-        await israelButton.click();
-        await page.waitForLoadState('networkidle');
+    // Wait for cities to load - click first Jerusalem button (city, not district)
+    const jerusalemButton = page.getByRole('button', { name: /^Jerusalem\s+\d+\s+locations?$/i }).first();
+    await expect(jerusalemButton).toBeVisible({ timeout: 15000 });
+    await jerusalemButton.click();
 
-        // Wait for cities to load
-        const jerusalemButton = page.locator('button').filter({ hasText: /Jerusalem/i });
-        await expect(jerusalemButton).toBeVisible({ timeout: 5000 }).catch(() => {});
-
-        if (await jerusalemButton.isVisible()) {
-          await jerusalemButton.click();
-
-          // Should navigate to zmanim page
-          await page.waitForURL('**/zmanim/**');
-          expect(page.url()).toContain('/zmanim/');
-        }
-      }
-    }
+    // Should navigate to zmanim page
+    await page.waitForURL('**/zmanim/**', { timeout: 15000 });
+    expect(page.url()).toContain('/zmanim/');
   });
 });
 
 test.describe('Home Page - UI Elements', () => {
   test('home page shows navigation bar', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Should see Shtetl Zmanim title in nav
-    await expect(page.getByText('Shtetl Zmanim').first()).toBeVisible();
+    await expect(page.getByText('Shtetl Zmanim').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('home page shows sign in option', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Should see Sign In button
-    await expect(page.getByText('Sign In')).toBeVisible();
+    await expect(page.getByText('Sign In')).toBeVisible({ timeout: 15000 });
   });
 
   test('home page has become publisher link in footer', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     // Should see become publisher link
-    await expect(page.getByRole('link', { name: 'Become a Publisher' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Become a Publisher' })).toBeVisible({ timeout: 15000 });
   });
 
   test('clicking become publisher navigates to registration', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
     await page.getByRole('link', { name: 'Become a Publisher' }).click();
 
-    await page.waitForURL('**/register');
+    await page.waitForURL('**/register', { timeout: 15000 });
     expect(page.url()).toContain('/register');
   });
 });
@@ -153,15 +152,15 @@ test.describe('Home Page - UI Elements', () => {
 test.describe('Home Page - Subtitle and Description', () => {
   test('shows multi-publisher subtitle', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
-    await expect(page.getByText('Multi-Publisher Zmanim Platform')).toBeVisible();
+    await expect(page.getByText('Multi-Publisher Zmanim Platform').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('shows location selection instruction', async ({ page }) => {
     await page.goto(`${BASE_URL}/`);
-    await page.waitForLoadState('networkidle');
+    await waitForClientReady(page);
 
-    await expect(page.getByText(/select your location/i)).toBeVisible();
+    await expect(page.getByText(/select your location/i)).toBeVisible({ timeout: 15000 });
   });
 });

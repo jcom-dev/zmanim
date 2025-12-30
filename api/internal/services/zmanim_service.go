@@ -831,10 +831,26 @@ func (s *ZmanimService) ShouldShowZman(tags []EventFilterTag, activeEventCodes [
 		return true
 	}
 
-	// Check event tags against activeEventCodes
+	// Check negated tags first - they take precedence
+	// Negated tags always check for direct match (timing tags don't affect negation)
 	for _, tag := range eventTags {
-		var isActive bool
+		if !tag.IsNegated {
+			continue
+		}
 
+		// Negated tags: check for direct match only
+		if s.sliceContainsString(activeEventCodes, tag.TagKey) {
+			return false
+		}
+	}
+
+	// Check positive tags
+	for _, tag := range eventTags {
+		if tag.IsNegated {
+			continue
+		}
+
+		var isActive bool
 		// SIMPLE: day_before tag? Look for erev_*. No day_before tag? Direct match.
 		if hasDayBefore {
 			// Show ONLY on day before → match erev_* codes
@@ -848,13 +864,8 @@ func (s *ZmanimService) ShouldShowZman(tags []EventFilterTag, activeEventCodes [
 			isActive = s.sliceContainsString(activeEventCodes, tag.TagKey)
 		}
 
-		// Negated tags: if active, hide the zman
-		if tag.IsNegated && isActive {
-			return false
-		}
-
 		// Positive tags: if active, show the zman
-		if !tag.IsNegated && isActive {
+		if isActive {
 			return true
 		}
 	}
