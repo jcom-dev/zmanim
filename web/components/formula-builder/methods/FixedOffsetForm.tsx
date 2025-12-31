@@ -20,9 +20,10 @@ interface FixedOffsetFormProps {
   minutes: number;
   direction: OffsetDirection;
   base: string;
+  baseIsZman: boolean;
   onMinutesChange: (value: number) => void;
   onDirectionChange: (direction: OffsetDirection) => void;
-  onBaseChange: (base: string) => void;
+  onBaseChange: (base: string, isZman: boolean) => void;
   localityId?: number | null;
 }
 
@@ -30,6 +31,7 @@ export function FixedOffsetForm({
   minutes,
   direction,
   base,
+  baseIsZman,
   onMinutesChange,
   onDirectionChange,
   onBaseChange,
@@ -61,24 +63,22 @@ export function FixedOffsetForm({
     .flatMap((cat) => cat.primitives)
     .find((p) => p.variable_name === base);
 
-  // Generate preview formula - use @ prefix for zman references
-  const isZmanReference = zmanim.some((z) => z.zman_key === base);
-  const previewFormula = isZmanReference
-    ? `@${base} ${direction === 'before' ? '-' : '+'} ${minutes}min`
-    : `${base} ${direction === 'before' ? '-' : '+'} ${minutes}min`;
-
   return (
     <div className="space-y-5">
-      {/* Live Formula Preview */}
-      <div className="rounded-lg bg-muted/50 border border-border p-3">
-        <div className="text-xs text-muted-foreground mb-1">Formula Preview</div>
-        <code className="text-sm font-mono text-primary">{previewFormula}</code>
-      </div>
-
       {/* Step 1: Base Time Selection */}
       <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
         <label className="text-sm font-semibold">1. Reference Time</label>
-        <Select value={base} onValueChange={onBaseChange}>
+        <Select
+          key={`${base}-${baseIsZman}`}
+          value={base}
+          onValueChange={(value) => {
+            // Check if selection is from Your Zmanim (not a primitive)
+            const isPrimitive = primitivesGrouped
+              .flatMap((cat) => cat.primitives)
+              .some((p) => p.variable_name === value);
+            onBaseChange(value, !isPrimitive);
+          }}
+        >
           <SelectTrigger className="h-14">
             {isLoading ? (
               <div className="flex items-center gap-2">
@@ -87,7 +87,8 @@ export function FixedOffsetForm({
               </div>
             ) : (
               <SelectValue placeholder="Select reference time...">
-                {selectedZman ? (
+                {baseIsZman && selectedZman ? (
+                  // Show zman display when baseIsZman is true
                   <div className="flex items-center gap-3">
                     <span className="font-hebrew text-base">{selectedZman.hebrew_name}</span>
                     <span className="text-muted-foreground">•</span>
@@ -97,12 +98,15 @@ export function FixedOffsetForm({
                     )}
                   </div>
                 ) : selectedPrimitive ? (
+                  // Show primitive display
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{selectedPrimitive.display_name}</span>
                     <span className="text-xs text-muted-foreground">
                       {selectedPrimitive.description}
                     </span>
                   </div>
+                ) : base ? (
+                  <span className="font-mono">{base}</span>
                 ) : (
                   'Select reference time...'
                 )}
@@ -167,12 +171,12 @@ export function FixedOffsetForm({
                     Your Zmanim ({dailyZmanim.length})
                   </span>
                 </div>
-                {/* Render daily zmanim - show when expanded, hide when collapsed */}
-                {dailyZmanim.map((zman) => (
+                {/* Render daily zmanim only when expanded - conditional render prevents Radix Select infinite loop */}
+                {yourZmanimExpanded && dailyZmanim.map((zman) => (
                     <SelectItem
                       key={zman.zman_key}
                       value={zman.zman_key}
-                      className={yourZmanimExpanded ? 'py-3' : 'hidden'}
+                      className="py-3"
                     >
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-3">
@@ -197,20 +201,6 @@ export function FixedOffsetForm({
           </SelectContent>
         </Select>
 
-        {/* Show selected zman info */}
-        {selectedZman && (
-          <div className="text-xs bg-primary/5 rounded-md px-3 py-2 border border-primary/10 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-primary">Using:</span>
-              <code className="font-mono">@{selectedZman.zman_key}</code>
-            </div>
-            {selectedZman.formula_dsl && (
-              <div className="text-muted-foreground">
-                Formula: <code className="font-mono">{selectedZman.formula_dsl}</code>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Step 2: Minutes Input */}

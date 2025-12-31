@@ -4,7 +4,6 @@
  * @priority P1 - Core form for fixed offset method
  *
  * Tests cover:
- * - Formula preview rendering
  * - Preset button selection
  * - Minutes input
  * - Direction selection
@@ -57,9 +56,10 @@ describe('FixedOffsetForm', () => {
     minutes: 72,
     direction: 'before' as const,
     base: 'visible_sunrise',
+    baseIsZman: false,
     onMinutesChange: vi.fn(),
     onDirectionChange: vi.fn(),
-    onBaseChange: vi.fn(),
+    onBaseChange: vi.fn() as unknown as (base: string, isZman: boolean) => void,
   };
 
   beforeEach(() => {
@@ -67,13 +67,6 @@ describe('FixedOffsetForm', () => {
   });
 
   describe('rendering', () => {
-    it('[P1] should render formula preview', () => {
-      render(<FixedOffsetForm {...defaultProps} />);
-
-      expect(screen.getByText('Formula Preview')).toBeInTheDocument();
-      expect(screen.getByText('visible_sunrise - 72min')).toBeInTheDocument();
-    });
-
     it('[P1] should render preset buttons', () => {
       render(<FixedOffsetForm {...defaultProps} />);
 
@@ -102,34 +95,6 @@ describe('FixedOffsetForm', () => {
 
       expect(screen.getByText('Misheyakir')).toBeInTheDocument();
       expect(screen.getByText('Rabbeinu Tam')).toBeInTheDocument();
-    });
-  });
-
-  describe('formula preview', () => {
-    it('[P1] should show minus for before direction', () => {
-      render(<FixedOffsetForm {...defaultProps} direction="before" />);
-
-      expect(screen.getByText('visible_sunrise - 72min')).toBeInTheDocument();
-    });
-
-    it('[P1] should show plus for after direction', () => {
-      render(<FixedOffsetForm {...defaultProps} direction="after" />);
-
-      expect(screen.getByText('visible_sunrise + 72min')).toBeInTheDocument();
-    });
-
-    it('[P1] should update with different base', () => {
-      render(<FixedOffsetForm {...defaultProps} base="visible_sunset" />);
-
-      expect(screen.getByText('visible_sunset - 72min')).toBeInTheDocument();
-    });
-
-    it('[P2] should show base without @ prefix for primitives', () => {
-      // With our default mock (useZmanimList returns empty data), primitives don't get @ prefix
-      render(<FixedOffsetForm {...defaultProps} base="visible_sunrise" />);
-
-      // Should NOT have @ prefix since visible_sunrise is a primitive, not a zman
-      expect(screen.getByText('visible_sunrise - 72min')).toBeInTheDocument();
     });
   });
 

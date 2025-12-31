@@ -186,7 +186,7 @@ export function ProportionalHoursForm({
                     ))}
                   </SelectGroup>
                 ))}
-                {/* Publisher's Zmanim - always render items for value matching, visually hide when collapsed */}
+                {/* Publisher's Zmanim - conditional render prevents Radix Select infinite loop */}
                 {dailyZmanim.length > 0 && (
                   <SelectGroup>
                     <div
@@ -205,11 +205,10 @@ export function ProportionalHoursForm({
                         Your Zmanim ({dailyZmanim.length})
                       </span>
                     </div>
-                    {dailyZmanim.map((zman) => (
+                    {startZmanimExpanded && dailyZmanim.map((zman) => (
                       <SelectItem
                         key={zman.zman_key}
                         value={zman.zman_key}
-                        className={startZmanimExpanded ? '' : 'hidden'}
                       >
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
@@ -274,7 +273,7 @@ export function ProportionalHoursForm({
                     ))}
                   </SelectGroup>
                 ))}
-                {/* Publisher's Zmanim - always render items for value matching, visually hide when collapsed */}
+                {/* Publisher's Zmanim - conditional render prevents Radix Select infinite loop */}
                 {dailyZmanim.length > 0 && (
                   <SelectGroup>
                     <div
@@ -293,11 +292,10 @@ export function ProportionalHoursForm({
                         Your Zmanim ({dailyZmanim.length})
                       </span>
                     </div>
-                    {dailyZmanim.map((zman) => (
+                    {endZmanimExpanded && dailyZmanim.map((zman) => (
                       <SelectItem
                         key={zman.zman_key}
                         value={zman.zman_key}
-                        className={endZmanimExpanded ? '' : 'hidden'}
                       >
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">

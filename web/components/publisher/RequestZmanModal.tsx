@@ -127,7 +127,6 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
   const [transliteration, setTransliteration] = useState('');
   const [timeCategory, setTimeCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [justification, setJustification] = useState('');
   const [formulaDsl, setFormulaDsl] = useState('');
   const [halachicNotes, setHalachicNotes] = useState('');
   const [halachicSource, setHalachicSource] = useState('');
@@ -348,7 +347,6 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
     setTransliteration('');
     setTimeCategory('');
     setDescription('');
-    setJustification('');
     setFormulaDsl('');
     setHalachicNotes('');
     setHalachicSource('');
@@ -376,7 +374,6 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
     if (!englishName.trim()) errors.push('English Name is required');
     if (!timeCategory) errors.push('Time Category is required');
     if (!description.trim()) errors.push('Description is required');
-    if (!justification.trim()) errors.push('Justification is required');
 
     if (errors.length > 0) {
       setFormError(errors.join('. '));
@@ -939,19 +936,6 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                 </div>
 
                 <div>
-                  <Label htmlFor="justification">
-                    Justification <span className="text-destructive">*</span>
-                  </Label>
-                  <Textarea
-                    id="justification"
-                    value={justification}
-                    onChange={(e) => setJustification(e.target.value)}
-                    placeholder="Explain why this zman should be added to the registry..."
-                    rows={2}
-                  />
-                </div>
-
-                <div>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="formula-dsl">Suggested Formula (optional)</Label>
                     {/* DSL Validation Status */}
@@ -1082,7 +1066,6 @@ export function RequestZmanModal({ trigger, onSuccess, onOpen, open: controlledO
                   !englishName.trim() ||
                   !timeCategory ||
                   !description.trim() ||
-                  !justification.trim() ||
                   keyExists === true ||
                   !!keyError ||
                   isValidatingKey ||

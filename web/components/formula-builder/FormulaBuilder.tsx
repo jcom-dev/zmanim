@@ -151,9 +151,9 @@ export function FormulaBuilder({
     setState((prev) => ({ ...prev, offsetDirection: direction }));
   }, []);
 
-  const handleOffsetBaseChange = useCallback((base: string) => {
+  const handleOffsetBaseChange = useCallback((base: string, isZman: boolean) => {
     userHasInteracted.current = true;
-    setState((prev) => ({ ...prev, offsetBase: base }));
+    setState((prev) => ({ ...prev, offsetBase: base, offsetBaseIsZman: isZman }));
   }, []);
 
   const handleShaosHoursChange = useCallback((value: number) => {
@@ -271,6 +271,7 @@ export function FormulaBuilder({
               minutes={state.offsetMinutes}
               direction={state.offsetDirection}
               base={state.offsetBase}
+              baseIsZman={state.offsetBaseIsZman}
               onMinutesChange={handleOffsetMinutesChange}
               onDirectionChange={handleOffsetDirectionChange}
               onBaseChange={handleOffsetBaseChange}

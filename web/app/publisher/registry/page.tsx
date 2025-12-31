@@ -175,25 +175,6 @@ function ZmanCard({
                   <span className="text-xs font-mono text-muted-foreground/70">
                     @{zman.zman_key}
                   </span>
-                  {zman.already_imported && (
-                    <Badge
-                      variant={zman.existing_is_deleted ? "destructive" : "secondary"}
-                      className="text-xs flex items-center gap-1 shrink-0"
-                      data-testid="imported-badge"
-                    >
-                      {zman.existing_is_deleted ? (
-                        <>
-                          <AlertCircle className="h-3 w-3" />
-                          In Deleted Items
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-3 w-3" />
-                          Imported
-                        </>
-                      )}
-                    </Badge>
-                  )}
                 </div>
               </div>
               {zman.preview_time && (

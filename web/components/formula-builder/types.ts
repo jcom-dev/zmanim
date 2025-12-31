@@ -39,6 +39,7 @@ export interface FormulaBuilderState {
   offsetMinutes: number;
   offsetDirection: OffsetDirection;
   offsetBase: string;
+  offsetBaseIsZman: boolean; // true if base is a zman reference (needs @ prefix)
 
   // Proportional hours parameters
   shaosHours: number;
@@ -61,6 +62,7 @@ export const initialState: FormulaBuilderState = {
   offsetMinutes: 72,
   offsetDirection: 'before',
   offsetBase: 'visible_sunrise',
+  offsetBaseIsZman: false,
   shaosHours: 3,
   shaosBase: 'gra',
   generatedFormula: 'visible_sunrise',
@@ -138,7 +140,8 @@ export function generateFormula(state: FormulaBuilderState): string {
 
     case 'fixed': {
       const op = state.offsetDirection === 'before' ? '-' : '+';
-      return `${state.offsetBase} ${op} ${state.offsetMinutes}min`;
+      const base = state.offsetBaseIsZman ? `@${state.offsetBase}` : state.offsetBase;
+      return `${base} ${op} ${state.offsetMinutes}min`;
     }
 
     case 'proportional':
@@ -239,11 +242,13 @@ export function parseFormula(formula: string): ParseResult {
   // Matches: "sunrise - 72min", "@some_zman + 18min", "sunset - 40min"
   const offsetMatch = trimmed.match(/^(@?[a-z_][a-z0-9_]*)\s*([+-])\s*(\d+)\s*min$/i);
   if (offsetMatch) {
+    const hasAtPrefix = offsetMatch[1].startsWith('@');
     return {
       success: true,
       state: {
         method: 'fixed',
         offsetBase: offsetMatch[1].replace(/^@/, ''), // Remove @ prefix if present
+        offsetBaseIsZman: hasAtPrefix, // Track if original had @ prefix
         offsetDirection: offsetMatch[2] === '-' ? 'before' : 'after',
         offsetMinutes: parseInt(offsetMatch[3], 10),
       },

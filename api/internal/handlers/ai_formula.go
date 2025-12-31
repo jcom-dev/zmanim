@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -55,7 +54,8 @@ type RAGUnavailableError struct {
 }
 
 // validateRAGAvailability validates that RAG context is available and returns assembled context
-// Returns 503-style error if RAG is required but unavailable
+// Returns 503-style error if RAG service is not configured
+// Note: Empty search results are allowed - some queries may not match indexed content
 func (h *Handlers) validateRAGAvailability(ctx context.Context, query string) (*ai.AssembledContext, error) {
 	if h.aiContext == nil {
 		return nil, fmt.Errorf("RAG service not configured")
@@ -72,12 +72,10 @@ func (h *Handlers) validateRAGAvailability(ctx context.Context, query string) (*
 		return nil, fmt.Errorf("RAG context assembly failed: %w", err)
 	}
 
+	// Empty results are OK - some queries may not match indexed content
+	// The AI can still generate formulas using its training knowledge
 	if len(assembled.Sources) == 0 {
-		// Check if we should enforce RAG (production) or allow bypass (dev)
-		if os.Getenv("AI_REQUIRE_RAG") != "false" {
-			return nil, fmt.Errorf("knowledge base not indexed - RAG sources unavailable")
-		}
-		slog.Warn("RAG sources empty, proceeding without context (AI_REQUIRE_RAG=false)")
+		slog.Info("RAG search returned no results, proceeding without context", "query_preview", truncateForLog(query, 50))
 	}
 
 	return assembled, nil
@@ -566,4 +564,12 @@ func (h *Handlers) GetAIAuditLogs(w http.ResponseWriter, r *http.Request) {
 		"logs":  logs,
 		"count": len(logs),
 	})
+}
+
+// truncateForLog truncates a string for logging purposes
+func truncateForLog(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

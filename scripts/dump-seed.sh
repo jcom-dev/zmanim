@@ -159,6 +159,31 @@ sed -i '/^-- PostgreSQL database dump/d' "$MIGRATION_FILE"
 # This includes \restrict, \unrestrict, \connect, etc.
 sed -i '/^\\[a-zA-Z]/d' "$MIGRATION_FILE"
 
+# Make INSERT statements idempotent by adding ON CONFLICT DO NOTHING
+# This allows the seed to be re-run without errors on existing data
+echo "Making INSERT statements idempotent..."
+sed -i 's/);$/) ON CONFLICT DO NOTHING;/' "$MIGRATION_FILE"
+
+# Fix sequence values - pg_dump doesn't always include setval statements when using --data-only
+# This adds a SELECT setval() after each "SEQUENCE SET" comment to ensure sequences are properly reset
+echo "Adding sequence reset statements..."
+for table in "${SEED_TABLES[@]}"; do
+  seq_name="${table}_id_seq"
+  pattern="-- Name: ${seq_name}; Type: SEQUENCE SET"
+  setval_stmt="SELECT setval('public.${seq_name}', (SELECT COALESCE(MAX(id), 1) FROM public.${table}));"
+
+  # Check if this sequence exists and has a corresponding SEQUENCE SET comment
+  if grep -qF -- "$pattern" "$MIGRATION_FILE"; then
+    # Add setval statement after the SEQUENCE SET comment if not already present
+    if ! grep -qF -- "SELECT setval('public.${seq_name}'" "$MIGRATION_FILE"; then
+      # Use awk for reliable multi-line insertion
+      awk -v pat="$pattern" -v stmt="$setval_stmt" '{print} $0 ~ pat {print "\n" stmt}' "$MIGRATION_FILE" > "${MIGRATION_FILE}.tmp"
+      mv "${MIGRATION_FILE}.tmp" "$MIGRATION_FILE"
+      echo "  Added setval for ${seq_name}"
+    fi
+  fi
+done
+
 # Get final stats
 line_count=$(wc -l < "$MIGRATION_FILE")
 

@@ -5,7 +5,10 @@
  * @dependencies usePublisherQuery
  */
 
+import { useQuery } from '@tanstack/react-query';
 import { usePublisherQuery } from './useApiQuery';
+import { usePublisherContextOptional } from '@/providers/PublisherContext';
+import { useApi, ApiError } from '@/lib/api-client';
 
 export interface CalculationSettings {
   ignore_elevation: boolean;
@@ -33,6 +36,33 @@ export function usePublisherCalculationSettings() {
 }
 
 /**
+ * Optional version of usePublisherCalculationSettings that works outside PublisherProvider.
+ * Returns undefined data when outside the publisher context.
+ */
+export function usePublisherCalculationSettingsOptional() {
+  const api = useApi();
+  const publisherContext = usePublisherContextOptional();
+  const selectedPublisher = publisherContext?.selectedPublisher;
+  const publisherLoading = publisherContext?.isLoading ?? true;
+
+  return useQuery<CalculationSettings, ApiError>({
+    queryKey: ['publisher-calculation-settings', selectedPublisher?.id],
+    queryFn: () => api.get<CalculationSettings>('/publisher/settings/calculation'),
+    enabled: !publisherLoading && !!selectedPublisher?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
+ * Check if we're inside a PublisherProvider context.
+ * Returns true if context exists, false otherwise.
+ */
+export function useHasPublisherContext(): boolean {
+  const context = usePublisherContextOptional();
+  return context !== null;
+}
+
+/**
  * Returns the appropriate Shabbat/Shabbos label based on transliteration style.
  * Defaults to 'Shabbat' (Sephardi) if settings haven't loaded yet.
  */
@@ -52,6 +82,8 @@ export function getErevShabbatLabel(transliterationStyle?: 'ashkenazi' | 'sephar
  * Hook that provides a function to get the correct tag display name based on publisher settings.
  * Uses the publisher's transliteration_style preference.
  *
+ * Works both inside and outside PublisherProvider - when outside, defaults to 'ashkenazi' style.
+ *
  * @example
  * ```tsx
  * const getTagName = useTagDisplayName();
@@ -60,7 +92,8 @@ export function getErevShabbatLabel(transliterationStyle?: 'ashkenazi' | 'sephar
  * ```
  */
 export function useTagDisplayName() {
-  const { data: settings } = usePublisherCalculationSettings();
+  // Use the optional version that works outside PublisherProvider
+  const { data: settings } = usePublisherCalculationSettingsOptional();
   const style = settings?.transliteration_style || 'ashkenazi';
 
   return function getTagName(

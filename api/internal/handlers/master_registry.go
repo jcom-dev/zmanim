@@ -1941,17 +1941,21 @@ func (h *Handlers) AdminReviewZmanRegistryRequest(w http.ResponseWriter, r *http
 
 	// Update request status
 	var result ZmanRegistryRequest
+	var timeCategoryID int32
 	err = tx.QueryRow(ctx, `
-		UPDATE zman_registry_requests
-		SET status = $2, reviewed_by = $3, reviewed_at = NOW(), reviewer_notes = $4
-		WHERE id = $1
-		RETURNING id, publisher_id, requested_key, requested_hebrew_name, requested_english_name,
-			requested_formula_dsl, time_category, description, status,
-			reviewed_by, reviewed_at, reviewer_notes, created_at
+		UPDATE zman_registry_requests zrr
+		SET status_id = (SELECT rs.id FROM request_statuses rs WHERE rs.key = $2),
+			reviewed_by = $3, reviewed_at = NOW(), reviewer_notes = $4
+		WHERE zrr.id = $1
+		RETURNING zrr.id, zrr.publisher_id, zrr.requested_key, zrr.requested_hebrew_name, zrr.requested_english_name,
+			zrr.requested_formula_dsl, zrr.time_category_id,
+			(SELECT tc.key FROM time_categories tc WHERE tc.id = zrr.time_category_id),
+			zrr.description, $2::text,
+			zrr.reviewed_by, zrr.reviewed_at, zrr.reviewer_notes, zrr.created_at
 	`, requestID, req.Status, reviewerID, req.ReviewerNotes).Scan(
 		&result.ID, &result.PublisherID, &result.RequestedKey, &result.RequestedHebrewName,
-		&result.RequestedEnglishName, &result.RequestedFormulaDSL, &result.TimeCategory,
-		&result.Description, &result.Status, &result.ReviewedBy, &result.ReviewedAt,
+		&result.RequestedEnglishName, &result.RequestedFormulaDSL, &timeCategoryID,
+		&result.TimeCategory, &result.Description, &result.Status, &result.ReviewedBy, &result.ReviewedAt,
 		&result.ReviewerNotes, &result.CreatedAt)
 
 	if err == pgx.ErrNoRows {
@@ -1972,20 +1976,21 @@ func (h *Handlers) AdminReviewZmanRegistryRequest(w http.ResponseWriter, r *http
 		if fullRequest.AutoAddOnApproval != nil && *fullRequest.AutoAddOnApproval {
 			_, err = tx.Exec(ctx, `
 				INSERT INTO publisher_zmanim (
-					id, publisher_id, zman_key, hebrew_name, english_name,
+					publisher_id, zman_key, hebrew_name, english_name,
 					transliteration, description,
 					formula_dsl, ai_explanation, publisher_comment,
-					is_enabled, is_visible, is_published, is_custom, category,
-					dependencies, sort_order, current_version
+					is_enabled, is_visible, is_published, is_custom, time_category_id,
+					dependencies, current_version
 				)
-				SELECT
-					gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7,
+				VALUES (
+					$1, $2, $3, $4, $5, $6, $7,
 					NULL, NULL, true, true, false, true, $8,
-					'{}'::text[], 999, 1
+					'{}'::text[], 1
+				)
 				ON CONFLICT (publisher_id, zman_key) DO NOTHING
 			`, fullRequest.PublisherID, result.RequestedKey, result.RequestedHebrewName,
 				result.RequestedEnglishName, fullRequest.Transliteration,
-				fullRequest.Description, result.RequestedFormulaDSL, result.TimeCategory)
+				fullRequest.Description, result.RequestedFormulaDSL, timeCategoryID)
 
 			if err != nil {
 				slog.Error("error auto-adding zman to publisher", "error", err, "publisher_id", fullRequest.PublisherID)

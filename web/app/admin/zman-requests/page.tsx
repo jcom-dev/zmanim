@@ -187,10 +187,22 @@ export default function AdminZmanRequestsPage() {
       tags: data.tags, // { tag_id, is_negated }[]
     };
 
-    // Create in registry first
-    await api.post('/admin/registry/zmanim', {
-      body: JSON.stringify(registryPayload),
-    });
+    // Create in registry first - handle 409 (already exists) gracefully
+    try {
+      await api.post('/admin/registry/zmanim', {
+        body: JSON.stringify(registryPayload),
+      });
+    } catch (err: unknown) {
+      // If zman already exists (409), that's fine - continue with approval
+      // For any other error, re-throw
+      const isConflict = (err as { status?: number })?.status === 409 ||
+        (err instanceof Error && err.message.toLowerCase().includes('already exists'));
+      if (!isConflict) {
+        throw err;
+      }
+      // Zman already exists, proceed with marking request as approved
+      console.log('Zman already exists in registry, proceeding with approval');
+    }
 
     // Then update the request status
     await api.put(`/admin/zman-requests/${selectedRequest.id}`, {
