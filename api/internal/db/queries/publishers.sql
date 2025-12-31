@@ -148,15 +148,13 @@ JOIN publisher_statuses ps ON ps.id = p.status_id
 WHERE p.id = $1;
 
 -- name: GetPublisherAlgorithmSummary :one
+-- Returns zmanim counts from publisher_zmanim table
 SELECT
-    astatus.key as status_key,
-    a.name,
-    TO_CHAR(a.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
-FROM algorithms a
-JOIN algorithm_statuses astatus ON astatus.id = a.status_id
-WHERE a.publisher_id = $1
-ORDER BY a.updated_at DESC
-LIMIT 1;
+    COUNT(*)::int as total_count,
+    COUNT(*) FILTER (WHERE is_published)::int as published_count,
+    TO_CHAR(MAX(updated_at), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
+FROM publisher_zmanim
+WHERE publisher_id = $1 AND deleted_at IS NULL;
 
 -- name: GetPublisherCoverageCount :one
 SELECT COUNT(*)

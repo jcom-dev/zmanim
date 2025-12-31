@@ -116,8 +116,6 @@ SELECT
     pz.rounding_mode,
     mzr.id as master_zman_id,
     mzr.formula_explanation,
-    mzr.category,
-    mzr.shita,
     mzr.canonical_hebrew_name as master_hebrew_name,
     mzr.canonical_english_name as master_english_name,
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category,
@@ -221,8 +219,6 @@ type ListPublisherZmanimForReportRow struct {
 	RoundingMode       string      `json:"rounding_mode"`
 	MasterZmanID       *int32      `json:"master_zman_id"`
 	FormulaExplanation *string     `json:"formula_explanation"`
-	Category           *string     `json:"category"`
-	Shita              *string     `json:"shita"`
 	MasterHebrewName   *string     `json:"master_hebrew_name"`
 	MasterEnglishName  *string     `json:"master_english_name"`
 	TimeCategory       string      `json:"time_category"`
@@ -254,8 +250,6 @@ func (q *Queries) ListPublisherZmanimForReport(ctx context.Context, arg ListPubl
 			&i.RoundingMode,
 			&i.MasterZmanID,
 			&i.FormulaExplanation,
-			&i.Category,
-			&i.Shita,
 			&i.MasterHebrewName,
 			&i.MasterEnglishName,
 			&i.TimeCategory,

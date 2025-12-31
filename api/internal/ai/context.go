@@ -61,9 +61,11 @@ func (s *ContextService) AssembleContext(ctx context.Context, query string, opts
 	}
 
 	// Group results by content type
-	docResults := filterByType(results, "documentation")
-	exampleResults := filterByType(results, "example")
-	halachicResults := filterByType(results, "halachic")
+	// Include all documentation-related types: documentation, dsl-documentation, api-reference
+	docResults := filterByTypes(results, []string{"documentation", "dsl-documentation", "api-reference"})
+	exampleResults := filterByTypes(results, []string{"example", "dsl-code"})
+	// Reference content includes zmanim definitions and halachic sources
+	referenceResults := filterByType(results, "reference")
 
 	// Build context sections
 	var sections []string
@@ -90,11 +92,11 @@ func (s *ContextService) AssembleContext(ctx context.Context, query string, opts
 		}
 	}
 
-	// Add halachic section
-	if opts.IncludeHalachic && len(halachicResults) > 0 {
-		halSection, tokens, used := s.buildSection("Halachic Context", halachicResults, opts.MaxDocs, opts.MaxTokens-currentTokens)
-		if halSection != "" {
-			sections = append(sections, halSection)
+	// Add reference/halachic section (includes zmanim definitions from KosherJava, master registry)
+	if opts.IncludeHalachic && len(referenceResults) > 0 {
+		refSection, tokens, used := s.buildSection("Zmanim Reference", referenceResults, opts.MaxDocs, opts.MaxTokens-currentTokens)
+		if refSection != "" {
+			sections = append(sections, refSection)
 			currentTokens += tokens
 			usedResults = append(usedResults, used...)
 		}
@@ -171,6 +173,21 @@ func filterByType(results []SearchResult, contentType string) []SearchResult {
 	var filtered []SearchResult
 	for _, r := range results {
 		if r.ContentType == contentType {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
+}
+
+// filterByTypes filters results by multiple content types
+func filterByTypes(results []SearchResult, contentTypes []string) []SearchResult {
+	typeSet := make(map[string]bool)
+	for _, t := range contentTypes {
+		typeSet[t] = true
+	}
+	var filtered []SearchResult
+	for _, r := range results {
+		if typeSet[r.ContentType] {
 			filtered = append(filtered, r)
 		}
 	}

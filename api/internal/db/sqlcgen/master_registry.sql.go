@@ -962,15 +962,22 @@ FROM master_zmanim_registry mr
 LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE
     COALESCE(mr.is_hidden, false) = false
-    AND ($2::text[] IS NULL OR mr.category = ANY($2::text[]))
-    AND ($3::text[] IS NULL OR mr.shita = ANY($3::text[]))
+    -- Filter by category tag IDs (if provided)
+    AND ($2::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY($2::int[])
+    ))
+    -- Filter by shita tag IDs (if provided)
+    AND ($3::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY($3::int[])
+    ))
+    -- Search only on zman_key
     AND (
         $4::text IS NULL
-        OR mr.canonical_hebrew_name ILIKE '%' || $4 || '%'
-        OR mr.canonical_english_name ILIKE '%' || $4 || '%'
-        OR mr.default_formula_dsl ILIKE '%' || $4 || '%'
         OR mr.zman_key ILIKE '%' || $4 || '%'
-        OR mr.transliteration ILIKE '%' || $4 || '%'
     )
     AND (
         $5::text IS NULL
@@ -980,19 +987,19 @@ WHERE
 `
 
 type CountMasterZmanimForRegistryParams struct {
-	PublisherID int32    `json:"publisher_id"`
-	Categories  []string `json:"categories"`
-	Shitas      []string `json:"shitas"`
-	Search      *string  `json:"search"`
-	Status      *string  `json:"status"`
+	PublisherID    int32   `json:"publisher_id"`
+	CategoryTagIds []int32 `json:"category_tag_ids"`
+	ShitaTagIds    []int32 `json:"shita_tag_ids"`
+	Search         *string `json:"search"`
+	Status         *string `json:"status"`
 }
 
 // Count total master zmanim matching filters (for pagination)
 func (q *Queries) CountMasterZmanimForRegistry(ctx context.Context, arg CountMasterZmanimForRegistryParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countMasterZmanimForRegistry,
 		arg.PublisherID,
-		arg.Categories,
-		arg.Shitas,
+		arg.CategoryTagIds,
+		arg.ShitaTagIds,
 		arg.Search,
 		arg.Status,
 	)
@@ -1008,8 +1015,18 @@ JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
 WHERE pz.publisher_id = $1
   AND pz.deleted_at IS NULL
   AND pz.is_visible = true
-  AND ($2::text IS NULL OR mr.category = $2::text)
-  AND ($3::text IS NULL OR mr.shita = $3::text)
+  -- Filter by category tag ID (if provided)
+  AND ($2::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = $2::int
+  ))
+  -- Filter by shita tag ID (if provided)
+  AND ($3::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = $3::int
+  ))
   AND (
       $4::text IS NULL
       OR pz.hebrew_name ILIKE '%' || $4 || '%'
@@ -1019,18 +1036,18 @@ WHERE pz.publisher_id = $1
 `
 
 type CountPublisherZmanimForExamplesParams struct {
-	PublisherID int32   `json:"publisher_id"`
-	Category    *string `json:"category"`
-	Shita       *string `json:"shita"`
-	Search      *string `json:"search"`
+	PublisherID   int32   `json:"publisher_id"`
+	CategoryTagID *int32  `json:"category_tag_id"`
+	ShitaTagID    *int32  `json:"shita_tag_id"`
+	Search        *string `json:"search"`
 }
 
 // Count publisher's zmanim matching filters
 func (q *Queries) CountPublisherZmanimForExamples(ctx context.Context, arg CountPublisherZmanimForExamplesParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countPublisherZmanimForExamples,
 		arg.PublisherID,
-		arg.Category,
-		arg.Shita,
+		arg.CategoryTagID,
+		arg.ShitaTagID,
 		arg.Search,
 	)
 	var count int64
@@ -2065,26 +2082,45 @@ func (q *Queries) GetDeletedZmanByKeyForAudit(ctx context.Context, arg GetDelete
 }
 
 const getDistinctCategories = `-- name: GetDistinctCategories :many
-SELECT DISTINCT category
-FROM master_zmanim_registry
-WHERE category IS NOT NULL AND COALESCE(is_hidden, false) = false
-ORDER BY category
+SELECT DISTINCT zt.id, zt.tag_key, zt.display_name_hebrew, zt.display_name_english_ashkenazi, zt.display_name_english_sephardi
+FROM zman_tags zt
+JOIN tag_types tt ON zt.tag_type_id = tt.id
+JOIN master_zman_tags mzt ON zt.id = mzt.tag_id
+JOIN master_zmanim_registry mr ON mzt.master_zman_id = mr.id
+WHERE tt.key = 'category'
+  AND COALESCE(mr.is_hidden, false) = false
+  AND COALESCE(zt.is_hidden, false) = false
+ORDER BY zt.display_name_english_ashkenazi
 `
 
-// Get all distinct non-null categories for filter dropdown
-func (q *Queries) GetDistinctCategories(ctx context.Context) ([]*string, error) {
+type GetDistinctCategoriesRow struct {
+	ID                          int32   `json:"id"`
+	TagKey                      string  `json:"tag_key"`
+	DisplayNameHebrew           string  `json:"display_name_hebrew"`
+	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
+}
+
+// Get all distinct category tags that are used by at least one non-hidden master zman
+func (q *Queries) GetDistinctCategories(ctx context.Context) ([]GetDistinctCategoriesRow, error) {
 	rows, err := q.db.Query(ctx, getDistinctCategories)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*string{}
+	items := []GetDistinctCategoriesRow{}
 	for rows.Next() {
-		var category *string
-		if err := rows.Scan(&category); err != nil {
+		var i GetDistinctCategoriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TagKey,
+			&i.DisplayNameHebrew,
+			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, category)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -2093,26 +2129,45 @@ func (q *Queries) GetDistinctCategories(ctx context.Context) ([]*string, error) 
 }
 
 const getDistinctShitas = `-- name: GetDistinctShitas :many
-SELECT DISTINCT shita
-FROM master_zmanim_registry
-WHERE shita IS NOT NULL AND COALESCE(is_hidden, false) = false
-ORDER BY shita
+SELECT DISTINCT zt.id, zt.tag_key, zt.display_name_hebrew, zt.display_name_english_ashkenazi, zt.display_name_english_sephardi
+FROM zman_tags zt
+JOIN tag_types tt ON zt.tag_type_id = tt.id
+JOIN master_zman_tags mzt ON zt.id = mzt.tag_id
+JOIN master_zmanim_registry mr ON mzt.master_zman_id = mr.id
+WHERE tt.key = 'shita'
+  AND COALESCE(mr.is_hidden, false) = false
+  AND COALESCE(zt.is_hidden, false) = false
+ORDER BY zt.display_name_english_ashkenazi
 `
 
-// Get all distinct non-null shitas for filter dropdown
-func (q *Queries) GetDistinctShitas(ctx context.Context) ([]*string, error) {
+type GetDistinctShitasRow struct {
+	ID                          int32   `json:"id"`
+	TagKey                      string  `json:"tag_key"`
+	DisplayNameHebrew           string  `json:"display_name_hebrew"`
+	DisplayNameEnglishAshkenazi string  `json:"display_name_english_ashkenazi"`
+	DisplayNameEnglishSephardi  *string `json:"display_name_english_sephardi"`
+}
+
+// Get all distinct shita tags that are used by at least one non-hidden master zman
+func (q *Queries) GetDistinctShitas(ctx context.Context) ([]GetDistinctShitasRow, error) {
 	rows, err := q.db.Query(ctx, getDistinctShitas)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*string{}
+	items := []GetDistinctShitasRow{}
 	for rows.Next() {
-		var shita *string
-		if err := rows.Scan(&shita); err != nil {
+		var i GetDistinctShitasRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TagKey,
+			&i.DisplayNameHebrew,
+			&i.DisplayNameEnglishAshkenazi,
+			&i.DisplayNameEnglishSephardi,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, shita)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -2458,8 +2513,6 @@ SELECT
     mr.formula_explanation,
     mr.usage_context,
     mr.related_zmanim_ids,
-    mr.shita,
-    mr.category,
     mr.is_core,
     tc.key AS time_category,
     mr.created_at,
@@ -2483,8 +2536,6 @@ type GetMasterZmanDocumentationRow struct {
 	FormulaExplanation   *string            `json:"formula_explanation"`
 	UsageContext         *string            `json:"usage_context"`
 	RelatedZmanimIds     []int32            `json:"related_zmanim_ids"`
-	Shita                *string            `json:"shita"`
-	Category             *string            `json:"category"`
 	IsCore               *bool              `json:"is_core"`
 	TimeCategory         *string            `json:"time_category"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
@@ -2509,8 +2560,6 @@ func (q *Queries) GetMasterZmanDocumentation(ctx context.Context, id int32) (Get
 		&i.FormulaExplanation,
 		&i.UsageContext,
 		&i.RelatedZmanimIds,
-		&i.Shita,
-		&i.Category,
 		&i.IsCore,
 		&i.TimeCategory,
 		&i.CreatedAt,
@@ -2529,8 +2578,6 @@ SELECT
     mr.description,
     mr.default_formula_dsl,
     mr.time_category_id,
-    mr.category,
-    mr.shita,
     mr.is_core
 FROM master_zmanim_registry mr
 WHERE mr.id = $1 AND COALESCE(mr.is_hidden, false) = false
@@ -2545,8 +2592,6 @@ type GetMasterZmanForImportRow struct {
 	Description          *string `json:"description"`
 	DefaultFormulaDsl    *string `json:"default_formula_dsl"`
 	TimeCategoryID       *int32  `json:"time_category_id"`
-	Category             *string `json:"category"`
-	Shita                *string `json:"shita"`
 	IsCore               *bool   `json:"is_core"`
 }
 
@@ -2563,8 +2608,6 @@ func (q *Queries) GetMasterZmanForImport(ctx context.Context, id int32) (GetMast
 		&i.Description,
 		&i.DefaultFormulaDsl,
 		&i.TimeCategoryID,
-		&i.Category,
-		&i.Shita,
 		&i.IsCore,
 	)
 	return i, err
@@ -4178,8 +4221,6 @@ SELECT
     mr.transliteration,
     mr.description,
     mr.default_formula_dsl,
-    mr.category,
-    mr.shita,
     mr.is_core,
     tc.key AS time_category,
     mr.created_at,
@@ -4198,35 +4239,69 @@ SELECT
     ) AS existing_is_deleted
 FROM master_zmanim_registry mr
 LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
+LEFT JOIN LATERAL (
+    SELECT zt.tag_key
+    FROM master_zman_tags mzt
+    JOIN zman_tags zt ON zt.id = mzt.tag_id
+    JOIN tag_types tt ON tt.id = zt.tag_type_id
+    WHERE mzt.master_zman_id = mr.id AND tt.key = 'category'
+    LIMIT 1
+) cat_tag ON true
 WHERE
     COALESCE(mr.is_hidden, false) = false
-    AND ($4::text[] IS NULL OR mr.category = ANY($4::text[]))
-    AND ($5::text[] IS NULL OR mr.shita = ANY($5::text[]))
+    -- Filter by category tag IDs (if provided)
+    AND ($4::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY($4::int[])
+    ))
+    -- Filter by shita tag IDs (if provided)
+    AND ($5::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY($5::int[])
+    ))
+    -- Search only on zman_key
     AND (
         $6::text IS NULL
-        OR mr.canonical_hebrew_name ILIKE '%' || $6 || '%'
-        OR mr.canonical_english_name ILIKE '%' || $6 || '%'
-        OR mr.default_formula_dsl ILIKE '%' || $6 || '%'
         OR mr.zman_key ILIKE '%' || $6 || '%'
-        OR mr.transliteration ILIKE '%' || $6 || '%'
     )
     AND (
         $7::text IS NULL
         OR ($7 = 'available' AND NOT EXISTS(SELECT 1 FROM publisher_zmanim pz WHERE pz.publisher_id = $1 AND pz.master_zman_id = mr.id))
         OR ($7 = 'imported' AND EXISTS(SELECT 1 FROM publisher_zmanim pz WHERE pz.publisher_id = $1 AND pz.master_zman_id = mr.id))
     )
-ORDER BY tc.sort_order, mr.canonical_english_name
+ORDER BY
+    -- Order by category tag_key chronologically (time of day)
+    CASE cat_tag.tag_key
+        WHEN 'alos' THEN 1
+        WHEN 'misheyakir' THEN 2
+        WHEN 'shema' THEN 3
+        WHEN 'tefilla' THEN 4
+        WHEN 'chatzos' THEN 5
+        WHEN 'mincha' THEN 6
+        WHEN 'plag' THEN 7
+        WHEN 'shkia' THEN 8
+        WHEN 'bein_hashmashos' THEN 9
+        WHEN 'tzais' THEN 10
+        WHEN 'candle_lighting' THEN 11
+        WHEN 'special' THEN 12
+        WHEN 'other' THEN 13
+        ELSE 14
+    END,
+    -- Secondary sort by zman_key for predictable ordering within category
+    mr.zman_key
 LIMIT $2 OFFSET $3
 `
 
 type ListMasterZmanimForRegistryParams struct {
-	PublisherID int32    `json:"publisher_id"`
-	Limit       int32    `json:"limit"`
-	Offset      int32    `json:"offset"`
-	Categories  []string `json:"categories"`
-	Shitas      []string `json:"shitas"`
-	Search      *string  `json:"search"`
-	Status      *string  `json:"status"`
+	PublisherID    int32   `json:"publisher_id"`
+	Limit          int32   `json:"limit"`
+	Offset         int32   `json:"offset"`
+	CategoryTagIds []int32 `json:"category_tag_ids"`
+	ShitaTagIds    []int32 `json:"shita_tag_ids"`
+	Search         *string `json:"search"`
+	Status         *string `json:"status"`
 }
 
 type ListMasterZmanimForRegistryRow struct {
@@ -4237,8 +4312,6 @@ type ListMasterZmanimForRegistryRow struct {
 	Transliteration      *string            `json:"transliteration"`
 	Description          *string            `json:"description"`
 	DefaultFormulaDsl    *string            `json:"default_formula_dsl"`
-	Category             *string            `json:"category"`
-	Shita                *string            `json:"shita"`
 	IsCore               *bool              `json:"is_core"`
 	TimeCategory         *string            `json:"time_category"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
@@ -4250,14 +4323,16 @@ type ListMasterZmanimForRegistryRow struct {
 // MASTER REGISTRY BROWSER (Story 11.1)
 // ============================================
 // List all master zmanim for the registry browser with filters, search, and import status
-// Parameters: publisher_id, categories (array), shitas (array), search, status, limit, offset
+// Parameters: publisher_id, category_tag_ids (array of int), shita_tag_ids (array of int), search, status, limit, offset
+// Orders by category tag_key chronologically (alos -> tzais -> special -> other)
+// Join to get category tag for ordering
 func (q *Queries) ListMasterZmanimForRegistry(ctx context.Context, arg ListMasterZmanimForRegistryParams) ([]ListMasterZmanimForRegistryRow, error) {
 	rows, err := q.db.Query(ctx, listMasterZmanimForRegistry,
 		arg.PublisherID,
 		arg.Limit,
 		arg.Offset,
-		arg.Categories,
-		arg.Shitas,
+		arg.CategoryTagIds,
+		arg.ShitaTagIds,
 		arg.Search,
 		arg.Status,
 	)
@@ -4276,8 +4351,6 @@ func (q *Queries) ListMasterZmanimForRegistry(ctx context.Context, arg ListMaste
 			&i.Transliteration,
 			&i.Description,
 			&i.DefaultFormulaDsl,
-			&i.Category,
-			&i.Shita,
 			&i.IsCore,
 			&i.TimeCategory,
 			&i.CreatedAt,
@@ -4305,8 +4378,6 @@ SELECT
     pz.master_zman_id,
     mr.canonical_english_name AS master_english_name,
     mr.canonical_hebrew_name AS master_hebrew_name,
-    mr.category,
-    mr.shita,
     -- Check if current publisher already has this master zman (includes deleted items)
     EXISTS(
         SELECT 1 FROM publisher_zmanim cpz
@@ -4322,18 +4393,29 @@ SELECT
     ) AS existing_is_deleted
 FROM publisher_zmanim pz
 JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
+LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE pz.publisher_id = $2
   AND pz.deleted_at IS NULL
   AND pz.is_visible = true
-  AND ($5::text IS NULL OR mr.category = $5::text)
-  AND ($6::text IS NULL OR mr.shita = $6::text)
+  -- Filter by category tag ID (if provided)
+  AND ($5::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = $5::int
+  ))
+  -- Filter by shita tag ID (if provided)
+  AND ($6::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = $6::int
+  ))
   AND (
       $7::text IS NULL
       OR pz.hebrew_name ILIKE '%' || $7 || '%'
       OR pz.english_name ILIKE '%' || $7 || '%'
       OR pz.zman_key ILIKE '%' || $7 || '%'
   )
-ORDER BY mr.category, pz.english_name
+ORDER BY tc.sort_order, pz.english_name
 LIMIT $3 OFFSET $4
 `
 
@@ -4342,8 +4424,8 @@ type ListPublisherZmanimForExamplesParams struct {
 	PublisherID_2 int32   `json:"publisher_id_2"`
 	Limit         int32   `json:"limit"`
 	Offset        int32   `json:"offset"`
-	Category      *string `json:"category"`
-	Shita         *string `json:"shita"`
+	CategoryTagID *int32  `json:"category_tag_id"`
+	ShitaTagID    *int32  `json:"shita_tag_id"`
 	Search        *string `json:"search"`
 }
 
@@ -4357,8 +4439,6 @@ type ListPublisherZmanimForExamplesRow struct {
 	MasterZmanID      *int32  `json:"master_zman_id"`
 	MasterEnglishName string  `json:"master_english_name"`
 	MasterHebrewName  string  `json:"master_hebrew_name"`
-	Category          *string `json:"category"`
-	Shita             *string `json:"shita"`
 	AlreadyHaveMaster bool    `json:"already_have_master"`
 	ExistingIsDeleted bool    `json:"existing_is_deleted"`
 }
@@ -4371,8 +4451,8 @@ func (q *Queries) ListPublisherZmanimForExamples(ctx context.Context, arg ListPu
 		arg.PublisherID_2,
 		arg.Limit,
 		arg.Offset,
-		arg.Category,
-		arg.Shita,
+		arg.CategoryTagID,
+		arg.ShitaTagID,
 		arg.Search,
 	)
 	if err != nil {
@@ -4392,8 +4472,6 @@ func (q *Queries) ListPublisherZmanimForExamples(ctx context.Context, arg ListPu
 			&i.MasterZmanID,
 			&i.MasterEnglishName,
 			&i.MasterHebrewName,
-			&i.Category,
-			&i.Shita,
 			&i.AlreadyHaveMaster,
 			&i.ExistingIsDeleted,
 		); err != nil {

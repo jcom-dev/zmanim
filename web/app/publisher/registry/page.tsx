@@ -50,6 +50,21 @@ import {
 } from '@/components/ui/tooltip';
 
 // Types
+interface ZmanTag {
+  id: number;
+  tag_key: string;
+  name: string;
+  display_name_hebrew: string;
+  display_name_english: string;
+  display_name_english_ashkenazi: string;
+  display_name_english_sephardi?: string;
+  tag_type: string;
+  description?: string;
+  color?: string;
+  is_negated: boolean;
+  created_at: string;
+}
+
 interface MasterZmanForRegistry {
   id: string;
   zman_key: string;
@@ -58,13 +73,12 @@ interface MasterZmanForRegistry {
   transliteration?: string;
   description?: string;
   default_formula_dsl?: string;
-  category?: string;
-  shita?: string;
   time_category?: string;
   is_core?: boolean;
   already_imported: boolean;
   existing_is_deleted: boolean;
   preview_time?: string;
+  tags?: ZmanTag[];
 }
 
 interface RegistryBrowserResponse {
@@ -75,64 +89,54 @@ interface RegistryBrowserResponse {
   total_pages: number;
 }
 
+interface RegistryFilterTag {
+  id: number;
+  tag_key: string;
+  display_name: string;
+}
+
 interface RegistryFiltersResponse {
-  categories: string[];
-  shitas: string[];
+  categories: RegistryFilterTag[];
+  shitas: RegistryFilterTag[];
 }
 
-// Category colors
+// Category colors (keyed by tag_key)
 const categoryColors: Record<string, string> = {
-  ALOS: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  MISHEYAKIR: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
-  SHEMA: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  TEFILLA: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
-  CHATZOS: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  MINCHA: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  PLAG: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  SHKIA: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-  BEIN_HASHMASHOS: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
-  TZAIS: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  CANDLE_LIGHTING: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-  SPECIAL: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-  OTHER: 'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300',
+  alos: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+  misheyakir: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
+  shema: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  tefilla: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
+  chatzos: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  mincha: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  plag: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  shkia: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  bein_hashmashos: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
+  tzais: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  candle_lighting: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+  special: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+  other: 'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300',
 };
 
-// Shita colors
+// Shita colors (keyed by tag_key)
 const shitaColors: Record<string, string> = {
-  GRA: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  MGA: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  BAAL_HATANYA: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-  RABBEINU_TAM: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  GEONIM: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
-  ATERET_TORAH: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-  YEREIM: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-  AHAVAT_SHALOM: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
-  UNIVERSAL: 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-300',
+  gra: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  mga: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  baal_hatanya: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+  rabbeinu_tam: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  geonim: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
+  ateret_torah: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+  yereim: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+  ahavat_shalom: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
 };
 
-// Format category for display
-function formatCategory(category: string): string {
-  return category
-    .replace(/_/g, ' ')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+// Helper to get category tag from zman's tags array
+function getCategoryTag(tags?: ZmanTag[]): ZmanTag | undefined {
+  return tags?.find(t => t.tag_type === 'category');
 }
 
-// Format shita for display
-function formatShita(shita: string): string {
-  const displayNames: Record<string, string> = {
-    GRA: 'GRA (Vilna Gaon)',
-    MGA: 'MGA (Magen Avraham)',
-    BAAL_HATANYA: 'Baal HaTanya',
-    RABBEINU_TAM: 'Rabbeinu Tam',
-    GEONIM: 'Geonim',
-    ATERET_TORAH: 'Ateret Torah',
-    YEREIM: 'Yereim',
-    AHAVAT_SHALOM: 'Ahavat Shalom',
-    UNIVERSAL: 'Universal',
-  };
-  return displayNames[shita] || formatCategory(shita);
+// Helper to get shita tag from zman's tags array
+function getShitaTag(tags?: ZmanTag[]): ZmanTag | undefined {
+  return tags?.find(t => t.tag_type === 'shita');
 }
 
 // Zman Card Component
@@ -151,6 +155,10 @@ function ZmanCard({
 }) {
   // Get the display name based on language preference
   const displayName = isHebrew ? zman.canonical_hebrew_name : zman.canonical_english_name;
+
+  // Extract category and shita tags
+  const categoryTag = getCategoryTag(zman.tags);
+  const shitaTag = getShitaTag(zman.tags);
 
   return (
     <Card
@@ -188,14 +196,14 @@ function ZmanCard({
 
             {/* Badges */}
             <div className="flex flex-wrap gap-1.5 mb-3">
-              {zman.category && (
-                <Badge variant="outline" className={`text-xs ${categoryColors[zman.category] || ''}`}>
-                  {formatCategory(zman.category)}
+              {categoryTag && (
+                <Badge variant="outline" className={`text-xs ${categoryColors[categoryTag.tag_key] || ''}`}>
+                  {categoryTag.display_name_english_ashkenazi}
                 </Badge>
               )}
-              {zman.shita && (
-                <Badge variant="outline" className={`text-xs ${shitaColors[zman.shita] || ''}`}>
-                  {formatShita(zman.shita).split(' ')[0]}
+              {shitaTag && (
+                <Badge variant="outline" className={`text-xs ${shitaColors[shitaTag.tag_key] || ''}`}>
+                  {shitaTag.display_name_english_ashkenazi}
                 </Badge>
               )}
               {zman.is_core && (
@@ -277,8 +285,8 @@ function ZmanCard({
 // Filter Panel Component
 function FilterPanel({
   filters,
-  selectedCategories,
-  selectedShitas,
+  selectedCategoryIds,
+  selectedShitaIds,
   status,
   onCategoryChange,
   onShitaChange,
@@ -286,15 +294,15 @@ function FilterPanel({
   onClear,
 }: {
   filters?: RegistryFiltersResponse;
-  selectedCategories: string[];
-  selectedShitas: string[];
+  selectedCategoryIds: number[];
+  selectedShitaIds: number[];
   status: string;
-  onCategoryChange: (categories: string[]) => void;
-  onShitaChange: (shitas: string[]) => void;
+  onCategoryChange: (ids: number[]) => void;
+  onShitaChange: (ids: number[]) => void;
   onStatusChange: (status: string) => void;
   onClear: () => void;
 }) {
-  const hasFilters = selectedCategories.length > 0 || selectedShitas.length > 0 || status !== 'all';
+  const hasFilters = selectedCategoryIds.length > 0 || selectedShitaIds.length > 0 || status !== 'all';
 
   return (
     <div className="space-y-6">
@@ -332,20 +340,20 @@ function FilterPanel({
           <ScrollArea className="h-48">
             <div className="space-y-2 pr-4">
               {filters.categories.map((cat) => (
-                <div key={cat} className="flex items-center space-x-2">
+                <div key={cat.id} className="flex items-center space-x-2">
                   <Checkbox
-                    id={`cat-${cat}`}
-                    checked={selectedCategories.includes(cat)}
+                    id={`cat-${cat.id}`}
+                    checked={selectedCategoryIds.includes(cat.id)}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        onCategoryChange([...selectedCategories, cat]);
+                        onCategoryChange([...selectedCategoryIds, cat.id]);
                       } else {
-                        onCategoryChange(selectedCategories.filter((c) => c !== cat));
+                        onCategoryChange(selectedCategoryIds.filter((id) => id !== cat.id));
                       }
                     }}
                   />
-                  <Label htmlFor={`cat-${cat}`} className="text-sm cursor-pointer">
-                    {formatCategory(cat)}
+                  <Label htmlFor={`cat-${cat.id}`} className="text-sm cursor-pointer">
+                    {cat.display_name}
                   </Label>
                 </div>
               ))}
@@ -361,20 +369,20 @@ function FilterPanel({
           <ScrollArea className="h-48">
             <div className="space-y-2 pr-4">
               {filters.shitas.map((shita) => (
-                <div key={shita} className="flex items-center space-x-2">
+                <div key={shita.id} className="flex items-center space-x-2">
                   <Checkbox
-                    id={`shita-${shita}`}
-                    checked={selectedShitas.includes(shita)}
+                    id={`shita-${shita.id}`}
+                    checked={selectedShitaIds.includes(shita.id)}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        onShitaChange([...selectedShitas, shita]);
+                        onShitaChange([...selectedShitaIds, shita.id]);
                       } else {
-                        onShitaChange(selectedShitas.filter((s) => s !== shita));
+                        onShitaChange(selectedShitaIds.filter((id) => id !== shita.id));
                       }
                     }}
                   />
-                  <Label htmlFor={`shita-${shita}`} className="text-sm cursor-pointer">
-                    {formatShita(shita)}
+                  <Label htmlFor={`shita-${shita.id}`} className="text-sm cursor-pointer">
+                    {shita.display_name}
                   </Label>
                 </div>
               ))}
@@ -417,8 +425,8 @@ export default function RegistryPage() {
   const [activeTab, setActiveTab] = useState<'master' | 'publishers'>('master');
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearch = useDeferredValue(searchQuery);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedShitas, setSelectedShitas] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [selectedShitaIds, setSelectedShitaIds] = useState<number[]>([]);
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
   const [importingId, setImportingId] = useState<string | null>(null);
@@ -439,18 +447,18 @@ export default function RegistryPage() {
       params.set('search', searchTerm);
     }
     if (status && status !== 'all') params.set('status', status);
-    if (selectedCategories.length > 0) {
-      params.set('category', selectedCategories.join(','));
+    if (selectedCategoryIds.length > 0) {
+      params.set('category_tag_ids', selectedCategoryIds.join(','));
     }
-    if (selectedShitas.length > 0) {
-      params.set('shita', selectedShitas.join(','));
+    if (selectedShitaIds.length > 0) {
+      params.set('shita_tag_ids', selectedShitaIds.join(','));
     }
     if (toolbar.localityId) {
       params.set('locality_id', toolbar.localityId.toString());
       params.set('date', toolbar.date);
     }
     return params.toString();
-  }, [page, deferredSearch, status, selectedCategories, selectedShitas, toolbar.localityId, toolbar.date]);
+  }, [page, deferredSearch, status, selectedCategoryIds, selectedShitaIds, toolbar.localityId, toolbar.date]);
 
   // Fetch master zmanim
   const {
@@ -480,8 +488,8 @@ export default function RegistryPage() {
 
   // Clear all filters
   const handleClearFilters = useCallback(() => {
-    setSelectedCategories([]);
-    setSelectedShitas([]);
+    setSelectedCategoryIds([]);
+    setSelectedShitaIds([]);
     setStatus('all');
     setSearchQuery('');
     setPage(1);
@@ -523,19 +531,21 @@ export default function RegistryPage() {
   const activeFilters = useMemo(() => {
     const chips: { key: string; label: string; onRemove: () => void }[] = [];
 
-    selectedCategories.forEach((cat) => {
+    selectedCategoryIds.forEach((id) => {
+      const cat = filters?.categories.find((c) => c.id === id);
       chips.push({
-        key: `cat-${cat}`,
-        label: formatCategory(cat),
-        onRemove: () => setSelectedCategories(selectedCategories.filter((c) => c !== cat)),
+        key: `cat-${id}`,
+        label: cat?.display_name || `Category ${id}`,
+        onRemove: () => setSelectedCategoryIds(selectedCategoryIds.filter((c) => c !== id)),
       });
     });
 
-    selectedShitas.forEach((shita) => {
+    selectedShitaIds.forEach((id) => {
+      const shita = filters?.shitas.find((s) => s.id === id);
       chips.push({
-        key: `shita-${shita}`,
-        label: formatShita(shita).split(' ')[0],
-        onRemove: () => setSelectedShitas(selectedShitas.filter((s) => s !== shita)),
+        key: `shita-${id}`,
+        label: shita?.display_name || `Shita ${id}`,
+        onRemove: () => setSelectedShitaIds(selectedShitaIds.filter((s) => s !== id)),
       });
     });
 
@@ -554,7 +564,7 @@ export default function RegistryPage() {
     }
 
     return chips;
-  }, [selectedCategories, selectedShitas, status]);
+  }, [selectedCategoryIds, selectedShitaIds, status, filters]);
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -630,11 +640,11 @@ export default function RegistryPage() {
                   <CardContent>
                     <FilterPanel
                       filters={filters}
-                      selectedCategories={selectedCategories}
-                      selectedShitas={selectedShitas}
+                      selectedCategoryIds={selectedCategoryIds}
+                      selectedShitaIds={selectedShitaIds}
                       status={status}
-                      onCategoryChange={(cats) => handleFilterChange(setSelectedCategories, cats)}
-                      onShitaChange={(shitas) => handleFilterChange(setSelectedShitas, shitas)}
+                      onCategoryChange={(ids) => handleFilterChange(setSelectedCategoryIds, ids)}
+                      onShitaChange={(ids) => handleFilterChange(setSelectedShitaIds, ids)}
                       onStatusChange={(s) => handleFilterChange(setStatus, s)}
                       onClear={handleClearFilters}
                     />
@@ -649,7 +659,7 @@ export default function RegistryPage() {
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search by name, key (@alos_hashachar), or formula..."
+                      placeholder="Search by key (@alos_hashachar)..."
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
@@ -677,11 +687,11 @@ export default function RegistryPage() {
                       <div className="mt-6">
                         <FilterPanel
                           filters={filters}
-                          selectedCategories={selectedCategories}
-                          selectedShitas={selectedShitas}
+                          selectedCategoryIds={selectedCategoryIds}
+                          selectedShitaIds={selectedShitaIds}
                           status={status}
-                          onCategoryChange={(cats) => handleFilterChange(setSelectedCategories, cats)}
-                          onShitaChange={(shitas) => handleFilterChange(setSelectedShitas, shitas)}
+                          onCategoryChange={(ids) => handleFilterChange(setSelectedCategoryIds, ids)}
+                          onShitaChange={(ids) => handleFilterChange(setSelectedShitaIds, ids)}
                           onStatusChange={(s) => handleFilterChange(setStatus, s)}
                           onClear={handleClearFilters}
                         />

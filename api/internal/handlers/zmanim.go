@@ -213,7 +213,6 @@ func buildDayContext(date time.Time) *ZmanimDayContext {
 //	@Failure		500					{object}	APIResponse{error=APIError}					"Internal server error"
 //	@Router			/zmanim [get]
 func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) {
-	start := time.Now() // Track response time for logging
 	ctx := r.Context()
 
 	// Parse query parameters
@@ -536,9 +535,6 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Track cache status for logging
-	cacheHit := calcResult.FromCache
-
 	// OPTIMIZATION: Extract zman keys from calculation result for filtered queries
 	zmanKeys := make([]string, 0, len(calcResult.Zmanim))
 	for _, z := range calcResult.Zmanim {
@@ -678,19 +674,6 @@ func (h *Handlers) GetZmanimForLocality(w http.ResponseWriter, r *http.Request) 
 			sorted[i] = *s.(*ZmanWithFormula)
 		}
 		response.Zmanim = sorted
-	}
-
-	// Log the calculation
-	if h.calculationLogService != nil {
-		h.calculationLogService.Log(services.CalculationLogEntry{
-			PublisherID:    pubID,
-			LocalityID:     localityID,
-			DateCalculated: date,
-			CacheHit:       cacheHit,
-			ResponseTimeMs: int16(time.Since(start).Milliseconds()),
-			ZmanCount:      int16(len(response.Zmanim)),
-			Source:         services.SourceWeb,
-		})
 	}
 
 	RespondJSON(w, r, http.StatusOK, response)

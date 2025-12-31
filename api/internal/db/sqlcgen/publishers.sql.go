@@ -314,26 +314,24 @@ func (q *Queries) GetInvitationForResend(ctx context.Context, id int32) (GetInvi
 
 const getPublisherAlgorithmSummary = `-- name: GetPublisherAlgorithmSummary :one
 SELECT
-    astatus.key as status_key,
-    a.name,
-    TO_CHAR(a.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
-FROM algorithms a
-JOIN algorithm_statuses astatus ON astatus.id = a.status_id
-WHERE a.publisher_id = $1
-ORDER BY a.updated_at DESC
-LIMIT 1
+    COUNT(*)::int as total_count,
+    COUNT(*) FILTER (WHERE is_published)::int as published_count,
+    TO_CHAR(MAX(updated_at), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_at
+FROM publisher_zmanim
+WHERE publisher_id = $1 AND deleted_at IS NULL
 `
 
 type GetPublisherAlgorithmSummaryRow struct {
-	StatusKey string `json:"status_key"`
-	Name      string `json:"name"`
-	UpdatedAt string `json:"updated_at"`
+	TotalCount     int32  `json:"total_count"`
+	PublishedCount int32  `json:"published_count"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
+// Returns zmanim counts from publisher_zmanim table
 func (q *Queries) GetPublisherAlgorithmSummary(ctx context.Context, publisherID int32) (GetPublisherAlgorithmSummaryRow, error) {
 	row := q.db.QueryRow(ctx, getPublisherAlgorithmSummary, publisherID)
 	var i GetPublisherAlgorithmSummaryRow
-	err := row.Scan(&i.StatusKey, &i.Name, &i.UpdatedAt)
+	err := row.Scan(&i.TotalCount, &i.PublishedCount, &i.UpdatedAt)
 	return i, err
 }
 

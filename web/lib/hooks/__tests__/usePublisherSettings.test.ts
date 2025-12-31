@@ -45,6 +45,7 @@ const mockPublisherContext = {
 
 vi.mock('@/providers/PublisherContext', () => ({
   usePublisherContext: () => mockPublisherContext,
+  usePublisherContextOptional: () => mockPublisherContext,
 }));
 
 // =============================================================================

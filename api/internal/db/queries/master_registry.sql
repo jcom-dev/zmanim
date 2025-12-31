@@ -1108,7 +1108,8 @@ WHERE mr.zman_key = $1;
 
 -- name: ListMasterZmanimForRegistry :many
 -- List all master zmanim for the registry browser with filters, search, and import status
--- Parameters: publisher_id, categories (array), shitas (array), search, status, limit, offset
+-- Parameters: publisher_id, category_tag_ids (array of int), shita_tag_ids (array of int), search, status, limit, offset
+-- Orders by category tag_key chronologically (alos -> tzais -> special -> other)
 SELECT
     mr.id,
     mr.zman_key,
@@ -1117,8 +1118,6 @@ SELECT
     mr.transliteration,
     mr.description,
     mr.default_formula_dsl,
-    mr.category,
-    mr.shita,
     mr.is_core,
     tc.key AS time_category,
     mr.created_at,
@@ -1137,24 +1136,59 @@ SELECT
     ) AS existing_is_deleted
 FROM master_zmanim_registry mr
 LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
+-- Join to get category tag for ordering
+LEFT JOIN LATERAL (
+    SELECT zt.tag_key
+    FROM master_zman_tags mzt
+    JOIN zman_tags zt ON zt.id = mzt.tag_id
+    JOIN tag_types tt ON tt.id = zt.tag_type_id
+    WHERE mzt.master_zman_id = mr.id AND tt.key = 'category'
+    LIMIT 1
+) cat_tag ON true
 WHERE
     COALESCE(mr.is_hidden, false) = false
-    AND (sqlc.narg('categories')::text[] IS NULL OR mr.category = ANY(sqlc.narg('categories')::text[]))
-    AND (sqlc.narg('shitas')::text[] IS NULL OR mr.shita = ANY(sqlc.narg('shitas')::text[]))
+    -- Filter by category tag IDs (if provided)
+    AND (sqlc.narg('category_tag_ids')::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY(sqlc.narg('category_tag_ids')::int[])
+    ))
+    -- Filter by shita tag IDs (if provided)
+    AND (sqlc.narg('shita_tag_ids')::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY(sqlc.narg('shita_tag_ids')::int[])
+    ))
+    -- Search only on zman_key
     AND (
         sqlc.narg('search')::text IS NULL
-        OR mr.canonical_hebrew_name ILIKE '%' || sqlc.narg('search') || '%'
-        OR mr.canonical_english_name ILIKE '%' || sqlc.narg('search') || '%'
-        OR mr.default_formula_dsl ILIKE '%' || sqlc.narg('search') || '%'
         OR mr.zman_key ILIKE '%' || sqlc.narg('search') || '%'
-        OR mr.transliteration ILIKE '%' || sqlc.narg('search') || '%'
     )
     AND (
         sqlc.narg('status')::text IS NULL
         OR (sqlc.narg('status') = 'available' AND NOT EXISTS(SELECT 1 FROM publisher_zmanim pz WHERE pz.publisher_id = $1 AND pz.master_zman_id = mr.id))
         OR (sqlc.narg('status') = 'imported' AND EXISTS(SELECT 1 FROM publisher_zmanim pz WHERE pz.publisher_id = $1 AND pz.master_zman_id = mr.id))
     )
-ORDER BY tc.sort_order, mr.canonical_english_name
+ORDER BY
+    -- Order by category tag_key chronologically (time of day)
+    CASE cat_tag.tag_key
+        WHEN 'alos' THEN 1
+        WHEN 'misheyakir' THEN 2
+        WHEN 'shema' THEN 3
+        WHEN 'tefilla' THEN 4
+        WHEN 'chatzos' THEN 5
+        WHEN 'mincha' THEN 6
+        WHEN 'plag' THEN 7
+        WHEN 'shkia' THEN 8
+        WHEN 'bein_hashmashos' THEN 9
+        WHEN 'tzais' THEN 10
+        WHEN 'candle_lighting' THEN 11
+        WHEN 'special' THEN 12
+        WHEN 'other' THEN 13
+        ELSE 14
+    END,
+    -- Secondary sort by zman_key for predictable ordering within category
+    mr.zman_key
 LIMIT $2 OFFSET $3;
 
 -- name: CountMasterZmanimForRegistry :one
@@ -1164,15 +1198,22 @@ FROM master_zmanim_registry mr
 LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE
     COALESCE(mr.is_hidden, false) = false
-    AND (sqlc.narg('categories')::text[] IS NULL OR mr.category = ANY(sqlc.narg('categories')::text[]))
-    AND (sqlc.narg('shitas')::text[] IS NULL OR mr.shita = ANY(sqlc.narg('shitas')::text[]))
+    -- Filter by category tag IDs (if provided)
+    AND (sqlc.narg('category_tag_ids')::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY(sqlc.narg('category_tag_ids')::int[])
+    ))
+    -- Filter by shita tag IDs (if provided)
+    AND (sqlc.narg('shita_tag_ids')::int[] IS NULL OR EXISTS(
+        SELECT 1 FROM master_zman_tags mzt
+        WHERE mzt.master_zman_id = mr.id
+          AND mzt.tag_id = ANY(sqlc.narg('shita_tag_ids')::int[])
+    ))
+    -- Search only on zman_key
     AND (
         sqlc.narg('search')::text IS NULL
-        OR mr.canonical_hebrew_name ILIKE '%' || sqlc.narg('search') || '%'
-        OR mr.canonical_english_name ILIKE '%' || sqlc.narg('search') || '%'
-        OR mr.default_formula_dsl ILIKE '%' || sqlc.narg('search') || '%'
         OR mr.zman_key ILIKE '%' || sqlc.narg('search') || '%'
-        OR mr.transliteration ILIKE '%' || sqlc.narg('search') || '%'
     )
     AND (
         sqlc.narg('status')::text IS NULL
@@ -1200,25 +1241,33 @@ SELECT
     mr.description,
     mr.default_formula_dsl,
     mr.time_category_id,
-    mr.category,
-    mr.shita,
     mr.is_core
 FROM master_zmanim_registry mr
 WHERE mr.id = $1 AND COALESCE(mr.is_hidden, false) = false;
 
 -- name: GetDistinctCategories :many
--- Get all distinct non-null categories for filter dropdown
-SELECT DISTINCT category
-FROM master_zmanim_registry
-WHERE category IS NOT NULL AND COALESCE(is_hidden, false) = false
-ORDER BY category;
+-- Get all distinct category tags that are used by at least one non-hidden master zman
+SELECT DISTINCT zt.id, zt.tag_key, zt.display_name_hebrew, zt.display_name_english_ashkenazi, zt.display_name_english_sephardi
+FROM zman_tags zt
+JOIN tag_types tt ON zt.tag_type_id = tt.id
+JOIN master_zman_tags mzt ON zt.id = mzt.tag_id
+JOIN master_zmanim_registry mr ON mzt.master_zman_id = mr.id
+WHERE tt.key = 'category'
+  AND COALESCE(mr.is_hidden, false) = false
+  AND COALESCE(zt.is_hidden, false) = false
+ORDER BY zt.display_name_english_ashkenazi;
 
 -- name: GetDistinctShitas :many
--- Get all distinct non-null shitas for filter dropdown
-SELECT DISTINCT shita
-FROM master_zmanim_registry
-WHERE shita IS NOT NULL AND COALESCE(is_hidden, false) = false
-ORDER BY shita;
+-- Get all distinct shita tags that are used by at least one non-hidden master zman
+SELECT DISTINCT zt.id, zt.tag_key, zt.display_name_hebrew, zt.display_name_english_ashkenazi, zt.display_name_english_sephardi
+FROM zman_tags zt
+JOIN tag_types tt ON zt.tag_type_id = tt.id
+JOIN master_zman_tags mzt ON zt.id = mzt.tag_id
+JOIN master_zmanim_registry mr ON mzt.master_zman_id = mr.id
+WHERE tt.key = 'shita'
+  AND COALESCE(mr.is_hidden, false) = false
+  AND COALESCE(zt.is_hidden, false) = false
+ORDER BY zt.display_name_english_ashkenazi;
 
 -- name: GetMasterZmanDocumentation :one
 -- Get full documentation for a master zman (for documentation modal)
@@ -1236,8 +1285,6 @@ SELECT
     mr.formula_explanation,
     mr.usage_context,
     mr.related_zmanim_ids,
-    mr.shita,
-    mr.category,
     mr.is_core,
     tc.key AS time_category,
     mr.created_at,
@@ -1298,8 +1345,6 @@ SELECT
     pz.master_zman_id,
     mr.canonical_english_name AS master_english_name,
     mr.canonical_hebrew_name AS master_hebrew_name,
-    mr.category,
-    mr.shita,
     -- Check if current publisher already has this master zman (includes deleted items)
     EXISTS(
         SELECT 1 FROM publisher_zmanim cpz
@@ -1315,18 +1360,29 @@ SELECT
     ) AS existing_is_deleted
 FROM publisher_zmanim pz
 JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
+LEFT JOIN time_categories tc ON mr.time_category_id = tc.id
 WHERE pz.publisher_id = $2
   AND pz.deleted_at IS NULL
   AND pz.is_visible = true
-  AND (sqlc.narg('category')::text IS NULL OR mr.category = sqlc.narg('category')::text)
-  AND (sqlc.narg('shita')::text IS NULL OR mr.shita = sqlc.narg('shita')::text)
+  -- Filter by category tag ID (if provided)
+  AND (sqlc.narg('category_tag_id')::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = sqlc.narg('category_tag_id')::int
+  ))
+  -- Filter by shita tag ID (if provided)
+  AND (sqlc.narg('shita_tag_id')::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = sqlc.narg('shita_tag_id')::int
+  ))
   AND (
       sqlc.narg('search')::text IS NULL
       OR pz.hebrew_name ILIKE '%' || sqlc.narg('search') || '%'
       OR pz.english_name ILIKE '%' || sqlc.narg('search') || '%'
       OR pz.zman_key ILIKE '%' || sqlc.narg('search') || '%'
   )
-ORDER BY mr.category, pz.english_name
+ORDER BY tc.sort_order, pz.english_name
 LIMIT $3 OFFSET $4;
 
 -- name: CountPublisherZmanimForExamples :one
@@ -1337,8 +1393,18 @@ JOIN master_zmanim_registry mr ON pz.master_zman_id = mr.id
 WHERE pz.publisher_id = $1
   AND pz.deleted_at IS NULL
   AND pz.is_visible = true
-  AND (sqlc.narg('category')::text IS NULL OR mr.category = sqlc.narg('category')::text)
-  AND (sqlc.narg('shita')::text IS NULL OR mr.shita = sqlc.narg('shita')::text)
+  -- Filter by category tag ID (if provided)
+  AND (sqlc.narg('category_tag_id')::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = sqlc.narg('category_tag_id')::int
+  ))
+  -- Filter by shita tag ID (if provided)
+  AND (sqlc.narg('shita_tag_id')::int IS NULL OR EXISTS(
+      SELECT 1 FROM master_zman_tags mzt
+      WHERE mzt.master_zman_id = mr.id
+        AND mzt.tag_id = sqlc.narg('shita_tag_id')::int
+  ))
   AND (
       sqlc.narg('search')::text IS NULL
       OR pz.hebrew_name ILIKE '%' || sqlc.narg('search') || '%'

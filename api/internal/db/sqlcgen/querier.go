@@ -290,12 +290,6 @@ type Querier interface {
 	// TAG MANAGEMENT QUERIES
 	// ============================================
 	DeleteMasterZmanTags(ctx context.Context, masterZmanID int32) error
-	// ============================================================================
-	// MAINTENANCE QUERIES
-	// ============================================================================
-	// Deletes calculation logs older than specified days
-	// Use this to keep the raw logs table manageable
-	DeleteOldCalculationLogs(ctx context.Context, dollar_1 int32) error
 	DeleteOldCompletedTokens(ctx context.Context) error
 	DeletePendingInvitation(ctx context.Context, id int32) (pgconn.CommandTag, error)
 	DeletePublisher(ctx context.Context, id int32) error
@@ -458,10 +452,6 @@ type Querier interface {
 	// Returns placeholder stats since boundaries are disabled
 	GetBoundaryStats(ctx context.Context) (GetBoundaryStatsRow, error)
 	GetCachedExplanation(ctx context.Context, arg GetCachedExplanationParams) (string, error)
-	// Returns total count of calculation logs
-	GetCalculationLogsCount(ctx context.Context) (int64, error)
-	// Returns disk size of calculation_logs table
-	GetCalculationLogsDiskSize(ctx context.Context) (string, error)
 	// ============================================
 	// COMPLETE PUBLISHER EXPORT (ADMIN/BACKUP)
 	// ============================================
@@ -535,10 +525,10 @@ type Querier interface {
 	GetDisplayGroupByID(ctx context.Context, id int32) (DisplayGroup, error)
 	// Get a display group by its key
 	GetDisplayGroupByKey(ctx context.Context, key string) (DisplayGroup, error)
-	// Get all distinct non-null categories for filter dropdown
-	GetDistinctCategories(ctx context.Context) ([]*string, error)
-	// Get all distinct non-null shitas for filter dropdown
-	GetDistinctShitas(ctx context.Context) ([]*string, error)
+	// Get all distinct category tags that are used by at least one non-hidden master zman
+	GetDistinctCategories(ctx context.Context) ([]GetDistinctCategoriesRow, error)
+	// Get all distinct shita tags that are used by at least one non-hidden master zman
+	GetDistinctShitas(ctx context.Context) ([]GetDistinctShitasRow, error)
 	// Retrieves all actions for a specific entity (e.g., all actions on publisher_zman #123)
 	GetEntityActionHistory(ctx context.Context, arg GetEntityActionHistoryParams) ([]GetEntityActionHistoryRow, error)
 	// ============================================
@@ -562,8 +552,6 @@ type Querier interface {
 	// Get algorithm ID for publisher --
 	GetLatestAlgorithmByPublisher(ctx context.Context, publisherID int32) (int32, error)
 	GetLatestPublisherSnapshot(ctx context.Context, publisherID int32) (PublisherSnapshot, error)
-	// Returns the latest date that has been rolled up
-	GetLatestRollupDate(ctx context.Context) (interface{}, error)
 	// Estimates the number of localities covered by a publisher's coverage areas
 	// Uses pre-computed descendant_count for accurate totals
 	GetLocalitiesCoveredCount(ctx context.Context, publisherID int32) (int32, error)
@@ -640,17 +628,6 @@ type Querier interface {
 	GetPendingInvitations(ctx context.Context, publisherID int32) ([]GetPendingInvitationsRow, error)
 	// Get count of pending zman requests (for admin dashboard)
 	GetPendingZmanRequestCount(ctx context.Context) (int64, error)
-	// Returns calculations for current month across all publishers
-	GetPlatformMonthlyCalculations(ctx context.Context) (int64, error)
-	// Returns comprehensive platform-wide stats
-	GetPlatformStatsDetailed(ctx context.Context) (GetPlatformStatsDetailedRow, error)
-	// Returns calculation stats grouped by publisher for admin dashboard
-	GetPlatformStatsPerPublisher(ctx context.Context, limit int32) ([]GetPlatformStatsPerPublisherRow, error)
-	// ============================================================================
-	// PLATFORM-WIDE STATS (Admin Dashboard)
-	// ============================================================================
-	// Returns total calculations across all publishers
-	GetPlatformTotalCalculations(ctx context.Context) (int64, error)
 	GetPublicAlgorithmByID(ctx context.Context, id int32) (GetPublicAlgorithmByIDRow, error)
 	GetPublicAlgorithmConfig(ctx context.Context, id int32) (GetPublicAlgorithmConfigRow, error)
 	GetPublicAlgorithmWithPublisher(ctx context.Context, id int32) (GetPublicAlgorithmWithPublisherRow, error)
@@ -659,9 +636,8 @@ type Querier interface {
 	GetPublisherActivities(ctx context.Context, arg GetPublisherActivitiesParams) ([]GetPublisherActivitiesRow, error)
 	// Get publisher's published algorithm configuration
 	GetPublisherAlgorithm(ctx context.Context, publisherID int32) ([]byte, error)
+	// Returns zmanim counts from publisher_zmanim table
 	GetPublisherAlgorithmSummary(ctx context.Context, publisherID int32) (GetPublisherAlgorithmSummaryRow, error)
-	// Returns average response time for a publisher
-	GetPublisherAvgResponseTime(ctx context.Context, publisherID int32) (int32, error)
 	GetPublisherBasic(ctx context.Context, id int32) (GetPublisherBasicRow, error)
 	GetPublisherBasicByClerkUserID(ctx context.Context, clerkUserID *string) (GetPublisherBasicByClerkUserIDRow, error)
 	// Get beta status for zmanim for a publisher
@@ -674,8 +650,6 @@ type Querier interface {
 	GetPublisherByIDLegacy(ctx context.Context, id int32) (GetPublisherByIDLegacyRow, error)
 	// Get a single publisher by ID for display
 	GetPublisherByIdForExamples(ctx context.Context, id int32) (GetPublisherByIdForExamplesRow, error)
-	// Returns cache hit ratio for a publisher
-	GetPublisherCacheHitRatio(ctx context.Context, publisherID int32) (GetPublisherCacheHitRatioRow, error)
 	GetPublisherCalculationSettings(ctx context.Context, id int32) (GetPublisherCalculationSettingsRow, error)
 	// Current coordinates/elevation resolved with priority: admin > default (for display)
 	// Uses LATERAL joins to avoid materializing the full resolved_coords view for 4M+ localities
@@ -696,11 +670,6 @@ type Querier interface {
 	GetPublisherCoverageForExport(ctx context.Context, publisherID int32) ([]GetPublisherCoverageForExportRow, error)
 	// Get localities where a publisher has coverage
 	GetPublisherCoverageLocalities(ctx context.Context, publisherID int32) ([]GetPublisherCoverageLocalitiesRow, error)
-	// ============================================================================
-	// ANALYTICS QUERIES
-	// ============================================================================
-	// Returns daily calculation counts for the last 7 days
-	GetPublisherDailyTrend(ctx context.Context, publisherID int32) ([]GetPublisherDailyTrendRow, error)
 	GetPublisherDashboardSummary(ctx context.Context, id int32) (GetPublisherDashboardSummaryRow, error)
 	// Algorithms SQL Queries
 	// SQLc will generate type-safe Go code from these queries
@@ -739,10 +708,6 @@ type Querier interface {
 	// ============================================
 	// Returns all location overrides for a specific publisher
 	GetPublisherLocationOverridesNew(ctx context.Context, publisherID *int32) ([]GetPublisherLocationOverridesNewRow, error)
-	// Returns calculations for current month from pre-aggregated stats
-	GetPublisherMonthlyCalculations(ctx context.Context, publisherID int32) (int64, error)
-	// Returns stats for current month
-	GetPublisherMonthlyStatsDetailed(ctx context.Context, publisherID int32) (GetPublisherMonthlyStatsDetailedRow, error)
 	GetPublisherNameAndDeletedAt(ctx context.Context, id int32) (GetPublisherNameAndDeletedAtRow, error)
 	GetPublisherNameByID(ctx context.Context, id int32) (string, error)
 	GetPublisherNameForTeam(ctx context.Context, id int32) (string, error)
@@ -762,26 +727,12 @@ type Querier interface {
 	// Publisher Roles --
 	GetPublisherRoles(ctx context.Context) ([]GetPublisherRolesRow, error)
 	GetPublisherSnapshot(ctx context.Context, arg GetPublisherSnapshotParams) (PublisherSnapshot, error)
-	// Returns comprehensive stats for a publisher from pre-aggregated table
-	GetPublisherStatsDetailed(ctx context.Context, publisherID int32) (GetPublisherStatsDetailedRow, error)
 	GetPublisherStatusByID(ctx context.Context, id int16) (GetPublisherStatusByIDRow, error)
 	GetPublisherStatusByKey(ctx context.Context, key string) (GetPublisherStatusByKeyRow, error)
 	// Lookup Tables SQL Queries
 	// Provides access to all lookup/reference tables for frontend dropdowns and validation
 	// Publisher Statuses --
 	GetPublisherStatuses(ctx context.Context) ([]GetPublisherStatusesRow, error)
-	// Returns top localities by calculation count
-	GetPublisherTopLocalities(ctx context.Context, arg GetPublisherTopLocalitiesParams) ([]GetPublisherTopLocalitiesRow, error)
-	// Calculation Logging Queries
-	// Story 8.2: Implement Calculation Logging
-	//
-	// Note: Batch inserts are handled via pgx COPY protocol in the service layer
-	// These queries are for stats aggregation and analytics
-	// ============================================================================
-	// STATS AGGREGATION QUERIES (Using Pre-Aggregated Table)
-	// ============================================================================
-	// Returns total calculations for a publisher from pre-aggregated stats
-	GetPublisherTotalCalculations(ctx context.Context, publisherID int32) (int64, error)
 	// Get publisher's preferred English transliteration style (ashkenazi or sephardi)
 	GetPublisherTransliterationStyle(ctx context.Context, id int32) (string, error)
 	// Alias CRUD Queries
@@ -1087,7 +1038,9 @@ type Querier interface {
 	// MASTER REGISTRY BROWSER (Story 11.1)
 	// ============================================
 	// List all master zmanim for the registry browser with filters, search, and import status
-	// Parameters: publisher_id, categories (array), shitas (array), search, status, limit, offset
+	// Parameters: publisher_id, category_tag_ids (array of int), shita_tag_ids (array of int), search, status, limit, offset
+	// Orders by category tag_key chronologically (alos -> tzais -> special -> other)
+	// Join to get category tag for ordering
 	ListMasterZmanimForRegistry(ctx context.Context, arg ListMasterZmanimForRegistryParams) ([]ListMasterZmanimForRegistryRow, error)
 	ListPendingInvitationsByPublisher(ctx context.Context, publisherID int32) ([]ListPendingInvitationsByPublisherRow, error)
 	ListPublisherSnapshots(ctx context.Context, publisherID int32) ([]ListPublisherSnapshotsRow, error)
@@ -1166,13 +1119,6 @@ type Querier interface {
 	// Update zman formula during rollback
 	RollbackPublisherZmanFormula(ctx context.Context, arg RollbackPublisherZmanFormulaParams) (RollbackPublisherZmanFormulaRow, error)
 	RollbackZmanToVersion(ctx context.Context, arg RollbackZmanToVersionParams) (RollbackZmanToVersionRow, error)
-	// ============================================================================
-	// DAILY ROLLUP QUERIES
-	// These are used by background jobs to maintain the pre-aggregated table
-	// ============================================================================
-	// Aggregates raw logs into daily stats
-	// Should be run daily via cron/scheduler
-	RollupCalculationStatsDaily(ctx context.Context, dollar_1 pgtype.Date) error
 	// Geo Names SQL Queries
 	// Unified location search using geo_search_index table
 	// ============================================================================

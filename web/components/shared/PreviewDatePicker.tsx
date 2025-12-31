@@ -338,7 +338,7 @@ export function PreviewDatePicker({
             }
           >
             <SelectTrigger
-              className="h-9 w-[60px] px-3 text-sm font-medium font-hebrew border-input bg-background hover:bg-muted/50 gap-1"
+              className="h-9 w-[72px] px-3 text-sm font-medium font-hebrew border-input bg-background hover:bg-muted/50 gap-1"
               dir="rtl"
             >
               <SelectValue />

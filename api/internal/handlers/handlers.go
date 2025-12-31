@@ -41,7 +41,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jcom-dev/zmanim/internal/ai"
@@ -65,9 +64,7 @@ type Handlers struct {
 	recaptchaService      *services.RecaptchaService
 	snapshotService       *services.SnapshotService
 	completeExportService *services.CompleteExportService
-	calculationLogService *services.CalculationLogService
 	activityService       *services.ActivityService
-	rollupScheduler       *services.RollupScheduler
 	// PublisherResolver consolidates publisher ID resolution logic
 	publisherResolver *PublisherResolver
 	// AI services (optional - may be nil if not configured)
@@ -120,19 +117,9 @@ func (h *Handlers) SetCache(c *cache.Cache) {
 	h.cache = c
 }
 
-// SetCalculationLogService configures the calculation logging service
-func (h *Handlers) SetCalculationLogService(s *services.CalculationLogService) {
-	h.calculationLogService = s
-}
-
 // SetZmanimService configures the zmanim service
 func (h *Handlers) SetZmanimService(s *services.ZmanimService) {
 	h.zmanimService = s
-}
-
-// SetRollupScheduler configures the rollup scheduler
-func (h *Handlers) SetRollupScheduler(s *services.RollupScheduler) {
-	h.rollupScheduler = s
 }
 
 // GetPublisherResolver returns the publisher resolver for use by other handlers
@@ -1097,128 +1084,6 @@ func formatActionDescription(actionType string, entityType *string, metadataJSON
 	}
 }
 
-// GetPublisherAnalytics returns analytics for the publisher
-// GET /api/publisher/analytics
-func (h *Handlers) GetPublisherAnalytics(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Get user ID from context
-	userID := middleware.GetUserID(ctx)
-	if userID == "" {
-		RespondUnauthorized(w, r, "User ID not found in context")
-		return
-	}
-
-	// Get publisher ID from header or query
-	publisherID := r.Header.Get("X-Publisher-Id")
-	if publisherID == "" {
-		publisherID = r.URL.Query().Get("publisher_id")
-	}
-
-	// If no publisher ID provided, get from database using clerk_user_id
-	if publisherID == "" {
-		pubID, err := h.db.Queries.GetPublisherByClerkUserID(ctx, &userID)
-		if err != nil {
-			slog.Error("failed to get publisher by clerk user ID", "error", err)
-			RespondNotFound(w, r, "Publisher not found")
-			return
-		}
-		publisherID = int32ToString(pubID)
-	}
-
-	// Convert publisherID to int32 for queries
-	pubID, err := stringToInt32(publisherID)
-	if err != nil {
-		RespondBadRequest(w, r, "Invalid publisher ID")
-		return
-	}
-
-	// Get coverage counts
-	coverageAreas, err := h.db.Queries.GetPublisherCoverageCount(ctx, pubID)
-	if err != nil {
-		slog.Error("failed to get coverage count", "error", err)
-		coverageAreas = 0
-	}
-
-	// Estimate localities count
-	localitiesCovered, err := h.db.Queries.GetPublisherLocalitiesCovered(ctx, pubID)
-	if err != nil {
-		slog.Error("failed to get localities covered", "error", err)
-		localitiesCovered = 0
-	}
-
-	// Get real calculation stats from database
-	calculationsTotal, err := h.db.Queries.GetPublisherTotalCalculations(ctx, pubID)
-	if err != nil {
-		slog.Error("failed to get total calculations", "error", err, "publisher_id", pubID)
-		calculationsTotal = 0
-	}
-
-	calculationsThisMonth, err := h.db.Queries.GetPublisherMonthlyCalculations(ctx, pubID)
-	if err != nil {
-		slog.Error("failed to get monthly calculations", "error", err, "publisher_id", pubID)
-		calculationsThisMonth = 0
-	}
-
-	// Get cache hit ratio
-	cacheStats, err := h.db.Queries.GetPublisherCacheHitRatio(ctx, pubID)
-	if err != nil {
-		slog.Error("failed to get cache hit ratio", "error", err, "publisher_id", pubID)
-	}
-
-	// Get daily trend (last 7 days)
-	dailyTrendRows, err := h.db.Queries.GetPublisherDailyTrend(ctx, pubID)
-	if err != nil {
-		slog.Error("failed to get daily trend", "error", err, "publisher_id", pubID)
-	}
-
-	// Build daily trend response, filling missing days with 0
-	dailyTrend := make([]map[string]interface{}, 0)
-	trendMap := make(map[string]int32)
-	for _, row := range dailyTrendRows {
-		trendMap[row.Date.Time.Format("2006-01-02")] = row.TotalCalculations
-	}
-
-	// Fill last 7 days including today
-	now := time.Now()
-	for i := 6; i >= 0; i-- {
-		date := now.AddDate(0, 0, -i)
-		dateStr := date.Format("2006-01-02")
-		count := trendMap[dateStr]
-		dailyTrend = append(dailyTrend, map[string]interface{}{
-			"date":  dateStr,
-			"count": count,
-		})
-	}
-
-	// Get top 5 localities
-	topLocalitiesRows, err := h.db.Queries.GetPublisherTopLocalities(ctx, sqlcgen.GetPublisherTopLocalitiesParams{
-		PublisherID: pubID,
-		Limit:       5,
-	})
-	if err != nil {
-		slog.Error("failed to get top localities", "error", err, "publisher_id", pubID)
-	}
-
-	topLocalities := make([]map[string]interface{}, 0)
-	for _, row := range topLocalitiesRows {
-		topLocalities = append(topLocalities, map[string]interface{}{
-			"name":  row.Name,
-			"count": row.Count,
-		})
-	}
-
-	RespondJSON(w, r, http.StatusOK, map[string]interface{}{
-		"calculations_total":      calculationsTotal,
-		"calculations_this_month": calculationsThisMonth,
-		"cache_hit_ratio":         cacheStats.CacheHitRatio,
-		"coverage_areas":          coverageAreas,
-		"localities_covered":      localitiesCovered,
-		"daily_trend":             dailyTrend,
-		"top_localities":          topLocalities,
-	})
-}
-
 // GetPublisherDashboardSummary returns a summary of the publisher's dashboard data
 //
 //	@Summary		Get dashboard summary
@@ -1281,12 +1146,14 @@ func (h *Handlers) GetPublisherDashboardSummary(w http.ResponseWriter, r *http.R
 
 	// Get algorithm summary
 	algorithmSummary := map[string]interface{}{
-		"status": "none",
+		"total_count":     0,
+		"published_count": 0,
+		"updated_at":      nil,
 	}
 	algorithmData, err := h.db.Queries.GetPublisherAlgorithmSummary(ctx, pubID)
 	if err == nil {
-		algorithmSummary["status"] = algorithmData.StatusKey
-		algorithmSummary["name"] = algorithmData.Name
+		algorithmSummary["total_count"] = algorithmData.TotalCount
+		algorithmSummary["published_count"] = algorithmData.PublishedCount
 		algorithmSummary["updated_at"] = algorithmData.UpdatedAt
 	}
 

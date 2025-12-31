@@ -228,35 +228,6 @@ type BlockedEmail struct {
 	Reason *string `json:"reason"`
 }
 
-// Records all zmanim calculation requests for analytics. Optimized for high-volume inserts using batch COPY protocol.
-type CalculationLog struct {
-	ID             int64       `json:"id"`
-	PublisherID    int32       `json:"publisher_id"`
-	LocalityID     int64       `json:"locality_id"`
-	DateCalculated pgtype.Date `json:"date_calculated"`
-	// Whether result was served from Redis cache
-	CacheHit bool `json:"cache_hit"`
-	// Total calculation time in milliseconds (includes cache lookup)
-	ResponseTimeMs *int16 `json:"response_time_ms"`
-	ZmanCount      *int16 `json:"zman_count"`
-	// Request source: 1=web UI, 2=authenticated API, 3=external API (M2M)
-	Source    int16              `json:"source"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-}
-
-// Pre-aggregated daily statistics for fast dashboard queries. Updated by daily rollup job.
-type CalculationStatsDaily struct {
-	PublisherID       int32       `json:"publisher_id"`
-	Date              pgtype.Date `json:"date"`
-	TotalCalculations int32       `json:"total_calculations"`
-	CacheHits         int32       `json:"cache_hits"`
-	// Sum of all response times for average calculation
-	TotalResponseTimeMs int64 `json:"total_response_time_ms"`
-	SourceWeb           int32 `json:"source_web"`
-	SourceApi           int32 `json:"source_api"`
-	SourceExternal      int32 `json:"source_external"`
-}
-
 // Audit trail for all correction request actions (approve, reject, revert)
 type CorrectionRequestHistory struct {
 	ID                  int32              `json:"id"`
@@ -618,10 +589,6 @@ type MasterZmanimRegistry struct {
 	UsageContext *string `json:"usage_context"`
 	// Array of master_zmanim_registry IDs that are related to this zman (e.g., same zman with different calculation methods).
 	RelatedZmanimIds []int32 `json:"related_zmanim_ids"`
-	// Primary halachic opinion (shita) for this zman. Values: GRA, MGA, BAAL_HATANYA, RABBEINU_TAM, GEONIM, ATERET_TORAH, YEREIM, UNIVERSAL
-	Shita *string `json:"shita"`
-	// Time category for UI grouping. Values: ALOS, MISHEYAKIR, SHEMA, TEFILLA, CHATZOS, MINCHA, PLAG, SHKIA, BEIN_HASHMASHOS, TZAIS, CANDLE_LIGHTING, SPECIAL, OTHER
-	Category *string `json:"category"`
 }
 
 type PasswordResetToken struct {

@@ -1,5 +1,5 @@
 -- Migration: Initial Schema
--- Generated from database dump on 2025-12-28
+-- Generated from database dump on 2025-12-31
 -- This migration creates the complete database schema for the Zmanim application
 -- Do not make changes to this file after initial creation - create new migration files instead
 
@@ -2039,80 +2039,6 @@ CREATE SEQUENCE public.blocked_emails_id_seq
 ALTER SEQUENCE public.blocked_emails_id_seq OWNED BY public.blocked_emails.id;
 
 
--- Name: calculation_logs; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.calculation_logs (
-    id bigint NOT NULL,
-    publisher_id integer NOT NULL,
-    locality_id bigint NOT NULL,
-    date_calculated date NOT NULL,
-    cache_hit boolean DEFAULT false NOT NULL,
-    response_time_ms smallint,
-    zman_count smallint,
-    source smallint NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
--- Name: TABLE calculation_logs; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON TABLE public.calculation_logs IS 'Records all zmanim calculation requests for analytics. Optimized for high-volume inserts using batch COPY protocol.';
-
-
--- Name: COLUMN calculation_logs.cache_hit; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.calculation_logs.cache_hit IS 'Whether result was served from Redis cache';
-
-
--- Name: COLUMN calculation_logs.response_time_ms; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.calculation_logs.response_time_ms IS 'Total calculation time in milliseconds (includes cache lookup)';
-
-
--- Name: COLUMN calculation_logs.source; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.calculation_logs.source IS 'Request source: 1=web UI, 2=authenticated API, 3=external API (M2M)';
-
-
--- Name: calculation_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
-
-CREATE SEQUENCE public.calculation_logs_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
--- Name: calculation_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
-
-ALTER SEQUENCE public.calculation_logs_id_seq OWNED BY public.calculation_logs.id;
-
-
--- Name: calculation_stats_daily; Type: TABLE; Schema: public; Owner: -
-
-CREATE TABLE public.calculation_stats_daily (
-    publisher_id integer NOT NULL,
-    date date NOT NULL,
-    total_calculations integer DEFAULT 0 NOT NULL,
-    cache_hits integer DEFAULT 0 NOT NULL,
-    total_response_time_ms bigint DEFAULT 0 NOT NULL,
-    source_web integer DEFAULT 0 NOT NULL,
-    source_api integer DEFAULT 0 NOT NULL,
-    source_external integer DEFAULT 0 NOT NULL
-);
-
-
--- Name: TABLE calculation_stats_daily; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON TABLE public.calculation_stats_daily IS 'Pre-aggregated daily statistics for fast dashboard queries. Updated by daily rollup job.';
-
-
--- Name: COLUMN calculation_stats_daily.total_response_time_ms; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.calculation_stats_daily.total_response_time_ms IS 'Sum of all response times for average calculation';
-
-
 -- Name: correction_request_history; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.correction_request_history (
@@ -2920,11 +2846,7 @@ CREATE TABLE public.master_zmanim_registry (
     full_description text,
     formula_explanation text,
     usage_context text,
-    related_zmanim_ids integer[],
-    shita character varying(50),
-    category character varying(50),
-    CONSTRAINT master_zmanim_registry_category_check CHECK (((category IS NULL) OR ((category)::text = ANY (ARRAY[('ALOS'::character varying)::text, ('MISHEYAKIR'::character varying)::text, ('SHEMA'::character varying)::text, ('TEFILLA'::character varying)::text, ('CHATZOS'::character varying)::text, ('MINCHA'::character varying)::text, ('PLAG'::character varying)::text, ('SHKIA'::character varying)::text, ('BEIN_HASHMASHOS'::character varying)::text, ('TZAIS'::character varying)::text, ('CANDLE_LIGHTING'::character varying)::text, ('SPECIAL'::character varying)::text, ('OTHER'::character varying)::text])))),
-    CONSTRAINT master_zmanim_registry_shita_check CHECK (((shita IS NULL) OR ((shita)::text = ANY (ARRAY[('GRA'::character varying)::text, ('MGA'::character varying)::text, ('BAAL_HATANYA'::character varying)::text, ('RABBEINU_TAM'::character varying)::text, ('GEONIM'::character varying)::text, ('ATERET_TORAH'::character varying)::text, ('YEREIM'::character varying)::text, ('AHAVAT_SHALOM'::character varying)::text, ('UNIVERSAL'::character varying)::text]))))
+    related_zmanim_ids integer[]
 );
 
 
@@ -2956,16 +2878,6 @@ COMMENT ON COLUMN public.master_zmanim_registry.usage_context IS 'When and how t
 -- Name: COLUMN master_zmanim_registry.related_zmanim_ids; Type: COMMENT; Schema: public; Owner: -
 
 COMMENT ON COLUMN public.master_zmanim_registry.related_zmanim_ids IS 'Array of master_zmanim_registry IDs that are related to this zman (e.g., same zman with different calculation methods).';
-
-
--- Name: COLUMN master_zmanim_registry.shita; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.master_zmanim_registry.shita IS 'Primary halachic opinion (shita) for this zman. Values: GRA, MGA, BAAL_HATANYA, RABBEINU_TAM, GEONIM, ATERET_TORAH, YEREIM, UNIVERSAL';
-
-
--- Name: COLUMN master_zmanim_registry.category; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.master_zmanim_registry.category IS 'Time category for UI grouping. Values: ALOS, MISHEYAKIR, SHEMA, TEFILLA, CHATZOS, MINCHA, PLAG, SHKIA, BEIN_HASHMASHOS, TZAIS, CANDLE_LIGHTING, SPECIAL, OTHER';
 
 
 -- Name: master_zmanim_registry_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -3548,7 +3460,6 @@ CREATE TABLE public.publisher_zmanim (
     rounding_mode character varying(10) DEFAULT 'math'::character varying NOT NULL,
     display_status public.display_status DEFAULT 'core'::public.display_status NOT NULL,
     copied_from_publisher_id integer,
-    show_in_preview boolean DEFAULT true NOT NULL,
     CONSTRAINT publisher_zmanim_rounding_mode_check CHECK (((rounding_mode)::text = ANY (ARRAY[('floor'::character varying)::text, ('math'::character varying)::text, ('ceil'::character varying)::text])))
 );
 
@@ -3570,13 +3481,6 @@ COMMENT ON COLUMN public.publisher_zmanim.display_status IS 'Controls how this z
 -- Name: COLUMN publisher_zmanim.copied_from_publisher_id; Type: COMMENT; Schema: public; Owner: -
 
 COMMENT ON COLUMN public.publisher_zmanim.copied_from_publisher_id IS 'If this zman was copied from another publisher, the source publisher ID. Used for lineage tracking.';
-
-
--- Name: COLUMN publisher_zmanim.show_in_preview; Type: COMMENT; Schema: public; Owner: -
-
-COMMENT ON COLUMN public.publisher_zmanim.show_in_preview IS 'Controls whether this zman appears in preview contexts (week view, reports).
-When false, zman only appears in Algorithm Editor (includeInactive=true).
-Use false for event-specific zmanim that should only show when their event is active.';
 
 
 -- Name: publisher_zmanim_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -4024,11 +3928,6 @@ ALTER TABLE ONLY public.astronomical_primitives ALTER COLUMN id SET DEFAULT next
 ALTER TABLE ONLY public.blocked_emails ALTER COLUMN id SET DEFAULT nextval('public.blocked_emails_id_seq'::regclass);
 
 
--- Name: calculation_logs id; Type: DEFAULT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.calculation_logs ALTER COLUMN id SET DEFAULT nextval('public.calculation_logs_id_seq'::regclass);
-
-
 -- Name: correction_request_history id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.correction_request_history ALTER COLUMN id SET DEFAULT nextval('public.correction_request_history_id_seq'::regclass);
@@ -4225,18 +4124,6 @@ ALTER TABLE ONLY public.astronomical_primitives
 
 ALTER TABLE ONLY public.blocked_emails
     ADD CONSTRAINT blocked_emails_pkey PRIMARY KEY (id);
-
-
--- Name: calculation_logs calculation_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.calculation_logs
-    ADD CONSTRAINT calculation_logs_pkey PRIMARY KEY (id);
-
-
--- Name: calculation_stats_daily calculation_stats_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.calculation_stats_daily
-    ADD CONSTRAINT calculation_stats_daily_pkey PRIMARY KEY (publisher_id, date);
 
 
 -- Name: correction_request_history correction_request_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4669,46 +4556,6 @@ CREATE INDEX idx_ai_audit_logs_user_id ON public.ai_audit_logs USING btree (user
 CREATE INDEX idx_algorithms_publisher_status ON public.algorithms USING btree (publisher_id, status_id);
 
 
--- Name: idx_calculation_logs_created_at; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_logs_created_at ON public.calculation_logs USING btree (created_at);
-
-
--- Name: idx_calculation_logs_date_calculated; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_logs_date_calculated ON public.calculation_logs USING btree (date_calculated);
-
-
--- Name: idx_calculation_logs_locality_id; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_logs_locality_id ON public.calculation_logs USING btree (locality_id);
-
-
--- Name: idx_calculation_logs_publisher_date; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_logs_publisher_date ON public.calculation_logs USING btree (publisher_id, date_calculated);
-
-
--- Name: idx_calculation_logs_publisher_id; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_logs_publisher_id ON public.calculation_logs USING btree (publisher_id);
-
-
--- Name: idx_calculation_logs_rollup; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_logs_rollup ON public.calculation_logs USING btree (publisher_id, created_at, date_calculated);
-
-
--- Name: idx_calculation_stats_date; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_stats_date ON public.calculation_stats_daily USING btree (date);
-
-
--- Name: idx_calculation_stats_publisher_date; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_calculation_stats_publisher_date ON public.calculation_stats_daily USING btree (publisher_id, date);
-
-
 -- Name: idx_geo_localities_type; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX idx_geo_localities_type ON public.geo_localities USING btree (locality_type_id);
@@ -4929,11 +4776,6 @@ CREATE INDEX idx_publisher_zmanim_linked ON public.publisher_zmanim USING btree 
 CREATE INDEX idx_publisher_zmanim_master ON public.publisher_zmanim USING btree (master_zman_id) WHERE ((deleted_at IS NULL) AND (master_zman_id IS NOT NULL));
 
 
--- Name: idx_publisher_zmanim_preview; Type: INDEX; Schema: public; Owner: -
-
-CREATE INDEX idx_publisher_zmanim_preview ON public.publisher_zmanim USING btree (publisher_id, show_in_preview) WHERE (deleted_at IS NULL);
-
-
 -- Name: idx_publisher_zmanim_publisher; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX idx_publisher_zmanim_publisher ON public.publisher_zmanim USING btree (publisher_id) WHERE (deleted_at IS NULL);
@@ -5052,12 +4894,6 @@ ALTER TABLE ONLY public.algorithms
 
 ALTER TABLE ONLY public.algorithms
     ADD CONSTRAINT fk_algorithms_status FOREIGN KEY (status_id) REFERENCES public.algorithm_statuses(id);
-
-
--- Name: geo_localities fk_geo_localities_type; Type: FK CONSTRAINT; Schema: public; Owner: -
-
-ALTER TABLE ONLY public.geo_localities
-    ADD CONSTRAINT fk_geo_localities_type FOREIGN KEY (locality_type_id) REFERENCES public.geo_locality_types(id);
 
 
 -- Name: master_zman_tags fk_master_zman_tags_master_zman; Type: FK CONSTRAINT; Schema: public; Owner: -

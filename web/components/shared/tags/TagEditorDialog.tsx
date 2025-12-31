@@ -280,12 +280,13 @@ export function TagEditorDialog({
     return tags;
   }, [allAvailableTags, selectedTagIds, negatedTagIds, currentTags]);
 
-  // Determine default tab (first non-empty, in order: Event, Timing, Opinion)
+  // Determine default tab (first non-empty, in order: Category, Event, Timing, Opinion)
   const defaultTab = useMemo(() => {
+    if (tagsByType.categoryTags.length > 0) return 'category';
     if (tagsByType.eventTags.length > 0) return 'event';
     if (tagsByType.timingTags.length > 0) return 'timing';
     if (tagsByType.shitaTags.length > 0) return 'shita';
-    return 'event';
+    return 'category';
   }, [tagsByType]);
 
   // Check if any event tags are selected (to enable Timing tab)
@@ -367,7 +368,20 @@ export function TagEditorDialog({
 
               {/* Tabs for different tag types */}
               <Tabs defaultValue={defaultTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger
+                    value="category"
+                    disabled={tagsByType.categoryTags.length === 0}
+                    className="relative"
+                  >
+                    Category
+                    {tagsByType.categoryTags.filter((t) => selectedTagIds.includes(t.id)).length >
+                      0 && (
+                      <span className="ml-1.5 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        {tagsByType.categoryTags.filter((t) => selectedTagIds.includes(t.id)).length}
+                      </span>
+                    )}
+                  </TabsTrigger>
                   <TabsTrigger
                     value="event"
                     disabled={tagsByType.eventTags.length === 0}
@@ -408,6 +422,28 @@ export function TagEditorDialog({
                     )}
                   </TabsTrigger>
                 </TabsList>
+
+                {/* Category Tab - simple checkbox */}
+                <TabsContent value="category" className="mt-4">
+                  {tagsByType.categoryTags.length > 0 ? (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        Category Tags (Include Only)
+                      </label>
+                      <TagSelector
+                        tags={tagsByType.categoryTags}
+                        selectedTagIds={selectedTagIds.filter((id) =>
+                          tagsByType.categoryTags.some((t) => t.id === id)
+                        )}
+                        onToggleTag={handleToggleSimpleTag}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No category tags available
+                    </div>
+                  )}
+                </TabsContent>
 
                 {/* Event Tab - 3-state selector with negation */}
                 <TabsContent value="event" className="mt-4">

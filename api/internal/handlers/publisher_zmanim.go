@@ -192,7 +192,6 @@ var dayNames = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", 
 //	@Failure		500				{object}	APIResponse{error=APIError}	"Internal server error"
 //	@Router			/publisher/zmanim [get]
 func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
-	start := time.Now() // Track response time for logging
 	ctx := r.Context()
 
 	// Use PublisherResolver to get publisher context
@@ -394,19 +393,6 @@ func (h *Handlers) GetPublisherZmanim(w http.ResponseWriter, r *http.Request) {
 		Zmanim:     zmanimWithTime,
 	}
 
-	// Log the calculation
-	if h.calculationLogService != nil {
-		h.calculationLogService.Log(services.CalculationLogEntry{
-			PublisherID:    publisherIDInt32,
-			LocalityID:     localityID,
-			DateCalculated: date,
-			CacheHit:       calcResult.FromCache,
-			ResponseTimeMs: int16(time.Since(start).Milliseconds()),
-			ZmanCount:      int16(len(zmanimWithTime)),
-			Source:         services.SourceAPI,
-		})
-	}
-
 	slog.Info("fetched zmanim with locality_id", "count", len(zmanimWithTime), "publisher_id", publisherID, "locality_id", localityID, "date", dateStr, "cached", calcResult.FromCache)
 	RespondJSON(w, r, http.StatusOK, response)
 }
@@ -426,7 +412,6 @@ type WeekZmanimResponse struct {
 // This is a batch endpoint that calculates all 7 days in one request with caching
 // GET /api/v1/publisher/zmanim/week?start_date=YYYY-MM-DD&locality_id=X
 func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request) {
-	start := time.Now() // Track response time for logging
 	ctx := r.Context()
 
 	// Use PublisherResolver to get publisher context
@@ -620,26 +605,6 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 
 	response := WeekZmanimResponse{Days: days}
 
-	// Log calculations for each day in the week
-	if h.calculationLogService != nil {
-		logEntries := make([]services.CalculationLogEntry, 0, len(days))
-		responseTimePerDay := int16(time.Since(start).Milliseconds() / int64(len(days)))
-		currentDate := startDate
-		for _, day := range days {
-			logEntries = append(logEntries, services.CalculationLogEntry{
-				PublisherID:    publisherIDInt,
-				LocalityID:     localityID,
-				DateCalculated: currentDate,
-				CacheHit:       false, // Week endpoint doesn't expose individual day cache status
-				ResponseTimeMs: responseTimePerDay,
-				ZmanCount:      int16(len(day.Zmanim)),
-				Source:         services.SourceAPI,
-			})
-			currentDate = currentDate.AddDate(0, 0, 1)
-		}
-		h.calculationLogService.LogBatch(logEntries)
-	}
-
 	slog.Info("fetched week zmanim", "publisher_id", publisherID, "start_date", startDateStr, "locality_id", localityID)
 	RespondJSON(w, r, http.StatusOK, response)
 }
@@ -705,7 +670,6 @@ type YearExportPrimitive struct {
 //	@Failure		404				{object}	APIResponse{error=APIError}				"Locality not found"
 //	@Router			/publisher/zmanim/year [get]
 func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request) {
-	start := time.Now() // Track response time for logging
 	ctx := r.Context()
 
 	// Use PublisherResolver to get publisher context
@@ -937,26 +901,6 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 		ZmanimFormulas:   formulas,
 		Days:             days,
 		ElevationUsed:    elevationUsed,
-	}
-
-	// Log calculations for each day in the year
-	if h.calculationLogService != nil {
-		logEntries := make([]services.CalculationLogEntry, 0, len(days))
-		responseTimePerDay := int16(time.Since(start).Milliseconds() / int64(len(days)))
-		currentDate := startDate
-		for _, day := range days {
-			logEntries = append(logEntries, services.CalculationLogEntry{
-				PublisherID:    publisherIDInt32,
-				LocalityID:     localityID,
-				DateCalculated: currentDate,
-				CacheHit:       false, // Year endpoint doesn't expose individual day cache status
-				ResponseTimeMs: responseTimePerDay,
-				ZmanCount:      int16(len(day.Times)),
-				Source:         services.SourceAPI,
-			})
-			currentDate = currentDate.AddDate(0, 0, 1)
-		}
-		h.calculationLogService.LogBatch(logEntries)
 	}
 
 	slog.Info("generated year zmanim export",

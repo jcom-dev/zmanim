@@ -50,8 +50,6 @@ SELECT
     pz.rounding_mode,
     mzr.id as master_zman_id,
     mzr.formula_explanation,
-    mzr.category,
-    mzr.shita,
     mzr.canonical_hebrew_name as master_hebrew_name,
     mzr.canonical_english_name as master_english_name,
     COALESCE(mr_tc.key, tc.key, 'uncategorized') AS time_category,

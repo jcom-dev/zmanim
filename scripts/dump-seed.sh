@@ -128,14 +128,16 @@ for table in "${SEED_TABLES[@]}"; do
     echo "-- $table ($row_count rows)" >> "$MIGRATION_FILE"
     echo "-- ============================================" >> "$MIGRATION_FILE"
 
-    # Dump data with INSERT statements
+    # Dump data with INSERT statements using column-inserts for better formatting
+    # and --rows-per-insert=1 to ensure each row is a separate statement (prevents truncation)
     PGPASSWORD="$DB_PASS" pg_dump \
       -h "$DB_HOST" \
       -p "$DB_PORT" \
       -U "$DB_USER" \
       -d "$DB_NAME" \
       --data-only \
-      --inserts \
+      --column-inserts \
+      --rows-per-insert=1 \
       --no-owner \
       --no-privileges \
       --table="public.$table" \
@@ -183,6 +185,31 @@ for table in "${SEED_TABLES[@]}"; do
     fi
   fi
 done
+
+# Validate that all INSERT statements are properly terminated
+echo "Validating INSERT statement integrity..."
+truncated_count=$(grep -c "^INSERT INTO" "$MIGRATION_FILE" || true)
+terminated_count=$(grep -c "ON CONFLICT DO NOTHING;$" "$MIGRATION_FILE" || true)
+
+if [ "$truncated_count" -ne "$terminated_count" ]; then
+  echo ""
+  echo "ERROR: Found truncated INSERT statements!"
+  echo "  Total INSERT statements: $truncated_count"
+  echo "  Properly terminated: $terminated_count"
+  echo "  Missing termination: $((truncated_count - terminated_count))"
+  echo ""
+  echo "Lines with potential truncation:"
+  grep -n "^INSERT INTO" "$MIGRATION_FILE" | while IFS=: read -r num rest; do
+    line=$(sed -n "${num}p" "$MIGRATION_FILE")
+    if [[ ! "$line" == *"ON CONFLICT DO NOTHING;" ]]; then
+      echo "  Line $num: $(echo "$rest" | cut -c1-80)..."
+    fi
+  done
+  echo ""
+  echo "This usually indicates pg_dump output was truncated. Try running the script again."
+  exit 1
+fi
+echo "  All $truncated_count INSERT statements are properly terminated."
 
 # Get final stats
 line_count=$(wc -l < "$MIGRATION_FILE")

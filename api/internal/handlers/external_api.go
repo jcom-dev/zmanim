@@ -390,24 +390,6 @@ func (h *Handlers) CalculateExternalBulkZmanim(w http.ResponseWriter, r *http.Re
 		GeneratedAt:       time.Now().UTC().Format(time.RFC3339),
 	}
 
-	// Log the bulk calculation (AC: 7 - bulk API calls log efficiently)
-	if h.calculationLogService != nil {
-		// Log each day in the date range
-		logEntries := make([]services.CalculationLogEntry, 0, daysDiff)
-		for d := startDate; d.Before(endDate) || d.Equal(endDate); d = d.AddDate(0, 0, 1) {
-			logEntries = append(logEntries, services.CalculationLogEntry{
-				PublisherID:    publisherID,
-				LocalityID:     int64(req.LocalityID),
-				DateCalculated: d,
-				CacheHit:       false,
-				ResponseTimeMs: int16(calculationTime / int64(daysDiff)),
-				ZmanCount:      int16(len(req.Zmanim)),
-				Source:         services.SourceExternal,
-			})
-		}
-		h.calculationLogService.LogBatch(logEntries)
-	}
-
 	slog.Info("calculated bulk zmanim",
 		"publisher_id", req.PublisherID,
 		"locality_id", req.LocalityID,

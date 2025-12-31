@@ -41,8 +41,6 @@ function PublisherLayoutContent({ children }: { children: ReactNode }) {
     { href: '/publisher/primitives', label: 'Primitives' },
     { href: '/publisher/corrections', label: 'Locations' },
     { href: '/publisher/team', label: 'Team' },
-    { href: '/publisher/analytics', label: 'Analytics' },
-    { href: '/publisher/audit', label: 'Audit' },
   ];
 
   return (

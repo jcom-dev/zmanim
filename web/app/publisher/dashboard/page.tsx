@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { User, MapPin, Code, BarChart3, AlertTriangle, Clock, Loader2, Plus, CheckCircle } from 'lucide-react';
+import { User, MapPin, Code, AlertTriangle, Clock, Loader2, Plus, CheckCircle } from 'lucide-react';
 import { usePublisherContext } from '@/providers/PublisherContext';
 import { useApi } from '@/lib/api-client';
 import { StatusTooltip } from '@/components/shared/InfoTooltip';
@@ -16,24 +16,14 @@ interface DashboardSummary {
     status: string;
   };
   algorithm: {
-    status: 'none' | 'draft' | 'published' | 'active' | 'archived';
-    name: string | null;
+    total_count: number;
+    published_count: number;
     updated_at: string | null;
   };
   coverage: {
     total_areas: number;
     total_localities: number;
   };
-  analytics: {
-    calculations_this_month: number;
-    calculations_total: number;
-  };
-  recent_activity: Array<{
-    action_type: string;
-    description: string;
-    created_at: string;
-    actor_type: string;
-  }>;
 }
 
 export default function PublisherDashboardPage() {
@@ -210,29 +200,38 @@ export default function PublisherDashboardPage() {
 
   const getAlgorithmStatus = () => {
     if (!summary) return null;
-    switch (summary.algorithm.status) {
-      case 'published':
-      case 'active':
-        return (
-          <StatusTooltip status="published" tooltip={STATUS_TOOLTIPS.published}>
-            <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
-              <CheckCircle className="w-4 h-4" /> Published
-            </span>
-          </StatusTooltip>
-        );
-      case 'draft':
-        return (
-          <StatusTooltip status="draft" tooltip={STATUS_TOOLTIPS.draft}>
-            <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400 text-sm">
-              <AlertTriangle className="w-4 h-4" /> Draft
-            </span>
-          </StatusTooltip>
-        );
-      case 'none':
-        return <span className="text-muted-foreground text-sm">Not configured</span>;
-      default:
-        return null;
+    const { total_count, published_count } = summary.algorithm;
+
+    if (total_count === 0) {
+      return <span className="text-muted-foreground text-sm">Not configured</span>;
     }
+
+    if (published_count === 0) {
+      return (
+        <StatusTooltip status="draft" tooltip={STATUS_TOOLTIPS.draft}>
+          <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400 text-sm">
+            <AlertTriangle className="w-4 h-4" /> All Draft
+          </span>
+        </StatusTooltip>
+      );
+    }
+
+    if (published_count === total_count) {
+      return (
+        <StatusTooltip status="published" tooltip={STATUS_TOOLTIPS.published}>
+          <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
+            <CheckCircle className="w-4 h-4" /> All Published
+          </span>
+        </StatusTooltip>
+      );
+    }
+
+    // Some published, some draft
+    return (
+      <span className="text-sm text-muted-foreground">
+        {published_count} of {total_count} Published
+      </span>
+    );
   };
 
   return (
@@ -278,7 +277,7 @@ export default function PublisherDashboardPage() {
           {/* Zmanim Card */}
           <Link
             href="/publisher/algorithm"
-            className={`bg-card rounded-lg p-6 border transition-colors group ${summary?.algorithm.status === 'draft'
+            className={`bg-card rounded-lg p-6 border transition-colors group ${summary?.algorithm.published_count === 0 && summary?.algorithm.total_count > 0
               ? 'border-yellow-500/50 hover:border-yellow-500'
               : 'border-border hover:border-primary/50'
               }`}
@@ -298,13 +297,17 @@ export default function PublisherDashboardPage() {
             <h2 className="text-lg font-semibold mb-1 group-hover:text-purple-400 transition-colors">Zmanim</h2>
             {summary && (
               <>
-                <p className="text-foreground">{summary.algorithm.name || 'No zmanim configured'}</p>
+                <p className="text-foreground">
+                  {summary.algorithm.total_count > 0
+                    ? `${summary.algorithm.total_count} Zmanim`
+                    : 'No zmanim configured'}
+                </p>
                 <p className="text-muted-foreground text-sm">
                   Updated: {formatDate(summary.algorithm.updated_at)}
                 </p>
               </>
             )}
-            {summary?.algorithm.status === 'draft' && (
+            {summary?.algorithm.published_count === 0 && summary?.algorithm.total_count > 0 && (
               <div className="mt-3 flex items-center gap-2 text-yellow-600 dark:text-yellow-400 text-sm">
                 <AlertTriangle className="w-4 h-4" />
                 Zmanim not published - users can&apos;t see your times
@@ -351,75 +354,6 @@ export default function PublisherDashboardPage() {
               </div>
             )}
           </Link>
-
-          {/* Analytics Card */}
-          <Link
-            href="/publisher/analytics"
-            className="bg-card rounded-lg p-6 border border-border hover:border-primary/50 transition-colors group"
-            data-testid="publisher-dashboard-analytics-card"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <BarChart3 className="w-8 h-8 text-orange-500" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>View usage statistics for your zmanim</TooltipContent>
-              </Tooltip>
-            </div>
-            <h2 className="text-lg font-semibold mb-1 group-hover:text-orange-400 transition-colors">Analytics</h2>
-            {summary && (
-              <>
-                <p className="text-3xl font-bold text-foreground">
-                  {summary.analytics.calculations_this_month.toLocaleString()}
-                </p>
-                <StatusTooltip status="calculations" tooltip={ADMIN_TOOLTIPS.calculations_this_month}>
-                  <p className="text-muted-foreground text-sm">calculations this month</p>
-                </StatusTooltip>
-              </>
-            )}
-          </Link>
-        </div>
-
-        {/* Recent Activity Section */}
-        <div className="bg-card rounded-lg border border-border p-6" data-testid="publisher-dashboard-recent-activity">
-          <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-          {summary && summary.recent_activity.length > 0 ? (
-            <div className="space-y-3">
-              {summary.recent_activity.map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>Activity timestamp</TooltipContent>
-                  </Tooltip>
-                  <div className="flex-1">
-                    <p className="text-foreground text-sm">{activity.description}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatDate(activity.created_at)} • {activity.actor_type}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Activity log is empty</TooltipContent>
-              </Tooltip>
-              <p>No recent activity</p>
-              <p className="text-xs mt-1">Activity will appear here as you make changes</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

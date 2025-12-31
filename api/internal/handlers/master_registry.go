@@ -168,20 +168,19 @@ type ReviewZmanRequestBody struct {
 
 // MasterZmanForRegistry represents a master zman for the registry browser
 type MasterZmanForRegistry struct {
-	ID                   string  `json:"id"`
-	ZmanKey              string  `json:"zman_key"`
-	CanonicalHebrewName  string  `json:"canonical_hebrew_name"`
-	CanonicalEnglishName string  `json:"canonical_english_name"`
-	Transliteration      *string `json:"transliteration,omitempty"`
-	Description          *string `json:"description,omitempty"`
-	DefaultFormulaDSL    *string `json:"default_formula_dsl,omitempty"`
-	Category             *string `json:"category,omitempty"`
-	Shita                *string `json:"shita,omitempty"`
-	TimeCategory         *string `json:"time_category,omitempty"`
-	IsCore               *bool   `json:"is_core,omitempty"`
-	AlreadyImported      bool    `json:"already_imported"`
-	ExistingIsDeleted    bool    `json:"existing_is_deleted"`
-	PreviewTime          *string `json:"preview_time,omitempty"` // Calculated preview time
+	ID                   string    `json:"id"`
+	ZmanKey              string    `json:"zman_key"`
+	CanonicalHebrewName  string    `json:"canonical_hebrew_name"`
+	CanonicalEnglishName string    `json:"canonical_english_name"`
+	Transliteration      *string   `json:"transliteration,omitempty"`
+	Description          *string   `json:"description,omitempty"`
+	DefaultFormulaDSL    *string   `json:"default_formula_dsl,omitempty"`
+	TimeCategory         *string   `json:"time_category,omitempty"`
+	IsCore               *bool     `json:"is_core,omitempty"`
+	AlreadyImported      bool      `json:"already_imported"`
+	ExistingIsDeleted    bool      `json:"existing_is_deleted"`
+	PreviewTime          *string   `json:"preview_time,omitempty"` // Calculated preview time
+	Tags                 []ZmanTag `json:"tags,omitempty"`         // Category and shita tags from master_zman_tags
 }
 
 // RegistryBrowserResponse is the paginated response for the registry browser
@@ -193,10 +192,17 @@ type RegistryBrowserResponse struct {
 	TotalPages int                     `json:"total_pages"`
 }
 
+// RegistryFilterTag represents a tag option for filtering
+type RegistryFilterTag struct {
+	ID          int32  `json:"id"`
+	TagKey      string `json:"tag_key"`
+	DisplayName string `json:"display_name"`
+}
+
 // RegistryFiltersResponse returns available filter options
 type RegistryFiltersResponse struct {
-	Categories []string `json:"categories"`
-	Shitas     []string `json:"shitas"`
+	Categories []RegistryFilterTag `json:"categories"`
+	Shitas     []RegistryFilterTag `json:"shitas"`
 }
 
 // ============================================
@@ -3446,20 +3452,24 @@ func (h *Handlers) ListMasterZmanimForRegistry(w http.ResponseWriter, r *http.Re
 	// Step 2: Parse query params
 	query := r.URL.Query()
 
-	// Parse categories (comma-separated or multiple params)
-	var categories []string
-	if catParam := query.Get("category"); catParam != "" {
-		categories = strings.Split(catParam, ",")
-	} else if catParams := query["category"]; len(catParams) > 0 {
-		categories = catParams
+	// Parse category tag IDs (comma-separated or multiple params)
+	var categoryTagIDs []int32
+	if catParam := query.Get("category_tag_ids"); catParam != "" {
+		for _, idStr := range strings.Split(catParam, ",") {
+			if id, err := strconv.Atoi(strings.TrimSpace(idStr)); err == nil && id > 0 {
+				categoryTagIDs = append(categoryTagIDs, int32(id))
+			}
+		}
 	}
 
-	// Parse shitas (comma-separated or multiple params)
-	var shitas []string
-	if shitaParam := query.Get("shita"); shitaParam != "" {
-		shitas = strings.Split(shitaParam, ",")
-	} else if shitaParams := query["shita"]; len(shitaParams) > 0 {
-		shitas = shitaParams
+	// Parse shita tag IDs (comma-separated or multiple params)
+	var shitaTagIDs []int32
+	if shitaParam := query.Get("shita_tag_ids"); shitaParam != "" {
+		for _, idStr := range strings.Split(shitaParam, ",") {
+			if id, err := strconv.Atoi(strings.TrimSpace(idStr)); err == nil && id > 0 {
+				shitaTagIDs = append(shitaTagIDs, int32(id))
+			}
+		}
 	}
 
 	// Parse status filter
@@ -3529,24 +3539,24 @@ func (h *Handlers) ListMasterZmanimForRegistry(w http.ResponseWriter, r *http.Re
 
 	go func() {
 		rows, err := h.db.Queries.ListMasterZmanimForRegistry(ctx, db.ListMasterZmanimForRegistryParams{
-			PublisherID: publisherID,
-			Categories:  categories,
-			Shitas:      shitas,
-			Search:      searchParam,
-			Status:      statusParam,
-			Limit:       int32(limit),
-			Offset:      int32(offset),
+			PublisherID:    publisherID,
+			CategoryTagIds: categoryTagIDs,
+			ShitaTagIds:    shitaTagIDs,
+			Search:         searchParam,
+			Status:         statusParam,
+			Limit:          int32(limit),
+			Offset:         int32(offset),
 		})
 		listCh <- listResult{rows, err}
 	}()
 
 	go func() {
 		count, err := h.db.Queries.CountMasterZmanimForRegistry(ctx, db.CountMasterZmanimForRegistryParams{
-			PublisherID: publisherID,
-			Categories:  categories,
-			Shitas:      shitas,
-			Search:      searchParam,
-			Status:      statusParam,
+			PublisherID:    publisherID,
+			CategoryTagIds: categoryTagIDs,
+			ShitaTagIds:    shitaTagIDs,
+			Search:         searchParam,
+			Status:         statusParam,
 		})
 		countCh <- countResult{count, err}
 	}()
@@ -3568,6 +3578,44 @@ func (h *Handlers) ListMasterZmanimForRegistry(w http.ResponseWriter, r *http.Re
 
 	// Step 5: Convert to response format and calculate preview times if locality provided
 	items := make([]MasterZmanForRegistry, 0, len(listRes.rows))
+
+	// Collect master zman IDs for bulk tag fetch
+	masterZmanIDs := make([]int32, 0, len(listRes.rows))
+	for _, row := range listRes.rows {
+		masterZmanIDs = append(masterZmanIDs, row.ID)
+	}
+
+	// Fetch tags for all master zmanim in bulk
+	tagsMap := make(map[int32][]ZmanTag)
+	if len(masterZmanIDs) > 0 {
+		tagRows, err := h.db.Queries.GetMasterZmanTagsWithDetails(ctx, masterZmanIDs)
+		if err != nil {
+			slog.Warn("failed to fetch tags for master zmanim", "error", err)
+			// Continue without tags rather than failing
+		} else {
+			for _, tagRow := range tagRows {
+				tag := ZmanTag{
+					ID:                          tagRow.ID,
+					TagKey:                      tagRow.TagKey,
+					Name:                        tagRow.DisplayNameEnglishAshkenazi,
+					DisplayNameHebrew:           tagRow.DisplayNameHebrew,
+					DisplayNameEnglish:          tagRow.DisplayNameEnglishAshkenazi,
+					DisplayNameEnglishAshkenazi: tagRow.DisplayNameEnglishAshkenazi,
+					DisplayNameEnglishSephardi:  tagRow.DisplayNameEnglishSephardi,
+					Description:                 tagRow.Description,
+					Color:                       tagRow.Color,
+					IsNegated:                   tagRow.IsNegated,
+				}
+				if tagRow.TagType != nil {
+					tag.TagType = *tagRow.TagType
+				}
+				if tagRow.CreatedAt.Valid {
+					tag.CreatedAt = tagRow.CreatedAt.Time
+				}
+				tagsMap[tagRow.MasterZmanID] = append(tagsMap[tagRow.MasterZmanID], tag)
+			}
+		}
+	}
 
 	// If locality_id provided, fetch locality and calculate preview times
 	var locality *db.GetLocalityByIDRow
@@ -3617,12 +3665,11 @@ func (h *Handlers) ListMasterZmanimForRegistry(w http.ResponseWriter, r *http.Re
 			Transliteration:      row.Transliteration,
 			Description:          row.Description,
 			DefaultFormulaDSL:    row.DefaultFormulaDsl,
-			Category:             row.Category,
-			Shita:                row.Shita,
 			TimeCategory:         row.TimeCategory,
 			IsCore:               row.IsCore,
 			AlreadyImported:      row.AlreadyImported,
 			ExistingIsDeleted:    row.ExistingIsDeleted,
+			Tags:                 tagsMap[row.ID],
 		}
 
 		// Calculate preview time if locality available and formula exists
@@ -3668,7 +3715,7 @@ func (h *Handlers) ListMasterZmanimForRegistry(w http.ResponseWriter, r *http.Re
 // GetRegistryFilters returns available filter options for the registry browser
 //
 //	@Summary		Get registry filter options
-//	@Description	Get available categories and shitas for filtering
+//	@Description	Get available category and shita tags for filtering
 //	@Tags			Registry
 //	@Produce		json
 //	@Success		200	{object}	RegistryFiltersResponse
@@ -3676,40 +3723,44 @@ func (h *Handlers) ListMasterZmanimForRegistry(w http.ResponseWriter, r *http.Re
 func (h *Handlers) GetRegistryFilters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Get distinct categories
-	categories, err := h.db.Queries.GetDistinctCategories(ctx)
+	// Get distinct category tags
+	categoryTags, err := h.db.Queries.GetDistinctCategories(ctx)
 	if err != nil {
-		slog.Error("failed to get distinct categories", "error", err)
+		slog.Error("failed to get distinct category tags", "error", err)
 		RespondInternalError(w, r, "Failed to get filter options")
 		return
 	}
 
-	// Get distinct shitas
-	shitas, err := h.db.Queries.GetDistinctShitas(ctx)
+	// Get distinct shita tags
+	shitaTags, err := h.db.Queries.GetDistinctShitas(ctx)
 	if err != nil {
-		slog.Error("failed to get distinct shitas", "error", err)
+		slog.Error("failed to get distinct shita tags", "error", err)
 		RespondInternalError(w, r, "Failed to get filter options")
 		return
 	}
 
-	// Convert nil pointers to empty strings and filter nulls
-	catStrings := make([]string, 0, len(categories))
-	for _, c := range categories {
-		if c != nil {
-			catStrings = append(catStrings, *c)
-		}
+	// Convert to response format
+	categoryOptions := make([]RegistryFilterTag, 0, len(categoryTags))
+	for _, c := range categoryTags {
+		categoryOptions = append(categoryOptions, RegistryFilterTag{
+			ID:          c.ID,
+			TagKey:      c.TagKey,
+			DisplayName: c.DisplayNameEnglishAshkenazi,
+		})
 	}
 
-	shitaStrings := make([]string, 0, len(shitas))
-	for _, s := range shitas {
-		if s != nil {
-			shitaStrings = append(shitaStrings, *s)
-		}
+	shitaOptions := make([]RegistryFilterTag, 0, len(shitaTags))
+	for _, s := range shitaTags {
+		shitaOptions = append(shitaOptions, RegistryFilterTag{
+			ID:          s.ID,
+			TagKey:      s.TagKey,
+			DisplayName: s.DisplayNameEnglishAshkenazi,
+		})
 	}
 
 	response := RegistryFiltersResponse{
-		Categories: catStrings,
-		Shitas:     shitaStrings,
+		Categories: categoryOptions,
+		Shitas:     shitaOptions,
 	}
 
 	RespondJSON(w, r, http.StatusOK, response)
@@ -3717,25 +3768,24 @@ func (h *Handlers) GetRegistryFilters(w http.ResponseWriter, r *http.Request) {
 
 // MasterZmanDocumentation represents full documentation for a master zman
 type MasterZmanDocumentation struct {
-	ID                   string  `json:"id"`
-	ZmanKey              string  `json:"zman_key"`
-	CanonicalHebrewName  string  `json:"canonical_hebrew_name"`
-	CanonicalEnglishName string  `json:"canonical_english_name"`
-	Transliteration      string  `json:"transliteration"`
-	Description          string  `json:"description"`
-	DefaultFormulaDsl    string  `json:"default_formula_dsl"`
-	HalachicNotes        *string `json:"halachic_notes,omitempty"`
-	HalachicSource       *string `json:"halachic_source,omitempty"`
-	FullDescription      *string `json:"full_description,omitempty"`
-	FormulaExplanation   *string `json:"formula_explanation,omitempty"`
-	UsageContext         *string `json:"usage_context,omitempty"`
-	RelatedZmanimIds     []int32 `json:"related_zmanim_ids,omitempty"`
-	Shita                *string `json:"shita,omitempty"`
-	Category             *string `json:"category,omitempty"`
-	IsCore               bool    `json:"is_core"`
-	TimeCategory         *string `json:"time_category,omitempty"`
-	CreatedAt            string  `json:"created_at"`
-	UpdatedAt            string  `json:"updated_at"`
+	ID                   string    `json:"id"`
+	ZmanKey              string    `json:"zman_key"`
+	CanonicalHebrewName  string    `json:"canonical_hebrew_name"`
+	CanonicalEnglishName string    `json:"canonical_english_name"`
+	Transliteration      string    `json:"transliteration"`
+	Description          string    `json:"description"`
+	DefaultFormulaDsl    string    `json:"default_formula_dsl"`
+	HalachicNotes        *string   `json:"halachic_notes,omitempty"`
+	HalachicSource       *string   `json:"halachic_source,omitempty"`
+	FullDescription      *string   `json:"full_description,omitempty"`
+	FormulaExplanation   *string   `json:"formula_explanation,omitempty"`
+	UsageContext         *string   `json:"usage_context,omitempty"`
+	RelatedZmanimIds     []int32   `json:"related_zmanim_ids,omitempty"`
+	IsCore               bool      `json:"is_core"`
+	TimeCategory         *string   `json:"time_category,omitempty"`
+	CreatedAt            string    `json:"created_at"`
+	UpdatedAt            string    `json:"updated_at"`
+	Tags                 []ZmanTag `json:"tags,omitempty"` // Category and shita tags
 }
 
 // RelatedZmanInfo represents basic info for a related zman
@@ -3836,8 +3886,6 @@ func (h *Handlers) GetMasterZmanDocumentation(w http.ResponseWriter, r *http.Req
 			FormulaExplanation:   doc.FormulaExplanation,
 			UsageContext:         doc.UsageContext,
 			RelatedZmanimIds:     doc.RelatedZmanimIds,
-			Shita:                doc.Shita,
-			Category:             doc.Category,
 			IsCore:               isCore,
 			TimeCategory:         doc.TimeCategory,
 			CreatedAt:            doc.CreatedAt.Time.Format("2006-01-02T15:04:05Z"),
@@ -3892,19 +3940,18 @@ func (h *Handlers) ListValidatedPublishers(w http.ResponseWriter, r *http.Reques
 
 // PublisherZmanForExamples represents a zman from another publisher for browsing
 type PublisherZmanForExamples struct {
-	ID                string  `json:"id"`
-	ZmanKey           string  `json:"zman_key"`
-	HebrewName        string  `json:"hebrew_name"`
-	EnglishName       string  `json:"english_name"`
-	Description       *string `json:"description,omitempty"`
-	FormulaDsl        *string `json:"formula_dsl,omitempty"`
-	MasterZmanId      *int32  `json:"master_zman_id,omitempty"`
-	MasterEnglishName *string `json:"master_english_name,omitempty"`
-	MasterHebrewName  *string `json:"master_hebrew_name,omitempty"`
-	Category          *string `json:"category,omitempty"`
-	Shita             *string `json:"shita,omitempty"`
-	AlreadyHaveMaster bool    `json:"already_have_master"`
-	ExistingIsDeleted bool    `json:"existing_is_deleted"`
+	ID                string    `json:"id"`
+	ZmanKey           string    `json:"zman_key"`
+	HebrewName        string    `json:"hebrew_name"`
+	EnglishName       string    `json:"english_name"`
+	Description       *string   `json:"description,omitempty"`
+	FormulaDsl        *string   `json:"formula_dsl,omitempty"`
+	MasterZmanId      *int32    `json:"master_zman_id,omitempty"`
+	MasterEnglishName *string   `json:"master_english_name,omitempty"`
+	MasterHebrewName  *string   `json:"master_hebrew_name,omitempty"`
+	AlreadyHaveMaster bool      `json:"already_have_master"`
+	ExistingIsDeleted bool      `json:"existing_is_deleted"`
+	Tags              []ZmanTag `json:"tags,omitempty"` // Category and shita tags
 }
 
 // PublisherZmanimResponse is the response for listing a publisher's zmanim
@@ -3979,15 +4026,24 @@ func (h *Handlers) GetPublisherZmanimForExamples(w http.ResponseWriter, r *http.
 	}
 	offset := (page - 1) * limit
 
-	var categoryParam, shitaParam, searchParam *string
-	if cat := q.Get("category"); cat != "" {
-		categoryParam = &cat
-	}
-	if shita := q.Get("shita"); shita != "" {
-		shitaParam = &shita
-	}
+	var searchParam *string
 	if search := q.Get("search"); search != "" {
 		searchParam = &search
+	}
+
+	// Parse category and shita tag IDs
+	var categoryTagID, shitaTagID *int32
+	if catID := q.Get("category_tag_id"); catID != "" {
+		if id, err := strconv.Atoi(catID); err == nil && id > 0 {
+			idInt32 := int32(id)
+			categoryTagID = &idInt32
+		}
+	}
+	if shitaID := q.Get("shita_tag_id"); shitaID != "" {
+		if id, err := strconv.Atoi(shitaID); err == nil && id > 0 {
+			idInt32 := int32(id)
+			shitaTagID = &idInt32
+		}
 	}
 
 	// 4. Fetch zmanim with ownership check
@@ -3996,8 +4052,8 @@ func (h *Handlers) GetPublisherZmanimForExamples(w http.ResponseWriter, r *http.
 		PublisherID_2: int32(sourcePublisherId),  // Source publisher to browse
 		Limit:         int32(limit),
 		Offset:        int32(offset),
-		Category:      categoryParam,
-		Shita:         shitaParam,
+		CategoryTagID: categoryTagID,
+		ShitaTagID:    shitaTagID,
 		Search:        searchParam,
 	})
 	if err != nil {
@@ -4008,10 +4064,10 @@ func (h *Handlers) GetPublisherZmanimForExamples(w http.ResponseWriter, r *http.
 
 	// Get total count
 	total, err := h.db.Queries.CountPublisherZmanimForExamples(ctx, db.CountPublisherZmanimForExamplesParams{
-		PublisherID: int32(sourcePublisherId),
-		Category:    categoryParam,
-		Shita:       shitaParam,
-		Search:      searchParam,
+		PublisherID:   int32(sourcePublisherId),
+		CategoryTagID: categoryTagID,
+		ShitaTagID:    shitaTagID,
+		Search:        searchParam,
 	})
 	if err != nil {
 		slog.Error("failed to count publisher zmanim", "error", err)
@@ -4031,8 +4087,6 @@ func (h *Handlers) GetPublisherZmanimForExamples(w http.ResponseWriter, r *http.
 			MasterZmanId:      z.MasterZmanID,
 			MasterEnglishName: &z.MasterEnglishName,
 			MasterHebrewName:  &z.MasterHebrewName,
-			Category:          z.Category,
-			Shita:             z.Shita,
 			AlreadyHaveMaster: z.AlreadyHaveMaster,
 			ExistingIsDeleted: z.ExistingIsDeleted,
 		}
@@ -4449,8 +4503,6 @@ func (h *Handlers) GetPublisherZmanDocumentation(w http.ResponseWriter, r *http.
 				FullDescription:      masterDoc.FullDescription,
 				FormulaExplanation:   masterDoc.FormulaExplanation,
 				UsageContext:         masterDoc.UsageContext,
-				Shita:                masterDoc.Shita,
-				Category:             masterDoc.Category,
 				IsCore:               isCore,
 				TimeCategory:         masterDoc.TimeCategory,
 				CreatedAt:            masterDoc.CreatedAt.Time.Format("2006-01-02T15:04:05Z"),
