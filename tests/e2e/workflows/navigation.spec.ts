@@ -33,12 +33,12 @@ test.describe('Publisher Navigation Workflow', () => {
   });
 
   test('publisher navigation menu is accessible from all pages', async ({ page }) => {
+    // Test pages without analytics (which was removed)
     const pages = [
       '/publisher/dashboard',
       '/publisher/algorithm',
       '/publisher/profile',
       '/publisher/coverage',
-      '/publisher/analytics',
     ];
 
     for (const pagePath of pages) {
