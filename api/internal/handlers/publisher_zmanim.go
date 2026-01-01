@@ -611,17 +611,17 @@ func (h *Handlers) GetPublisherZmanimWeek(w http.ResponseWriter, r *http.Request
 
 // YearExportResponse is the response for the year export endpoint
 type YearExportResponse struct {
-	Publisher        string                         `json:"publisher"`
-	HebrewYear       int                            `json:"hebrew_year"`
-	Location         YearExportLocation             `json:"location"`
-	GeneratedAt      string                         `json:"generated_at"`
-	ZmanimOrder      []string                       `json:"zmanim_order"`       // Ordered list of zman_keys
-	ZmanimLabels     map[string]string              `json:"zmanim_labels"`      // zman_key -> English display name
-	ZmanimLabelsHe   map[string]string              `json:"zmanim_labels_he"`   // zman_key -> Hebrew display name
-	ZmanimFormulas   map[string]string              `json:"zmanim_formulas"`    // zman_key -> DSL formula
-	Days             []YearExportDayRow             `json:"days"`
-	Primitives       map[string]YearExportPrimitive `json:"primitives,omitempty"` // Primitive values used in calculations
-	ElevationUsed    bool                           `json:"elevation_used"`     // Whether elevation was used for calculations
+	Publisher      string                         `json:"publisher"`
+	HebrewYear     int                            `json:"hebrew_year"`
+	Location       YearExportLocation             `json:"location"`
+	GeneratedAt    string                         `json:"generated_at"`
+	ZmanimOrder    []string                       `json:"zmanim_order"`     // Ordered list of zman_keys
+	ZmanimLabels   map[string]string              `json:"zmanim_labels"`    // zman_key -> English display name
+	ZmanimLabelsHe map[string]string              `json:"zmanim_labels_he"` // zman_key -> Hebrew display name
+	ZmanimFormulas map[string]string              `json:"zmanim_formulas"`  // zman_key -> DSL formula
+	Days           []YearExportDayRow             `json:"days"`
+	Primitives     map[string]YearExportPrimitive `json:"primitives,omitempty"` // Primitive values used in calculations
+	ElevationUsed  bool                           `json:"elevation_used"`       // Whether elevation was used for calculations
 }
 
 // YearExportLocation contains the location info for export
@@ -629,21 +629,21 @@ type YearExportLocation struct {
 	Name          string  `json:"name"`
 	Latitude      float64 `json:"latitude"`
 	Longitude     float64 `json:"longitude"`
-	Elevation     float64 `json:"elevation"`       // Elevation in meters
+	Elevation     float64 `json:"elevation"` // Elevation in meters
 	Timezone      string  `json:"timezone"`
-	TimezoneLabel string  `json:"timezone_label"`  // Human-readable timezone name
-	Algorithm     string  `json:"algorithm"`       // Calculation algorithm used
+	TimezoneLabel string  `json:"timezone_label"` // Human-readable timezone name
+	Algorithm     string  `json:"algorithm"`      // Calculation algorithm used
 }
 
 // YearExportDayRow represents a single day's data in the export
 type YearExportDayRow struct {
-	Date           string            `json:"date"`             // YYYY-MM-DD
-	DayOfWeek      string            `json:"day_of_week"`      // Sun, Mon, etc.
-	HebrewDate     string            `json:"hebrew_date"`      // Hebrew date string (English)
-	HebrewDateHe   string            `json:"hebrew_date_he"`   // Hebrew date string (Hebrew characters)
-	Parsha         string            `json:"parsha"`           // Parsha/Yom Tov name (English, if applicable)
-	ParshaHe       string            `json:"parsha_he"`        // Parsha/Yom Tov name (Hebrew, if applicable)
-	Times          map[string]string `json:"times"`            // zman_key -> HH:MM:SS
+	Date         string            `json:"date"`           // YYYY-MM-DD
+	DayOfWeek    string            `json:"day_of_week"`    // Sun, Mon, etc.
+	HebrewDate   string            `json:"hebrew_date"`    // Hebrew date string (English)
+	HebrewDateHe string            `json:"hebrew_date_he"` // Hebrew date string (Hebrew characters)
+	Parsha       string            `json:"parsha"`         // Parsha/Yom Tov name (English, if applicable)
+	ParshaHe     string            `json:"parsha_he"`      // Parsha/Yom Tov name (Hebrew, if applicable)
+	Times        map[string]string `json:"times"`          // zman_key -> HH:MM:SS
 }
 
 // YearExportPrimitive represents a primitive calculation value for reference
@@ -894,13 +894,13 @@ func (h *Handlers) GetPublisherZmanimYear(w http.ResponseWriter, r *http.Request
 			TimezoneLabel: tzLabel,
 			Algorithm:     "US National Oceanic and Atmospheric Administration (NOAA)",
 		},
-		GeneratedAt:      time.Now().UTC().Format(time.RFC3339),
-		ZmanimOrder:      zmanimOrder,
-		ZmanimLabels:     zmanimLabels,
-		ZmanimLabelsHe:   zmanimLabelsHe,
-		ZmanimFormulas:   formulas,
-		Days:             days,
-		ElevationUsed:    elevationUsed,
+		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
+		ZmanimOrder:    zmanimOrder,
+		ZmanimLabels:   zmanimLabels,
+		ZmanimLabelsHe: zmanimLabelsHe,
+		ZmanimFormulas: formulas,
+		Days:           days,
+		ElevationUsed:  elevationUsed,
 	}
 
 	slog.Info("generated year zmanim export",

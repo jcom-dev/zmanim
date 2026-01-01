@@ -542,11 +542,11 @@ func (s *PDFReportService) prepareTemplateData(data *ZmanimReportData, includeGl
 			"IsGlobal":    data.Publisher.IsGlobal,
 		},
 		"Locality": map[string]interface{}{
-			"DisplayName":      locationName,
-			"Coordinates":      coordinates,
-			"Elevation":        data.EffectiveLocation.ElevationM,
-			"Timezone":         data.Locality.Timezone,
-			"IgnoreElevation":  data.IgnoreElevation,
+			"DisplayName":     locationName,
+			"Coordinates":     coordinates,
+			"Elevation":       data.EffectiveLocation.ElevationM,
+			"Timezone":        data.Locality.Timezone,
+			"IgnoreElevation": data.IgnoreElevation,
 		},
 		"Date": map[string]interface{}{
 			"Day":        data.Date.Day(),
