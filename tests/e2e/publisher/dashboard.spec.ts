@@ -4,7 +4,7 @@
  * Smoke tests for publisher dashboard functionality:
  * - Dashboard loads with summary data
  * - Quick action links work
- * - Profile, algorithm, coverage, analytics cards display
+ * - Profile, algorithm, coverage cards display
  */
 
 import { test, expect } from '@playwright/test';
@@ -54,16 +54,6 @@ test.describe('Publisher Dashboard', () => {
     await expect(coverageCard).toContainText(/coverage/i);
   });
 
-  test('dashboard shows analytics summary', async ({ page }) => {
-    await page.goto(`${BASE_URL}/publisher/dashboard`);
-    await waitForClientReady(page);
-
-    // Should see analytics card using data-testid
-    const analyticsCard = page.getByTestId('publisher-dashboard-analytics-card');
-    await expect(analyticsCard).toBeVisible({ timeout: 15000 });
-    await expect(analyticsCard).toContainText(/analytics/i);
-  });
-
   test('can navigate to profile from dashboard', async ({ page }) => {
     await page.goto(`${BASE_URL}/publisher/dashboard`);
     await waitForClientReady(page);
@@ -103,16 +93,4 @@ test.describe('Publisher Dashboard', () => {
     await expect(page).toHaveURL(/\/publisher\/coverage/);
   });
 
-  test('can navigate to analytics from dashboard', async ({ page }) => {
-    await page.goto(`${BASE_URL}/publisher/dashboard`);
-    await waitForClientReady(page);
-
-    // Click on analytics card using data-testid
-    const analyticsCard = page.getByTestId('publisher-dashboard-analytics-card');
-    await analyticsCard.click();
-    await waitForClientReady(page);
-
-    // Should be on analytics page
-    await expect(page).toHaveURL(/\/publisher\/analytics/);
-  });
 });

@@ -27,7 +27,8 @@
       "Bash(git push:*)",
       "Bash(npx playwright test:*)",
       "Bash(pkill:*)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
