@@ -21,8 +21,16 @@ export async function waitForHydration(page: Page, timeout = 15000) {
  * Use this instead of just waitForLoadState('networkidle') for production builds.
  */
 export async function waitForClientReady(page: Page) {
-  // Wait for network to be idle
-  await page.waitForLoadState('networkidle');
+  // Wait for DOM to be ready first
+  await page.waitForLoadState('domcontentloaded');
+
+  // Try networkidle with a shorter timeout, but don't fail if it times out
+  // Some pages have long-polling or websockets that never become "idle"
+  try {
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
+  } catch {
+    // networkidle timeout is acceptable - page may have persistent connections
+  }
 
   // Wait for React hydration
   await waitForHydration(page);
