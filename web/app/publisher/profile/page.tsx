@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LogoUpload } from '@/components/publisher/LogoUpload';
 import { useApi } from '@/lib/api-client';
 import { usePublisherMutation } from '@/lib/hooks/useApiQuery';
-import { AlertTriangle, ShieldCheck, ShieldAlert, Settings, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import { AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PublisherProfile {
@@ -400,47 +399,6 @@ export default function PublisherProfilePage() {
                 </div>
               </div>
             </form>
-          </CardContent>
-        </Card>
-
-        {/* Related Settings */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Settings className="h-5 w-5" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Additional configuration options</TooltipContent>
-              </Tooltip>
-              Settings
-            </CardTitle>
-            <CardDescription>
-              Additional configuration options for your publisher account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href="/publisher/settings/calculation"
-              className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent transition-colors group"
-            >
-              <div>
-                <p className="font-medium">Pronunciation Style for Events</p>
-                <p className="text-sm text-muted-foreground">
-                  Choose how Hebrew events are transliterated in English
-                </p>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Navigate to calculation settings</TooltipContent>
-              </Tooltip>
-            </Link>
           </CardContent>
         </Card>
 

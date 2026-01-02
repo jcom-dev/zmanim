@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CalculationSettings {
   ignore_elevation: boolean;
@@ -164,7 +165,14 @@ export default function CalculationSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Languages className="h-5 w-5" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Languages className="h-5 w-5" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Language transliteration settings</TooltipContent>
+                </Tooltip>
                 Pronunciation Style for Events
               </CardTitle>
               <CardDescription>
@@ -195,7 +203,14 @@ export default function CalculationSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Mountain className="h-5 w-5" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Mountain className="h-5 w-5" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Elevation-based calculation settings</TooltipContent>
+                </Tooltip>
                 Elevation
               </CardTitle>
               <CardDescription>
@@ -214,12 +229,21 @@ export default function CalculationSettingsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  <Switch
-                    id="ignore-elevation"
-                    checked={settings?.ignore_elevation ?? false}
-                    onCheckedChange={(checked) => updateSettings({ ignore_elevation: checked })}
-                    disabled={saving}
-                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Switch
+                          id="ignore-elevation"
+                          checked={settings?.ignore_elevation ?? false}
+                          onCheckedChange={(checked) => updateSettings({ ignore_elevation: checked })}
+                          disabled={saving}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {settings?.ignore_elevation ? 'Currently using sea level' : 'Currently using actual elevation'}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </CardContent>

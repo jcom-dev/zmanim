@@ -266,6 +266,7 @@ export default function ZmanEditorPage() {
   }, [formulaParseResult]);
 
   // Live preview with debounce
+  // Note: previewFormula.mutateAsync is stable, so we don't include the mutation object itself
   useEffect(() => {
     if (!formula.trim() || !previewLocation) {
       queueMicrotask(() => setPreviewResult(null));
@@ -298,7 +299,8 @@ export default function ZmanEditorPage() {
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [formula, previewDate, previewLocation, allZmanim, previewFormula]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- previewFormula.mutateAsync is stable
+  }, [formula, previewDate, previewLocation, allZmanim]);
 
   // Handle resize
   const handleMouseDown = useCallback(() => {
